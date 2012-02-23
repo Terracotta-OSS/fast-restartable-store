@@ -4,21 +4,27 @@
  */
 package com.terracottatech.fastrestartablestore.spi;
 
-import com.terracottatech.fastrestartablestore.messages.KeyedAction;
 import java.util.Map.Entry;
-import java.util.logging.LogRecord;
 
 /**
  * @author cdennis
  */
 public interface ObjectManager<K, V> {
 
-  /*
-   * Long oldLsn = objectManager.put(action.getKey(), newLsn);
+  /**
+   * @return lowest live lsn in system, -1 if none
    */
-  <Long lowest, Long previous> put(K key, Long lsn);
+  long getLowestLsn();
+
+  /**
+   * return map.put(key, lsn);
+   * 
+   * @return previous lsn for this key, -1 if unknown
+   */
+  long updateLsn(K key, long lsn);
   
-  <Long lowest, Long previous> remove(K key);
+  void replayPut(K key, V value, long lsn);
+  void replayRemove(K key, long lsn);
   
   /*
    * while (true) {
@@ -39,6 +45,4 @@ public interface ObjectManager<K, V> {
    * return map.size();
    */
   int size();
-
-  
 }

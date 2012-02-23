@@ -4,6 +4,8 @@
  */
 package com.terracottatech.fastrestartablestore;
 
+import java.io.DataInput;
+import java.util.Iterator;
 import java.util.concurrent.Future;
 
 /**
@@ -12,11 +14,17 @@ import java.util.concurrent.Future;
  */
 public interface IOManager {
   
-  Future<Void> write(LogRegion region);
+  Future<Void> append(Chunk chunk);
 
-  interface LogRegion {
-    //collection of records and metadata (version, crc, etc.)
+  <T extends Chunk> Iterator<T> reader(Factory<T> as);
+  
+  interface Chunk {
     
     long getLowestLsn();
+  }
+  
+  interface Factory<T extends Chunk> {
+    
+    T construct(DataInput chunk);
   }
 }

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore;
 
+import com.terracottatech.fastrestartablestore.LogManager.LogRecord;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import java.util.concurrent.Future;
 
@@ -12,9 +13,12 @@ import java.util.concurrent.Future;
  * @author cdennis
  */
 public interface RecordManager {
-  
+
   Future<Void> happened(Action action);
   
   //Optimization
-  void asyncHappened(Action action);  
+  void asyncHappened(Action action);
+  
+  Action extract(LogRecord record) throws IllegalArgumentException;
+
 }

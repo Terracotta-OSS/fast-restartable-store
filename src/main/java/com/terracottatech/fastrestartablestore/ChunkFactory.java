@@ -10,7 +10,7 @@ import java.io.DataInput;
  *
  * @author cdennis
  */
-public interface ChunkFactory<T extends IOManager.Chunk> {
+public interface ChunkFactory<T extends Chunk> {
 
   T construct(DataInput chunk);
   

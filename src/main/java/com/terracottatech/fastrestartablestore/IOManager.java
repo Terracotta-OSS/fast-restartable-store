@@ -17,9 +17,4 @@ public interface IOManager {
   Future<Void> append(Chunk chunk);
 
   <T extends Chunk> Iterator<T> reader(ChunkFactory<T> as);
-  
-  interface Chunk {
-    
-    long getLowestLsn();
-  }
 }

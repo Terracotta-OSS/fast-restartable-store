@@ -8,6 +8,8 @@ package com.terracottatech.fastrestartablestore;
  *
  * @author cdennis
  */
-public interface TransactionHandle {
+public interface Chunk {
 
+  long getLowestLsn();
+  
 }

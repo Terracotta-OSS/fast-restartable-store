@@ -5,7 +5,7 @@
 package com.terracottatech.fastrestartablestore;
 
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
-import com.terracottatech.fastrestartablestore.IOManager.Chunk;
+import com.terracottatech.fastrestartablestore.Chunk;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 

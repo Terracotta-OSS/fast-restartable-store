@@ -4,7 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.messages;
 
-import com.terracottatech.fastrestartablestore.IOManager.Chunk;
+import com.terracottatech.fastrestartablestore.Chunk;
 
 /**
  *

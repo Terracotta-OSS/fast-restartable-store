@@ -8,6 +8,10 @@ package com.terracottatech.fastrestartablestore.messages;
  *
  * @author cdennis
  */
-public interface Action {
+public interface Action<K> {
+
+  public boolean hasKey();
+
+  public K getKey();
   
 }

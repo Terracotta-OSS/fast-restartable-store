@@ -4,7 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore;
 
-import com.terracottatech.fastrestartablestore.LogManager.LogRecord;
+import com.terracottatech.fastrestartablestore.messages.LogRecord;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import java.util.concurrent.Future;
 

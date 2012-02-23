@@ -17,9 +17,4 @@ public interface TransactionManager<K, V> {
   void commit(TransactionHandle handle);
   
   void happened(TransactionHandle handle, Action action);
-
-  interface TransactionHandle {
-    
-    //long getID();
-  }
 }

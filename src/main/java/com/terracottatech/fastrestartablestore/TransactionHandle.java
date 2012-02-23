@@ -8,7 +8,6 @@ package com.terracottatech.fastrestartablestore;
  *
  * @author cdennis
  */
-public interface RestartStore<K, V> {
+public interface TransactionHandle {
   
-  TransactionContext<K, V> createTransaction();
 }

@@ -4,11 +4,14 @@
  */
 package com.terracottatech.fastrestartablestore;
 
+import java.io.DataInput;
+
 /**
  *
  * @author cdennis
  */
-public interface RestartStore<K, V> {
+public interface ChunkFactory<T extends IOManager.Chunk> {
+
+  T construct(DataInput chunk);
   
-  TransactionContext<K, V> createTransaction();
 }

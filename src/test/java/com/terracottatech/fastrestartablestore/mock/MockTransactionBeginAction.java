@@ -5,12 +5,15 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+import java.io.Serializable;
+import java.util.Set;
 
 /**
  *
  * @author cdennis
  */
-class MockTransactionBeginAction implements Action {
+class MockTransactionBeginAction implements Action<Void, Void>, Serializable {
 
   private final long id;
   
@@ -22,11 +25,16 @@ class MockTransactionBeginAction implements Action {
     return false;
   }
 
-  public Object getKey() {
+  public Void getKey() {
     throw new UnsupportedOperationException("No keys on txn begin");
   }
   
   public String toString() {
     return "Action: beginTransaction(" + id + ")";
+  }
+
+  public boolean replay(ObjectManager<Void, Void> objManager, Set<Long> validTxnIds, long lsn) {
+    validTxnIds.remove(id);
+    return true;
   }
 }

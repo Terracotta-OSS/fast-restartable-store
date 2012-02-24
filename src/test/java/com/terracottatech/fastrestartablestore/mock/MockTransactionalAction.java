@@ -5,15 +5,19 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  *
  * @author cdennis
  */
-class MockTransactionalAction<K> implements Action<K> {
+class MockTransactionalAction<K, V> implements Action<K, V>, Serializable {
 
   private final long id;
-  private final Action<K> embedded;
+  private final Action<K, V> embedded;
   
   public MockTransactionalAction(long id, Action action) {
     this.id = id;
@@ -30,5 +34,13 @@ class MockTransactionalAction<K> implements Action<K> {
   
   public String toString() {
     return "Transactional[id=" + id + "] " + embedded;
+  }
+
+  public boolean replay(ObjectManager<K, V> objManager, Set<Long> validTxnIds, long lsn) {
+    if (validTxnIds.contains(id)) {
+      return embedded.replay(objManager, Collections.<Long>emptySet(), lsn);
+    } else {
+      return false;
+    }
   }
 }

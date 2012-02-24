@@ -12,12 +12,12 @@ import java.util.concurrent.Future;
  *
  * @author cdennis
  */
-public interface RecordManager<K> {
+public interface RecordManager<K, V> {
 
-  Future<Void> happened(Action<K> action);
+  Future<Void> happened(Action<K, V> action);
   
   //Optimization
-  void asyncHappened(Action<K> action);
+  void asyncHappened(Action<K, V> action);
   
-  Action<K> extract(LogRecord record) throws IllegalArgumentException;
+  Action<K, V> extract(LogRecord record) throws IllegalArgumentException;
 }

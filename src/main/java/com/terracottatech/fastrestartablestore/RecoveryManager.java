@@ -9,5 +9,7 @@ package com.terracottatech.fastrestartablestore;
  * @author cdennis
  */
 public interface RecoveryManager {
+
+  public void recover();
   
 }

@@ -6,12 +6,13 @@ package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.Chunk;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
+import java.io.Serializable;
 
 /**
  *
  * @author cdennis
  */
-class MockLogRegion implements Chunk {
+class MockLogRegion implements Chunk, Serializable {
 
   final LogRecord record;
   
@@ -29,5 +30,9 @@ class MockLogRegion implements Chunk {
     
     return "LogRegion[lowest-lsn=" + getLowestLsn() + "] {\n"
             + recordOut + "\n}";
+  }
+  
+  private Object writeReplace() {
+    return record;
   }
 }

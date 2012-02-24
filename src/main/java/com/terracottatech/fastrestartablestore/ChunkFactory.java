@@ -4,14 +4,15 @@
  */
 package com.terracottatech.fastrestartablestore;
 
-import java.io.DataInput;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  *
  * @author cdennis
  */
-public interface ChunkFactory<T extends Chunk> {
+public interface ChunkFactory<T> {
 
-  T construct(DataInput chunk);
+  T construct(InputStream chunk) throws IOException;
   
 }

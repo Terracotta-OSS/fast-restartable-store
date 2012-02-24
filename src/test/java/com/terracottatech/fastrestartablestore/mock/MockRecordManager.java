@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author cdennis
  */
-class MockRecordManager implements RecordManager<String> {
+class MockRecordManager implements RecordManager<String, String> {
 
   private final AtomicLong nextLsn = new AtomicLong();
   
@@ -36,7 +36,7 @@ class MockRecordManager implements RecordManager<String> {
     return nextLsn.getAndIncrement();
   }
   
-  public synchronized Future<Void> happened(Action<String> action) {
+  public synchronized Future<Void> happened(Action<String, String> action) {
     long lsn = getNextLsn();
     long previousLsn = -1;
     long lowestLsn = objManager.getLowestLsn();
@@ -50,12 +50,16 @@ class MockRecordManager implements RecordManager<String> {
     return logManager.append(record);
   }
 
-  public synchronized void asyncHappened(Action<String> action) {
+  public synchronized void asyncHappened(Action<String, String> action) {
     happened(action);
   }
 
   public Action extract(LogRecord record) throws IllegalArgumentException {
-    throw new UnsupportedOperationException("Not supported yet.");
+    if (record instanceof MockLogRecord) {
+      return ((MockLogRecord) record).getAction();
+    } else {
+      throw new AssertionError();
+    }
   }
   
   private boolean isValidId(long lsn) {

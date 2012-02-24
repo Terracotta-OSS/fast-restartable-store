@@ -8,6 +8,7 @@ import com.terracottatech.fastrestartablestore.Compactor;
 import com.terracottatech.fastrestartablestore.IOManager;
 import com.terracottatech.fastrestartablestore.LogManager;
 import com.terracottatech.fastrestartablestore.RecordManager;
+import com.terracottatech.fastrestartablestore.RecoveryManager;
 import com.terracottatech.fastrestartablestore.RestartStore;
 import com.terracottatech.fastrestartablestore.TransactionContext;
 import com.terracottatech.fastrestartablestore.TransactionHandle;
@@ -30,11 +31,14 @@ public class MockRestartStore implements RestartStore<String, String> {
     return new MockTransactionContext(txnManager);
   }
 
-  public static MockRestartStore create(ObjectManager<String, String> objManager) {
-    IOManager ioManager = new MockIOManager();
+  public static MockRestartStore create(ObjectManager<String, String> objManager, IOManager ioManager) {
     LogManager logManager = new MockLogManager(ioManager);
     RecordManager rcdManager = new MockRecordManager(objManager, logManager);
     TransactionManager<String, String> txnManager = new MockTransactionManager(rcdManager);
+    
+    RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager, objManager);
+    recovery.recover();
+    
     return new MockRestartStore(txnManager);
   }
 }

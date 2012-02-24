@@ -5,12 +5,15 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+import java.io.Serializable;
+import java.util.Set;
 
 /**
  *
  * @author cdennis
  */
-class MockPutAction implements Action<String> {
+class MockPutAction implements Action<String, String>, Serializable {
 
   private final String key;
   private final String value;
@@ -34,5 +37,10 @@ class MockPutAction implements Action<String> {
   
   public String toString() {
     return "Action: put(" + key +", " + value + ")";
+  }
+
+  public boolean replay(ObjectManager<String, String> objManager, Set<Long> committedAndOpenIds, long lsn) {
+    objManager.replayPut(key, value, lsn);
+    return true;
   }
 }

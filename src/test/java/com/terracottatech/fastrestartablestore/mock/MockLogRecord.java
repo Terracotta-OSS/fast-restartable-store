@@ -6,19 +6,20 @@ package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
+import java.io.Serializable;
 
 /**
  *
  * @author cdennis
  */
-class MockLogRecord implements LogRecord {
+class MockLogRecord implements LogRecord, Serializable {
 
   private final long lsn;
   private final long previousLsn;
   private final long lowestLsn;
-  private final Action<?> action;
+  private final Action<String, String> action;
   
-  MockLogRecord(long lsn, long previousLsn, long lowestLsn, Action<String> action) {
+  MockLogRecord(long lsn, long previousLsn, long lowestLsn, Action<String, String> action) {
     //assert lsn > previousLsn;
     //assert previousLsn >= lowestLsn;
     
@@ -47,5 +48,9 @@ class MockLogRecord implements LogRecord {
     return "LogRecord[lowest-lsn=" + getLowestLsn() + ", previous-lsn=" + getPreviousLsn() + ", lsn=" + getLsn() + " {\n"
             + actionOut + "\n"
             + "}";
+  }
+
+  Action<String, String> getAction() {
+    return action;
   }
 }

@@ -24,7 +24,10 @@ class MockLogRegion implements Chunk {
   }
 
   public String toString() {
-    return "LogRegion[lowest-lsn=" + getLowestLsn() + "]{\n"
-            + record + "\n}";
+    String recordOut = record.toString();
+    recordOut = "\t" + recordOut.replace("\n", "\n\t");
+    
+    return "LogRegion[lowest-lsn=" + getLowestLsn() + "] {\n"
+            + recordOut + "\n}";
   }
 }

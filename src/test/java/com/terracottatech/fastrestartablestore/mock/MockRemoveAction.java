@@ -25,4 +25,8 @@ class MockRemoveAction implements Action<String> {
   public String getKey() {
     return key;
   }
+  
+  public String toString() {
+    return "Action: remove(" + key + ")";
+  }
 }

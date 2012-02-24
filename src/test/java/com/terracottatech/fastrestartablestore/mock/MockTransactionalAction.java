@@ -28,4 +28,7 @@ class MockTransactionalAction<K> implements Action<K> {
     return embedded.getKey();
   }
   
+  public String toString() {
+    return "Transactional[id=" + id + "] " + embedded;
+  }
 }

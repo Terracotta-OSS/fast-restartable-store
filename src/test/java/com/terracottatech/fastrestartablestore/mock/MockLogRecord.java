@@ -41,12 +41,11 @@ class MockLogRecord implements LogRecord {
   }
 
   public String toString() {
-    return "LogRecord[\n"
-            + "\tlowest-lsn=" + getLowestLsn() + "\n"
-            + "\tprevious-lsn=" + getPreviousLsn() + "\n"
-            + "\tlsn=" + getLsn() + "\n"
-            + "\t{\n"
-            + action + "\n"
-            + "\t}";
+    String actionOut = action.toString();
+    actionOut = "\t" + actionOut.replace("\n", "\n\t");
+    
+    return "LogRecord[lowest-lsn=" + getLowestLsn() + ", previous-lsn=" + getPreviousLsn() + ", lsn=" + getLsn() + " {\n"
+            + actionOut + "\n"
+            + "}";
   }
 }

@@ -12,7 +12,10 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  */
 class MockTransactionCommitAction implements Action {
 
+  private final long id;
+  
   public MockTransactionCommitAction(long id) {
+    this.id = id;
   }
 
   public boolean hasKey() {
@@ -22,5 +25,8 @@ class MockTransactionCommitAction implements Action {
   public Object getKey() {
     throw new UnsupportedOperationException("No keys on txn commit");
   }
-  
+    
+  public String toString() {
+    return "Action: commitTransaction(" + id + ")";
+  }
 }

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.Compactor;
 import com.terracottatech.fastrestartablestore.LogManager;
 import com.terracottatech.fastrestartablestore.RecordManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -22,10 +23,13 @@ class MockRecordManager implements RecordManager<String> {
   
   private final ObjectManager<String, String> objManager;
   private final LogManager logManager;
+  private final Compactor compactor;
   
   public MockRecordManager(ObjectManager<String, String> objManager, LogManager logManager) {
     this.objManager = objManager;
     this.logManager = logManager;
+    // This is ugly... is the Compactor really *part* of the RecordManager?
+    this.compactor = new MockCompactor(this, objManager);
   }
 
   private long getNextLsn() {
@@ -38,6 +42,9 @@ class MockRecordManager implements RecordManager<String> {
     long lowestLsn = objManager.getLowestLsn();
     if (action.hasKey()) {
       previousLsn = objManager.updateLsn(action.getKey(), lsn);
+      if (isValidId(previousLsn)) {
+        compactor.compact();
+      }
     }
     LogRecord record = new MockLogRecord(lsn, previousLsn, lowestLsn, action);
     return logManager.append(record);
@@ -51,4 +58,7 @@ class MockRecordManager implements RecordManager<String> {
     throw new UnsupportedOperationException("Not supported yet.");
   }
   
+  private boolean isValidId(long lsn) {
+    return lsn >= 0;
+  }
 }

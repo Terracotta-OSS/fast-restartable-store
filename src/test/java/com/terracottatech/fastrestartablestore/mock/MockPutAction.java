@@ -31,4 +31,8 @@ class MockPutAction implements Action<String> {
   public String getValue() {
     return value;
   }
+  
+  public String toString() {
+    return "Action: put(" + key +", " + value + ")";
+  }
 }

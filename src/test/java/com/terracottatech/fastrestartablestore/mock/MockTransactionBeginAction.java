@@ -12,7 +12,10 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  */
 class MockTransactionBeginAction implements Action {
 
+  private final long id;
+  
   public MockTransactionBeginAction(long id) {
+    this.id = id;
   }
 
   public boolean hasKey() {
@@ -21,5 +24,9 @@ class MockTransactionBeginAction implements Action {
 
   public Object getKey() {
     throw new UnsupportedOperationException("No keys on txn begin");
+  }
+  
+  public String toString() {
+    return "Action: beginTransaction(" + id + ")";
   }
 }

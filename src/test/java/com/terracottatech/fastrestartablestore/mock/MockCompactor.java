@@ -17,6 +17,13 @@ class MockCompactor implements Compactor {
 
    private final RecordManager rcdManager;
    private final ObjectManager manager;
+   
+   private final ThreadLocal<Boolean> compacting = new ThreadLocal<Boolean>() {
+      @Override
+      protected Boolean initialValue() {
+         return false;
+      }
+   };
 
    public MockCompactor(RecordManager rcdManager, ObjectManager objectManager) {
       this.rcdManager = rcdManager;
@@ -24,15 +31,17 @@ class MockCompactor implements Compactor {
    }
 
    public void compact(Action trigger) {
-      if (true) {
-         // XXX: We need a way to determine whether or not we're in a compaction. For now, this is just broken.
+      if (compacting.get()) {
+         // Prevent recursive compaction
          return;
       }
       Action action = manager.checkoutEarliest(Long.MAX_VALUE);
       if (action != null) {
+         compacting.set(true);
          try {
             rcdManager.asyncHappened(action);
          } finally {
+            compacting.set(false);
             manager.checkin(action);
          }
       }

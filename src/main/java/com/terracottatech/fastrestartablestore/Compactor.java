@@ -4,11 +4,13 @@
  */
 package com.terracottatech.fastrestartablestore;
 
+import com.terracottatech.fastrestartablestore.messages.Action;
+
 /**
  *
  * @author cdennis
  */
 public interface Compactor {
   
-  void compact();
+  void compact(Action action);
 }

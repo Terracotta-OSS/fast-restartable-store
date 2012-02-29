@@ -17,15 +17,15 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author cdennis
  */
-class MockRecordManager implements RecordManager<String, String> {
+class MockRecordManager implements RecordManager {
 
   private final AtomicLong nextLsn = new AtomicLong();
   
-  private final ObjectManager<String, String> objManager;
+  private final ObjectManager objManager;
   private final LogManager logManager;
   private final Compactor compactor;
   
-  public MockRecordManager(ObjectManager<String, String> objManager, LogManager logManager) {
+  public MockRecordManager(ObjectManager objManager, LogManager logManager) {
     this.objManager = objManager;
     this.logManager = logManager;
     // This is ugly... is the Compactor really *part* of the RecordManager?
@@ -36,21 +36,18 @@ class MockRecordManager implements RecordManager<String, String> {
     return nextLsn.getAndIncrement();
   }
   
-  public synchronized Future<Void> happened(Action<String, String> action) {
+  public synchronized Future<Void> happened(Action action) {
     long lsn = getNextLsn();
-    long previousLsn = -1;
     long lowestLsn = objManager.getLowestLsn();
-    if (action.hasKey()) {
-      previousLsn = objManager.updateLsn(action.getKey(), lsn);
-      if (isValidId(previousLsn)) {
-        compactor.compact();
-      }
+    long previousLsn = objManager.record(action, lsn);
+    if (isValidId(previousLsn)) {
+      compactor.compact(action);
     }
     LogRecord record = new MockLogRecord(lsn, previousLsn, lowestLsn, action);
     return logManager.append(record);
   }
 
-  public synchronized void asyncHappened(Action<String, String> action) {
+  public synchronized void asyncHappened(Action action) {
     happened(action);
   }
 

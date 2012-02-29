@@ -17,9 +17,9 @@ class MockLogRecord implements LogRecord, Serializable {
   private final long lsn;
   private final long previousLsn;
   private final long lowestLsn;
-  private final Action<String, String> action;
+  private final Action action;
   
-  MockLogRecord(long lsn, long previousLsn, long lowestLsn, Action<String, String> action) {
+  MockLogRecord(long lsn, long previousLsn, long lowestLsn, Action action) {
     //assert lsn > previousLsn;
     //assert previousLsn >= lowestLsn;
     
@@ -50,7 +50,7 @@ class MockLogRecord implements LogRecord, Serializable {
             + "}";
   }
 
-  Action<String, String> getAction() {
+  Action getAction() {
     return action;
   }
 }

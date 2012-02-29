@@ -13,7 +13,7 @@ import java.util.Set;
  *
  * @author cdennis
  */
-class MockTransactionCommitAction implements Action<Void, Void>, Serializable {
+class MockTransactionCommitAction implements Action, Serializable {
 
   private final long id;
   
@@ -33,8 +33,8 @@ class MockTransactionCommitAction implements Action<Void, Void>, Serializable {
     return "Action: commitTransaction(" + id + ")";
   }
 
-  public boolean replay(ObjectManager<Void, Void> objManager, Set<Long> validTxnIds, long lsn) {
-    validTxnIds.add(id);
-    return true;
-  }
+  public long getId() {
+   return id;
+}
+
 }

@@ -4,18 +4,12 @@
  */
 package com.terracottatech.fastrestartablestore.messages;
 
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-import java.util.Set;
-
 /**
  *
  * @author cdennis
  */
-public interface Action<K, V> {
+public interface Action {
 
-  public boolean hasKey();
-
-  public K getKey();
-
-  public boolean replay(ObjectManager<K, V> objManager, Set<Long> validTxnIds, long lsn);
+   // Ugly, fix this later
+//   boolean canTriggerCompaction();
 }

@@ -26,8 +26,13 @@ public class MockTest {
     RestartStore mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
     
     TransactionContext<String, String> context = mock.createTransaction();
-    context.put("foo", "bar");
-    outsideWorld.put("foo", "bar");
+    context.put("far", "bar");
+    outsideWorld.put("far", "bar");
+    context.commit();
+    
+    context = mock.createTransaction();
+    context.put("foo", "baz");
+    outsideWorld.put("foo", "baz");
     context.commit();
     
     context = mock.createTransaction();

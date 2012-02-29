@@ -6,25 +6,21 @@ package com.terracottatech.fastrestartablestore.spi;
 
 import java.util.Map.Entry;
 
+import com.terracottatech.fastrestartablestore.messages.Action;
+
 /**
  * @author cdennis
  */
-public interface ObjectManager<K, V> {
+public interface ObjectManager {
 
   /**
    * @return lowest live lsn in system, -1 if none
    */
   long getLowestLsn();
-
-  /**
-   * return map.put(key, lsn);
-   * 
-   * @return previous lsn for this key, -1 if unknown
-   */
-  long updateLsn(K key, long lsn);
   
-  void replayPut(K key, V value, long lsn);
-  void replayRemove(K key, long lsn);
+  long record(Action action, long lsn);
+  
+  boolean replay(Action action, long lsn);
   
   /*
    * while (true) {
@@ -37,9 +33,9 @@ public interface ObjectManager<K, V> {
    *   }
    * }  
    */
-  Entry<K, V> checkoutEarliest();
+  Action checkoutEarliest(long ceilingLsn);
   
-  void checkin(Entry<K, V> entry);
+  void checkin(Action action);
 
   /*
    * return map.size();

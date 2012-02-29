@@ -4,16 +4,16 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
 import com.terracottatech.fastrestartablestore.LogManager;
 import com.terracottatech.fastrestartablestore.RecordManager;
 import com.terracottatech.fastrestartablestore.RecoveryManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
 
 /**
  *
@@ -23,9 +23,9 @@ public class MockRecoveryManager implements RecoveryManager {
 
   private final LogManager logManager;
   private final RecordManager rcdManager;
-  private final ObjectManager<String, String> objManager;
+  private final ObjectManager objManager;
   
-  MockRecoveryManager(LogManager logManager, RecordManager rcdManager, ObjectManager<String, String> objManager) {
+  MockRecoveryManager(LogManager logManager, RecordManager rcdManager, ObjectManager objManager) {
     this.logManager = logManager;
     this.rcdManager = rcdManager;
     this.objManager = objManager;
@@ -33,7 +33,6 @@ public class MockRecoveryManager implements RecoveryManager {
 
   public void recover() {
     Iterator<LogRecord> it = logManager.reader();
-    Set<Long> committedAndOpenIds = new HashSet<Long>();
     Set<Long> skips = new HashSet<Long>();
     
     while (it.hasNext()) {
@@ -41,9 +40,10 @@ public class MockRecoveryManager implements RecoveryManager {
       if (skips.remove(record.getLsn())) {
         skips.add(record.getPreviousLsn());
       } else {
-        if (rcdManager.extract(record).replay(objManager, committedAndOpenIds, record.getLsn())) {
-          skips.add(record.getPreviousLsn());
-        }
+        Action action = rcdManager.extract(record);
+        if (objManager.replay(action, record.getLsn())) {
+           skips.add(record.getPreviousLsn());
+        }         
       }
     }
   }

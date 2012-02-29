@@ -4,20 +4,19 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.messages.Action;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.io.Serializable;
-import java.util.Set;
+
+import com.terracottatech.fastrestartablestore.messages.Action;
 
 /**
  *
  * @author cdennis
  */
-class MockRemoveAction implements Action<String, String>, Serializable {
+class MockRemoveAction<K> implements Action, Serializable {
 
-  private final String key;
+  private final K key;
   
-  public MockRemoveAction(String key) {
+  public MockRemoveAction(K key) {
     this.key = key;
   }
 
@@ -25,7 +24,7 @@ class MockRemoveAction implements Action<String, String>, Serializable {
     return true;
   }
 
-  public String getKey() {
+  public K getKey() {
     return key;
   }
   
@@ -33,8 +32,4 @@ class MockRemoveAction implements Action<String, String>, Serializable {
     return "Action: remove(" + key + ")";
   }
 
-  public boolean replay(ObjectManager<String, String> objManager, Set<Long> validTxnIds, long lsn) {
-    objManager.replayRemove(key, lsn);
-    return true;
-  }
 }

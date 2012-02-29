@@ -11,14 +11,12 @@ import com.terracottatech.fastrestartablestore.messages.Action;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
  * @author cdennis
  */
-class MockTransactionManager implements TransactionManager<String, String> {
+class MockTransactionManager implements TransactionManager {
 
   private final AtomicLong txnId = new AtomicLong();
   

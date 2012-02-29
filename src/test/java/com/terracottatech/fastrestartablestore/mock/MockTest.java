@@ -25,31 +25,31 @@ public class MockTest {
     Map<String, String> outsideWorld = new HashMap<String, String>();
     RestartStore mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
     
-    TransactionContext<String, String> context = mock.createTransaction();
+    TransactionContext<String, String> context = mock.beginTransaction();
     context.put("far", "bar");
     outsideWorld.put("far", "bar");
     context.commit();
     
-    context = mock.createTransaction();
+    context = mock.beginTransaction();
     context.put("foo", "baz");
     outsideWorld.put("foo", "baz");
     context.commit();
     
-    context = mock.createTransaction();
+    context = mock.beginTransaction();
     context.remove("foo");
     outsideWorld.remove("foo");
     context.commit();
 
-    context = mock.createTransaction();
+    context = mock.beginTransaction();
     context.put("bar", "baz");
     outsideWorld.put("bar", "baz");
     context.commit();
     
-    context = mock.createTransaction();
+    context = mock.beginTransaction();
     context.put("foo", "baz");
     outsideWorld.put("foo", "baz");
 
-    context = mock.createTransaction();
+    context = mock.beginTransaction();
     context.remove("bar");
     outsideWorld.remove("bar");
     

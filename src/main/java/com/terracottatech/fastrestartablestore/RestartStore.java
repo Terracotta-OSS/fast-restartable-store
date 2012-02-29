@@ -10,5 +10,5 @@ package com.terracottatech.fastrestartablestore;
  */
 public interface RestartStore<K, V> {
   
-  TransactionContext<K, V> createTransaction();
+  TransactionContext<K, V> beginTransaction();
 }

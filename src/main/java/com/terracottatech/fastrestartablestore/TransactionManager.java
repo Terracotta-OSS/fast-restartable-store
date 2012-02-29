@@ -10,7 +10,7 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  *
  * @author cdennis
  */
-public interface TransactionManager<K, V> {
+public interface TransactionManager {
   
   TransactionHandle create();
   

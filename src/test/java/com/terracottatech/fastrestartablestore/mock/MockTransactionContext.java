@@ -14,7 +14,7 @@ import com.terracottatech.fastrestartablestore.TransactionManager;
  */
 class MockTransactionContext implements TransactionContext<String, String> {
 
-  private final TransactionManager<String, String> txnManager;
+  private final TransactionManager txnManager;
   private final TransactionHandle txnHandle;
   
   public MockTransactionContext(TransactionManager txnManager) {
@@ -23,11 +23,11 @@ class MockTransactionContext implements TransactionContext<String, String> {
   }
 
   public void put(String key, String value) {
-    txnManager.happened(txnHandle, new MockPutAction(key, value));
+    txnManager.happened(txnHandle, new MockPutAction<String, String>(key, value));
   }
 
   public void remove(String key) {
-    txnManager.happened(txnHandle, new MockRemoveAction(key));
+    txnManager.happened(txnHandle, new MockRemoveAction<String>(key));
   }
 
   public void commit() {

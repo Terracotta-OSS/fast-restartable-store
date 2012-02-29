@@ -19,21 +19,21 @@ import com.terracottatech.fastrestartablestore.spi.ObjectManager;
  */
 public class MockRestartStore implements RestartStore<String, String> {
 
-  private final TransactionManager<String, String> txnManager;
+  private final TransactionManager txnManager;
   
-  private MockRestartStore(TransactionManager<String, String> txnManager) {
+  private MockRestartStore(TransactionManager txnManager) {
     this.txnManager = txnManager;
   }
   
-  public TransactionContext<String, String> createTransaction() {
+  public TransactionContext<String, String> beginTransaction() {
     return new MockTransactionContext(txnManager);
   }
 
-  public static MockRestartStore create(MockObjectManager<String, String> objManager, IOManager ioManager) {
+  public static MockRestartStore create(MockObjectManager objManager, IOManager ioManager) {
     ObjectManager txnObjManager = new MockTransactionalObjectManager(objManager);
     LogManager logManager = new MockLogManager(ioManager);
     RecordManager rcdManager = new MockRecordManager(txnObjManager, logManager);
-    TransactionManager<String, String> txnManager = new MockTransactionManager(rcdManager);
+    TransactionManager txnManager = new MockTransactionManager(rcdManager);
     
     RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager, txnObjManager);
     recovery.recover();

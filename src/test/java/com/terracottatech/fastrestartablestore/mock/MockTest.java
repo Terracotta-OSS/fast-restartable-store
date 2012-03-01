@@ -6,7 +6,7 @@ package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.IOManager;
 import com.terracottatech.fastrestartablestore.RestartStore;
-import com.terracottatech.fastrestartablestore.TransactionContext;
+import com.terracottatech.fastrestartablestore.Transaction;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +25,7 @@ public class MockTest {
     Map<String, String> outsideWorld = new HashMap<String, String>();
     RestartStore mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
     
-    TransactionContext<String, String> context = mock.beginTransaction();
+    Transaction<String, String> context = mock.beginTransaction();
     context.put("far", "bar");
     outsideWorld.put("far", "bar");
     context.commit();

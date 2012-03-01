@@ -4,7 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.TransactionContext;
+import com.terracottatech.fastrestartablestore.Transaction;
 import com.terracottatech.fastrestartablestore.TransactionHandle;
 import com.terracottatech.fastrestartablestore.TransactionManager;
 
@@ -12,12 +12,12 @@ import com.terracottatech.fastrestartablestore.TransactionManager;
  *
  * @author cdennis
  */
-class MockTransactionContext implements TransactionContext<String, String> {
+class MockTransaction implements Transaction<String, String> {
 
   private final TransactionManager txnManager;
   private final TransactionHandle txnHandle;
   
-  public MockTransactionContext(TransactionManager txnManager) {
+  public MockTransaction(TransactionManager txnManager) {
     this.txnManager = txnManager;
     this.txnHandle = txnManager.create();
   }

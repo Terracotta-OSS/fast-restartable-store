@@ -8,7 +8,7 @@ package com.terracottatech.fastrestartablestore;
  *
  * @author cdennis
  */
-public interface TransactionContext<K, V> {
+public interface Transaction<K, V> {
 
   void put(K key, V value);
 

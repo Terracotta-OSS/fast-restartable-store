@@ -20,10 +20,6 @@ class MockRemoveAction<K> implements Action, Serializable {
     this.key = key;
   }
 
-  public boolean hasKey() {
-    return true;
-  }
-
   public K getKey() {
     return key;
   }

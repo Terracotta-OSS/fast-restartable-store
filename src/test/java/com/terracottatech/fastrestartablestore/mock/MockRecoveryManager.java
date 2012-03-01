@@ -10,6 +10,7 @@ import java.util.Set;
 
 import com.terracottatech.fastrestartablestore.LogManager;
 import com.terracottatech.fastrestartablestore.RecordManager;
+import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import com.terracottatech.fastrestartablestore.RecoveryManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
@@ -31,19 +32,36 @@ public class MockRecoveryManager implements RecoveryManager {
     this.objManager = objManager;
   }
 
+  @Override
   public void recover() {
     Iterator<LogRecord> it = logManager.reader();
-    Set<Long> skips = new HashSet<Long>();
     
+    SkipsFilter recoveryFilter = new SkipsFilter(rcdManager, objManager.createRecoveryFilter());
+
     while (it.hasNext()) {
-      LogRecord record = it.next();
+      recoveryFilter.replay(it.next());
+    }
+  }
+
+  private static class SkipsFilter {
+
+    private final Set<Long> skips = new HashSet<Long>();
+    private final RecordManager rcdManager;
+    private final RecoveryFilter next;
+    
+    public SkipsFilter(RecordManager rcdManager, RecoveryFilter next) {
+      this.rcdManager = rcdManager;
+      this.next = next;
+    }
+
+    public void replay(LogRecord record) {
       if (skips.remove(record.getLsn())) {
         skips.add(record.getPreviousLsn());
       } else {
         Action action = rcdManager.extract(record);
-        if (objManager.replay(action, record.getLsn())) {
-           skips.add(record.getPreviousLsn());
-        }         
+        if (next.replay(action, record.getLsn())) {
+          skips.add(record.getPreviousLsn());
+        }
       }
     }
   }

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.spi;
 
+import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import java.util.Map.Entry;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -20,7 +21,7 @@ public interface ObjectManager {
   
   long record(Action action, long lsn);
   
-  boolean replay(Action action, long lsn);
+  RecoveryFilter createRecoveryFilter();
   
   /*
    * while (true) {

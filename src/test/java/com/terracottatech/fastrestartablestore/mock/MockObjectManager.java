@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -78,37 +79,55 @@ class MockObjectManager<K, V> implements ObjectManager {
     return map.size();
   }
 
-@Override
-public long record(Action action, long lsn) {
-   if (action instanceof MockPutAction) {
-      Long old = map.put(((MockPutAction<K,V>) action).getKey(), lsn);
+  @Override
+  public long record(Action action, long lsn) {
+    if (action instanceof MockPutAction) {
+      Long old = map.put(((MockPutAction<K, V>) action).getKey(), lsn);
       if (old == null) {
-         return -1;
+        return -1;
       } else {
-         return old;
+        return old;
       }
-   } else if (action instanceof MockRemoveAction) {
+    } else if (action instanceof MockRemoveAction) {
       Long old = map.remove(((MockRemoveAction<K>) action).getKey());
       if (old == null) {
-         return -1;
+        return -1;
       } else {
-         return old;
+        return old;
       }
-   } else {
+    } else if (action instanceof MockRemoveAllAction) {
+      map.clear();
+      return -1;
+    } else {
       throw new IllegalArgumentException("Unknown action " + action);
-   }
-}
+    }
+  }
 
-@Override
-public boolean replay(Action action, long lsn) {
-   if (action instanceof MockPutAction) {
-      record(action, lsn);
-      external.put(((MockPutAction<K, V>) action).getKey(), ((MockPutAction<K, V>) action).getValue());
-      return true;
-   } else if (action instanceof MockRemoveAction) {
-      return true;
-   } else {
-      throw new IllegalArgumentException("Unknown action " + action);
-   }
-}
+  @Override
+  public RecoveryFilter createRecoveryFilter() {
+    return new RecoveryFilterImpl();
+  }
+
+  class RecoveryFilterImpl implements RecoveryFilter {
+
+    private boolean hitRemoveAll = false;
+    
+    @Override
+    public boolean replay(Action action, long lsn) {
+      if (hitRemoveAll) {
+        return false;
+      } else if (action instanceof MockPutAction) {
+        record(action, lsn);
+        external.put(((MockPutAction<K, V>) action).getKey(), ((MockPutAction<K, V>) action).getValue());
+        return true;
+      } else if (action instanceof MockRemoveAction) {
+        return true;
+      } else if (action instanceof MockRemoveAllAction) {
+        return true;
+      } else {
+        throw new IllegalArgumentException("Unknown action " + action);
+      }
+    }
+    
+  }
 }

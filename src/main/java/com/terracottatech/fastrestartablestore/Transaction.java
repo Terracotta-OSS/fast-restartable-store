@@ -8,11 +8,13 @@ package com.terracottatech.fastrestartablestore;
  *
  * @author cdennis
  */
-public interface Transaction<K, V> {
+public interface Transaction<I, K, V> {
 
-  void put(K key, V value);
+  void put(I id, K key, V value);
+  
+  void delete(I id);
 
-  void remove(K key);
+  void remove(I id, K key);
 
   void commit();
   

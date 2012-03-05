@@ -21,11 +21,11 @@ class MockRecordManager implements RecordManager {
 
   private final AtomicLong nextLsn = new AtomicLong();
   
-  private final ObjectManager objManager;
+  private final ObjectManager<?, ?, ?> objManager;
   private final LogManager logManager;
   private final Compactor compactor;
   
-  public MockRecordManager(ObjectManager objManager, LogManager logManager) {
+  public MockRecordManager(ObjectManager<?, ?, ?> objManager, LogManager logManager) {
     this.objManager = objManager;
     this.logManager = logManager;
     // This is ugly... is the Compactor really *part* of the RecordManager?
@@ -39,7 +39,7 @@ class MockRecordManager implements RecordManager {
   public synchronized Future<Void> happened(Action action) {
     long lsn = getNextLsn();
     long lowestLsn = objManager.getLowestLsn();
-    long previousLsn = objManager.record(action, lsn);
+    long previousLsn = action.record(objManager, lsn);
     if (isValidId(previousLsn)) {
       compactor.compact(action);
     }

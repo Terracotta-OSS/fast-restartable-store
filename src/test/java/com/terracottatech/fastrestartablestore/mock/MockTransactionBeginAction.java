@@ -21,6 +21,16 @@ class MockTransactionBeginAction implements Action, Serializable {
     this.id = id;
   }
   
+  @Override
+  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
+    throw new UnsupportedOperationException();
+  }
+
   public String toString() {
     return "Action: beginTransaction(" + id + ")";
   }

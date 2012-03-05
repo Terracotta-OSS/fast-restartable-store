@@ -21,12 +21,14 @@ class MockTransactionCommitAction implements Action, Serializable {
     this.id = id;
   }
 
-  public boolean hasKey() {
-    return false;
+  @Override
+  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
+    throw new UnsupportedOperationException();
   }
 
-  public Void getKey() {
-    throw new UnsupportedOperationException("No keys on txn commit");
+  @Override
+  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
+    throw new UnsupportedOperationException();
   }
 
   public String toString() {

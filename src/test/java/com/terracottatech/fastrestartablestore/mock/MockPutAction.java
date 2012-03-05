@@ -5,37 +5,39 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+
 import java.io.Serializable;
 
 /**
- *
+ * 
  * @author cdennis
  */
-class MockPutAction<K, V> implements Action, Serializable {
+class MockPutAction<I, K, V> implements Action, Serializable {
 
-   private static final long serialVersionUID = -696424493751601762L;
-   
-private final K key;
+  private static final long serialVersionUID = -696424493751601762L;
+
+  private final I id;
+  private final K key;
   private final V value;
-  
-  public MockPutAction(K key, V value) {
+
+  public MockPutAction(I id, K key, V value) {
+    this.id = id;
     this.key = key;
     this.value = value;
   }
 
-  public boolean hasKey() {
-    return true;
+  @Override
+  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
+    return ((ObjectManager<I, K, V>) objManager).recordPut(id, key, lsn);
   }
 
-  public K getKey() {
-    return key;
+  @Override
+  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
+    ((ObjectManager<I, K, V>) objManager).replayPut(id, key, value, lsn);
   }
-  
-  public V getValue() {
-    return value;
-  }
-  
+
   public String toString() {
-    return "Action: put(" + key +", " + value + ")";
+    return "Action: put(" + key + ", " + value + ")";
   }
 }

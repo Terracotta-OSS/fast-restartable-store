@@ -4,15 +4,14 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
+import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
@@ -20,27 +19,53 @@ import com.terracottatech.fastrestartablestore.spi.ObjectManager;
  *
  * @author cdennis
  */
-class MockObjectManager<K, V> implements ObjectManager {
+class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
 
-  private final Lock lock = new ReentrantLock();
-  
-  private final LinkedHashMap<K, Long> map = new LinkedHashMap<K, Long>();
+  private final Map<I, LinkedHashMap<K, Long>> map = new HashMap<I, LinkedHashMap<K, Long>>();
 
-  private Map<K, V> external;
+  private final Map<I, Map<K, V>> external;
   
-  public MockObjectManager(Map<K, V> external) {
+  public MockObjectManager(Map<I, Map<K, V>> external) {
     this.external = external;
   }
 
   public long getLowestLsn() {
-    Iterator<Long> it = map.values().iterator();
-    if (it.hasNext()) {
-      return it.next().longValue();
+    Entry<K, Long> lowest = lowestEntry(Long.MAX_VALUE);
+    if (lowest == null) {
+      return -1;
     } else {
-      return -1L;
+      return lowest.getValue();
     }
   }
 
+  private IdEntry<I, K, Long> lowestEntry(long ceilingLsn) {
+    IdEntry<I, K, Long> lowest = null;
+    for (Entry<I, LinkedHashMap<K, Long>> m : map.entrySet()) {
+      Iterator<Entry<K, Long>> it = m.getValue().entrySet().iterator();
+      if (it.hasNext()) {
+        Entry<K, Long> e = it.next();
+        if (lowest == null || e.getValue() < lowest.getValue()) {
+          lowest = new IdEntry<I, K, Long>(m.getKey(), e);
+        }
+      }
+    }
+    return lowest.getValue() < ceilingLsn ? lowest : null;
+  }
+  
+  private static class IdEntry<I, K, V> extends AbstractMap.SimpleEntry<K, V> {
+
+    private final I id;
+    
+    public IdEntry(I id, Entry<? extends K, ? extends V> arg0) {
+      super(arg0);
+      this.id = id;
+    }
+    
+    public I getId() {
+      return id;
+    }
+  }
+  
   public Action checkoutEarliest(long ceilingLsn) {
   /*
    * while (true) {
@@ -54,18 +79,13 @@ class MockObjectManager<K, V> implements ObjectManager {
    * }  
    */
     
-    Iterator<Entry<K, Long>> it = map.entrySet().iterator();
-    if (it.hasNext()) {
-      Entry<K, Long> e = it.next();
-      if (e.getValue() >= ceilingLsn) {
-         return null;
-      }
-      V value = external.get(e.getKey());
-      if (value == null) {
-        return null;
-      } else {
-        return new MockPutAction<K, V>(e.getKey(), value);
-      }
+    IdEntry<I, K, Long> lowest = lowestEntry(ceilingLsn);
+    if (lowest != null) {
+      Map<K, V> m = external.get(lowest.getId());
+      assert m != null;
+      V value = m.get(lowest.getKey());
+      assert value != null;
+      return new MockPutAction<I, K, V>(lowest.getId(), lowest.getKey(), value);
     } else {
       return null;
     }
@@ -76,58 +96,63 @@ class MockObjectManager<K, V> implements ObjectManager {
   }
 
   public int size() {
-    return map.size();
+    throw  new UnsupportedOperationException();
+  }
+  
+  public long recordPut(I id, K key, long lsn) {
+    LinkedHashMap<K, Long> m = map.get(id);
+    if (m == null) {
+      m = new LinkedHashMap<K, Long>();
+      map.put(id, m);
+    }
+    Long previous = m.put(key, lsn);
+    return previous == null ? -1 : previous;
   }
 
   @Override
-  public long record(Action action, long lsn) {
-    if (action instanceof MockPutAction) {
-      Long old = map.put(((MockPutAction<K, V>) action).getKey(), lsn);
-      if (old == null) {
-        return -1;
-      } else {
-        return old;
-      }
-    } else if (action instanceof MockRemoveAction) {
-      Long old = map.remove(((MockRemoveAction<K>) action).getKey());
-      if (old == null) {
-        return -1;
-      } else {
-        return old;
-      }
-    } else if (action instanceof MockRemoveAllAction) {
-      map.clear();
-      return -1;
-    } else {
-      throw new IllegalArgumentException("Unknown action " + action);
+  public long recordRemove(I id, K key, long lsn) {
+    LinkedHashMap<K, Long> m = map.get(id);
+    assert m != null;
+    Long previous = m.remove(key);
+    assert previous != null;
+    return previous;
+  }
+
+  @Override
+  public void recordDelete(I id, long lsn) {
+    LinkedHashMap<K, Long> deleted = map.remove(id);
+    assert deleted != null;
+  }
+
+  @Override
+  public void replayPut(I id, K key, V value, long lsn) {
+    Map<K, V> m = external.get(id);
+    if (m == null) {
+      m = new HashMap<K, V>();
+      external.put(id, m);
     }
+    m.put(key, value);
+    recordPut(id, key, lsn);
+  }
+
+  @Override
+  public void replayRemove(I id, K key, long lsn) {
+    
+  }
+
+  @Override
+  public void replayDelete(I id, long lsn) {
+    
   }
 
   @Override
   public RecoveryFilter createRecoveryFilter() {
-    return new RecoveryFilterImpl();
-  }
-
-  class RecoveryFilterImpl implements RecoveryFilter {
-
-    private boolean hitRemoveAll = false;
-    
-    @Override
-    public boolean replay(Action action, long lsn) {
-      if (hitRemoveAll) {
-        return false;
-      } else if (action instanceof MockPutAction) {
-        record(action, lsn);
-        external.put(((MockPutAction<K, V>) action).getKey(), ((MockPutAction<K, V>) action).getValue());
+    return new RecoveryFilter() {
+      @Override
+      public boolean replay(Action action, long lsn) {
+        action.replay(MockObjectManager.this, lsn);
         return true;
-      } else if (action instanceof MockRemoveAction) {
-        return true;
-      } else if (action instanceof MockRemoveAllAction) {
-        return true;
-      } else {
-        throw new IllegalArgumentException("Unknown action " + action);
       }
-    }
-    
+    };
   }
 }

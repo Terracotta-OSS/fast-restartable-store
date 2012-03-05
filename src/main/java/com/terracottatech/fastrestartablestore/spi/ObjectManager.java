@@ -12,16 +12,28 @@ import com.terracottatech.fastrestartablestore.messages.Action;
 /**
  * @author cdennis
  */
-public interface ObjectManager {
+public interface ObjectManager<I, K, V> {
 
   /**
    * @return lowest live lsn in system, -1 if none
    */
   long getLowestLsn();
   
-  long record(Action action, long lsn);
+//  long record(Action action, long lsn);
   
   RecoveryFilter createRecoveryFilter();
+  
+  long recordPut(I id, K key, long lsn);
+  
+  long recordRemove(I id, K key, long lsn);
+  
+  void recordDelete(I id, long lsn);
+  
+  void replayPut(I id, K key, V value, long lsn);
+  
+  void replayRemove(I id, K key, long lsn);
+  
+  void replayDelete(I id, long lsn);
   
   /*
    * while (true) {

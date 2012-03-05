@@ -12,7 +12,7 @@ import com.terracottatech.fastrestartablestore.TransactionManager;
  *
  * @author cdennis
  */
-class MockTransaction implements Transaction<String, String> {
+class MockTransaction implements Transaction<Long, String, String> {
 
   private final TransactionManager txnManager;
   private final TransactionHandle txnHandle;
@@ -22,12 +22,16 @@ class MockTransaction implements Transaction<String, String> {
     this.txnHandle = txnManager.create();
   }
 
-  public void put(String key, String value) {
-    txnManager.happened(txnHandle, new MockPutAction<String, String>(key, value));
+  public void put(Long id, String key, String value) {
+    txnManager.happened(txnHandle, new MockPutAction<Long, String, String>(id, key, value));
   }
 
-  public void remove(String key) {
-    txnManager.happened(txnHandle, new MockRemoveAction<String>(key));
+  public void remove(Long id, String key) {
+    txnManager.happened(txnHandle, new MockRemoveAction<Long, String>(id, key));
+  }
+
+  public void delete(Long id) {
+    txnManager.happened(txnHandle, new MockDeleteAction<Long>(id));
   }
 
   public void commit() {

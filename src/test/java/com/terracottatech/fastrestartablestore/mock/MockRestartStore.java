@@ -17,7 +17,7 @@ import com.terracottatech.fastrestartablestore.spi.ObjectManager;
  *
  * @author cdennis
  */
-public class MockRestartStore implements RestartStore<String, String> {
+public class MockRestartStore implements RestartStore<Long, String, String> {
 
   private final TransactionManager txnManager;
   
@@ -25,7 +25,7 @@ public class MockRestartStore implements RestartStore<String, String> {
     this.txnManager = txnManager;
   }
   
-  public Transaction<String, String> beginTransaction() {
+  public Transaction<Long, String, String> beginTransaction() {
     return new MockTransaction(txnManager);
   }
 

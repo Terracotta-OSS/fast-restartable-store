@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.messages;
 
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
@@ -14,6 +15,5 @@ public interface Action {
 
   public long record(ObjectManager<?, ?, ?> objManager, long lsn);
   
-  public void replay(ObjectManager<?, ?, ?> objManager, long lsn);
-  
+  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn);
 }

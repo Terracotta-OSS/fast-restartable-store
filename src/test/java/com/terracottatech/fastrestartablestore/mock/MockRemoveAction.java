@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import java.io.Serializable;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -29,8 +30,13 @@ class MockRemoveAction<I, K> implements Action, Serializable {
   }
 
   @Override
-  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
-    ((ObjectManager<I, K, ?>) objManager).replayRemove(id, key, lsn);
+  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+    if (!filter.disallows(this)) {
+      ((ObjectManager<I, K, ?>) objManager).replayRemove(id, key, lsn);
+      return true;
+    } else {
+      return false;
+    }
   }
   
   public String toString() {

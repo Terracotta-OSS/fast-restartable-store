@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.io.Serializable;
@@ -23,20 +24,17 @@ class MockTransactionBeginAction implements Action, Serializable {
   
   @Override
   public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    throw new UnsupportedOperationException();
+    openTxnIds.put(((MockTransactionBeginAction) action).getId(), lsn);
   }
 
   @Override
-  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
-    throw new UnsupportedOperationException();
+  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+    filter.removeRule(new MockAllowTransactionRule(id));
+    return false;
   }
 
   public String toString() {
     return "Action: beginTransaction(" + id + ")";
   }
-
-public long getId() {
-   return id;
-}
 
 }

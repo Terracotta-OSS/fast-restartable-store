@@ -11,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.terracottatech.fastrestartablestore.RecoveryFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
@@ -143,16 +142,5 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   @Override
   public void replayDelete(I id, long lsn) {
     
-  }
-
-  @Override
-  public RecoveryFilter createRecoveryFilter() {
-    return new RecoveryFilter() {
-      @Override
-      public boolean replay(Action action, long lsn) {
-        action.replay(MockObjectManager.this, lsn);
-        return true;
-      }
-    };
   }
 }

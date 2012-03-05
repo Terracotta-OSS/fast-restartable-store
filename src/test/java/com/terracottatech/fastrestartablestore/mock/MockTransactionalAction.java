@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import java.io.Serializable;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -29,12 +30,19 @@ class MockTransactionalAction implements Action, Serializable {
   }
 
   @Override
-  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
-    embedded.replay(objManager, lsn);
+  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+    if (filter.allows(this)) {
+      return embedded.replay(filter, objManager, lsn);
+    } else {
+      return false;
+    }
   }
 
   public String toString() {
     return "Transactional[id=" + id + "] " + embedded;
   }
 
+  long getId() {
+    return id;
+  }
 }

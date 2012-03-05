@@ -10,8 +10,9 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  *
  * @author cdennis
  */
-public interface RecoveryFilter {
-
-  public boolean replay(Action action, long lsn);
+public interface FilterRule {
   
+  boolean disallows(Action action);
+  
+  boolean allows(Action action);
 }

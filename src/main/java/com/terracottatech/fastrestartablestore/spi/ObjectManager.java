@@ -4,7 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.spi;
 
-import com.terracottatech.fastrestartablestore.RecoveryFilter;
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import java.util.Map.Entry;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -18,10 +18,6 @@ public interface ObjectManager<I, K, V> {
    * @return lowest live lsn in system, -1 if none
    */
   long getLowestLsn();
-  
-//  long record(Action action, long lsn);
-  
-  RecoveryFilter createRecoveryFilter();
   
   long recordPut(I id, K key, long lsn);
   

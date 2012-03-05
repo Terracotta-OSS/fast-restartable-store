@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
@@ -33,11 +34,20 @@ class MockPutAction<I, K, V> implements Action, Serializable {
   }
 
   @Override
-  public void replay(ObjectManager<?, ?, ?> objManager, long lsn) {
-    ((ObjectManager<I, K, V>) objManager).replayPut(id, key, value, lsn);
+  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+    if (!filter.disallows(this)) {
+      ((ObjectManager<I, K, V>) objManager).replayPut(id, key, value, lsn);
+      return true;
+    } else {
+      return false;
+    }
   }
 
   public String toString() {
     return "Action: put(" + key + ", " + value + ")";
+  }
+  
+  I getId() {
+    return id;
   }
 }

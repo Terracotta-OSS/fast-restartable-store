@@ -8,7 +8,11 @@ import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.io.Serializable;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  *
@@ -24,7 +28,7 @@ class MockTransactionCommitAction implements Action, Serializable {
 
   @Override
   public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    openTxnIds.remove(((MockTransactionCommitAction) action).getId());
+    return -1;
   }
 
   @Override
@@ -41,5 +45,8 @@ class MockTransactionCommitAction implements Action, Serializable {
    return id;
   }
 
-  
+  @Override
+  public Collection<Lock> lock(List<ReadWriteLock> locks) {
+    return Collections.emptyList();
+  }
 }

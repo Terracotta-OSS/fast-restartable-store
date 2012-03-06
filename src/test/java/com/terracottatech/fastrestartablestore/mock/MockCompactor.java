@@ -5,18 +5,19 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.Compactor;
-import com.terracottatech.fastrestartablestore.RecordManager;
-import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.CompleteKey;
+import com.terracottatech.fastrestartablestore.TransactionHandle;
+import com.terracottatech.fastrestartablestore.TransactionManager;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  * 
  * @author cdennis
  */
-class MockCompactor implements Compactor {
+class MockCompactor<I, K, V> implements Compactor {
 
-   private final RecordManager rcdManager;
-   private final ObjectManager manager;
+   private final TransactionManager txnManager;
+   private final ObjectManager<I, K, V> manager;
    
    private final ThreadLocal<Boolean> compacting = new ThreadLocal<Boolean>() {
       @Override
@@ -25,24 +26,25 @@ class MockCompactor implements Compactor {
       }
    };
 
-   public MockCompactor(RecordManager rcdManager, ObjectManager objectManager) {
-      this.rcdManager = rcdManager;
+   public MockCompactor(TransactionManager txnManager, ObjectManager<I, K, V> objectManager) {
+      this.txnManager = txnManager;
       this.manager = objectManager;
    }
 
-   public void compact(Action trigger) {
+   public void compact() {
       if (compacting.get()) {
          // Prevent recursive compaction
          return;
       }
-      Action action = manager.checkoutEarliest(Long.MAX_VALUE);
-      if (action != null) {
+      CompleteKey<I, K> key = manager.getCompactionKey();
+      if (key != null) {
          compacting.set(true);
          try {
-            rcdManager.asyncHappened(action);
+           TransactionHandle txnHandle = txnManager.create();
+           txnManager.happened(txnHandle, new MockCompactionAction(key));
+           txnManager.commit(txnHandle);
          } finally {
             compacting.set(false);
-            manager.checkin(action);
          }
       }
    }

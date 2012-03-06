@@ -64,7 +64,7 @@ class MockIOManager implements IOManager {
           return as.construct(new ByteArrayInputStream(delegate.next()));
         } catch (IOException ex) {
           //this will likely have to propagate up to the RecoveryManager class - Iterator contract means it must be runtime!
-          throw new AssertionError();
+          throw new AssertionError(ex);
         }
       }
 

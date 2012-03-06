@@ -22,18 +22,25 @@ class MockTransaction implements Transaction<Long, String, String> {
     this.txnHandle = txnManager.create();
   }
 
-  public void put(Long id, String key, String value) {
+  @Override
+  public Transaction put(Long id, String key, String value) {
     txnManager.happened(txnHandle, new MockPutAction<Long, String, String>(id, key, value));
+    return this;
   }
 
-  public void remove(Long id, String key) {
+  @Override
+  public Transaction remove(Long id, String key) {
     txnManager.happened(txnHandle, new MockRemoveAction<Long, String>(id, key));
+    return this;
   }
 
-  public void delete(Long id) {
+  @Override
+  public Transaction delete(Long id) {
     txnManager.happened(txnHandle, new MockDeleteAction<Long>(id));
+    return this;
   }
 
+  @Override
   public void commit() {
     txnManager.commit(txnHandle);
   }

@@ -14,29 +14,26 @@ import java.io.Serializable;
  * 
  * @author cdennis
  */
-class MockPutAction<I, K, V> implements Action, Serializable {
+class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Action, Serializable {
 
   private static final long serialVersionUID = -696424493751601762L;
 
-  private final I id;
-  private final K key;
   private final V value;
 
   public MockPutAction(I id, K key, V value) {
-    this.id = id;
-    this.key = key;
+    super(id, key);
     this.value = value;
   }
 
   @Override
   public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    return ((ObjectManager<I, K, V>) objManager).recordPut(id, key, lsn);
+    return ((ObjectManager<I, K, V>) objManager).put(getId(), getKey(), value, lsn);
   }
 
   @Override
   public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
     if (!filter.disallows(this)) {
-      ((ObjectManager<I, K, V>) objManager).replayPut(id, key, value, lsn);
+      ((ObjectManager<I, K, V>) objManager).replayPut(getId(), getKey(), value, lsn);
       return true;
     } else {
       return false;
@@ -44,10 +41,6 @@ class MockPutAction<I, K, V> implements Action, Serializable {
   }
 
   public String toString() {
-    return "Action: put(" + key + ", " + value + ")";
-  }
-  
-  I getId() {
-    return id;
+    return "Action: put(" + getId() + ":" + getKey() + ", " + value + ")";
   }
 }

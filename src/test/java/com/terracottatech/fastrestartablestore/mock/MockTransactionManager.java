@@ -8,9 +8,14 @@ import com.terracottatech.fastrestartablestore.RecordManager;
 import com.terracottatech.fastrestartablestore.TransactionHandle;
 import com.terracottatech.fastrestartablestore.TransactionManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
 
 /**
  *
@@ -22,6 +27,8 @@ class MockTransactionManager implements TransactionManager {
   
   private final RecordManager rcdManager;
   
+  private final Map<TransactionHandle, Collection<Lock>> heldLocks = new ConcurrentHashMap<TransactionHandle, Collection<Lock>>();
+  
   public MockTransactionManager(RecordManager rcdManager) {
     this.rcdManager = rcdManager;
   }
@@ -29,7 +36,9 @@ class MockTransactionManager implements TransactionManager {
   public TransactionHandle create() {
     long id = txnId.getAndIncrement();
     rcdManager.asyncHappened(new MockTransactionBeginAction(id));
-    return new MockTransactionHandle(id);
+    TransactionHandle handle = new MockTransactionHandle(id);
+    heldLocks.put(handle, new ArrayList<Lock>());
+    return handle;
   }
 
   public void commit(TransactionHandle handle) {
@@ -40,10 +49,15 @@ class MockTransactionManager implements TransactionManager {
       throw new AssertionError(ex);
     } catch (ExecutionException ex) {
       throw new AssertionError(ex);
+    } finally {
+      for (Lock l : heldLocks.remove(handle)) {
+        l.unlock();
+      }
     }
   }
 
   public void happened(TransactionHandle handle, Action action) {
+    heldLocks.get(handle).addAll(action.lock(locks));
     rcdManager.happened(new MockTransactionalAction(getIdAndValidateHandle(handle), action));
   }
 

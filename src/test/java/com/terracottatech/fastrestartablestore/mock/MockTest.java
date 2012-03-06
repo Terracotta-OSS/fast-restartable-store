@@ -22,43 +22,44 @@ public class MockTest {
   public void testMock() {
     IOManager ioManager = new MockIOManager();
     
-    Map<String, String> outsideWorld = new HashMap<String, String>();
-    RestartStore mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
+    Map<Long, Map<String, String>> outsideWorld = new HashMap<Long, Map<String, String>>();
+    RestartStore<Long, String, String> mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
     
-    Transaction<String, String> context = mock.beginTransaction();
-    context.put("far", "bar");
-    outsideWorld.put("far", "bar");
+    Transaction<Long, String, String> context = mock.beginTransaction();
+    context.put(1L, "far", "bar");
+    outsideWorld.put(1L, new HashMap<String, String>());
+    outsideWorld.get(1L).put("far", "bar");
     context.commit();
     
     context = mock.beginTransaction();
-    context.put("foo", "baz");
-    outsideWorld.put("foo", "baz");
+    context.put(1L, "foo", "baz");
+    outsideWorld.get(1L).put("foo", "baz");
     context.commit();
     
     context = mock.beginTransaction();
-    context.remove("foo");
-    outsideWorld.remove("foo");
+    context.remove(1L, "foo");
+    outsideWorld.get(1L).remove("foo");
     context.commit();
 
     context = mock.beginTransaction();
-    context.put("bar", "baz");
-    outsideWorld.put("bar", "baz");
+    context.put(1L, "bar", "baz");
+    outsideWorld.get(1L).put("bar", "baz");
     context.commit();
     
     context = mock.beginTransaction();
-    context.put("foo", "baz");
-    outsideWorld.put("foo", "baz");
+    context.put(1L, "foo", "baz");
+    outsideWorld.get(1L).put("foo", "baz");
 
     context = mock.beginTransaction();
-    context.remove("bar");
-    outsideWorld.remove("bar");
+    context.remove(1L, "bar");
+    outsideWorld.get(1L).remove("bar");
     
     System.out.println("XXXXX CRASHING HERE XXXXX");
     
     //crash here - all knowledge lost - except IOManager
     
-    outsideWorld = new HashMap<String, String>();
-    RestartStore recovered = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
+    outsideWorld = new HashMap<Long, Map<String, String>>();
+    MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
     System.out.println(outsideWorld);
   }
 }

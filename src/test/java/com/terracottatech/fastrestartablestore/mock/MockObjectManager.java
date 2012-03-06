@@ -4,6 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.CompleteKey;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -13,6 +14,7 @@ import java.util.Map.Entry;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+import java.util.AbstractMap.SimpleEntry;
 
 /**
  *
@@ -29,7 +31,7 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   public long getLowestLsn() {
-    Entry<K, Long> lowest = lowestEntry(Long.MAX_VALUE);
+    Entry<CompleteKey<I, K>, Long> lowest = lowestEntry();
     if (lowest == null) {
       return -1;
     } else {
@@ -37,68 +39,31 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
     }
   }
 
-  private IdEntry<I, K, Long> lowestEntry(long ceilingLsn) {
-    IdEntry<I, K, Long> lowest = null;
+  private Entry<CompleteKey<I, K>, Long> lowestEntry() {
+    Entry<CompleteKey<I, K>, Long> lowest = null;
     for (Entry<I, LinkedHashMap<K, Long>> m : map.entrySet()) {
       Iterator<Entry<K, Long>> it = m.getValue().entrySet().iterator();
       if (it.hasNext()) {
         Entry<K, Long> e = it.next();
         if (lowest == null || e.getValue() < lowest.getValue()) {
-          lowest = new IdEntry<I, K, Long>(m.getKey(), e);
+          lowest = new SimpleEntry<CompleteKey<I, K>, Long>(new MockCompleteKey(m.getKey(), e.getKey()), e.getValue());
         }
       }
     }
-    return lowest.getValue() < ceilingLsn ? lowest : null;
+    return lowest;
   }
   
-  private static class IdEntry<I, K, V> extends AbstractMap.SimpleEntry<K, V> {
-
-    private final I id;
-    
-    public IdEntry(I id, Entry<? extends K, ? extends V> arg0) {
-      super(arg0);
-      this.id = id;
-    }
-    
-    public I getId() {
-      return id;
-    }
-  }
-  
-  public Action checkoutEarliest(long ceilingLsn) {
-  /*
-   * while (true) {
-   *   Entry<K, Long> entry = getFirstEntry();
-   *   lock(entry.getKey());
-   *   if (get(entry.getKey()) == entry.getValue()) {
-   *     return external_map.getEntry(entry.getKey());
-   *   } else {
-   *     unlock(action.getKey());
-   *   }
-   * }  
-   */
-    
-    IdEntry<I, K, Long> lowest = lowestEntry(ceilingLsn);
-    if (lowest != null) {
-      Map<K, V> m = external.get(lowest.getId());
-      assert m != null;
-      V value = m.get(lowest.getKey());
-      assert value != null;
-      return new MockPutAction<I, K, V>(lowest.getId(), lowest.getKey(), value);
-    } else {
+  public CompleteKey<I, K> getCompactionKey() {
+    Entry<CompleteKey<I, K>, Long> lowest = lowestEntry();
+    if (lowest == null) {
       return null;
+    } else {
+      return lowest.getKey();
     }
   }
-
-  public void checkin(Action action) {
-    //needs to unlock
-  }
-
-  public int size() {
-    throw  new UnsupportedOperationException();
-  }
   
-  public long recordPut(I id, K key, long lsn) {
+  @Override
+  public long put(I id, K key, V value, long lsn) {
     LinkedHashMap<K, Long> m = map.get(id);
     if (m == null) {
       m = new LinkedHashMap<K, Long>();
@@ -109,7 +74,7 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public long recordRemove(I id, K key, long lsn) {
+  public long remove(I id, K key) {
     LinkedHashMap<K, Long> m = map.get(id);
     assert m != null;
     Long previous = m.remove(key);
@@ -118,7 +83,7 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public void recordDelete(I id, long lsn) {
+  public void delete(I id) {
     LinkedHashMap<K, Long> deleted = map.remove(id);
     assert deleted != null;
   }
@@ -131,16 +96,21 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
       external.put(id, m);
     }
     m.put(key, value);
-    recordPut(id, key, lsn);
+    put(id, key, value, lsn);
   }
 
   @Override
-  public void replayRemove(I id, K key, long lsn) {
-    
-  }
-
-  @Override
-  public void replayDelete(I id, long lsn) {
-    
+  public V replaceLsn(I id, K key, long newLsn) {
+    LinkedHashMap<K, Long> m = map.get(id);
+    if (m != null) {
+      m.put(key, newLsn);
+      Map<K, V> em = external.get(id);
+      assert em != null;
+      V value = em.get(key);
+      assert value != null;
+      return value;
+    } else {
+      return null;
+    }
   }
 }

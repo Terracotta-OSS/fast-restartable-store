@@ -9,6 +9,10 @@ import java.io.Serializable;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  * 
@@ -44,5 +48,10 @@ class MockTransactionalAction implements Action, Serializable {
 
   long getId() {
     return id;
+  }
+
+  @Override
+  public Collection<Lock> lock(List<ReadWriteLock> locks) {
+    return embedded.lock(locks);
   }
 }

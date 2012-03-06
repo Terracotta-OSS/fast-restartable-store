@@ -4,10 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.spi;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
-import java.util.Map.Entry;
-
-import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.CompleteKey;
 
 /**
  * @author cdennis
@@ -19,35 +16,20 @@ public interface ObjectManager<I, K, V> {
    */
   long getLowestLsn();
   
-  long recordPut(I id, K key, long lsn);
-  
-  long recordRemove(I id, K key, long lsn);
-  
-  void recordDelete(I id, long lsn);
-  
-  void replayPut(I id, K key, V value, long lsn);
-  
-  void replayRemove(I id, K key, long lsn);
-  
-  void replayDelete(I id, long lsn);
-  
   /*
-   * while (true) {
-   *   Entry<K, Long> entry = getFirstEntry();
-   *   lock(entry.getKey());
-   *   if (get(entry.getKey()) == entry.getValue()) {
-   *     return external_map.getEntry(entry.getKey());
-   *   } else {
-   *     unlock(action.getKey());
-   *   }
-   * }  
+   * XXX : do we want to have V here or not - should we make a decision on 
+   * wrapping versus embedding of the final library.
    */
-  Action checkoutEarliest(long ceilingLsn);
+  long put(I id, K key, V value, long lsn);
   
-  void checkin(Action action);
+  void delete(I id);
+  
+  long remove(I id, K key);
 
-  /*
-   * return map.size();
-   */
-  int size();
+  void replayPut(I id, K key, V value, long lsn);
+
+  //combination of id and key - it returns some composite object...
+  CompleteKey<I, K> getCompactionKey();
+  
+  V replaceLsn(I id, K key, long newLsn);
 }

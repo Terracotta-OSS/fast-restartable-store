@@ -1,38 +1,41 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.CompleteKey;
 import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
-public class MockDeleteAction<I> implements Action {
+/**
+ *
+ * @author cdennis
+ */
+public class MockCompactionAction<I, K> implements Action {
 
-  private final I id;
-  
-  public MockDeleteAction(I id) {
-    this.id = id;
+  public MockCompactionAction(CompleteKey<I, K> key) {
+    
   }
-
+  
   @Override
   public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    ((ObjectManager<I, ?, ?>) objManager).delete(id);
-    return -1;
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
-    filter.addRule(new MockDeleteFilter<I>(id));
-    return false;
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public Collection<Lock> lock(List<ReadWriteLock> locks) {
-    Lock idLock = locks.get(Math.abs(id.hashCode() % locks.size())).writeLock();
-    idLock.lock();
-    return Collections.singleton(idLock);
+    throw new UnsupportedOperationException("Not supported yet.");
   }
+  
 }

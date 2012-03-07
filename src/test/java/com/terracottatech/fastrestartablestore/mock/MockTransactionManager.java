@@ -18,6 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.terracottatech.fastrestartablestore.RecordManager;
 import com.terracottatech.fastrestartablestore.TransactionHandle;
+import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.TransactionManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
 
@@ -32,13 +33,11 @@ class MockTransactionManager implements TransactionManager {
   private final RecordManager rcdManager;
   
   private final Map<TransactionHandle, Collection<Lock>> heldLocks = new ConcurrentHashMap<TransactionHandle, Collection<Lock>>();
-  private final List<ReadWriteLock> locks = new ArrayList<ReadWriteLock>();
+  private final TransactionLockProvider locks;
   
   public MockTransactionManager(RecordManager rcdManager) {
     this.rcdManager = rcdManager;
-    for (int i = 0; i < 1024; i++) {
-      locks.add(new ReentrantReadWriteLock());
-    }
+    locks = new MockTransactionLockProvider(1024, 1024);
   }
 
   public TransactionHandle create() {

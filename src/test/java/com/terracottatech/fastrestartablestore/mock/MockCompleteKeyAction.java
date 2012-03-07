@@ -5,12 +5,13 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
+import com.terracottatech.fastrestartablestore.CompleteKey;
+import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.messages.Action;
 
 /**
@@ -27,6 +28,10 @@ public abstract class MockCompleteKeyAction<I, K> implements Action, Serializabl
     key = null;
   }
   
+  public MockCompleteKeyAction(CompleteKey<I, K> completeKey) {
+    this(completeKey.getId(), completeKey.getKey());
+  }
+  
   public MockCompleteKeyAction(I id, K key) {
     this.id = id;
     this.key = key;
@@ -40,20 +45,14 @@ public abstract class MockCompleteKeyAction<I, K> implements Action, Serializabl
     return key;
   }
 
+  protected final ReadWriteLock getLock(TransactionLockProvider locks) {
+    return locks.getLockForKey(getId(), getKey());
+  }
+  
   @Override
-  public final Collection<Lock> lock(List<ReadWriteLock> locks) {
-    int idLockIndex = Math.abs(getId().hashCode() % locks.size());
-    int keyLockIndex = Math.abs(getKey().hashCode() % locks.size());
-    Lock idLock = locks.get(idLockIndex).readLock();
-    Lock keyLock = locks.get(keyLockIndex).writeLock();
-    
-    if (idLockIndex < keyLockIndex) {
-      idLock.lock();
-      keyLock.lock();
-    } else {
-      keyLock.lock();
-      idLock.lock();
-    }
-    return Arrays.asList(idLock, keyLock);
+  public Collection<Lock> lock(TransactionLockProvider locks) {
+    Lock lock = getLock(locks).writeLock();
+    lock.lock();
+    return Collections.singleton(lock);
   }
 }

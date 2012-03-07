@@ -14,7 +14,7 @@ import java.io.Serializable;
  * 
  * @author cdennis
  */
-class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Action, Serializable {
+class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Serializable {
 
   private static final long serialVersionUID = -696424493751601762L;
 

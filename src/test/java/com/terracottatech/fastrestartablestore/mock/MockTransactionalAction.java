@@ -5,6 +5,8 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.ReplayFilter;
+import com.terracottatech.fastrestartablestore.TransactionLockProvider;
+
 import java.io.Serializable;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
@@ -51,7 +53,7 @@ class MockTransactionalAction implements Action, Serializable {
   }
 
   @Override
-  public Collection<Lock> lock(List<ReadWriteLock> locks) {
+  public Collection<Lock> lock(TransactionLockProvider locks) {
     return embedded.lock(locks);
   }
 }

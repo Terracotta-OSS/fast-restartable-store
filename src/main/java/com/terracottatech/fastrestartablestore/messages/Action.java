@@ -5,6 +5,7 @@
 package com.terracottatech.fastrestartablestore.messages;
 
 import com.terracottatech.fastrestartablestore.ReplayFilter;
+import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.Collection;
 import java.util.List;
@@ -25,5 +26,5 @@ public interface Action {
    * compaction actions invalidate themselves here - they switch their record 
    * method to no-op and they make their binary representations empty
    */
-  Collection<Lock> lock(List<ReadWriteLock> locks);
+  Collection<Lock> lock(TransactionLockProvider lockProvider);
 }

@@ -4,16 +4,16 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.IOManager;
-import com.terracottatech.fastrestartablestore.RestartStore;
-import com.terracottatech.fastrestartablestore.Transaction;
+import static org.hamcrest.core.IsEqual.equalTo;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.hamcrest.core.IsEqual.equalTo;
 import org.junit.Assert;
-
 import org.junit.Test;
+
+import com.terracottatech.fastrestartablestore.IOManager;
+import com.terracottatech.fastrestartablestore.Transaction;
 
 /**
  *
@@ -22,11 +22,11 @@ import org.junit.Test;
 public class MockTest {
   
   @Test
-  public void testMock() {
+  public void testMock() throws Exception {
     IOManager ioManager = new MockIOManager();
     
     Map<Long, Map<String, String>> outsideWorld = new HashMap<Long, Map<String, String>>();
-    RestartStore<Long, String, String> mock = MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
+    MockRestartStore mock = MockRestartStore.create(new MockObjectManager<Long, String, String>(outsideWorld), ioManager);
     
     Transaction<Long, String, String> context = mock.beginTransaction();
     context.put(1L, "far", "bar");
@@ -42,11 +42,13 @@ public class MockTest {
     context = mock.beginTransaction();
     context.remove(1L, "foo");
     outsideWorld.get(1L).remove("foo");
+    mock.compact();
     context.commit();
 
     context = mock.beginTransaction();
     context.put(1L, "bar", "baz");
     outsideWorld.get(1L).put("bar", "baz");
+    mock.compact();
     context.commit();
     
     context = mock.beginTransaction();
@@ -58,7 +60,7 @@ public class MockTest {
 //    outsideWorld.get(1L).remove("bar");
     
     System.out.println("XXXXX CRASHING HERE XXXXX");
-    
+
     //crash here - all knowledge lost - except IOManager
     
     Map<Long, Map<String, String>>restoredWorld = new HashMap<Long, Map<String, String>>();

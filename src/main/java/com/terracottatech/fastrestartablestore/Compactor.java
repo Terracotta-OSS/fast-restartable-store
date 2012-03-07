@@ -4,7 +4,6 @@
  */
 package com.terracottatech.fastrestartablestore;
 
-import com.terracottatech.fastrestartablestore.messages.Action;
 
 /**
  *
@@ -12,5 +11,6 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  */
 public interface Compactor {
   
-  void compact();
+  void compactNow();
+
 }

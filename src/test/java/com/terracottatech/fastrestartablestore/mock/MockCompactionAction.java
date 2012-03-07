@@ -59,4 +59,9 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> {
       return Collections.emptyList();
     }
   }
+
+  @Override
+  public String toString() {
+    return "CompactionAction : compacted=" + compacted; 
+  }
 }

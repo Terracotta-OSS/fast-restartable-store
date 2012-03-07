@@ -4,20 +4,28 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.messages.Action;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
+import com.terracottatech.fastrestartablestore.messages.Action;
+
 /**
  *
  * @author cdennis
  */
-public abstract class MockCompleteKeyAction<I, K> implements Action {
+public abstract class MockCompleteKeyAction<I, K> implements Action, Serializable {
   private final I id;
   private final K key;
+  
+  public MockCompleteKeyAction() {
+    // Get rid of this
+    id = null;
+    key = null;
+  }
   
   public MockCompleteKeyAction(I id, K key) {
     this.id = id;

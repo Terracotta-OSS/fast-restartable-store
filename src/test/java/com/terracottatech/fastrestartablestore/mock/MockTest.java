@@ -7,9 +7,12 @@ package com.terracottatech.fastrestartablestore.mock;
 import com.terracottatech.fastrestartablestore.IOManager;
 import com.terracottatech.fastrestartablestore.RestartStore;
 import com.terracottatech.fastrestartablestore.Transaction;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.hamcrest.core.IsEqual.equalTo;
+import org.junit.Assert;
+
 import org.junit.Test;
 
 /**
@@ -48,18 +51,18 @@ public class MockTest {
     
     context = mock.beginTransaction();
     context.put(1L, "foo", "baz");
-    outsideWorld.get(1L).put("foo", "baz");
+//    outsideWorld.get(1L).put("foo", "baz");
 
     context = mock.beginTransaction();
     context.remove(1L, "bar");
-    outsideWorld.get(1L).remove("bar");
+//    outsideWorld.get(1L).remove("bar");
     
     System.out.println("XXXXX CRASHING HERE XXXXX");
     
     //crash here - all knowledge lost - except IOManager
     
-    outsideWorld = new HashMap<Long, Map<String, String>>();
-    MockRestartStore.create(new MockObjectManager(outsideWorld), ioManager);
-    System.out.println(outsideWorld);
+    Map<Long, Map<String, String>>restoredWorld = new HashMap<Long, Map<String, String>>();
+    MockRestartStore.create(new MockObjectManager(restoredWorld), ioManager);
+    Assert.assertThat(restoredWorld, equalTo(outsideWorld));
   }
 }

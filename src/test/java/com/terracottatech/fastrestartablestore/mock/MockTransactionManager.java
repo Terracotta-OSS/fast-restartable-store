@@ -40,7 +40,7 @@ class MockTransactionManager implements TransactionManager {
     locks = new MockTransactionLockProvider(1024, 1024);
   }
 
-  public TransactionHandle create() {
+  public TransactionHandle begin() {
     long id = txnId.getAndIncrement();
     rcdManager.asyncHappened(new MockTransactionBeginAction(id));
     TransactionHandle handle = new MockTransactionHandle(id);

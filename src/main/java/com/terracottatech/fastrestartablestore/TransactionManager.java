@@ -12,7 +12,7 @@ import com.terracottatech.fastrestartablestore.messages.Action;
  */
 public interface TransactionManager {
   
-  TransactionHandle create();
+  TransactionHandle begin();
   
   void commit(TransactionHandle handle);
   

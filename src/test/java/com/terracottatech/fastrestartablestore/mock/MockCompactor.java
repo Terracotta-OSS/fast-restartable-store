@@ -55,7 +55,7 @@ class MockCompactor<I, K, V> implements Compactor {
   public void compact() {
     CompleteKey<I, K> key = manager.getCompactionKey();
     if (key != null) {
-      TransactionHandle txnHandle = txnManager.create();
+      TransactionHandle txnHandle = txnManager.begin();
       txnManager.happened(txnHandle, new MockCompactionAction<I, K, V>(key));
       txnManager.commit(txnHandle);
     }

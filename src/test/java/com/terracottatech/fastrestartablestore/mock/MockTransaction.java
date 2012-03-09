@@ -19,7 +19,7 @@ class MockTransaction implements Transaction<Long, String, String> {
   
   public MockTransaction(TransactionManager txnManager) {
     this.txnManager = txnManager;
-    this.txnHandle = txnManager.create();
+    this.txnHandle = txnManager.begin();
   }
 
   @Override

@@ -4,17 +4,15 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.CompleteKey;
-import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.CompleteKey;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-import java.util.AbstractMap.SimpleEntry;
 
 /**
  *
@@ -39,6 +37,16 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
     }
   }
 
+  @Override
+  public long getLsn(I id, K key) {
+    LinkedHashMap<K, Long> m = map.get(id);
+    if (m == null) {
+      return -1;
+    }
+    Long lsn = m.get(key);
+    return lsn == null ? -1 : lsn;
+  }
+
   private Entry<CompleteKey<I, K>, Long> lowestEntry() {
     Entry<CompleteKey<I, K>, Long> lowest = null;
     for (Entry<I, LinkedHashMap<K, Long>> m : map.entrySet()) {
@@ -46,7 +54,7 @@ class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
       if (it.hasNext()) {
         Entry<K, Long> e = it.next();
         if (lowest == null || e.getValue() < lowest.getValue()) {
-          lowest = new SimpleEntry<CompleteKey<I, K>, Long>(new MockCompleteKey(m.getKey(), e.getKey()), e.getValue());
+          lowest = new SimpleEntry<CompleteKey<I, K>, Long>(new MockCompleteKey<I, K>(m.getKey(), e.getKey()), e.getValue());
         }
       }
     }

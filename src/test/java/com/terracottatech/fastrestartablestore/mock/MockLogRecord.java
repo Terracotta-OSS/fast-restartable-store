@@ -4,9 +4,11 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import java.io.Serializable;
+
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
-import java.io.Serializable;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *
@@ -14,19 +16,19 @@ import java.io.Serializable;
  */
 class MockLogRecord implements LogRecord, Serializable {
 
-  private final long lsn;
   private final long previousLsn;
   private final long lowestLsn;
   private final Action action;
   
-  MockLogRecord(long lsn, long previousLsn, long lowestLsn, Action action) {
+  private long lsn = -1;
+  
+  MockLogRecord(Action action, long lowestLsn) {
     //assert lsn > previousLsn;
     //assert previousLsn >= lowestLsn;
-    
-    this.lsn = lsn;
-    this.previousLsn = previousLsn;
-    this.lowestLsn = lowestLsn;
+
     this.action = action;
+    this.previousLsn = action.getLsn();
+    this.lowestLsn = lowestLsn;
   }
 
   public long getLsn() {
@@ -48,6 +50,11 @@ class MockLogRecord implements LogRecord, Serializable {
     return "LogRecord[lowest-lsn=" + getLowestLsn() + ", previous-lsn=" + getPreviousLsn() + ", lsn=" + getLsn() + " {\n"
             + actionOut + "\n"
             + "}";
+  }
+
+  public void updateLsn(long lsn) {
+    this.lsn = lsn;
+    action.record(lsn);
   }
 
   Action getAction() {

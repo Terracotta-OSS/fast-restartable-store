@@ -52,7 +52,7 @@ public class MockTest {
     context.commit();
     
     context = mock.beginTransaction();
-    context.put(1L, "foo", "baz");
+    context.put(1L, "foo", "bazzab");
 //    outsideWorld.get(1L).put("foo", "baz");
 
     context = mock.beginTransaction();
@@ -64,7 +64,7 @@ public class MockTest {
     //crash here - all knowledge lost - except IOManager
     
     Map<Long, Map<String, String>>restoredWorld = new HashMap<Long, Map<String, String>>();
-    MockRestartStore.create(new MockObjectManager(restoredWorld), ioManager);
+    MockRestartStore.create(new MockObjectManager<Long, String, String>(restoredWorld), ioManager);
     Assert.assertThat(restoredWorld, equalTo(outsideWorld));
   }
 }

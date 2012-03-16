@@ -4,23 +4,20 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.concurrent.locks.Lock;
+
 import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
-
-import java.io.Serializable;
-
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  * 
  * @author cdennis
  */
-class MockTransactionalAction implements Action, Serializable {
+class MockTransactionalAction implements MockAction, Serializable {
   private static final long serialVersionUID = 1L;
   private final long id;
   private final Action embedded;
@@ -31,14 +28,26 @@ class MockTransactionalAction implements Action, Serializable {
   }
   
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    return embedded.record(objManager, lsn);
+  public void setObjectManager(ObjectManager<?, ?, ?> objManager) {
+    if (embedded instanceof MockAction) {
+      ((MockAction) embedded).setObjectManager(objManager);
+    }
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public long getLsn() {
+    return embedded.getLsn();
+  }
+
+  @Override
+  public void record(long lsn) {
+    embedded.record(lsn);
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     if (filter.allows(this)) {
-      return embedded.replay(filter, objManager, lsn);
+      return embedded.replay(filter, lsn);
     } else {
       return false;
     }

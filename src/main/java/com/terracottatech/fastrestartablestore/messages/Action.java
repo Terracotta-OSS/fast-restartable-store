@@ -18,9 +18,11 @@ import java.util.concurrent.locks.ReadWriteLock;
  */
 public interface Action {
 
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn);
+  public long getLsn();
   
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn);
+  public void record(long lsn);
+  
+  public boolean replay(ReplayFilter filter, long lsn);
 
   /*
    * compaction actions invalidate themselves here - they switch their record 

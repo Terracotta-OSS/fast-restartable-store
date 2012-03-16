@@ -4,7 +4,6 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -21,7 +20,7 @@ import com.terracottatech.fastrestartablestore.spi.ObjectManager;
  */
 class MockCompactor<I, K, V> implements Compactor {
   private final TransactionManager txnManager;
-  private final ObjectManager<I, K, V> manager;
+  private final ObjectManager<I, K, V> objManager;
   private final ExecutorService executor = Executors.newFixedThreadPool(1, new ThreadFactory() {
     @Override
     public Thread newThread(Runnable arg0) {
@@ -41,7 +40,7 @@ class MockCompactor<I, K, V> implements Compactor {
   public MockCompactor(TransactionManager txnManager,
       ObjectManager<I, K, V> objectManager) {
     this.txnManager = txnManager;
-    this.manager = objectManager;
+    this.objManager = objectManager;
   }
 
   public void compactNow() {
@@ -53,10 +52,10 @@ class MockCompactor<I, K, V> implements Compactor {
   }
 
   public void compact() {
-    CompleteKey<I, K> key = manager.getCompactionKey();
+    CompleteKey<I, K> key = objManager.getCompactionKey();
     if (key != null) {
       TransactionHandle txnHandle = txnManager.begin();
-      txnManager.happened(txnHandle, new MockCompactionAction<I, K, V>(key));
+      txnManager.happened(txnHandle, new MockCompactionAction<I, K, V>(objManager, key));
       txnManager.commit(txnHandle);
     }
   }

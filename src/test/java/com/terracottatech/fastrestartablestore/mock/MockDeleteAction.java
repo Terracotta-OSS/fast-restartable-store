@@ -10,22 +10,33 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 
-public class MockDeleteAction<I> implements Action {
+public class MockDeleteAction<I> implements MockAction {
 
   private final I id;
+  private transient ObjectManager<I, ?, ?> objManager;
   
-  public MockDeleteAction(I id) {
+  public MockDeleteAction(ObjectManager<I, ?, ?> objManager, I id) {
     this.id = id;
+    this.objManager = objManager;
   }
 
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    ((ObjectManager<I, ?, ?>) objManager).delete(id);
+  public void setObjectManager(ObjectManager<?, ?, ?> objManager) {
+    this.objManager = (ObjectManager<I, ?, ?>) objManager;
+  }
+
+  @Override
+  public long getLsn() {
     return -1;
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public void record(long lsn) {
+    objManager.delete(id);
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     filter.addRule(new MockDeleteFilter<I>(id));
     return false;
   }

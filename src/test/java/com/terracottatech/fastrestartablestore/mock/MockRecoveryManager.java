@@ -48,7 +48,7 @@ public class MockRecoveryManager implements RecoveryManager {
         skips.add(record.getPreviousLsn());
       } else {
         Action action = rcdManager.extract(record);
-        if (action.replay(filter, objManager, record.getLsn())) {
+        if (action.replay(filter, record.getLsn())) {
           skips.add(record.getPreviousLsn());
         }
       }

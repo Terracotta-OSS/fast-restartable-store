@@ -27,12 +27,17 @@ class MockTransactionCommitAction implements Action, Serializable {
   }
 
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
+  public long getLsn() {
     return -1;
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public void record(long lsn) {
+    //
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     filter.addRule(new MockAllowTransactionRule(id));
     return false;
   }

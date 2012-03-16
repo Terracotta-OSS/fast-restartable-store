@@ -4,14 +4,13 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.Compactor;
+import java.util.concurrent.Future;
+
 import com.terracottatech.fastrestartablestore.LogManager;
 import com.terracottatech.fastrestartablestore.RecordManager;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  *
@@ -19,8 +18,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 class MockRecordManager implements RecordManager {
 
-  private final AtomicLong nextLsn = new AtomicLong();
-  
   private final ObjectManager<?, ?, ?> objManager;
   private final LogManager logManager;
   
@@ -29,15 +26,8 @@ class MockRecordManager implements RecordManager {
     this.logManager = logManager;
   }
 
-  private long getNextLsn() {
-    return nextLsn.getAndIncrement();
-  }
-  
   public synchronized Future<Void> happened(Action action) {
-    long lsn = getNextLsn();
-    long lowestLsn = objManager.getLowestLsn();
-    long previousLsn = action.record(objManager, lsn);
-    LogRecord record = new MockLogRecord(lsn, previousLsn, lowestLsn, action);
+    LogRecord record = new MockLogRecord(action, objManager.getLowestLsn());
     return logManager.append(record);
   }
 
@@ -47,7 +37,11 @@ class MockRecordManager implements RecordManager {
 
   public Action extract(LogRecord record) throws IllegalArgumentException {
     if (record instanceof MockLogRecord) {
-      return ((MockLogRecord) record).getAction();
+      Action action = ((MockLogRecord) record).getAction();
+      if (action instanceof MockAction) {
+        ((MockAction) action).setObjectManager(objManager);
+      }
+      return action;
     } else {
       throw new AssertionError();
     }

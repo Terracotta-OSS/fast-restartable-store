@@ -28,12 +28,17 @@ class MockTransactionBeginAction implements Action, Serializable {
   }
   
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
+  public long getLsn() {
     return -1;
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public void record(long lsn) {
+    // Nothing to do
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     filter.removeRule(new MockAllowTransactionRule(id));
     return false;
   }

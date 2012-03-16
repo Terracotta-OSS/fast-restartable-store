@@ -12,6 +12,7 @@ import com.terracottatech.fastrestartablestore.RecoveryManager;
 import com.terracottatech.fastrestartablestore.RestartStore;
 import com.terracottatech.fastrestartablestore.Transaction;
 import com.terracottatech.fastrestartablestore.TransactionManager;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *
@@ -20,15 +21,17 @@ import com.terracottatech.fastrestartablestore.TransactionManager;
 public class MockRestartStore implements RestartStore<Long, String, String> {
 
   private final TransactionManager txnManager;
+  private final ObjectManager<Long, String, String> objManager;
   private final Compactor compactor;
   
-  private MockRestartStore(TransactionManager txnManager, Compactor compactor) {
+  private MockRestartStore(TransactionManager txnManager, ObjectManager<Long, String, String> objManager, Compactor compactor) {
     this.txnManager = txnManager;
+    this.objManager = objManager;
     this.compactor = compactor;
   }
   
   public Transaction<Long, String, String> beginTransaction() {
-    return new MockTransaction(txnManager);
+    return new MockTransaction(txnManager, objManager);
   }
 
   public static MockRestartStore create(MockObjectManager<Long, String, String> objManager, IOManager ioManager) {
@@ -40,7 +43,7 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
     RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager, objManager);
     recovery.recover();
     
-    return new MockRestartStore(txnManager, compactor);
+    return new MockRestartStore(txnManager, objManager, compactor);
   }
   
   public void compact() {

@@ -16,6 +16,8 @@ public interface ObjectManager<I, K, V> {
    */
   long getLowestLsn();
   
+  long getLsn(I id, K key);
+  
   /*
    * XXX : do we want to have V here or not - should we make a decision on 
    * wrapping versus embedding of the final library.

@@ -19,21 +19,26 @@ import java.util.concurrent.locks.ReadWriteLock;
  *
  * @author cdennis
  */
-public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> {
+public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> implements MockAction {
 
   private boolean valid = true;
   private Action compacted = null;
+  private transient final ObjectManager<I, K, V> objManager;
   
-  public MockCompactionAction(CompleteKey<I, K> key) {
+  public MockCompactionAction(ObjectManager<I, K, V> objManager, CompleteKey<I, K> key) {
     super(key);
+    this.objManager = objManager;
   }
   
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    if (valid) {
-      V value = ((ObjectManager<I, K, V> )objManager).replaceLsn(getId(), getKey(), lsn);
-      compacted = new MockPutAction<I, K, V>(getId(), getKey(), value);
+  public void setObjectManager(ObjectManager<?, ?, ?> objManager) {
+    if (compacted instanceof MockAction) {
+      ((MockAction) compacted).setObjectManager(objManager);
     }
+  }
+
+  @Override
+  public long getLsn() {
     // XXX: This works because the the compacted action is just a duplicate of the put action we're compacting.
     // However this seems rather wrong because we'll be doing a put twice. Theoretically this shouldn't happen 
     // too often as we probably going to be deleted the chunks that have been compacted anyways.
@@ -41,9 +46,17 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> {
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public void record(long lsn) {
     if (valid) {
-      return compacted.replay(filter, objManager, lsn);
+      V value = objManager.replaceLsn(getId(), getKey(), lsn);
+      compacted = new MockPutAction<I, K, V>(objManager, getId(), getKey(), value);
+    }
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
+    if (valid) {
+      return compacted.replay(filter, lsn);
     } else {
       return false;
     }

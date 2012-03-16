@@ -13,19 +13,27 @@ import java.io.Serializable;
  *
  * @author cdennis
  */
-class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Serializable {
+class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Serializable, MockAction {
 
-  public MockRemoveAction(I id, K key) {
+  private transient ObjectManager<I, K, ?> objManager;
+  
+  public MockRemoveAction(ObjectManager<I, K, ?> objManager, I id, K key) {
     super(id, key);
+    this.objManager = objManager;
   }
 
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    return ((ObjectManager<I, K, ?>) objManager).remove(getId(), getKey());
+  public long getLsn() {
+    return objManager.getLsn(getId(), getKey());
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public void record(long lsn) {
+     objManager.remove(getId(), getKey());
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     if (!filter.disallows(this)) {
       return true;
     } else {
@@ -35,5 +43,10 @@ class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Seri
   
   public String toString() {
     return "Action: remove(" + getId() + ":" + getKey() + ")";
+  }
+
+  @Override
+  public void setObjectManager(ObjectManager<?, ?, ?> objManager) {
+    this.objManager = (ObjectManager<I, K, ?>) objManager;
   }
 }

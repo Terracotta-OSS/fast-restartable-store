@@ -14,26 +14,38 @@ import java.io.Serializable;
  * 
  * @author cdennis
  */
-class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Serializable {
+class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Serializable, MockAction {
 
   private static final long serialVersionUID = -696424493751601762L;
 
   private final V value;
+  private transient ObjectManager<I, K, V> objManager;
 
-  public MockPutAction(I id, K key, V value) {
+  public MockPutAction(ObjectManager<I, K, V> objManager, I id, K key, V value) {
     super(id, key);
     this.value = value;
+    this.objManager = objManager;
   }
 
   @Override
-  public long record(ObjectManager<?, ?, ?> objManager, long lsn) {
-    return ((ObjectManager<I, K, V>) objManager).put(getId(), getKey(), value, lsn);
+  public void setObjectManager(ObjectManager<?, ?, ?> objManager) {
+    this.objManager = (ObjectManager<I, K, V>) objManager;
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, ObjectManager<?, ?, ?> objManager, long lsn) {
+  public long getLsn() {
+    return objManager.getLsn(getId(), getKey());
+  }
+
+  @Override
+  public void record(long lsn) {
+    objManager.put(getId(), getKey(), value, lsn);
+  }
+
+  @Override
+  public boolean replay(ReplayFilter filter, long lsn) {
     if (!filter.disallows(this)) {
-      ((ObjectManager<I, K, V>) objManager).replayPut(getId(), getKey(), value, lsn);
+      objManager.replayPut(getId(), getKey(), value, lsn);
       return true;
     } else {
       return false;

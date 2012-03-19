@@ -5,15 +5,12 @@
 package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.CompleteKey;
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  *
@@ -54,11 +51,9 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> i
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
+  public void replay(long lsn) {
     if (valid) {
-      return compacted.replay(filter, lsn);
-    } else {
-      return false;
+      compacted.replay(lsn);
     }
   }
 

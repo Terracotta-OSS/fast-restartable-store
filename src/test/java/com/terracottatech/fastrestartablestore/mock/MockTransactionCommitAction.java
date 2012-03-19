@@ -4,15 +4,13 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.TransactionLockProvider;
+import com.terracottatech.fastrestartablestore.messages.Action;
+import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
-
-import com.terracottatech.fastrestartablestore.ReplayFilter;
-import com.terracottatech.fastrestartablestore.TransactionLockProvider;
-import com.terracottatech.fastrestartablestore.messages.Action;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *
@@ -37,11 +35,11 @@ class MockTransactionCommitAction implements Action, Serializable {
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
-    filter.addRule(new MockAllowTransactionRule(id));
-    return false;
+  public void replay(long lsn) {
+    throw new AssertionError();
   }
 
+  @Override
   public String toString() {
     return "Action: commitTransaction(" + id + ")";
   }

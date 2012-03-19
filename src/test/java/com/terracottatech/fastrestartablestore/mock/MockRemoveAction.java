@@ -4,9 +4,7 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
-
 import java.io.Serializable;
 
 /**
@@ -33,12 +31,8 @@ class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Seri
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
-    if (!filter.disallows(this)) {
-      return true;
-    } else {
-      return false;
-    }
+  public void replay(long lsn) {
+    //no-op
   }
   
   public String toString() {

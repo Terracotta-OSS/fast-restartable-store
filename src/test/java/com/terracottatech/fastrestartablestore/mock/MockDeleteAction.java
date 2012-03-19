@@ -1,14 +1,10 @@
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
-import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 
 public class MockDeleteAction<I> implements MockAction {
 
@@ -36,9 +32,8 @@ public class MockDeleteAction<I> implements MockAction {
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
-    filter.addRule(new MockDeleteFilter<I>(id));
-    return false;
+  public void replay(long lsn) {
+    throw new AssertionError();
   }
 
   @Override
@@ -46,5 +41,9 @@ public class MockDeleteAction<I> implements MockAction {
     Lock idLock = locks.getLockForId(id).writeLock();
     idLock.lock();
     return Collections.singleton(idLock);
+  }
+  
+  public I getId() {
+    return id;
   }
 }

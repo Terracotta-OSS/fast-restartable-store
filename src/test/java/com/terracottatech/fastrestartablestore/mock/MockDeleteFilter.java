@@ -4,34 +4,38 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.FilterRule;
+import com.terracottatech.fastrestartablestore.Filter;
 import com.terracottatech.fastrestartablestore.messages.Action;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  *
  * @author cdennis
  */
-public class MockDeleteFilter<I> implements FilterRule {
+public class MockDeleteFilter<I> extends MockAbstractFilter<Action, Action> {
 
-  private final I id;
-  
-  public MockDeleteFilter(I id) {
-    this.id = id;
+  private Set<I> deletedIds = new HashSet<I>();
+
+  public MockDeleteFilter(Filter<Action> next) {
+    super(next);
   }
   
   @Override
-  public boolean disallows(Action action) {
-    if (action instanceof MockPutAction) {
-      if (id.equals(((MockPutAction<?, ?, ?>) action).getId())) {
-        return true;
-      }
+  public boolean filter(Action element, long lsn) {
+    if (element instanceof MockDeleteAction<?>) {
+      deletedIds.add(((MockDeleteAction<I>) element).getId());
+      return true;
+    } else if (element instanceof MockCompleteKeyAction<?, ?> && deletedIds.contains(((MockCompleteKeyAction<I, ?>) element).getId())) {
+      return true;
+    } else {
+      return delegate(element, lsn);
     }
-    return false;
   }
 
   @Override
-  public boolean allows(Action action) {
-    return false;
+  protected Action convert(Action element) {
+    return element;
   }
   
 }

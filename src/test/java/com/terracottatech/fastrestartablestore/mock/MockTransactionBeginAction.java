@@ -4,16 +4,13 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  *
@@ -38,9 +35,8 @@ class MockTransactionBeginAction implements Action, Serializable {
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
-    filter.removeRule(new MockAllowTransactionRule(id));
-    return false;
+  public void replay(long lsn) {
+    throw new AssertionError();
   }
 
   public String toString() {
@@ -49,5 +45,9 @@ class MockTransactionBeginAction implements Action, Serializable {
 
   public Collection<Lock> lock(TransactionLockProvider locks) {
     return Collections.emptyList();
+  }
+
+  long getId() {
+    return id;
   }
 }

@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.concurrent.locks.Lock;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
@@ -45,12 +44,8 @@ class MockTransactionalAction implements MockAction, Serializable {
   }
 
   @Override
-  public boolean replay(ReplayFilter filter, long lsn) {
-    if (filter.allows(this)) {
-      return embedded.replay(filter, lsn);
-    } else {
-      return false;
-    }
+  public void replay(long lsn) {
+    throw new AssertionError();
   }
 
   public String toString() {
@@ -64,5 +59,9 @@ class MockTransactionalAction implements MockAction, Serializable {
   @Override
   public Collection<Lock> lock(TransactionLockProvider locks) {
     return embedded.lock(locks);
+  }
+
+  Action getEmbeddedAction() {
+    return embedded;
   }
 }

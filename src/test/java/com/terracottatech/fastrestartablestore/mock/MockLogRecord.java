@@ -8,7 +8,6 @@ import java.io.Serializable;
 
 import com.terracottatech.fastrestartablestore.messages.Action;
 import com.terracottatech.fastrestartablestore.messages.LogRecord;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *

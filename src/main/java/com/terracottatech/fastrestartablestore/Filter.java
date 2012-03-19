@@ -4,15 +4,14 @@
  */
 package com.terracottatech.fastrestartablestore;
 
-import com.terracottatech.fastrestartablestore.messages.Action;
-
 /**
  *
  * @author cdennis
  */
-public interface FilterRule {
+public interface Filter<T> {
   
-  boolean disallows(Action action);
-  
-  boolean allows(Action action);
+  /**
+   * Returns {@code true} if the record forms a valid part of the log.
+   */
+  boolean filter(T element, long lsn);
 }

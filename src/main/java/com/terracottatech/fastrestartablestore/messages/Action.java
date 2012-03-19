@@ -4,13 +4,9 @@
  */
 package com.terracottatech.fastrestartablestore.messages;
 
-import com.terracottatech.fastrestartablestore.ReplayFilter;
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  *
@@ -22,7 +18,7 @@ public interface Action {
   
   public void record(long lsn);
   
-  public boolean replay(ReplayFilter filter, long lsn);
+  public void replay(long lsn);
 
   /*
    * compaction actions invalidate themselves here - they switch their record 

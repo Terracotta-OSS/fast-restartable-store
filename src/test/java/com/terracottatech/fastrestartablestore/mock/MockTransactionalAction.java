@@ -34,8 +34,8 @@ class MockTransactionalAction implements MockAction, Serializable {
   }
 
   @Override
-  public long getLsn() {
-    return embedded.getLsn();
+  public long getPreviousLsn() {
+    return embedded.getPreviousLsn();
   }
 
   @Override

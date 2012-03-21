@@ -25,7 +25,7 @@ class MockTransactionBeginAction implements Action, Serializable {
   }
   
   @Override
-  public long getLsn() {
+  public long getPreviousLsn() {
     return -1;
   }
 

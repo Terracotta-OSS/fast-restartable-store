@@ -26,7 +26,7 @@ class MockLogRecord implements LogRecord, Serializable {
     //assert previousLsn >= lowestLsn;
 
     this.action = action;
-    this.previousLsn = action.getLsn();
+    this.previousLsn = action.getPreviousLsn();
     this.lowestLsn = lowestLsn;
   }
 

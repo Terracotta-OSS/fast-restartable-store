@@ -22,7 +22,7 @@ public class MockDeleteAction<I> implements MockAction {
   }
 
   @Override
-  public long getLsn() {
+  public long getPreviousLsn() {
     return -1;
   }
 

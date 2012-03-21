@@ -14,7 +14,7 @@ import java.util.concurrent.locks.Lock;
  */
 public interface Action {
 
-  public long getLsn();
+  public long getPreviousLsn();
   
   public void record(long lsn);
   

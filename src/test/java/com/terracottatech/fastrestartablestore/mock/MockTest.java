@@ -28,35 +28,35 @@ public class MockTest {
     Map<Long, Map<String, String>> outsideWorld = new HashMap<Long, Map<String, String>>();
     MockRestartStore mock = MockRestartStore.create(new MockObjectManager<Long, String, String>(outsideWorld), ioManager);
     
-    Transaction<Long, String, String> context = mock.beginTransaction();
-    context.put(1L, "far", "bar");
+    Transaction<Long, String, String> transaction = mock.beginTransaction();
+    transaction.put(1L, "far", "bar");
     outsideWorld.put(1L, new HashMap<String, String>());
     outsideWorld.get(1L).put("far", "bar");
-    context.commit();
+    transaction.commit();
     
-    context = mock.beginTransaction();
-    context.put(1L, "foo", "baz");
+    transaction = mock.beginTransaction();
+    transaction.put(1L, "foo", "baz");
     outsideWorld.get(1L).put("foo", "baz");
-    context.commit();
+    transaction.commit();
     
-    context = mock.beginTransaction();
-    context.remove(1L, "foo");
+    transaction = mock.beginTransaction();
+    transaction.remove(1L, "foo");
     outsideWorld.get(1L).remove("foo");
     mock.compact();
-    context.commit();
+    transaction.commit();
 
-    context = mock.beginTransaction();
-    context.put(1L, "bar", "baz");
+    transaction = mock.beginTransaction();
+    transaction.put(1L, "bar", "baz");
     outsideWorld.get(1L).put("bar", "baz");
     mock.compact();
-    context.commit();
+    transaction.commit();
     
-    context = mock.beginTransaction();
-    context.put(1L, "foo", "bazzab");
+    transaction = mock.beginTransaction();
+    transaction.put(1L, "foo", "bazzab");
 //    outsideWorld.get(1L).put("foo", "baz");
 
-    context = mock.beginTransaction();
-    context.remove(1L, "bar");
+    transaction = mock.beginTransaction();
+    transaction.remove(1L, "bar");
 //    outsideWorld.get(1L).remove("bar");
     
     System.out.println("XXXXX CRASHING HERE XXXXX");

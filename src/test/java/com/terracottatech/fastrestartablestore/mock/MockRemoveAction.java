@@ -21,7 +21,7 @@ class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Seri
   }
 
   @Override
-  public long getLsn() {
+  public long getPreviousLsn() {
     return objManager.getLsn(getId(), getKey());
   }
 

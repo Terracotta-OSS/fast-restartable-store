@@ -30,7 +30,7 @@ class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implements Seri
   }
 
   @Override
-  public long getLsn() {
+  public long getPreviousLsn() {
     return objManager.getLsn(getId(), getKey());
   }
 

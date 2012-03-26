@@ -26,12 +26,12 @@ class MockRecordManager implements RecordManager {
     this.logManager = logManager;
   }
 
-  public synchronized Future<Void> happened(Action action) {
+  public Future<Void> happened(Action action) {
     LogRecord record = new MockLogRecord(action, objManager.getLowestLsn());
     return logManager.append(record);
   }
 
-  public synchronized void asyncHappened(Action action) {
+  public void asyncHappened(Action action) {
     happened(action);
   }
 

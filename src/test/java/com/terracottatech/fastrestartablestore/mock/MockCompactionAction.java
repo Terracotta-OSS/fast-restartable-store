@@ -38,7 +38,7 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> i
   public long getPreviousLsn() {
     // XXX: This works because the the compacted action is just a duplicate of the put action we're compacting.
     // However this seems rather wrong because we'll be doing a put twice. Theoretically this shouldn't happen 
-    // too often as we probably going to be deleted the chunks that have been compacted anyways.
+    // too often as we're probably going to be deleting the chunks that have been compacted anyways.
     return -1;
   }
 

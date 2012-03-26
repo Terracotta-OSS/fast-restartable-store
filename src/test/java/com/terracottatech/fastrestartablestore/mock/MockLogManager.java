@@ -4,6 +4,11 @@
  */
 package com.terracottatech.fastrestartablestore.mock;
 
+import com.terracottatech.fastrestartablestore.ChunkFactory;
+import com.terracottatech.fastrestartablestore.IOManager;
+import com.terracottatech.fastrestartablestore.LogManager;
+import com.terracottatech.fastrestartablestore.messages.LogRecord;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInput;
@@ -11,12 +16,6 @@ import java.io.ObjectInputStream;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-
-import com.terracottatech.fastrestartablestore.ChunkFactory;
-import com.terracottatech.fastrestartablestore.IOManager;
-import com.terracottatech.fastrestartablestore.LogManager;
-import com.terracottatech.fastrestartablestore.messages.LogRecord;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *
@@ -30,7 +29,7 @@ class MockLogManager implements LogManager {
     this.ioManager = ioManager;
   }
 
-  public Future<Void> append(LogRecord record) {
+  public synchronized Future<Void> append(LogRecord record) {
     record.updateLsn(currentLsn.getAndIncrement());
     return ioManager.append(new MockLogRegion(record));
   }

@@ -6,7 +6,6 @@ package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.Filter;
 import com.terracottatech.fastrestartablestore.messages.Action;
-import com.terracottatech.fastrestartablestore.spi.ObjectManager;
 
 /**
  *
@@ -14,12 +13,6 @@ import com.terracottatech.fastrestartablestore.spi.ObjectManager;
  */
 class MockReplayFilter implements Filter<Action> {
 
-  private final ObjectManager<?, ?, ?> objManager;
-
-  public MockReplayFilter(ObjectManager<?, ?, ?> objManager) {
-    this.objManager = objManager;
-  }
-  
   @Override
   public boolean filter(Action element, long lsn) {
     element.replay(lsn);

@@ -40,7 +40,7 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
     TransactionManager txnManager = new MockTransactionManager(rcdManager);
     Compactor compactor = new MockCompactor<Long, String, String>(txnManager, objManager);
     
-    RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager, objManager);
+    RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager);
     recovery.recover();
     
     return new MockRestartStore(txnManager, objManager, compactor);

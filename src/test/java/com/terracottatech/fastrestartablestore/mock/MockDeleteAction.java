@@ -2,15 +2,17 @@ package com.terracottatech.fastrestartablestore.mock;
 
 import com.terracottatech.fastrestartablestore.TransactionLockProvider;
 import com.terracottatech.fastrestartablestore.spi.ObjectManager;
+
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
 
-public class MockDeleteAction<I> implements MockAction {
+public class MockDeleteAction<I> implements MockAction, Serializable {
 
   private final I id;
   private transient ObjectManager<I, ?, ?> objManager;
-  
+
   public MockDeleteAction(ObjectManager<I, ?, ?> objManager, I id) {
     this.id = id;
     this.objManager = objManager;

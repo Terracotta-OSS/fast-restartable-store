@@ -58,6 +58,24 @@ public class MockTest {
     transaction = mock.beginTransaction();
     transaction.remove(1L, "bar");
 //    outsideWorld.get(1L).remove("bar");
+
+    transaction = mock.beginTransaction();
+    transaction.put(2L, "foo", "bar");
+    transaction.put(2L, "baz", "boo");
+//    outsideWorld.put(2L, new HashMap<String, String>());
+//    outsideWorld.get(2L).put("foo", "bar");
+//    outsideWorld.get(2L).put("baz", "boo");
+    transaction.commit();
+
+    transaction = mock.beginTransaction();
+    transaction.put(2L, "foo", "baz");
+//    outsideWorld.get(2L).put("foo", "baz");
+    transaction.commit();
+
+    transaction = mock.beginTransaction();
+    transaction.delete(2L);
+    outsideWorld.remove(2L);
+    transaction.commit();
     
     System.out.println("XXXXX CRASHING HERE XXXXX");
 

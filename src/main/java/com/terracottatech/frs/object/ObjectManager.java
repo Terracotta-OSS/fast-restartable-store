@@ -10,7 +10,13 @@ package com.terracottatech.frs.object;
 public interface ObjectManager<I, K, V> {
 
   /**
-   * @return lowest live lsn in system, -1 if none
+   * Returns an estimate of the lowest live lsn in the system.
+   * <p>
+   * It is acceptable to underestimate this value but not to overestimate it.
+   * Since the estimated quantity is monotonically increasing this means it is
+   * acceptable to return an out-of-date estimate here.
+   *
+   * @return an estimate of the oldest live lsn, {@code -1} if none.
    */
   long getLowestLsn();
   
@@ -20,15 +26,19 @@ public interface ObjectManager<I, K, V> {
    * XXX : do we want to have V here or not - should we make a decision on 
    * wrapping versus embedding of the final library.
    */
-  long put(I id, K key, V value, long lsn);
+  void put(I id, K key, V value, long lsn);
   
   void delete(I id);
   
-  long remove(I id, K key);
+  void remove(I id, K key);
 
   void replayPut(I id, K key, V value, long lsn);
 
-  //combination of id and key - it returns some composite object...
+  /**
+   * Return a complete key suitable for compaction.
+   * 
+   * @return a key to be compacted.
+   */
   CompleteKey<I, K> getCompactionKey();
   
   V replaceLsn(I id, K key, long newLsn);

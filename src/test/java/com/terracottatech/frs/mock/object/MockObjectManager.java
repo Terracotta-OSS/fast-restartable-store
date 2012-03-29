@@ -71,23 +71,21 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
   
   @Override
-  public long put(I id, K key, V value, long lsn) {
+  public void put(I id, K key, V value, long lsn) {
     LinkedHashMap<K, Long> m = map.get(id);
     if (m == null) {
       m = new LinkedHashMap<K, Long>();
       map.put(id, m);
     }
-    Long previous = m.put(key, lsn);
-    return previous == null ? -1 : previous;
+    m.put(key, lsn);
   }
 
   @Override
-  public long remove(I id, K key) {
+  public void remove(I id, K key) {
     LinkedHashMap<K, Long> m = map.get(id);
     assert m != null;
     Long previous = m.remove(key);
     assert previous != null;
-    return previous;
   }
 
   @Override

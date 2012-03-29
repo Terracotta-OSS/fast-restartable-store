@@ -1,0 +1,53 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.terracottatech.frs.mock.transaction;
+
+import com.terracottatech.frs.transaction.TransactionLockProvider;
+import com.terracottatech.frs.action.Action;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.locks.Lock;
+
+/**
+ *
+ * @author cdennis
+ */
+public class MockTransactionBeginAction implements Action, Serializable {
+
+  private final long id;
+  
+  public MockTransactionBeginAction(long id) {
+    this.id = id;
+  }
+  
+  @Override
+  public long getPreviousLsn() {
+    return -1;
+  }
+
+  @Override
+  public void record(long lsn) {
+    // Nothing to do
+  }
+
+  @Override
+  public void replay(long lsn) {
+    throw new AssertionError();
+  }
+
+  public String toString() {
+    return "Action: beginTransaction(" + id + ")";
+  }
+
+  public Collection<Lock> lock(TransactionLockProvider locks) {
+    return Collections.emptyList();
+  }
+
+  public long getId() {
+    return id;
+  }
+}

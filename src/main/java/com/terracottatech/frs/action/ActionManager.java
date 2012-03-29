@@ -12,7 +12,7 @@ import java.util.concurrent.Future;
  *
  * @author cdennis
  */
-public interface RecordManager {
+public interface ActionManager {
 
   Future<Void> happened(Action action);
   

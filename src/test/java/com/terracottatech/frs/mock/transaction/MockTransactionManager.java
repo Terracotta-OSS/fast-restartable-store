@@ -13,7 +13,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
-import com.terracottatech.frs.action.RecordManager;
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.transaction.TransactionManager;
@@ -27,12 +27,12 @@ public class MockTransactionManager implements TransactionManager {
 
   private final AtomicLong txnId = new AtomicLong();
   
-  private final RecordManager rcdManager;
+  private final ActionManager rcdManager;
   
   private final Map<TransactionHandle, Collection<Lock>> heldLocks = new ConcurrentHashMap<TransactionHandle, Collection<Lock>>();
   private final TransactionLockProvider locks;
   
-  public MockTransactionManager(RecordManager rcdManager) {
+  public MockTransactionManager(ActionManager rcdManager) {
     this.rcdManager = rcdManager;
     locks = new MockTransactionLockProvider(1024, 1024);
   }

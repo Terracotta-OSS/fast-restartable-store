@@ -4,10 +4,10 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
-import com.terracottatech.frs.action.RecordManager;
 import com.terracottatech.frs.mock.action.MockActionManager;
 import com.terracottatech.frs.mock.log.MockLogManager;
 import com.terracottatech.frs.mock.object.MockObjectManager;
@@ -42,11 +42,11 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
 
   public static MockRestartStore create(MockObjectManager<Long, String, String> objManager, IOManager ioManager) {
     LogManager logManager = new MockLogManager(ioManager);
-    RecordManager rcdManager = new MockActionManager(objManager, logManager);
-    TransactionManager txnManager = new MockTransactionManager(rcdManager);
+    ActionManager actionManager = new MockActionManager(objManager, logManager);
+    TransactionManager txnManager = new MockTransactionManager(actionManager);
     Compactor compactor = new MockCompactor<Long, String, String>(txnManager, objManager);
     
-    RecoveryManager recovery = new MockRecoveryManager(logManager, rcdManager);
+    RecoveryManager recovery = new MockRecoveryManager(logManager, actionManager);
     recovery.recover();
     
     return new MockRestartStore(txnManager, objManager, compactor);

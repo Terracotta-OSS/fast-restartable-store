@@ -6,8 +6,8 @@ package com.terracottatech.frs.mock.action;
 
 import java.util.concurrent.Future;
 
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.log.LogManager;
-import com.terracottatech.frs.action.RecordManager;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.ObjectManager;
@@ -16,7 +16,7 @@ import com.terracottatech.frs.object.ObjectManager;
  *
  * @author cdennis
  */
-public class MockActionManager implements RecordManager {
+public class MockActionManager implements ActionManager {
 
   private final ObjectManager<?, ?, ?> objManager;
   private final LogManager logManager;

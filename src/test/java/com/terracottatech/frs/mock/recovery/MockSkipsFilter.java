@@ -4,8 +4,8 @@
  */
 package com.terracottatech.frs.mock.recovery;
 
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.recovery.Filter;
-import com.terracottatech.frs.action.RecordManager;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
 import java.util.HashSet;
@@ -18,11 +18,11 @@ import java.util.Set;
 class MockSkipsFilter extends MockAbstractFilter<LogRecord, Action> {
 
   private final Set<Long> skips = new HashSet<Long>();
-  private final RecordManager rcdManager;
+  private final ActionManager actionManager;
 
-  public MockSkipsFilter(RecordManager rcdManager, Filter<Action> next) {
+  public MockSkipsFilter(ActionManager actionManager, Filter<Action> next) {
     super(next);
-    this.rcdManager = rcdManager;
+    this.actionManager = actionManager;
   }
   
   @Override
@@ -42,7 +42,7 @@ class MockSkipsFilter extends MockAbstractFilter<LogRecord, Action> {
 
   @Override
   protected Action convert(LogRecord element) {
-    return rcdManager.extract(element);
+    return actionManager.extract(element);
   }
   
 }

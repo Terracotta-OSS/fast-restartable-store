@@ -7,19 +7,20 @@ package com.terracottatech.frs;
 /**
  * @author tim
  */
-public class TransactionException extends RestartStoreException {
-  public TransactionException() {
-  }
-
-  public TransactionException(String message) {
+public class RestartStoreException extends Exception {
+  public RestartStoreException(String message) {
     super(message);
   }
 
-  public TransactionException(String message, Throwable cause) {
+  public RestartStoreException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public TransactionException(Throwable cause) {
+  public RestartStoreException(Throwable cause) {
     super(cause);
+  }
+
+  public RestartStoreException() {
+
   }
 }

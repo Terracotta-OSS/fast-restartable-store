@@ -16,6 +16,6 @@ public interface Transaction<I, K, V> {
 
   Transaction<I, K, V> remove(I id, K key);
 
-  void commit();
+  void commit() throws InterruptedException, TransactionException;
   
 }

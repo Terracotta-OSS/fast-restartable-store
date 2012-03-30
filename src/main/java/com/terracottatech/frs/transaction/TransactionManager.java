@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.transaction;
 
+import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 
 /**
@@ -14,7 +15,7 @@ public interface TransactionManager {
   
   TransactionHandle begin();
   
-  void commit(TransactionHandle handle);
+  void commit(TransactionHandle handle) throws InterruptedException, TransactionException;
   
   void happened(TransactionHandle handle, Action action);
 }

@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
+import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.CompleteKey;
 import com.terracottatech.frs.transaction.TransactionHandle;
@@ -55,8 +56,13 @@ public class MockCompactor<I, K, V> implements Compactor {
     CompleteKey<I, K> key = objManager.getCompactionKey();
     if (key != null) {
       TransactionHandle txnHandle = txnManager.begin();
-      txnManager.happened(txnHandle, new MockCompactionAction<I, K, V>(objManager, key));
-      txnManager.commit(txnHandle);
+      Action compactionAction = new MockCompactionAction<I, K, V>(objManager, key);
+      txnManager.happened(txnHandle, compactionAction);
+      try {
+        txnManager.commit(txnHandle);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 }

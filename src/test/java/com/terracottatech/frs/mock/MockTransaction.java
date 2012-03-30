@@ -5,9 +5,10 @@
 package com.terracottatech.frs.mock;
 
 import com.terracottatech.frs.Transaction;
+import com.terracottatech.frs.TransactionException;
+import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
-import com.terracottatech.frs.object.ObjectManager;
 
 /**
  *
@@ -44,7 +45,7 @@ class MockTransaction implements Transaction<Long, String, String> {
   }
 
   @Override
-  public void commit() {
+  public void commit() throws InterruptedException, TransactionException {
     txnManager.commit(txnHandle);
   }
   

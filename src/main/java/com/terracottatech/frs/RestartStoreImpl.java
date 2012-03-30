@@ -56,7 +56,7 @@ class RestartStoreImpl<I, K, V> implements RestartStore<I, K, V> {
     }
 
     @Override
-    public synchronized void commit() {
+    public synchronized void commit() throws InterruptedException, TransactionException {
       checkCommitted();
       transactionManager.commit(handle);
       committed = true;

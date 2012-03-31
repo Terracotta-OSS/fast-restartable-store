@@ -8,25 +8,27 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
 
+import java.nio.ByteBuffer;
+
 /**
  *
  * @author twu
  */
-class RestartStoreImpl<I, K, V> implements RestartStore<I, K, V> {
-  private final ObjectManager<I, K, V> objectManager;
+class RestartStoreImpl implements RestartStore<Long, ByteBuffer, ByteBuffer> {
+  private final ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
 
-  RestartStoreImpl(ObjectManager<I, K, V> objectManager, TransactionManager transactionManager) {
+  RestartStoreImpl(ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
   }
 
   @Override
-  public Transaction<I, K, V> beginTransaction() {
+  public Transaction<Long, ByteBuffer, ByteBuffer> beginTransaction() {
     return new TransactionImpl();
   }
 
-  private class TransactionImpl implements Transaction<I, K, V> {
+  private class TransactionImpl implements Transaction<Long, ByteBuffer, ByteBuffer> {
     private final TransactionHandle handle;
     private boolean committed = false;
 
@@ -35,23 +37,23 @@ class RestartStoreImpl<I, K, V> implements RestartStore<I, K, V> {
     }
 
     @Override
-    public synchronized Transaction<I, K, V> put(I id, K key, V value) {
+    public synchronized Transaction<Long, ByteBuffer, ByteBuffer> put(Long id, ByteBuffer key, ByteBuffer value) {
       checkCommitted();
-      transactionManager.happened(handle, new PutAction<I, K, V>(objectManager, id, key, value));
+      transactionManager.happened(handle, new PutAction(objectManager, id, key, value));
       return this;
     }
 
     @Override
-    public synchronized Transaction<I, K, V> delete(I id) {
+    public synchronized Transaction<Long, ByteBuffer, ByteBuffer> delete(Long id) {
       checkCommitted();
-      transactionManager.happened(handle, new DeleteAction<I>(objectManager, id));
+      transactionManager.happened(handle, new DeleteAction(objectManager, id));
       return this;
     }
 
     @Override
-    public synchronized Transaction<I, K, V> remove(I id, K key) {
+    public synchronized Transaction<Long, ByteBuffer, ByteBuffer> remove(Long id, ByteBuffer key) {
       checkCommitted();
-      transactionManager.happened(handle, new RemoveAction<I, K>(objectManager, id, key));
+      transactionManager.happened(handle, new RemoveAction(objectManager, id, key));
       return this;
     }
 

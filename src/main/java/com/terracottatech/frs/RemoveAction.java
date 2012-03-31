@@ -8,6 +8,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -15,12 +16,12 @@ import java.util.concurrent.locks.Lock;
 /**
  * @author tim
  */
-class RemoveAction<I, K> implements Action {
-  private final ObjectManager<I, K, ?> objectManager;
-  private final I id;
-  private final K key;
+class RemoveAction implements Action {
+  private final ObjectManager<Long, ByteBuffer, ?> objectManager;
+  private final Long id;
+  private final ByteBuffer key;
 
-  RemoveAction(ObjectManager<I, K, ?> objectManager, I id, K key) {
+  RemoveAction(ObjectManager<Long, ByteBuffer, ?> objectManager, Long id, ByteBuffer key) {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;

@@ -35,7 +35,7 @@ public class TransactionManagerImpl implements TransactionManager {
     TransactionHandle handle = new TransactionHandleImpl(currentTransactionId.incrementAndGet());
     liveTransactions.add(handle);
     actionManager.asyncHappened(new TransactionBeginAction(handle));
-    return handle;  //To change body of implemented methods use File | Settings | File Templates.
+    return handle;
   }
 
   @Override

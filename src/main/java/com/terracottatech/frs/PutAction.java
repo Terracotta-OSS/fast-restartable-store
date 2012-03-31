@@ -8,6 +8,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -15,13 +16,13 @@ import java.util.concurrent.locks.Lock;
 /**
 * @author tim
 */
-class PutAction<I, K, V> implements Action {
-  private final ObjectManager<I, K, V> objectManager;
-  private final I id;
-  private final K key;
-  private final V value;
+class PutAction implements Action {
+  private final ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
+  private final Long id;
+  private final ByteBuffer key;
+  private final ByteBuffer value;
 
-  PutAction(ObjectManager<I, K, V> objectManager, I id, K key, V value) {
+  PutAction(ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager, Long id, ByteBuffer key, ByteBuffer value) {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;

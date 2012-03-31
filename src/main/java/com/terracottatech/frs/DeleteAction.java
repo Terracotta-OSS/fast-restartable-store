@@ -15,11 +15,11 @@ import java.util.concurrent.locks.Lock;
 /**
  * @author tim
  */
-class DeleteAction<I> implements Action {
-  private final ObjectManager<I, ?, ?> objectManager;
-  private final I id;
+class DeleteAction implements Action {
+  private final ObjectManager<Long, ?, ?> objectManager;
+  private final Long id;
 
-  DeleteAction(ObjectManager<I, ?, ?> objectManager, I id) {
+  DeleteAction(ObjectManager<Long, ?, ?> objectManager, Long id) {
     this.objectManager = objectManager;
     this.id = id;
   }

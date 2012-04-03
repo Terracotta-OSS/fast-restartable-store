@@ -7,13 +7,12 @@ package com.terracottatech.frs.object;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import org.hamcrest.core.CombinableMatcher;
 import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.hamcrest.collection.IsIn.isIn;
-import static org.hamcrest.core.CombinableMatcher.both;
-import static org.hamcrest.core.CombinableMatcher.either;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.hamcrest.core.IsNull.nullValue;
@@ -46,7 +45,7 @@ public abstract class ObjectManagerTest {
     objMgr.put("foo", "bat", "baz", 2);
     
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), either(
+    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
@@ -108,7 +107,7 @@ public abstract class ObjectManagerTest {
     objMgr.put("foo", "bat", "baz", 2);
     
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), either(
+    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
@@ -152,7 +151,7 @@ public abstract class ObjectManagerTest {
     objMgr.put("foo", "bat", "baz", 1);
     
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), either(
+    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
             is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
     assertThat(objMgr.getLsn("foo", "bar"), is(2L));
@@ -193,7 +192,7 @@ public abstract class ObjectManagerTest {
         assertThat(objMgr.getCompactionKey(), nullValue());
       } else {
         assertThat(objMgr.getLowestLsn(), is(i + 1));
-        assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), both(lessThan(100L)).and(greaterThan(i)));
+        assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), CombinableMatcher.<Long>both(lessThan(100L)).and(greaterThan(i)));
       }
     }
   }

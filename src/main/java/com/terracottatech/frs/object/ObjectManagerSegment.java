@@ -4,23 +4,27 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Map.Entry;
-
 /**
  *
  * @author Chris Dennis
  */
-interface ConcurrentValueSortedMap<I, K, V> {
+public interface ObjectManagerSegment<I, K, V> {
 
   I identifier();
 
-  Entry<K, V> firstEntry();
+  K firstKey();
+  
+  Long firstLsn();
   
   V get(K key);
   
-  void put(K key, V value);
+  Long getLsn(K key);
+  
+  void put(K key, V value, long lsn);
+  
+  void replayPut(K key, V value, long lsn);
   
   void remove(K key);
   
-  boolean replace(K key, V oldValue, V newValue);
+  boolean replaceLsn(K key, V value, long newLsn);
 }

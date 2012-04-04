@@ -10,11 +10,12 @@ import com.terracottatech.frs.action.ActionManager;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.Lock;
 
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.*;
 
 /**
@@ -22,15 +23,22 @@ import static org.mockito.Mockito.*;
  */
 public class TransactionManagerImplTest {
   private TransactionManager transactionManager;
+  private TransactionLockProvider transactionLockProvider;
   private ActionManager actionManager;
   private Future<Void> happenedFuture;
+  private Action action;
+  private Lock lock;
 
   @Before
   public void setUp() throws Exception {
     happenedFuture = mock(Future.class);
+    lock = mock(Lock.class);
+    action = mock(Action.class);
+    when(action.lock(any(TransactionLockProvider.class))).thenReturn(Collections.singleton(lock));
     actionManager = mock(ActionManager.class);
-    when(actionManager.happened((Action) anyObject())).thenReturn(happenedFuture);
-    transactionManager = new TransactionManagerImpl(actionManager, true);
+    when(actionManager.happened(any(Action.class))).thenReturn(happenedFuture);
+    transactionLockProvider = mock(TransactionLockProvider.class);
+    transactionManager = new TransactionManagerImpl(actionManager, transactionLockProvider, true);
   }
 
   @Test
@@ -65,10 +73,11 @@ public class TransactionManagerImplTest {
   @Test
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
-    Action action = mock(Action.class);
     transactionManager.happened(handle, action);
+    verify(action).lock(transactionLockProvider);
     verify(actionManager).asyncHappened(new TransactionalAction(handle, action));
     transactionManager.commit(handle);
+    verify(lock).unlock();
     try {
       transactionManager.happened(handle, action);
       fail("Using a committed transaction handle should throw.");

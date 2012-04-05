@@ -41,7 +41,7 @@ public class TestLogRecord implements LogRecord  {
             list[1] = ByteBuffer.allocate(keyr);
             list[2] = ByteBuffer.allocate(valuer);
         }
-        randomizer.getChannel().read(list);
+//        randomizer.getChannel().read(list);
     }
 
     @Override

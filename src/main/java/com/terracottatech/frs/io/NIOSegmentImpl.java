@@ -27,8 +27,8 @@ public class NIOSegmentImpl implements Segment {
     static short  IMPL_NUMBER = 02;
     
 
-    public NIOSegmentImpl(File file, long seg_size, boolean reading) throws IOException {
-        limit = seg_size;
+    public NIOSegmentImpl(File file, long segSize, boolean reading) throws IOException {
+        limit = segSize;
         if ( reading ) openForReading(file);
         else openForWriting(file);
     }

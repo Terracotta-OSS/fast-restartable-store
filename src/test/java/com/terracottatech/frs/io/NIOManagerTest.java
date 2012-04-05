@@ -61,8 +61,8 @@ public class NIOManagerTest {
         int count = (int)(Math.random() * 100);
         System.out.format("writing %d log regions\n",count);
         long tb = 0;
-        int last_sync = -1;
-        long last_len = 0;
+        int lastSync = -1;
+        long lastLen = 0;
         long total = System.nanoTime();
 
         for ( int x=0;x<count;x++) {
@@ -76,11 +76,11 @@ public class NIOManagerTest {
                 manager.sync();
                 System.out.format("Log Stream sync time: %.6f sec count: %d length: %dk \n", 
                         (System.nanoTime() - start) * 1e-9,
-                        x-last_sync,
-                        (tb - last_len)/1024
+                        x-lastSync,
+                        (tb - lastLen)/1024
                 );
-                last_sync = x;
-                last_len = tb;
+                lastSync = x;
+                lastLen = tb;
             }
         }
 
@@ -150,13 +150,13 @@ public class NIOManagerTest {
     
     private StackingLogRegion createLogRegion() throws IOException {
         StackingLogRegion region = new StackingLogRegion(true, lsn, 100);
-        int count = (int)(Math.random() * 100);
+        int count = (int)(Math.random() * 100) + 3;
         for ( int x=0;x<count;x++) {
             LogRecord lr = new TestLogRecord();
             lr.updateLsn(lsn++);
             region.append(lr);
         }
-        boolean closed = region.close();
+        boolean closed = region.close(false);
         return region;
     }
 

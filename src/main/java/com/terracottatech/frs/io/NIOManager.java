@@ -19,25 +19,25 @@ import java.util.Iterator;
 public class NIOManager implements IOManager {
   
     Stream  backend;
-    Segment current_segment;
+    Segment currentSegment;
     
-    public NIOManager(String home, long segment_size) throws IOException {
-        backend = new NIOStreamImpl(home, segment_size);
-        current_segment = backend.append();
+    public NIOManager(String home, long segmentSize) throws IOException {
+        backend = new NIOStreamImpl(home, segmentSize);
+        currentSegment = backend.append();
     }
     
     public void dispose() throws IOException {
-        if ( current_segment != null ) current_segment.close();
+        if ( currentSegment != null ) currentSegment.close();
         if ( backend != null ) backend.close();
-        current_segment = null;
+        currentSegment = null;
         backend = null;
     }
     
     @Override
     public long write(Chunk region) throws IOException {
-        if ( current_segment == null ) throw new IOException("stream is closed");
-        long bw = current_segment.append(region);
-        if ( current_segment.isClosed() ) current_segment = backend.append();
+        if ( currentSegment == null ) throw new IOException("stream is closed");
+        long bw = currentSegment.append(region);
+        if ( currentSegment.isClosed() ) currentSegment = backend.append();
         return bw;
     }
 

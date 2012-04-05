@@ -4,8 +4,9 @@
  */
 package com.terracottatech.frs.mock.io;
 
-import com.terracottatech.frs.io.LogRegion;
-import com.terracottatech.frs.io.LogRegionFactory;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.log.LogRegion;
+import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.mock.MockFuture;
 
@@ -13,6 +14,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -29,6 +33,24 @@ public class MockIOManager implements IOManager {
   public MockIOManager() {
   }
 
+    @Override
+    public long write(Chunk region) throws IOException {
+        byte[] ref = serialize(region);
+        storage.push(ref);
+        return ref.length;
+    }
+
+    @Override
+    public void sync() throws IOException {
+        //  NOOP
+    }
+
+    @Override
+    public void setLowestLsn(long lsn) throws IOException {
+        //  NOOP
+    }
+
+  
   public Future<Void> append(LogRegion logRegion) {
     try {
       storage.push(serialize(logRegion));
@@ -37,6 +59,16 @@ public class MockIOManager implements IOManager {
       throw new AssertionError(e);
     }
     return new MockFuture();
+  }
+  
+  private byte[] serialize(Chunk c) throws IOException {
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      WritableByteChannel chan = Channels.newChannel(out);
+      for ( ByteBuffer buf : c.getBuffers() ) {
+          chan.write(buf);
+      }
+      chan.close();
+      return out.toByteArray();
   }
 
   private byte[] serialize(LogRegion logRegion) throws IOException {

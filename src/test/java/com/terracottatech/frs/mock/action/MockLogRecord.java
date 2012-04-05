@@ -8,6 +8,10 @@ import java.io.Serializable;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -59,4 +63,20 @@ public class MockLogRecord implements LogRecord, Serializable {
   public Action getAction() {
     return action;
   }
+
+    @Override
+    public ByteBuffer[] getPayload() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ObjectOutputStream oo = new ObjectOutputStream(out);
+            oo.writeObject(this);
+            oo.close();
+        } catch ( IOException ioe ) {
+            throw new AssertionError(ioe);
+        }
+        
+        return new ByteBuffer[] {ByteBuffer.wrap(out.toByteArray())};
+    }
+  
+  
 }

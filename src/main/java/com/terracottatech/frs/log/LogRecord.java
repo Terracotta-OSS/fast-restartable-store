@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.log;
 
+import java.nio.ByteBuffer;
+
 /**
  *
  * @author cdennis
@@ -19,4 +21,6 @@ public interface LogRecord {
   long getLowestLsn();
   
   void updateLsn(long lsn);
+    
+  ByteBuffer[] getPayload();
 }

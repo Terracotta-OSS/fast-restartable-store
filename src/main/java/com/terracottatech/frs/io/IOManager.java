@@ -4,8 +4,9 @@
  */
 package com.terracottatech.frs.io;
 
+import com.terracottatech.frs.log.LogRegionFactory;
+import java.io.IOException;
 import java.util.Iterator;
-import java.util.concurrent.Future;
 
 /**
  *
@@ -13,7 +14,11 @@ import java.util.concurrent.Future;
  */
 public interface IOManager {
   
-  Future<Void> append(LogRegion logRegion);
+  long write(Chunk region) throws IOException;
+  
+  void setLowestLsn(long lsn) throws IOException;
 
   <T> Iterator<T> reader(LogRegionFactory<T> as);
+  
+  void sync() throws IOException;
 }

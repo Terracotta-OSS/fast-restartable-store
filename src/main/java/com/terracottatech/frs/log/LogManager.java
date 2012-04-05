@@ -14,6 +14,8 @@ import java.util.concurrent.Future;
 public interface LogManager {
   
   Future<Void> append(LogRecord record);
-
+  
+  Future<Void> appendAndSync(LogRecord record);
+  
   Iterator<LogRecord> reader();
 }

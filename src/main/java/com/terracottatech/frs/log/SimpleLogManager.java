@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -28,7 +29,7 @@ public class SimpleLogManager implements LogManager,Runnable {
     AtomicLong highest_on_disk = new AtomicLong(0);
     IOManager io;
     final int max_region = 100;
-    boolean alive = true;
+    AtomicBoolean alive = new AtomicBoolean(true);
     long tb = 0;
     
     final static Future<Void> _dummy_future = new Future() {
@@ -68,34 +69,45 @@ public class SimpleLogManager implements LogManager,Runnable {
         current_region = new StackingLogRegion(true, current_lsn.get(), max_region);
     }
     
+     //  TODO:  re-examine when more runtime context is available.
     public void run() {
-        while ( alive ) {
+        while ( alive.get() || current_lsn.get()-1 != highest_on_disk.get() ) {
             StackingLogRegion old_region = current_region;
             try {
+                if ( !alive.get() ) old_region.close();
                 old_region.waitForContiguous();
+                
                 current_region = old_region.next();
+                
                 tb += io.write(old_region);
                 if ( old_region.isSyncing() ) {
                     io.sync();
                 }
                 highest_on_disk.set(old_region.getEndLsn());
+                old_region.written();
             } catch ( IOException ioe ) {
                 throw new AssertionError(ioe);
             } catch ( InterruptedException ie ) {
-                if ( alive ) throw new AssertionError(ie);
-            } finally {
-                old_region.written();
-            }
+                if ( alive.get() ) throw new AssertionError(ie);
+                else old_region.close();
+            }        
         }
     }
-    
+    //  TODO:  re-examine when more runtime context is available.
     public void startup() {
         this.daemon.start();
     }
-    
+
+    //  TODO:  re-examine when more runtime context is available.
     public void shutdown() {
-        alive = false;
-        daemon.interrupt();
+        alive.set(false);
+        current_region.close();
+        try {
+            daemon.join();
+        } catch ( InterruptedException ie ) {
+            throw new AssertionError(ie);
+        }
+        assert(current_lsn.get()-1 == highest_on_disk.get());
     }
     
     public long totalBytes() {
@@ -103,6 +115,7 @@ public class SimpleLogManager implements LogManager,Runnable {
     }
     
     private StackingLogRegion commonAppend(LogRecord record) {
+//        if ( !alive.get() ) throw new RuntimeException("shutting down");
        long lsn = current_lsn.getAndIncrement();
         record.updateLsn(lsn);
         

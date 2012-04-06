@@ -4,10 +4,12 @@
  */
 package com.terracottatech.frs.mock.transaction;
 
+import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.action.Action;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -45,6 +47,11 @@ public class MockTransactionBeginAction implements Action, Serializable {
 
   public Collection<Lock> lock(TransactionLockProvider locks) {
     return Collections.emptyList();
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[0];
   }
 
   public long getId() {

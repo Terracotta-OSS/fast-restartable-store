@@ -5,8 +5,10 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
+import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -17,6 +19,8 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class RemoveAction implements Action {
+  private static final int HEADER_SIZE = Long.SIZE + Integer.SIZE;
+
   private final ObjectManager<Long, ByteBuffer, ?> objectManager;
   private final Long id;
   private final ByteBuffer key;
@@ -25,6 +29,13 @@ class RemoveAction implements Action {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;
+  }
+
+  RemoveAction(ObjectManager<Long, ByteBuffer, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+    this.objectManager = objectManager;
+    this.id = ByteBufferUtils.getLong(buffers);
+    int keyLength = ByteBufferUtils.getInt(buffers);
+    this.key = ByteBufferUtils.getBytes(keyLength, buffers);
   }
 
   @Override
@@ -47,6 +58,16 @@ class RemoveAction implements Action {
     Lock lock = lockProvider.getLockForKey(id, key).writeLock();
     lock.lock();
     return Collections.singleton(lock);
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    // TODO: Can we just return no data for remove? It's not technically necessary to
+    // write anything to the log since nothing needs to be replayed.
+    ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
+    header.putLong(id);
+    header.putInt(key.limit()).flip();
+    return new ByteBuffer[] { header, key.duplicate() };
   }
 
   @Override

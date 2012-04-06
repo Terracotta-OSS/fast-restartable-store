@@ -5,7 +5,10 @@
 package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.object.ObjectManager;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -13,11 +16,15 @@ import java.util.concurrent.locks.Lock;
 /**
  * @author tim
  */
-public class TransactionBeginAction implements Action {
+class TransactionBeginAction implements Action {
   private final TransactionHandle handle;
 
-  public TransactionBeginAction(TransactionHandle handle) {
+  TransactionBeginAction(TransactionHandle handle) {
     this.handle = handle;
+  }
+
+  TransactionBeginAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+    this(TransactionHandleImpl.withByteBuffers(buffers));
   }
 
   TransactionHandle getHandle() {
@@ -42,6 +49,11 @@ public class TransactionBeginAction implements Action {
   @Override
   public Collection<Lock> lock(TransactionLockProvider lockProvider) {
     return Collections.emptySet();
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[] { handle.toByteBuffer() };
   }
 
   @Override

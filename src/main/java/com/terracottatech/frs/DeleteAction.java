@@ -5,9 +5,12 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
+import com.terracottatech.frs.util.ByteBufferUtils;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -22,6 +25,10 @@ class DeleteAction implements Action {
   DeleteAction(ObjectManager<Long, ?, ?> objectManager, Long id) {
     this.objectManager = objectManager;
     this.id = id;
+  }
+
+  DeleteAction(ObjectManager<Long, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+    this(objectManager, ByteBufferUtils.getLong(buffers));
   }
 
   @Override
@@ -44,6 +51,13 @@ class DeleteAction implements Action {
     Lock lock = lockProvider.getLockForId(id).writeLock();
     lock.lock();
     return Collections.singleton(lock);
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE);
+    buffer.putLong(id).flip();
+    return new ByteBuffer[] { buffer };
   }
 
   @Override

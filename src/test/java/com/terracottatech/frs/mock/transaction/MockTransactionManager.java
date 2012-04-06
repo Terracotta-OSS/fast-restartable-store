@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.mock.transaction;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -81,7 +82,12 @@ public class MockTransactionManager implements TransactionManager {
     public MockTransactionHandle(long id) {
       this.id = id;
     }
-    
+
+    @Override
+    public ByteBuffer toByteBuffer() {
+      return null;
+    }
+
     private long getId(MockTransactionManager asker) {
       if (MockTransactionManager.this != asker) {
         throw new IllegalArgumentException("Not my owner");

@@ -4,10 +4,12 @@
  */
 package com.terracottatech.frs.transaction;
 
+import java.nio.ByteBuffer;
+
 /**
  *
  * @author cdennis
  */
 public interface TransactionHandle {
-
+  ByteBuffer toByteBuffer();
 }

@@ -4,11 +4,13 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.object.ObjectManager;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.locks.Lock;
@@ -49,7 +51,12 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
     idLock.lock();
     return Collections.singleton(idLock);
   }
-  
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[0];
+  }
+
   public I getId() {
     return id;
   }

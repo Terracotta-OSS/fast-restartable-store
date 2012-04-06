@@ -5,9 +5,11 @@
 package com.terracottatech.frs.mock.transaction;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.locks.Lock;
 
+import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.mock.action.MockAction;
@@ -60,6 +62,11 @@ public class MockTransactionalAction implements MockAction, Serializable {
   @Override
   public Collection<Lock> lock(TransactionLockProvider locks) {
     return embedded.lock(locks);
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[0];
   }
 
   public Action getEmbeddedAction() {

@@ -71,6 +71,15 @@ public class TransactionManagerImplTest {
   }
 
   @Test
+  public void testAsyncCommit() throws Exception {
+    TransactionManager asyncCommitManager =
+            new TransactionManagerImpl(actionManager, false);
+    TransactionHandle handle = asyncCommitManager.begin();
+    asyncCommitManager.commit(handle);
+    verify(actionManager).asyncHappened(new TransactionCommitAction(handle));
+  }
+
+  @Test
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);

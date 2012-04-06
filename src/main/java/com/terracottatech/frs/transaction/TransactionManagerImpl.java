@@ -8,10 +8,11 @@ import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
@@ -26,18 +27,18 @@ public class TransactionManagerImpl implements TransactionManager {
 
   private final ActionManager           actionManager;
   private final TransactionLockProvider transactionLockProvider;
-  private final boolean                 waitOnCommit;
+  private final boolean                 synchronousCommit;
 
-  public TransactionManagerImpl(ActionManager actionManager, boolean waitOnCommit) {
-    this(actionManager, new TransactionLockProviderImpl(), waitOnCommit);
+  public TransactionManagerImpl(ActionManager actionManager, boolean synchronousCommit) {
+    this(actionManager, new TransactionLockProviderImpl(), synchronousCommit);
   }
 
   // Used for tests in order to pass in a TransactionLockProvider
   TransactionManagerImpl(ActionManager actionManager, TransactionLockProvider transactionLockProvider,
-                         boolean waitOnCommit) {
+                         boolean synchronousCommit) {
     this.actionManager = actionManager;
     this.transactionLockProvider = transactionLockProvider;
-    this.waitOnCommit = waitOnCommit;
+    this.synchronousCommit = synchronousCommit;
   }
 
   @Override
@@ -57,15 +58,16 @@ public class TransactionManagerImpl implements TransactionManager {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    Future<Void> commitFuture =
-            actionManager.happened(new TransactionCommitAction(handle));
+    Action commitAction = new TransactionCommitAction(handle);
     try {
-      if (waitOnCommit) {
+      if (synchronousCommit) {
         try {
-          commitFuture.get();
+          actionManager.happened(commitAction).get();
         } catch (ExecutionException e) {
           throw new TransactionException("Commit failed.", e);
         }
+      } else {
+        actionManager.asyncHappened(commitAction);
       }
     } finally {
       for (Lock lock : locks) {

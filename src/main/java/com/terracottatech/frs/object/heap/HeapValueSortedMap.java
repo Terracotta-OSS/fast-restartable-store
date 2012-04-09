@@ -40,7 +40,7 @@ public class HeapValueSortedMap<K, V extends Comparable<V>> implements ValueSort
 
   @Override
   public void put(K key, V value) {
-    Node<K, V> node = new Node(key, value);
+    Node<K, V> node = new Node<K, V>(key, value);
     sorted.remove(map.put(key, node));
     sorted.add(node);
   }

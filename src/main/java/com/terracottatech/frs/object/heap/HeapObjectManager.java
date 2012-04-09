@@ -7,7 +7,6 @@ package com.terracottatech.frs.object.heap;
 import com.terracottatech.frs.object.AbstractObjectManager;
 import com.terracottatech.frs.object.ObjectManagerSegment;
 import com.terracottatech.frs.object.ValueSortedMap;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -84,7 +83,7 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     private final I identifier;
     
     private final Map<K, V> dataMap = new HashMap<K, V>();
-    private final ValueSortedMap<K, Long> lsnMap = new HeapValueSortedMap();
+    private final ValueSortedMap<K, Long> lsnMap = new HeapValueSortedMap<K, Long>();
     
     public InHeapObjectManagerSegment(I identifier) {
       this.identifier = identifier;
@@ -163,7 +162,6 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       Lock l = lock.writeLock();
       l.lock();
       try {
-        Node<K, V> node = new Node<K, V>(key, value, lsn);
         dataMap.put(key, value);
         lsnMap.put(key, lsn);
         assert dataMap.size() == lsnMap.size();
@@ -205,46 +203,5 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       }
     }
 
-  }
-  
-  static class Node<K, V> implements Comparable<Node<?, ?>> {
-
-    private final K key;
-    private final V value;
-    private final long lsn;
-    
-    Node(K key, V value, long lsn) {
-      this.key = key;
-      this.value = value;
-      this.lsn = lsn;
-    }
-
-    long getLsn() {
-      return lsn;
-    }
-    
-    K getKey() {
-      return key;
-    }
-    
-    V getValue() {
-      return value;
-    }
-
-    Map.Entry<K, V> asEntry() {
-      return new AbstractMap.SimpleEntry<K, V>(key, value);
-    }
-    
-    @Override
-    public int compareTo(Node<?, ?> t) {
-      long diff = getLsn() - t.getLsn();
-      if (diff < 0) {
-        return -1;
-      } else if (diff > 0) {
-        return 1;
-      } else {
-        return 0;
-      }
-    }
   }
 }

@@ -16,8 +16,6 @@ public interface ObjectManagerSegment<I, K, V> {
   
   Long firstLsn();
   
-  V get(K key);
-  
   Long getLsn(K key);
   
   void put(K key, V value, long lsn);
@@ -26,5 +24,5 @@ public interface ObjectManagerSegment<I, K, V> {
   
   void remove(K key);
   
-  boolean replaceLsn(K key, V value, long newLsn);
+  V replaceLsn(K key, long newLsn);
 }

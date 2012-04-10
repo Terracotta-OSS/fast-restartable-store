@@ -5,7 +5,6 @@
 package com.terracottatech.frs.object;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -26,29 +25,34 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
 
   @Override
   public long getLsn(I id, K key) {
-    return getStripeFor(id, key).getLsn(key);
+    return getStripeFor(id).getLsn(key);
   }
 
   @Override
   public void put(I id, K key, V value, long lsn) {
-    getStripeFor(id, key).put(key, value, lsn);
+    getStripeFor(id).put(key, value, lsn);
   }
 
   @Override
   public void delete(I id) {
-    deleteStripesFor(id);
+    deleteStripeFor(id);
   }
 
   @Override
   public void remove(I id, K key) {
-    getStripeFor(id, key).remove(key);
+    getStripeFor(id).remove(key);
   }
 
   @Override
   public void replayPut(I id, K key, V value, long lsn) {
-    getStripeFor(id, key).replayPut(key, value, lsn);
+    getStripeFor(id).replayPut(key, value, lsn);
   }
 
+  @Override
+  public V replaceLsn(I id, K key, long newLsn) {
+    return getStripeFor(id).replaceLsn(key, newLsn);
+  }
+  
   /**
    * For initial implementations as long as this returns a key biased toward the
    * early records (and eventually returns <em>all</em> early records) then that
@@ -76,8 +80,8 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     if (source == null) {
       synchronized (compactionMutex) {
         if (compactionTargets.isEmpty()) {
-          for (List<ObjectManagerSegment<I, K, V>> map : getStripes()) {
-            compactionTargets.addAll(map);
+          for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
+            compactionTargets.addAll(stripe.getSegments());
           }
         }
         return compactionTargets.poll();
@@ -87,27 +91,15 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     }
   }
   
-  @Override
-  public V replaceLsn(I id, K key, long newLsn) {
-    ObjectManagerSegment<I, K, V> stripe = getStripeFor(id, key);
-    V value = stripe.get(key);
-    if (!stripe.replaceLsn(key, value, newLsn)) {
-      throw new AssertionError();
-    }
-    return value;
-  }
-  
   public void updateLowestLsn() {
     long lowest = -1;
-    for (List<ObjectManagerSegment<I, K, V>> stripes : getStripes()) {
-      for (ObjectManagerSegment<I, K, V> stripe : stripes) {
-        Long firstLsn = stripe.firstLsn();
-        if (firstLsn != null) {
-          if (lowest < 0 || firstLsn < lowest) {
-            lowest = firstLsn;
-          }
-        }
-      }
+    for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
+      Long lowestInStripe = stripe.getLowestLsn();
+      if (lowestInStripe != null) {
+	    if (lowest < 0 || lowestInStripe < lowest) {
+	      lowest = lowestInStripe;
+	    }
+	  }
     }
     latestLowestLsn = lowest;
   }
@@ -120,9 +112,9 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
    * valid historical value can be retrieved without locking all the stripes
    * concurrently.
    */
-  protected abstract ObjectManagerSegment<I, K, V> getStripeFor(I id, K key);
+  protected abstract ObjectManagerStripe<I, K, V> getStripeFor(I id);
 
-  protected abstract void deleteStripesFor(I id);
+  protected abstract void deleteStripeFor(I id);
   
-  protected abstract Collection<List<ObjectManagerSegment<I, K, V>>> getStripes();
+  protected abstract Collection<ObjectManagerStripe<I, K, V>> getStripes();
 }

@@ -5,12 +5,13 @@
 package com.terracottatech.frs.object.heap;
 
 import com.terracottatech.frs.object.AbstractObjectManager;
+import com.terracottatech.frs.object.AbstractObjectManagerStripe;
 import com.terracottatech.frs.object.ObjectManagerSegment;
+import com.terracottatech.frs.object.ObjectManagerStripe;
 import com.terracottatech.frs.object.ValueSortedMap;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -24,7 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
 
-  private final ConcurrentMap<I, List<ObjectManagerSegment<I, K, V>>> maps = new ConcurrentHashMap<I, List<ObjectManagerSegment<I, K, V>>>();
+  private final ConcurrentMap<I, ObjectManagerStripe<I, K, V>> maps = new ConcurrentHashMap<I, ObjectManagerStripe<I, K, V>>();
   private final int concurrency;
   
   public HeapObjectManager(int concurrency) {
@@ -33,39 +34,53 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
   
   
   @Override
-  protected ObjectManagerSegment<I, K, V> getStripeFor(I id, K key) {
-    int spreadHash = spread(key.hashCode());
-    List<ObjectManagerSegment<I, K, V>> map = maps.get(id);
-    if (map == null) {
-      map = createStripes(id);
-      List<ObjectManagerSegment<I, K, V>> racer = maps.putIfAbsent(id, map);
+  protected ObjectManagerStripe<I, K, V> getStripeFor(I id) {
+    ObjectManagerStripe<I, K, V> stripe = maps.get(id);
+    if (stripe == null) {
+      stripe = createStripes(id);
+      ObjectManagerStripe<I, K, V> racer = maps.putIfAbsent(id, stripe);
       if (racer != null) {
-        map = racer;
+        stripe = racer;
       }
     }
-    return map.get(Math.abs(spreadHash % map.size()));
+    return stripe;
   }
 
   @Override
-  protected void deleteStripesFor(I id) {
+  protected void deleteStripeFor(I id) {
     maps.remove(id);
   }
 
   @Override
-  protected Collection<List<ObjectManagerSegment<I, K, V>>> getStripes() {
+  protected Collection<ObjectManagerStripe<I, K, V>> getStripes() {
     return maps.values();
   }
   
-  private int spread(int hash) {
-    return hash;
+  private ObjectManagerStripe<I, K, V> createStripes(I identifier) {
+    return new InHeapObjectManagerStripe<I, K, V>(identifier, concurrency);
   }
+  
+  static class InHeapObjectManagerStripe<I, K, V> extends AbstractObjectManagerStripe<I, K, V> {
+    
+    private final ObjectManagerSegment<I, K, V>[] segments;
 
-  private List<ObjectManagerSegment<I, K, V>> createStripes(I identifier) {
-    List<ObjectManagerSegment<I, K, V>> stripes = new ArrayList<ObjectManagerSegment<I, K, V>>(concurrency);
-    for (int i = 0; i < concurrency; i++) {
-      stripes.add(new InHeapObjectManagerSegment<I, K, V>(identifier));
+    @SuppressWarnings("unchecked")
+    public InHeapObjectManagerStripe(I identifier, int stripes) {
+      this.segments = new ObjectManagerSegment[stripes];
+      for (int i = 0; i < segments.length; i++) {
+        segments[i] = new InHeapObjectManagerSegment<I, K, V>(identifier);
+      }
     }
-    return stripes;
+    
+    @Override
+    public Collection<ObjectManagerSegment<I, K, V>> getSegments() {
+      return Arrays.asList(segments);
+    }
+
+    protected ObjectManagerSegment<I, K, V> getSegmentFor(K key) {
+      int hash = key.hashCode();
+      return segments[Math.abs(hash % segments.length)];
+    }
   }
   
   /*
@@ -131,17 +146,6 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public V get(K key) {
-      Lock l = lock.readLock();
-      l.lock();
-      try {
-        return dataMap.get(key);
-      } finally {
-        l.unlock();
-      }
-    }
-
-    @Override
     public Long getLsn(K key) {
       Lock l = lock.readLock();
       l.lock();
@@ -184,19 +188,17 @@ class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
 
     @Override
-    public boolean replaceLsn(K key, V value, long newLsn) {
+    public V replaceLsn(K key, long newLsn) {
       Lock l = lock.writeLock();
       l.lock();
       try {
         V current = dataMap.get(key);
         if (current == null) {
-          return false;
-        } else if (value.equals(current)) {
+          return null;
+        } else {
           lsnMap.put(key, newLsn);
           assert dataMap.size() == lsnMap.size();
-          return true;
-        } else {
-          return false;
+          return current;
         }
       } finally {
         l.unlock();

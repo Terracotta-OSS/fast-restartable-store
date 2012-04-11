@@ -6,10 +6,8 @@ package com.terracottatech.frs.log;
 
 /**
  *
- * @author cdennis
+ * @author mscott
  */
-public interface LogRegion extends Iterable<LogRecord> {
-
-  long getLowestLsn();
- 
+public enum Signature {
+    NONE,CRC32,ADLER32,MD5,SHA1
 }

@@ -1,11 +1,10 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.io;
 
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
  * A Segment is a logical stride of the Log Stream.  
@@ -15,13 +14,10 @@ import java.util.Iterator;
  * 
  * @author mscott
  */
-public interface Segment extends Iterable<ChunkIntent> {
+public interface Segment extends Iterable<Chunk> {
     // the length of this segment.  
     
     long length() throws IOException;
-    
-    // produce an iterator either forward or backward threw the log.
-    Iterator<ChunkIntent> iterator(Direction dir);
     // append a Chunk of data to this segment.  If the chunk appended 
     // is longer than the end of the defined length of this segment, the 
     // behavior is implementation specific

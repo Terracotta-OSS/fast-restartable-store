@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.action;
 
+import com.terracottatech.frs.log.LSNEventListener;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 
 import java.nio.ByteBuffer;
@@ -14,7 +15,7 @@ import java.util.concurrent.locks.Lock;
  *
  * @author cdennis
  */
-public interface Action {
+public interface Action extends LSNEventListener {
 
   long getPreviousLsn();
   

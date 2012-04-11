@@ -4,14 +4,15 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * @author tim
  */
 public interface LogRecordFactory {
 
-  LogRecord createLogRecord(long previousLsn, long lowestLsn, ByteBuffer[] payload);
+  LogRecord createLogRecord(long previousLsn, long lowestLsn, ByteBuffer[] payload, LSNEventListener listener);
 
-  LogRecord createLogRecord(ByteBuffer buffer);
 }

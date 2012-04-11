@@ -4,8 +4,9 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
 import java.io.IOException;
-import java.io.InputStream;
+import java.util.List;
 
 /**
  *
@@ -13,6 +14,6 @@ import java.io.InputStream;
  */
 public interface LogRegionFactory<T> {
 
-  T construct(InputStream chunk) throws IOException;
-  
+  Chunk pack(Iterable<T> payload) throws IOException;
+  List<T> unpack(Chunk data) throws IOException;
 }

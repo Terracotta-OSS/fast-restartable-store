@@ -6,10 +6,10 @@ package com.terracottatech.frs.log;
 
 /**
  *
- * @author cdennis
+ * @author mscott
  */
-public interface LogRegion extends Iterable<LogRecord> {
-
-  long getLowestLsn();
- 
+public interface LSNEventListener {
+    
+    public void record(long lsn);
+    
 }

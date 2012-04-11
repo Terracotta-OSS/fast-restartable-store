@@ -5,13 +5,20 @@
 package com.terracottatech.frs.io;
 
 /**
- * Scan direction for stream read back.
+ *
  * @author mscott
  */
-public enum Direction {
-    FORWARD,REVERSE;
+public enum Seek {
+    BEGINNING (0),
+    END (-1);
     
-    public static Direction getDefault() {
-        return REVERSE;
+    Seek(long value) {
+        this.value = value;
+    }
+    
+    private long value;
+    
+    public long getValue() {
+        return value;
     }
 }

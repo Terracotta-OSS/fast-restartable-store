@@ -1,6 +1,6 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.io;
 
@@ -18,4 +18,22 @@ public interface Chunk {
     ByteBuffer[] getBuffers();
     
     long length();
+    long remaining();
+        
+    boolean hasRemaining();
+    
+    long getLong();
+    void putLong(long v);
+    
+    short getShort();
+    void putShort(short v);
+    
+    int getInt();
+    void putInt(int v);  
+    
+    int get(byte[] buf);
+    int put(byte[] buf);
+    
+    ByteBuffer getBuffer(int length);
+    ByteBuffer[] getBuffers(long length);
 }

@@ -12,8 +12,6 @@ import java.nio.ByteBuffer;
  */
 public interface LogRecord {
 
-  //private final byte[] data;
-  //private final byte[] data;
   long getLsn();
 
   long getPreviousLsn();
@@ -21,6 +19,8 @@ public interface LogRecord {
   long getLowestLsn();
   
   void updateLsn(long lsn);
-
+  
+  void setLowestLsn(long lsn);
+ 
   ByteBuffer[] getPayload();
 }

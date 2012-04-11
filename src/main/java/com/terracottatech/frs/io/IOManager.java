@@ -4,9 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.log.LogRegionFactory;
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
  *
@@ -17,8 +15,12 @@ public interface IOManager {
   long write(Chunk region) throws IOException;
   
   void setLowestLsn(long lsn) throws IOException;
-
-  <T> Iterator<T> reader(LogRegionFactory<T> as);
+  
+  Iterable<Chunk> read(Direction dir) throws IOException;
+  
+  long seek(long lsn) throws IOException;
   
   void sync() throws IOException;
+  
+  void close() throws IOException;
 }

@@ -4,11 +4,11 @@
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.log.SimpleLogManager;
-import com.terracottatech.frs.log.StackingLogRegion;
-import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.log.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -64,11 +64,12 @@ public class NIOManagerTest {
         int lastSync = -1;
         long lastLen = 0;
         long total = System.nanoTime();
+        LogRegionPacker packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);
 
         for ( int x=0;x<count;x++) {
-            StackingLogRegion test = createLogRegion();
+            LogRegion test = createLogRegion();
             long start = System.nanoTime();
-            tb +=manager.write(test);
+            tb +=manager.write(packer.pack(test));
             System.out.format("Log Region write time: %.6f sec\n", (System.nanoTime() - start) * 1e-9);
             
             if ( Math.random() * 10 < 1 ) {
@@ -148,30 +149,37 @@ public class NIOManagerTest {
                 );
     }
     
-    private StackingLogRegion createLogRegion() throws IOException {
-        StackingLogRegion region = new StackingLogRegion(true, lsn, 100);
+    private TestLogRegion createLogRegion() throws IOException {
+        ArrayList<LogRecord> items = new ArrayList<LogRecord>();
+        TestLogRegion region = new TestLogRegion(items);
         int count = (int)(Math.random() * 100) + 3;
         for ( int x=0;x<count;x++) {
             LogRecord lr = new TestLogRecord();
             lr.updateLsn(lsn++);
-            region.append(lr);
+            items.add(lr);
         }
-        boolean closed = region.close(false);
         return region;
     }
 
     /**
      * Test of reader method, of class IOManagerImpl.
      */
-//    @Test
-//    public void testReader() {
-//        System.out.println("reader");
-//        LogRegionFactory<T> as = null;
-//        IOManagerImpl instance = new IOManagerImpl();
-//        Iterator expResult = null;
-//        Iterator result = instance.reader(as);
-//        assertEquals(expResult, result);
-//        // TODO review the generated test code and remove the default call to fail.
-//        fail("The test case is a prototype.");
-//    }
+    @Test
+    public void testReader() throws IOException {
+        System.out.println("reader");
+       final SimpleLogManager lm = new SimpleLogManager(manager);
+       lm.startup();
+        TestLogRecord lr1 = new TestLogRecord();
+        TestLogRecord lr2 = new TestLogRecord();
+        TestLogRecord lr3 = new TestLogRecord();
+       lm.append(lr1);
+       lm.append(lr2);
+       lm.append(lr3);
+       lm.shutdown();
+       
+       Iterator<LogRecord> logs = lm.reader();
+       while ( logs.hasNext() ) {
+           System.out.println(logs.next());
+       }
+    }
 }

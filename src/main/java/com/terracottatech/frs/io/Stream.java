@@ -1,11 +1,10 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.io;
 
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
  * Logical continuous Log Stream.
@@ -14,8 +13,9 @@ import java.util.Iterator;
 public interface Stream {
     
     /* stream back segments in forward or reverse direction  */
+    void seek(long loc) throws IOException;
     
-    Iterator<Segment> iterator(Direction dir);
+    Segment read(Direction dir) throws IOException;
     
     /* close previous segment if any, provide a new segment for appending  */
     

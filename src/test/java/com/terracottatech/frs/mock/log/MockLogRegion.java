@@ -4,17 +4,19 @@
  */
 package com.terracottatech.frs.mock.log;
 
-import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.AbstractChunk;
 import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRecord;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Iterator;
 
 /**
  *
  * @author cdennis
  */
-class MockLogRegion implements LogRegion, Chunk, Serializable {
+class MockLogRegion implements LogRegion, Serializable {
 
   final LogRecord record;
   
@@ -23,18 +25,11 @@ class MockLogRegion implements LogRegion, Chunk, Serializable {
   }
 
     @Override
-    public ByteBuffer[] getBuffers() {
-        return record.getPayload();
+    public Iterator<LogRecord> iterator() {
+        return Arrays.asList(record).iterator();
     }
-
-    @Override
-    public long length() {
-        long len = 0;
-        for ( ByteBuffer buf : record.getPayload() ) {
-            len += buf.remaining();
-        }
-        return len;
-    }
+    
+    
 
   public long getLowestLsn() {
     return record.getLowestLsn();

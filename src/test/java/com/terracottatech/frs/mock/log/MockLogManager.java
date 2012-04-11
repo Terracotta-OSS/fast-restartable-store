@@ -4,73 +4,108 @@
  */
 package com.terracottatech.frs.mock.log;
 
-import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.mock.MockFuture;
-import com.terracottatech.frs.mock.action.MockLogRecord;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-
 
 /**
  *
  * @author cdennis
  */
 public class MockLogManager implements LogManager {
-  private final IOManager ioManager;
-  private final AtomicLong currentLsn = new AtomicLong();
-  
-  public MockLogManager(IOManager ioManager) {
-    this.ioManager = ioManager;
-  }
 
-  public synchronized Future<Void> append(LogRecord record) {
-    record.updateLsn(currentLsn.getAndIncrement());
-    try {
-        ioManager.write(new MockLogRegion(record));
-    } catch ( IOException ioe ) {
-        ioe.printStackTrace();
+    private final IOManager ioManager;
+    private final AtomicLong currentLsn = new AtomicLong();
+    LogRegionFactory packer = new MockLogRegionFactory();
+
+    public MockLogManager(IOManager ioManager) {
+        this.ioManager = ioManager;
     }
-    return new MockFuture();
-  }
+
+    public synchronized Future<Void> append(LogRecord record) {
+        record.updateLsn(currentLsn.getAndIncrement());
+        try {
+            ioManager.write(packer.pack(new MockLogRegion(record)));
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+        return new MockFuture();
+    }
 
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
-            ioManager.write(new MockLogRegion(record));
-        } catch ( IOException ioe ) {
+            ioManager.write(packer.pack(new MockLogRegion(record)));
+        } catch (IOException ioe) {
             ioe.printStackTrace();
         }
         return new MockFuture();
     }
-  
-  
 
-  public Iterator<LogRecord> reader() {
-    return ioManager.reader(new MockLogRegionFactory());
-  }
-  
-}
-class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
- 
-  public LogRecord construct(InputStream chunk) throws IOException {
-    ObjectInput in = new ObjectInputStream(chunk);
-    try {
-        return (MockLogRecord)in.readObject();
-    } catch (ClassNotFoundException ex) {
-      throw new IOException(ex);
+    public Iterator<LogRecord> reader() {
+//  lame but assume one chunk for mock 
+        try {
+            Iterable<Chunk> list = ioManager.read(Direction.REVERSE);
+            Iterator<Chunk> chunks = list.iterator();
+            if ( !chunks.hasNext() ) return Collections.<LogRecord>emptyList().iterator();
+            ArrayList<LogRecord> records = new ArrayList<LogRecord>();
+            while ( chunks.hasNext() ) {
+                records.addAll(new MockLogRegionFactory().unpack(chunks.next()));
+            }
+            Collections.reverse(records);
+            return records.iterator();
+        } catch ( IOException ioe ) {
+            throw new AssertionError(ioe);
+        }
     }
-  }
-}
 
+static class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
+
+    @Override
+    public Chunk pack(Iterable<LogRecord> payload) throws IOException {
+        ArrayList<ByteBuffer> list = new ArrayList<ByteBuffer>();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oo = new ObjectOutputStream(bos);        
+        for ( LogRecord record : payload ) {
+            oo.writeObject(record);
+        }
+        oo.close();
+        list.add(ByteBuffer.wrap(bos.toByteArray()));
+        return new BufferListWrapper(list);
+        
+    }
+
+    @Override
+    public List<LogRecord> unpack(Chunk data) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        WritableByteChannel w = Channels.newChannel(bos);
+        w.write(data.getBuffer((int)data.length()));
+        w.close();
+        ByteArrayInputStream chunk = new ByteArrayInputStream(bos.toByteArray());
+        ObjectInput in = new ObjectInputStream(chunk);
+        ArrayList<LogRecord> list = new ArrayList<LogRecord>();
+        try {
+                list.add((LogRecord)in.readObject());
+        } catch (ClassNotFoundException ex) {
+            throw new IOException(ex);
+        } catch ( EOFException eof ) {
+            
+        }
+        return list;
+    }
+}
+}

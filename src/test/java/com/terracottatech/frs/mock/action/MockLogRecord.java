@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 public class MockLogRecord implements LogRecord, Serializable {
 
   private final long previousLsn;
-  private final long lowestLsn;
+  private long lowestLsn;
   private final Action action;
   
   private long lsn = -1;
@@ -45,6 +45,10 @@ public class MockLogRecord implements LogRecord, Serializable {
   public long getLowestLsn() {
     return lowestLsn;
   }
+  
+  public void setLowestLsn(long lsn) {
+      lowestLsn = lsn;
+  }
 
   public String toString() {
     String actionOut = action.toString();
@@ -66,16 +70,8 @@ public class MockLogRecord implements LogRecord, Serializable {
 
     @Override
     public ByteBuffer[] getPayload() {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            ObjectOutputStream oo = new ObjectOutputStream(out);
-            oo.writeObject(this);
-            oo.close();
-        } catch ( IOException ioe ) {
-            throw new AssertionError(ioe);
-        }
         
-        return new ByteBuffer[] {ByteBuffer.wrap(out.toByteArray())};
+        return new ByteBuffer[0];
     }
   
   

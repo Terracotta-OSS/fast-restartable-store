@@ -1,66 +1,113 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.io;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 
 /**
  *
  * @author mscott
  */
-public class NIOSegmentImpl implements Segment {
-    
-    FileChannel  segment;
-    long limit = 10 * 1024 * 1024;
-    UUID uid = UUID.randomUUID();
-    static byte[] LF_MAGIC = "%flf".getBytes();
-    static byte[] CF_MAGIC = "!ctl".getBytes();
-    static short  IMPL_NUMBER = 02;
-    
+class NIOSegmentImpl implements Segment {
 
-    public NIOSegmentImpl(File file, long segSize, boolean reading) throws IOException {
-        limit = segSize;
-        if ( reading ) openForReading(file);
-        else openForWriting(file);
-    }
+    private final NIOStreamImpl parent;
+    private final File          src;
+    private final int           segNum;
+    private final Direction     direction;
+
+    private FileChannel         segment;
+    private Chunk               readBuffer;
+    private long                limit = 10 * 1024 * 1024;
+    private UUID                uid = UUID.randomUUID();
+    private static final byte[] LF_MAGIC = "%flf".getBytes();
+    private static final byte[] CF_MAGIC = "!ctl".getBytes();
+    private static final byte[] FILE_CHUNK_MAGIC = "~fc~".getBytes();
+    private static final short  IMPL_NUMBER = 02;
     
-    private void openForReading(File p)  throws IOException {
-        segment = new FileInputStream(p).getChannel();
-    }
+    private List<Chunk> chunks;
+    private final ByteBuffer header = ByteBuffer.allocate(12);
     
+    public NIOSegmentImpl(NIOStreamImpl p, Direction dir, File file, long segSize) {
+        this.parent = p;
+        this.src = file;
+        this.limit = segSize;
+        this.direction = dir;
+        this.segNum = p.convertSegmentNumber(file);
+    }
+
+    NIOSegmentImpl openForReading(ChunkSource reader) throws IOException {
+        readBuffer = reader.wrapFile(src);
+        byte[] lfm = new byte[4];
+        readBuffer.get(lfm);
+        assert(Arrays.equals(lfm,LF_MAGIC));
+        short impl = readBuffer.getShort();
+        assert(impl == IMPL_NUMBER);
+        long low = readBuffer.getLong();
+        long high = readBuffer.getLong();
+        UUID cid = new UUID(high, low);   
+        
+        if ( this.limit < src.length() ) {
+            ((FileChunk)readBuffer).setLimit(this.limit);
+        }
+        
+        chunks = queueChunks(readBuffer);
+         if ( direction == Direction.REVERSE ) Collections.reverse(chunks);
+         
+         return this;
+   }
+
     //  open and write the header.
-    private void openForWriting(File p)  throws IOException {
-        segment = new FileOutputStream(p).getChannel();
+    NIOSegmentImpl openForWriting() throws IOException {
+        segment = new FileOutputStream(src).getChannel();
         ByteBuffer allocate = ByteBuffer.allocate(22);
 
         allocate.put(LF_MAGIC);
         allocate.putShort(IMPL_NUMBER);
-        allocate.putLong(uid.getLeastSignificantBits());
         allocate.putLong(uid.getMostSignificantBits());
+        allocate.putLong(uid.getLeastSignificantBits());
+        allocate.flip();
         segment.write(allocate);
+        return this;
+    }
 
-    }    
-    
     // getBuffers does the bulk of the work defining header for LogRecord
     @Override
     public long append(Chunk c) throws IOException {
-        long wl = segment.write(c.getBuffers());
-        if ( segment.position() >= limit ) close();
+        if ( segment == null ) throw new IOException("segment not open for writing");
+        header.clear();
+        
+        header.putLong(c.length());
+        header.flip();
+        long wl = segment.write(header);
+        wl += segment.write(c.getBuffers());
+        header.clear();
+        header.putLong(wl-8);
+        header.put(FILE_CHUNK_MAGIC);
+        header.flip();
+        wl += segment.write(header);
+        if (segment.position() >= limit) {
+            close();
+        }
         return wl;
     }
 
     @Override
     public void close() throws IOException {
-        if ( !segment.isOpen() ) return;
+        if (!segment.isOpen()) {
+            return;
+        }
         ByteBuffer close = ByteBuffer.allocate(4);
         close.put(CF_MAGIC);
         close.flip();
@@ -69,9 +116,15 @@ public class NIOSegmentImpl implements Segment {
         segment.force(false);
         segment.close();
     }
-    
-    public void fsync() throws IOException {
+//  assume single threaded
+    public long fsync() throws IOException {
+        long pos = segment.position();
         segment.force(false);
+        return pos;
+    }
+    
+    int getSegmentNumber() {
+        return segNum;
     }
 
     @Override
@@ -80,8 +133,22 @@ public class NIOSegmentImpl implements Segment {
     }
 
     @Override
-    public Iterator<ChunkIntent> iterator(Direction dir) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public Iterator<Chunk> iterator() {
+        return chunks.iterator();
+    }
+    
+    private List<Chunk> queueChunks(Chunk bb) {
+        List<Chunk> list = new ArrayList<Chunk>();
+        while (bb.hasRemaining() && bb.remaining() >= 22) {
+            long length = bb.getLong();
+            for ( ByteBuffer b : bb.getBuffers(length) ) list.add(new WrappingChunk(b));
+            long confirm = bb.getLong();
+            byte[] fcm = new byte[4];
+            bb.get(fcm);
+            assert(length == confirm);
+            assert(Arrays.equals(fcm,FILE_CHUNK_MAGIC));
+        }
+        return list;
     }
 
     @Override
@@ -93,10 +160,4 @@ public class NIOSegmentImpl implements Segment {
     public long remains() throws IOException {
         return limit - segment.position();
     }
-
-    @Override
-    public Iterator<ChunkIntent> iterator() {
-        return iterator(Direction.getDefault());
-    }
-    
 }

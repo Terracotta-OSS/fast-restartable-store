@@ -7,13 +7,10 @@ package com.terracottatech.frs.io;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
 import org.junit.*;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import org.junit.rules.TemporaryFolder;
-import static org.mockito.Mockito.mock;
 
 /**
  *
@@ -21,7 +18,10 @@ import static org.mockito.Mockito.mock;
  */
 public class NIOSegmentImplTest {
 
+    NIOStreamImpl stream;
     NIOSegmentImpl tester;
+    File workarea;
+    
     
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
@@ -38,12 +38,10 @@ public class NIOSegmentImplTest {
     }
 
     @Before
-    public void setUp() {
-        try {
-            tester = new NIOSegmentImpl(folder.newFile(), (10 * 1024 * 1024), false);
-        } catch (IOException ioe) {
-            throw new AssertionError(ioe);
-        }
+    public void setUp() throws IOException {
+            workarea = folder.newFolder();
+            stream = new NIOStreamImpl(workarea.getAbsolutePath(), (10 * 1024 * 1024));
+            tester = (NIOSegmentImpl)stream.append();
     }
 
     @After
@@ -56,7 +54,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testAppend() throws Exception {
         System.out.println("append");
-        Chunk c = new Chunk() {
+        Chunk c = new AbstractChunk() {
 
             @Override
             public ByteBuffer[] getBuffers() {
@@ -73,7 +71,7 @@ public class NIOSegmentImplTest {
         };
         try {
             long result = tester.append(c);
-            assertEquals(40l, result);
+            assertEquals(60l, result);  //  length of these bytes plus 20 bytes of header for LogRegions
         } catch (IOException ioe) {
             throw new AssertionError(ioe);
         }
@@ -128,7 +126,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testLength() throws Exception {
         System.out.println("length");
-        long expResult = 0L;
+        long expResult = 22L;  //  header length
         long result = tester.length();
         assertEquals(expResult, result);
     }
@@ -139,7 +137,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testRemains() throws Exception {
         System.out.println("remains");
-        long expResult = (10L*1024*1024);
+        long expResult = (10L*1024*1024) - 22L;
         long result = tester.remains();
         assertEquals(expResult, result);
     }

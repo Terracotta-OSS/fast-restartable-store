@@ -1,17 +1,13 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.IOManager;
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -23,63 +19,35 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class SimpleLogManager implements LogManager,Runnable {
     
-    Thread daemon;
-    volatile StackingLogRegion current_region;
-    AtomicLong currentLsn = new AtomicLong(100);
-    AtomicLong highestOnDisk = new AtomicLong(0);
-    IOManager io;
-    final int max_region = 100;
-    AtomicBoolean alive = new AtomicBoolean(true);
-    long tb = 0;
-    
-    final static Future<Void> _dummy_future = new Future() {
-
-        @Override
-        public boolean cancel(boolean bln) {
-            return false;
-        }
-
-        @Override
-        public Void get() throws InterruptedException, ExecutionException {
-            return null;
-        }
-
-        @Override
-        public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-            return null;
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public boolean isDone() {
-            return true;
-        }
-        
-    };
-    
+    private final Thread daemon;
+    private volatile CommitList currentRegion;
+    private final AtomicLong currentLsn = new AtomicLong(100);
+    private final AtomicLong highestOnDisk = new AtomicLong(0);
+    private final IOManager io;
+    private final int maxRegion = 100;
+    private volatile boolean alive = true;
+    private long totalBytes = 0;
+    private LogRegionPacker  packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);    
 
     public SimpleLogManager(IOManager io) {
         this.daemon = new Thread(this);
         this.daemon.setDaemon(true);
         this.io = io;
-        current_region = new StackingLogRegion(true, currentLsn.get(), max_region);
+        currentRegion = new AtomicCommitList(true, currentLsn.get(), maxRegion);
     }
     
      //  TODO:  re-examine when more runtime context is available.
+    @Override
     public void run() {
-        while ( alive.get() || currentLsn.get()-1 != highestOnDisk.get() ) {
-            StackingLogRegion old_region = current_region;
+        while ( alive || currentLsn.get()-1 != highestOnDisk.get() ) {
+            CommitList old_region = currentRegion;
             try {
-                if ( !alive.get() ) old_region.close(false);
+                if ( !alive ) old_region.close(currentLsn.get() -1,false);
                 old_region.waitForContiguous();
                 
-                current_region = old_region.next();
+                currentRegion = old_region.next();
                 
-                tb += io.write(old_region);
+                totalBytes += io.write(packer.pack(old_region));
                 if ( old_region.isSyncing() ) {
                     io.sync();
                 }
@@ -88,8 +56,8 @@ public class SimpleLogManager implements LogManager,Runnable {
             } catch ( IOException ioe ) {
                 throw new AssertionError(ioe);
             } catch ( InterruptedException ie ) {
-                if ( alive.get() ) throw new AssertionError(ie);
-                else old_region.close(false);
+                if ( alive ) throw new AssertionError(ie);
+                else old_region.close(currentLsn.get()-1,false);
             }        
         }
     }
@@ -100,29 +68,43 @@ public class SimpleLogManager implements LogManager,Runnable {
 
     //  TODO:  re-examine when more runtime context is available.
     public void shutdown() {
-        alive.set(false);
-        current_region.close(false);
+        alive = false;
+        currentRegion.close(currentLsn.get()-1,false);
         try {
             daemon.join();
         } catch ( InterruptedException ie ) {
             throw new AssertionError(ie);
         }
         assert(currentLsn.get()-1 == highestOnDisk.get());
+        try {
+            io.close();
+        } catch ( IOException ioe ) {
+            throw new AssertionError(ioe);
+        }
     }
     
     public long totalBytes() {
-        return tb;
+        return totalBytes;
     }
     
-    private StackingLogRegion commonAppend(LogRecord record) {
+    private CommitList commonAppend(LogRecord record) {
 //        if ( !alive.get() ) throw new RuntimeException("shutting down");
-       long lsn = currentLsn.getAndIncrement();
+        long lsn = currentLsn.getAndIncrement();
         record.updateLsn(lsn);
         
-        StackingLogRegion mine = current_region;
+   // if highest lsn on disk is < the lowest lsn transmitted by record, then 
+   // our entire log stream on disk is old.  We also don't know if ObjectManager 
+   // has all lsn's committed back to it from logmanager so set record lowest lsn 
+   // to the value we know is confirmed back to ObjectManager
+        long highOnDisk = highestOnDisk.get();
+        if ( record.getLowestLsn() > highOnDisk ) {
+            record.setLowestLsn(highOnDisk);
+        }
+        
+        CommitList mine = currentRegion;
                 
         while ( !mine.append(record) ) {
-            mine.close(false);
+            mine.close(record.getLsn(),false);
             mine = mine.next();
         }
         
@@ -131,56 +113,28 @@ public class SimpleLogManager implements LogManager,Runnable {
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        final StackingLogRegion mine = commonAppend(record);
+        final CommitList mine = commonAppend(record);
         
-        mine.close(true);
+        mine.close(record.getLsn(),true);
                 
-        return new Future<Void>() {
-
-            @Override
-            public boolean cancel(boolean bln) {
-                //  can we cancel?
-                return false;
-            }
-            
-            @Override
-            public Void get() throws InterruptedException, ExecutionException {
-                mine.waitForWrite();
-                return null;
-            }
-
-            @Override
-            public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-                mine.waitForWrite(tu.convert(l,tu.MILLISECONDS));
-                return null;
-            }
-
-            @Override
-            public boolean isCancelled() {
-                return false;
-            }
-
-            @Override
-            public boolean isDone() {
-                return mine.isWritten();
-            }
-            
-        };        
+        return mine;
     }
 
     @Override
     public Future<Void> append(LogRecord record) {
         
-        StackingLogRegion mine = commonAppend(record);
+        CommitList mine = commonAppend(record);
                 
-        return _dummy_future;
+        return mine;
     }
 
     @Override
     public Iterator<LogRecord> reader() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        ChunkExchange ex = new ChunkExchange(io);
+        Thread reader = new Thread(ex);
+        reader.setDaemon(true);
+        reader.start();
+        return ex.iterator();
     }
-    
-    
-    
+
 }

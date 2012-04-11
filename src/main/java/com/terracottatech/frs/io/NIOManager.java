@@ -1,43 +1,51 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.log.LogRegionFactory;
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
- * Top level IO Manager using NIO.  
- * 
- * Assume single threaded operation into NIOManager from 
- * a thread created in LogManager
- * 
+ * Top level IO Manager using NIO.
+ *
+ * Assume single threaded operation into NIOManager from a thread created in
+ * LogManager
+ *
  * @author mscott
  */
 public class NIOManager implements IOManager {
-  
-    Stream  backend;
-    Segment currentSegment;
-    
+
+    private final Stream backend;
+    private Segment currentSegment;
+
     public NIOManager(String home, long segmentSize) throws IOException {
         backend = new NIOStreamImpl(home, segmentSize);
-        currentSegment = backend.append();
+
     }
-    
+
     public void dispose() throws IOException {
-        if ( currentSegment != null ) currentSegment.close();
-        if ( backend != null ) backend.close();
+        if (currentSegment != null) {
+            currentSegment.close();
+        }
+        if (backend != null) {
+            backend.close();
+        }
         currentSegment = null;
-        backend = null;
     }
-    
+
     @Override
     public long write(Chunk region) throws IOException {
-        if ( currentSegment == null ) throw new IOException("stream is closed");
+        if (backend == null) {
+            throw new IOException("stream closed");
+        }
+        if (currentSegment == null) {
+            currentSegment = backend.append();
+        }
         long bw = currentSegment.append(region);
-        if ( currentSegment.isClosed() ) currentSegment = backend.append();
+        if (currentSegment.isClosed()) {
+            currentSegment = backend.append();
+        }
         return bw;
     }
 
@@ -47,13 +55,29 @@ public class NIOManager implements IOManager {
     }
 
     public void sync() throws IOException {
-        if ( backend == null ) throw new IOException("stream closed");
+        if (backend == null) {
+            throw new IOException("stream closed");
+        }
         backend.sync();
+    }
+    
+    @Override
+    public long seek(long lsn) throws IOException {
+        backend.seek(lsn);
+        return lsn;
+    }
+    
+    public Iterable<Chunk> read(Direction dir) throws IOException {
+        Segment seg = backend.read(dir);
+        
+        return seg;
     }
 
     @Override
-    public <T> Iterator<T> reader(LogRegionFactory<T> as) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public void close() throws IOException {
+        this.dispose();
     }
+    
+    
     
 }

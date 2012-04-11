@@ -57,6 +57,6 @@ public class LogRecordImpl implements LogRecord {
     @Override
     public void updateLsn(long lsn) {
         this.lsn = lsn;
-        listener.record(lsn);
+        if ( listener != null ) listener.record(lsn);
     }
 }

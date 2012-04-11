@@ -129,15 +129,15 @@ class NIOStreamImpl implements Stream {
             number = currentSegment.getSegmentNumber() + 1;
         }
         pfn.format(format, number);
-        if (currentSegment != null && !currentSegment.isClosed()) {
-            currentSegment.close();
-        }
+
         if ( segments == null ) segments = new ArrayList<File>();
         File nf = new File(directory, fn.toString());
         position = segments.size();
         segments.add(nf);
 
-        return new NIOSegmentImpl(this, Direction.getDefault(), nf, segmentSize).openForWriting();
+        currentSegment = new NIOSegmentImpl(this, Direction.getDefault(), nf, segmentSize).openForWriting();
+        
+        return currentSegment;
     }
     //  fsync current segment.  old segments are fsyncd on close
 
@@ -145,7 +145,7 @@ class NIOStreamImpl implements Stream {
     public void sync() throws IOException {
         if (currentSegment != null && !currentSegment.isClosed()) {
             long pos = currentSegment.fsync();
-            ByteBuffer last = ByteBuffer.allocate(8);
+            ByteBuffer last = ByteBuffer.allocate(12);
             last.putInt(currentSegment.getSegmentNumber());
             last.putLong(pos);
             last.flip();
@@ -160,7 +160,6 @@ class NIOStreamImpl implements Stream {
     public void close() throws IOException {
         if (currentSegment != null && !currentSegment.isClosed()) {
             currentSegment.close();
-            currentSegment = null;
         }
         if (lock != null) {
             lock.release();
@@ -184,11 +183,12 @@ class NIOStreamImpl implements Stream {
         }
         if ( dir == Direction.FORWARD ) {
             if ( position > segments.size() - 1 ) return null;
-            return new NIOSegmentImpl(this, dir, segments.get(position++), setsize).openForReading(pool);
+            currentSegment = new NIOSegmentImpl(this, dir, segments.get(position++), setsize).openForReading(pool);
         } else {
             if ( position < 0 ) return null;
-            return new NIOSegmentImpl(this, dir, segments.get(position--), setsize).openForReading(pool);
+            currentSegment = new NIOSegmentImpl(this, dir, segments.get(position--), setsize).openForReading(pool);
         }
+        return currentSegment;
     }
 
     @Override

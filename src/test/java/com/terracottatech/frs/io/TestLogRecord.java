@@ -28,8 +28,14 @@ public class TestLogRecord implements LogRecord  {
             
         }
     }
+    
+    public TestLogRecord(long lsn) throws IOException {
+        this();
+        this.lsn = lsn;
+    }
 
     public TestLogRecord() throws IOException {
+        this.lsn = lsn;
         double mutation = Math.random() * 2;
         if ( mutation < 1) {
             list = new ByteBuffer[1];

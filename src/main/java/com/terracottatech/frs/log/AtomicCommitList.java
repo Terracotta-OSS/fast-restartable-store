@@ -69,10 +69,12 @@ public class AtomicCommitList implements CommitList, Future<Void> {
      */
     @Override
     public AtomicCommitList next() {
-        assert (endLsn.get() > 0);
+        assert (endLsn.get() > 0 || golatch.getCount() == 0);
+        long nextLsn = endLsn.get() + 1;
+        if ( nextLsn == 0 ) nextLsn = baseLsn + regions.length() + 1;
         if ( next == null ) {
             synchronized (guard) {
-                if ( next == null ) next = new AtomicCommitList(dochecksum, endLsn.get() + 1, regions.length());
+                if ( next == null ) next = new AtomicCommitList(dochecksum, nextLsn, regions.length());
             }
         }
         return next;
@@ -177,6 +179,10 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     @Override
     public void waitForContiguous() throws InterruptedException {
         golatch.await();
+        if ( endLsn.compareAndSet(0, baseLsn + regions.length() -1) ) {
+ // filled all the slots with no close.  set endLsn now
+            assert(golatch.getCount() == 0);
+        }
         assert(baseLsn == 0 || checkValues());
        
     }

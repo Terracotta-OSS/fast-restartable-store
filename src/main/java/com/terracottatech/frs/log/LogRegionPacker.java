@@ -139,6 +139,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         long len = buffer.getLong();
 
         ByteBuffer payload = buffer.getBuffer((int)len);
-        return new LogRecordImpl(lsn, pLsn, new ByteBuffer[]{payload}, null);
+        LogRecord record = new LogRecordImpl(lLsn, pLsn, new ByteBuffer[]{payload}, null);
+        record.updateLsn(lsn);
+        return record;
     }
 }

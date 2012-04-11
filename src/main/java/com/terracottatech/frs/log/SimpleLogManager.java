@@ -27,13 +27,19 @@ public class SimpleLogManager implements LogManager,Runnable {
     private final int maxRegion = 100;
     private volatile boolean alive = true;
     private long totalBytes = 0;
-    private LogRegionPacker  packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);    
-
+    private LogRegionPacker  packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);   
+    
     public SimpleLogManager(IOManager io) {
+        this(new AtomicCommitList(true, 100l, 100),io);
+    }
+
+    public SimpleLogManager(CommitList list, IOManager io) {
+        this.currentRegion = list;
         this.daemon = new Thread(this);
         this.daemon.setDaemon(true);
         this.io = io;
-        currentRegion = new AtomicCommitList(true, currentLsn.get(), maxRegion);
+        currentLsn.set(list.getBaseLsn());
+//        currentRegion = new AtomicCommitList(true, currentLsn.get(), maxRegion);
     }
     
      //  TODO:  re-examine when more runtime context is available.

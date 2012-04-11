@@ -87,12 +87,16 @@ class NIOSegmentImpl implements Segment {
     public long append(Chunk c) throws IOException {
         if ( segment == null ) throw new IOException("segment not open for writing");
         header.clear();
-        
-        header.putLong(c.length());
+        long amt = c.remaining();
+        assert(amt == c.length());
+        header.putLong(amt);
         header.flip();
         long wl = segment.write(header);
-        wl += segment.write(c.getBuffers());
+        while ( wl < amt + 8) {
+            wl += segment.write(c.getBuffers());
+        }
         header.clear();
+        assert(wl == amt + 8);
         header.putLong(wl-8);
         header.put(FILE_CHUNK_MAGIC);
         header.flip();
@@ -105,7 +109,8 @@ class NIOSegmentImpl implements Segment {
 
     @Override
     public void close() throws IOException {
-        if (!segment.isOpen()) {
+        readBuffer = null;
+        if (segment == null || !segment.isOpen()) {
             return;
         }
         ByteBuffer close = ByteBuffer.allocate(4);
@@ -115,6 +120,7 @@ class NIOSegmentImpl implements Segment {
         //  TODO: is this force neccessary?  not sure, research
         segment.force(false);
         segment.close();
+        segment = null;
     }
 //  assume single threaded
     public long fsync() throws IOException {
@@ -129,7 +135,8 @@ class NIOSegmentImpl implements Segment {
 
     @Override
     public boolean isClosed() {
-        return !segment.isOpen();
+        
+        return (readBuffer == null && segment == null);
     }
 
     @Override

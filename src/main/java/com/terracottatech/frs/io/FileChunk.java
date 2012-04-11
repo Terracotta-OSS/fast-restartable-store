@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
  * Wrap a file in a chunk for easy access.
@@ -26,18 +27,22 @@ public class FileChunk extends AbstractChunk {
     }
 
     private void init() throws IOException {
+        long read = 0;
+        FileChannel channel = new FileInputStream(src).getChannel();
         if ( reserve.remaining() >= src.length() ) {
-            new FileInputStream(src).getChannel().read(reserve);
-            reserve.flip();
             ref = new ByteBuffer[]{reserve};
         } else {
             ByteBuffer end = ByteBuffer.allocate((int)(src.length() - reserve.remaining()));
-            ByteBuffer[] grab = new ByteBuffer[] {reserve,end};
-            new FileInputStream(src).getChannel().read(grab);
-            reserve.flip();
-            end.flip();
-            ref = new ByteBuffer[]{reserve,end};
+            ref = new ByteBuffer[] {reserve,end};
         }
+        while ( src.length() > read ) {
+            read += channel.read(ref);
+        }
+        assert(read == src.length());
+        for  ( ByteBuffer b : ref ) {
+            b.flip();
+        }
+        channel.close();
     }
 
     @Override

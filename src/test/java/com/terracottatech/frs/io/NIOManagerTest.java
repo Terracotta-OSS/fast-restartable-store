@@ -14,6 +14,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
+import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
 
 /**
  *
@@ -85,20 +87,30 @@ public class NIOManagerTest {
             }
         }
 
-        System.out.format("bytes written: %.3fM in %.6f sec = %.3f bytes/sec\n",tb/(1024d*1024d),
+        System.out.format("bytes written: %.3fM in %.6f sec = %.3f MB/sec\n",tb/(1024d*1024d),
                 (System.nanoTime() - total)*1e-9,
-                tb/((System.nanoTime() - total)*1e-9)
+                (tb/(1024d*1024d))/((System.nanoTime() - total)*1e-9)
                 );
     }
     
-    @Test 
-    public void testMTAppend() {
-        System.out.println("MT append");
-        final int count = (int)(Math.random() * 10) + 10;
-         System.out.format("forming %d user threads\n",count);
-       final SimpleLogManager lm = new SimpleLogManager(manager);
-       lm.startup();
-       
+    @Test @Ignore
+    public void testAtomicMT() {
+        System.out.println("Atomic MT append");
+        final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, lsn, 100),manager);
+        testMTAppend(lm);
+    }
+
+    @Test @Ignore
+    public void testStackingMT() {
+        System.out.println("Stacking MT append");
+        final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
+        testMTAppend(lm);
+    }
+        
+    private void testMTAppend(final SimpleLogManager lm) {
+        int count = 20;
+        lm.startup();
+        System.out.format("forming %d user threads\n",count);
         ThreadGroup tg = new ThreadGroup("tester");
         final CountDownLatch wait = new CountDownLatch(count);
         long total = System.nanoTime();
@@ -108,13 +120,13 @@ public class NIOManagerTest {
 
                 @Override
                 public void run() {
-                    int spins = (int)(Math.random() * 1000);
+                    int spins = 100;
                      System.out.format("pushing %d log records\n",spins);
                     for (int x=0;x<spins;x++) {
                         try {
                             long start = System.nanoTime();
-                            boolean sync = Math.random() * 10 < 1;
-                            TestLogRecord lr = new TestLogRecord();
+                            boolean sync = (x%9==9);
+                            LogRecord lr = new TestLogRecord();
                             Future<Void> wio = ( sync ) ?  lm.appendAndSync(lr) : lm.append(lr);
 
                             if ( sync ) {
@@ -143,9 +155,9 @@ public class NIOManagerTest {
         }
         lm.shutdown();
         long tb = lm.totalBytes();
-        System.out.format("bytes written: %.3fM in %.6f sec = %.3f bytes/sec\n",tb/(1024d*1024d),
+        System.out.format("bytes written: %.3fM in %.6f sec = %.3f MB/sec\n",tb/(1024d*1024d),
                 (System.nanoTime() - total)*1e-9,
-                tb/((System.nanoTime() - total)*1e-9)
+                (tb/(1024d*1024d))/((System.nanoTime() - total)*1e-9)
                 );
     }
     
@@ -167,19 +179,22 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       final SimpleLogManager lm = new SimpleLogManager(manager);
+       final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, 100l, 100), manager);
        lm.startup();
-        TestLogRecord lr1 = new TestLogRecord();
-        TestLogRecord lr2 = new TestLogRecord();
-        TestLogRecord lr3 = new TestLogRecord();
-       lm.append(lr1);
-       lm.append(lr2);
-       lm.append(lr3);
+       for (int x=0;x<1000;x++) {
+            TestLogRecord lr1 = new TestLogRecord();
+           lm.append(lr1);
+       }
+
        lm.shutdown();
        
+       long lsn = -1;
        Iterator<LogRecord> logs = lm.reader();
        while ( logs.hasNext() ) {
-           System.out.println(logs.next());
+           LogRecord record = logs.next();
+           System.out.println(record.getLsn());
+           if ( lsn > 0 ) assert(lsn-1 == record.getLsn());
+           lsn = record.getLsn();
        }
     }
 }

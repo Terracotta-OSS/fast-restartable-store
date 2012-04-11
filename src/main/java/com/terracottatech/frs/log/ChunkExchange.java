@@ -49,7 +49,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                 }
             } while (chunks != null);
         } catch (IOException ioe) {
-            throw new AssertionError();
+            throw new AssertionError(ioe);
         } finally {
             done = true;
         }

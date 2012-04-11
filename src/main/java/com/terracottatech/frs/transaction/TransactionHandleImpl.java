@@ -24,7 +24,7 @@ class TransactionHandleImpl implements TransactionHandle {
 
   @Override
   public ByteBuffer toByteBuffer() {
-    ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE);
+    ByteBuffer buffer = ByteBuffer.allocate(ByteBufferUtils.LONG_SIZE);
     buffer.putLong(id).flip();
     return buffer;
   }

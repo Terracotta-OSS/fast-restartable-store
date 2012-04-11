@@ -121,7 +121,7 @@ public class ActionCodecImpl implements ActionCodec {
     }
 
     ByteBuffer toByteBuffer() {
-      ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE * 2);
+      ByteBuffer buffer = ByteBuffer.allocate(ByteBufferUtils.INT_SIZE * 2);
       buffer.putInt(collection).putInt(action).flip();
       return buffer;
     }

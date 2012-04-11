@@ -19,16 +19,18 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class DeleteAction implements Action {
-  private final ObjectManager<Long, ?, ?> objectManager;
-  private final Long id;
+  private final ObjectManager<ByteBuffer, ?, ?> objectManager;
+  private final ByteBuffer id;
 
-  DeleteAction(ObjectManager<Long, ?, ?> objectManager, Long id) {
+  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ByteBuffer id) {
     this.objectManager = objectManager;
     this.id = id;
   }
 
-  DeleteAction(ObjectManager<Long, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this(objectManager, ByteBufferUtils.getLong(buffers));
+  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+    this.objectManager = objectManager;
+    int idLength = ByteBufferUtils.getInt(buffers);
+    this.id = ByteBufferUtils.getBytes(idLength, buffers);
   }
 
   @Override
@@ -55,9 +57,9 @@ class DeleteAction implements Action {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE);
-    buffer.putLong(id).flip();
-    return new ByteBuffer[] { buffer };
+    ByteBuffer buffer = ByteBuffer.allocate(ByteBufferUtils.INT_SIZE);
+    buffer.putInt(id.limit()).flip();
+    return new ByteBuffer[] { buffer, id.duplicate() };
   }
 
   @Override

@@ -19,22 +19,23 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class RemoveAction implements Action {
-  private static final int HEADER_SIZE = Long.SIZE + Integer.SIZE;
+  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 2;
 
-  private final ObjectManager<Long, ByteBuffer, ?> objectManager;
-  private final Long id;
+  private final ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager;
+  private final ByteBuffer id;
   private final ByteBuffer key;
 
-  RemoveAction(ObjectManager<Long, ByteBuffer, ?> objectManager, Long id, ByteBuffer key) {
+  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, ByteBuffer id, ByteBuffer key) {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;
   }
 
-  RemoveAction(ObjectManager<Long, ByteBuffer, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this.objectManager = objectManager;
-    this.id = ByteBufferUtils.getLong(buffers);
+    int idLength = ByteBufferUtils.getInt(buffers);
     int keyLength = ByteBufferUtils.getInt(buffers);
+    this.id = ByteBufferUtils.getBytes(idLength, buffers);
     this.key = ByteBufferUtils.getBytes(keyLength, buffers);
   }
 
@@ -65,9 +66,9 @@ class RemoveAction implements Action {
     // TODO: Can we just return no data for remove? It's not technically necessary to
     // write anything to the log since nothing needs to be replayed.
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putLong(id);
+    header.putInt(id.limit());
     header.putInt(key.limit()).flip();
-    return new ByteBuffer[] { header, key.duplicate() };
+    return new ByteBuffer[] { header, id.duplicate(), key.duplicate() };
   }
 
   @Override

@@ -19,25 +19,26 @@ import java.util.concurrent.locks.Lock;
 * @author tim
 */
 class PutAction implements Action {
-  private static final int HEADER_SIZE = Long.SIZE + Integer.SIZE + Integer.SIZE;
+  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 3;
 
-  private final ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
-  private final Long id;
+  private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private final ByteBuffer id;
   private final ByteBuffer key;
   private final ByteBuffer value;
 
-  PutAction(ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager, Long id, ByteBuffer key, ByteBuffer value) {
+  PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ByteBuffer id, ByteBuffer key, ByteBuffer value) {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;
     this.value = value;
   }
 
-  PutAction(ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+  PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this.objectManager = objectManager;
-    this.id = ByteBufferUtils.getLong(buffers);
+    int idLength = ByteBufferUtils.getInt(buffers);
     int keyLength = ByteBufferUtils.getInt(buffers);
     int valueLength = ByteBufferUtils.getInt(buffers);
+    this.id = ByteBufferUtils.getBytes(idLength, buffers);
     this.key = ByteBufferUtils.getBytes(keyLength, buffers);
     this.value = ByteBufferUtils.getBytes(valueLength, buffers);
   }
@@ -67,10 +68,10 @@ class PutAction implements Action {
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putLong(id);
+    header.putInt(id.limit());
     header.putInt(key.limit());
     header.putInt(value.limit()).flip();
-    return new ByteBuffer[] { header, key.duplicate(), value.duplicate() };
+    return new ByteBuffer[] { header, id.duplicate(), key.duplicate(), value.duplicate() };
   }
 
   @Override

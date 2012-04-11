@@ -20,9 +20,9 @@ import static org.mockito.Mockito.verify;
  * @author tim
  */
 public class RestartStoreImplTest {
-  private RestartStore<Long, ByteBuffer, ByteBuffer> restartStore;
-  private ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
-  private TransactionManager transactionManager;
+  private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>  restartStore;
+  private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private TransactionManager                                transactionManager;
 
   @Before
   public void setUp() throws Exception {
@@ -33,14 +33,16 @@ public class RestartStoreImplTest {
 
   @Test
   public void testBegin() throws Exception {
-    Transaction<Long, ByteBuffer, ByteBuffer> transaction = restartStore.beginTransaction();
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginTransaction();
     assertNotNull(transaction);
     verify(transactionManager).begin();
   }
 
   @Test
   public void testCommit() throws Exception {
-    Transaction<Long, ByteBuffer, ByteBuffer> transaction = restartStore.beginTransaction();
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginTransaction();
     transaction.commit();
     verify(transactionManager).commit(null);
     try {
@@ -53,12 +55,18 @@ public class RestartStoreImplTest {
 
   @Test
   public void testPut() throws Exception {
-    Transaction<Long, ByteBuffer, ByteBuffer> transaction = restartStore.beginTransaction();
-    transaction.put(1L, newByteBufferWithInt(2), newByteBufferWithInt(3));
-    verify(transactionManager).happened(null, new PutAction(objectManager, 1L, newByteBufferWithInt(2), newByteBufferWithInt(3)));
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginTransaction();
+    transaction.put(newByteBufferWithInt(1), newByteBufferWithInt(2),
+                    newByteBufferWithInt(3));
+    verify(transactionManager).happened(null, new PutAction(objectManager,
+                                                            newByteBufferWithInt(1),
+                                                            newByteBufferWithInt(2),
+                                                            newByteBufferWithInt(3)));
     transaction.commit();
     try {
-      transaction.put(4L, newByteBufferWithInt(5), newByteBufferWithInt(6));
+      transaction.put(newByteBufferWithInt(4), newByteBufferWithInt(5),
+                      newByteBufferWithInt(6));
       fail("Put on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -67,12 +75,14 @@ public class RestartStoreImplTest {
 
   @Test
   public void testDelete() throws Exception {
-    Transaction<Long, ByteBuffer, ByteBuffer> transaction = restartStore.beginTransaction();
-    transaction.delete(1L);
-    verify(transactionManager).happened(null, new DeleteAction(objectManager, 1L));
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginTransaction();
+    transaction.delete(newByteBufferWithInt(1));
+    verify(transactionManager).happened(null, new DeleteAction(objectManager,
+                                                               newByteBufferWithInt(1)));
     transaction.commit();
     try {
-      transaction.delete(1L);
+      transaction.delete(newByteBufferWithInt(1));
       fail("Delete on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -81,12 +91,15 @@ public class RestartStoreImplTest {
 
   @Test
   public void testRemove() throws Exception {
-    Transaction<Long, ByteBuffer, ByteBuffer> transaction = restartStore.beginTransaction();
-    transaction.remove(1L, newByteBufferWithInt(2));
-    verify(transactionManager).happened(null, new RemoveAction(objectManager, 1L, newByteBufferWithInt(2)));
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginTransaction();
+    transaction.remove(newByteBufferWithInt(1), newByteBufferWithInt(2));
+    verify(transactionManager).happened(null, new RemoveAction(objectManager,
+                                                               newByteBufferWithInt(1),
+                                                               newByteBufferWithInt(2)));
     transaction.commit();
     try {
-      transaction.remove(1L, newByteBufferWithInt(2));
+      transaction.remove(newByteBufferWithInt(1), newByteBufferWithInt(2));
       fail("Remove on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected

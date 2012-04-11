@@ -22,7 +22,7 @@ import static org.mockito.Mockito.mock;
  * @author tim
  */
 public class MapActionsTest {
-  private ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
+  private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionCodec                                 actionCodec;
 
   @Before
@@ -41,24 +41,24 @@ public class MapActionsTest {
   @Test
   public void testPutAction() throws Exception {
     Action put =
-            new PutAction(objectManager, 0L, makeByteBuffer(1), makeByteBuffer(2));
+            new PutAction(objectManager, makeByteBuffer(0), makeByteBuffer(1), makeByteBuffer(2));
     checkEncodeDecode(put);
   }
 
   @Test
   public void testDeleteAction() throws Exception {
-    Action delete = new DeleteAction(objectManager, 1L);
+    Action delete = new DeleteAction(objectManager, makeByteBuffer(1));
     checkEncodeDecode(delete);
   }
 
   @Test
   public void testRemove() throws Exception {
-    Action remove = new RemoveAction(objectManager, 2L, makeByteBuffer(10));
+    Action remove = new RemoveAction(objectManager, makeByteBuffer(2), makeByteBuffer(10));
     checkEncodeDecode(remove);
   }
 
   private ByteBuffer makeByteBuffer(int i) {
-    ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE);
+    ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
     buffer.putInt(i).flip();
     return buffer;
   }

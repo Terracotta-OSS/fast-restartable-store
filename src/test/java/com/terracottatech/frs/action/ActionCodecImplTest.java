@@ -8,6 +8,7 @@ import com.terracottatech.frs.MapActions;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActions;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
+import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -90,18 +91,13 @@ public class ActionCodecImplTest {
       // expected
     }
 
-    ByteBuffer[] encoded = new ByteBuffer[] { makeByteBuffer(8), makeByteBuffer(7) };
+    ByteBuffer[] encoded = new ByteBuffer[] { TestUtils.byteBufferWithInt(8),
+                                              TestUtils.byteBufferWithInt(7) };
     try {
       actionCodec.decode(encoded);
       fail("Should not be able to decode an unknown action");
     } catch (IllegalArgumentException e) {
       // expected
     }
-  }
-
-  private ByteBuffer makeByteBuffer(int i) {
-    ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE);
-    buffer.putInt(i).flip();
-    return buffer;
   }
 }

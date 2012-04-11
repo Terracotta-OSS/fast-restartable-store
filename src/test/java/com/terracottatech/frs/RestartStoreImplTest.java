@@ -6,6 +6,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionManager;
+import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -57,16 +58,16 @@ public class RestartStoreImplTest {
   public void testPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.put(newByteBufferWithInt(1), newByteBufferWithInt(2),
-                    newByteBufferWithInt(3));
+    transaction.put(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2),
+                    TestUtils.byteBufferWithInt(3));
     verify(transactionManager).happened(null, new PutAction(objectManager,
-                                                            newByteBufferWithInt(1),
-                                                            newByteBufferWithInt(2),
-                                                            newByteBufferWithInt(3)));
+                                                            TestUtils.byteBufferWithInt(1),
+                                                            TestUtils.byteBufferWithInt(2),
+                                                            TestUtils.byteBufferWithInt(3)));
     transaction.commit();
     try {
-      transaction.put(newByteBufferWithInt(4), newByteBufferWithInt(5),
-                      newByteBufferWithInt(6));
+      transaction.put(TestUtils.byteBufferWithInt(4), TestUtils.byteBufferWithInt(5),
+                      TestUtils.byteBufferWithInt(6));
       fail("Put on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -77,12 +78,12 @@ public class RestartStoreImplTest {
   public void testDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.delete(newByteBufferWithInt(1));
+    transaction.delete(TestUtils.byteBufferWithInt(1));
     verify(transactionManager).happened(null, new DeleteAction(objectManager,
-                                                               newByteBufferWithInt(1)));
+                                                               TestUtils.byteBufferWithInt(1)));
     transaction.commit();
     try {
-      transaction.delete(newByteBufferWithInt(1));
+      transaction.delete(TestUtils.byteBufferWithInt(1));
       fail("Delete on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -93,23 +94,16 @@ public class RestartStoreImplTest {
   public void testRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.remove(newByteBufferWithInt(1), newByteBufferWithInt(2));
+    transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
     verify(transactionManager).happened(null, new RemoveAction(objectManager,
-                                                               newByteBufferWithInt(1),
-                                                               newByteBufferWithInt(2)));
+                                                               TestUtils.byteBufferWithInt(1),
+                                                               TestUtils.byteBufferWithInt(2)));
     transaction.commit();
     try {
-      transaction.remove(newByteBufferWithInt(1), newByteBufferWithInt(2));
+      transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
       fail("Remove on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
     }
-  }
-
-  private ByteBuffer newByteBufferWithInt(int i) {
-    ByteBuffer buffer = ByteBuffer.allocate(4);
-    buffer.putInt(i);
-    buffer.flip();
-    return buffer;
   }
 }

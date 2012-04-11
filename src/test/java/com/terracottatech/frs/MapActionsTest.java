@@ -9,6 +9,7 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActions;
+import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -41,25 +42,22 @@ public class MapActionsTest {
   @Test
   public void testPutAction() throws Exception {
     Action put =
-            new PutAction(objectManager, makeByteBuffer(0), makeByteBuffer(1), makeByteBuffer(2));
+            new PutAction(objectManager, TestUtils.byteBufferWithInt(0),
+                          TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
     checkEncodeDecode(put);
   }
 
   @Test
   public void testDeleteAction() throws Exception {
-    Action delete = new DeleteAction(objectManager, makeByteBuffer(1));
+    Action delete = new DeleteAction(objectManager, TestUtils.byteBufferWithInt(1));
     checkEncodeDecode(delete);
   }
 
   @Test
   public void testRemove() throws Exception {
-    Action remove = new RemoveAction(objectManager, makeByteBuffer(2), makeByteBuffer(10));
+    Action remove = new RemoveAction(objectManager, TestUtils.byteBufferWithInt(2),
+                                     TestUtils.byteBufferWithInt(10));
     checkEncodeDecode(remove);
   }
 
-  private ByteBuffer makeByteBuffer(int i) {
-    ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / Byte.SIZE);
-    buffer.putInt(i).flip();
-    return buffer;
-  }
 }

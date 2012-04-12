@@ -43,6 +43,10 @@ class PutAction implements Action {
     this.value = ByteBufferUtils.getBytes(valueLength, buffers);
   }
 
+  ByteBuffer getId() {
+    return id;
+  }
+
   @Override
   public long getPreviousLsn() {
     return objectManager.getLsn(id, key);

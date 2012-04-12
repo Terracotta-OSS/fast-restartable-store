@@ -33,6 +33,10 @@ class DeleteAction implements Action {
     this.id = ByteBufferUtils.getBytes(idLength, buffers);
   }
 
+  ByteBuffer getId() {
+    return id;
+  }
+
   @Override
   public long getPreviousLsn() {
     return 0;

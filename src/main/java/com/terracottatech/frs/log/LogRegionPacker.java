@@ -8,6 +8,7 @@ import com.terracottatech.frs.io.Chunk;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.Adler32;
 
@@ -21,21 +22,18 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     private static final short REGION_VERSION = 02;
     private static final byte[] REGION_FORMAT = "NF".getBytes();
     private static final short LR_FORMAT = 02;
-    private static final Adler32 checksum = new Adler32();
+    private static final String BAD_CHECKSUM = "bad checksum";
     private final Signature cType;
-    private final LogRecordFactory recordFactory;
     
-    public LogRegionPacker(LogRecordFactory recordFactory, Signature sig) {
+    public LogRegionPacker(Signature sig) {
         cType = sig;
         
-        assert(cType == sig.NONE || cType == sig.ADLER32);
-        
-        this.recordFactory = recordFactory;
+        assert(cType == Signature.NONE || cType == Signature.ADLER32);
     }
 
     @Override
     public Chunk pack(Iterable<LogRecord> payload) {
-        return convert(payload);
+        return writeRecords(payload);
     }
 
     @Override
@@ -50,9 +48,10 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return queue;
     }
 
-    private Chunk convert(Iterable<LogRecord> records) {        
+    private Chunk writeRecords(Iterable<LogRecord> records) {        
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         long lowestLsn = 0;
+        int count = 0;
         
         ByteBuffer header = ByteBuffer.allocate(24);
 
@@ -62,7 +61,13 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             buffers.add(rhead);
 
             ByteBuffer[] payload = record.getPayload();
-            long len = checksumAndAdd(buffers, payload);
+            long len = 0;
+            for ( ByteBuffer bb : payload ) {
+                len += bb.remaining();
+                buffers.add(bb);
+                count++;
+            }
+
             if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
                 lowestLsn = record.getLowestLsn();
             }
@@ -75,59 +80,56 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             rhead.flip();
         }
         
-        formHeader(header);
-
+        formHeader(checksum(buffers.subList(1, buffers.size())),header);
+        tuningMax = tuningMax + (int)Math.round((count - tuningMax) * .1);
         return new BufferListWrapper(buffers);
     }
     
     private int readHeader(Chunk data) throws IOException {
-        ByteBuffer header = data.getBuffers()[0];
-        short region = header.getShort();
-        long check = header.getLong();
-        long check2 = header.getLong();
+        short region = data.getShort();
+        long check = data.getLong();
+        long check2 = data.getLong();
         byte[] rf = new byte[2];
-        header.get(rf);
+        data.get(rf);
+        
+        long checksum = checksum(Arrays.asList(data.getBuffers()));
+        
+        if ( checksum != check ) throw new IOException(BAD_CHECKSUM);
         return 0;
     }
     
-    private int formHeader(ByteBuffer header) {
+    private int formHeader(long checksum, ByteBuffer header) {
         header.clear();
         header.putShort(REGION_VERSION);
-        if (cType == Signature.ADLER32) {
-            header.putLong(checksum.getValue());
-            header.putLong(checksum.getValue());
-        } else {
-            header.putLong(0x00l);
-            header.putLong(0x00l);
-        }
+        header.putLong(checksum);
+        header.putLong(checksum);
         header.put(REGION_FORMAT);
         header.flip();
 
         return header.remaining();
     }
 
-    private long checksumAndAdd(List<ByteBuffer> list, ByteBuffer[] bufs) {
-        long len = 0;
+    private long checksum(Iterable<ByteBuffer> bufs) {
+        if (cType != Signature.ADLER32) return 0;
 
+        Adler32 checksum = new Adler32();
+        byte[] temp = null;
         for (ByteBuffer buf : bufs) {
-            if (cType == Signature.ADLER32) {
-                if (buf.hasArray()) {
-                    checksum.update(buf.array());
-                } else {
-                    byte[] temp = new byte[4096];
-                    while (buf.hasRemaining()) {
-                        int pos = buf.position();
-                        buf.get(temp);
-                        checksum.update(temp, 0, buf.position() - pos);
-                    }
-                    buf.flip();
+            if (buf.hasArray()) {
+                checksum.update(buf.array());
+            } else {
+                if ( temp == null ) temp = new byte[4096];
+                buf.mark();
+                while (buf.hasRemaining()) {
+                    int fetch = ( buf.remaining() > temp.length ) ? temp.length : buf.remaining();
+                    buf.get(temp,0,fetch);
+                    checksum.update(temp, 0, fetch);
                 }
+                buf.reset();
             }
-            len += buf.remaining();
-            list.add(buf);
         }
 
-        return len;
+        return checksum.getValue();
     }
     
     private LogRecord readRecord(Chunk buffer) {
@@ -138,8 +140,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         long lLsn = buffer.getLong();
         long len = buffer.getLong();
 
-        ByteBuffer payload = buffer.getBuffer((int)len);
-        LogRecord record = new LogRecordImpl(lLsn, pLsn, new ByteBuffer[]{payload}, null);
+        ByteBuffer[] payload = buffer.getBuffers(len);
+        LogRecord record = new LogRecordImpl(lLsn, pLsn, payload, null);
         record.updateLsn(lsn);
         return record;
     }

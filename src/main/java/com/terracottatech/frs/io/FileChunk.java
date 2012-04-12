@@ -9,6 +9,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 
 /**
  * Wrap a file in a chunk for easy access.
@@ -65,6 +66,39 @@ public class FileChunk extends AbstractChunk {
         } else {
             ref[1].limit((int)limit - ref[0].capacity());
         }
+    }
+    
+    public void partition(long...pos) {
+        ArrayList<ByteBuffer> sections = new ArrayList<ByteBuffer>();
+        int section = 0;
+        long offset = 0;
+        ByteBuffer play = (ByteBuffer)ref[section++].duplicate();
+        long last = 0;
+        for ( long p : pos) {
+            play.position((int)(last-offset));
+            if ( p > offset + play.capacity() ) {
+                offset += play.capacity();
+                ByteBuffer refp = null;
+                if ( play.hasRemaining() ) {
+                    refp = ByteBuffer.allocate((int)(p-last));
+                    refp.put(play);
+                }
+                play = ref[section++].duplicate();                    
+                play.limit((int)(p-offset));
+                if ( refp == null ) refp = play.slice();
+                else refp.put(play);
+                sections.add(refp);
+            } else {
+                play.limit((int)(p-offset));
+                sections.add(play.slice());
+            }
+            last = p;
+        }
+        play.position((int)(last-offset));
+        play.limit(play.capacity());
+        sections.add(play.slice());
+        
+        ref = sections.toArray(new ByteBuffer[sections.size()]);
     }
     
 }

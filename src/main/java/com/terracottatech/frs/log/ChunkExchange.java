@@ -24,11 +24,12 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
 
     private final ArrayBlockingQueue<LogRecord> queue = new ArrayBlockingQueue<LogRecord>(1000);
     private final IOManager io;
-    private final LogRegionFactory packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);
+    private final LogRegionFactory packer;
     private volatile boolean done = false;
 
-    public ChunkExchange(IOManager io) {
+    public ChunkExchange(IOManager io, Signature style) {
         this.io = io;
+        packer = new LogRegionPacker(style);
     }
 
     @Override

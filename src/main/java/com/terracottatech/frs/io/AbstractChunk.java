@@ -12,33 +12,6 @@ import java.util.ArrayList;
  * @author mscott
  */
 public abstract class AbstractChunk implements Chunk {
-   
-
-    @Override
-    public ByteBuffer getBuffer(int length) {
-        ByteBuffer[] list = getBuffers();
-        ByteBuffer alloc = null;
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            }
-            if ( alloc == null ) {
-                if ( list[x].remaining() >= length ) {
-                    alloc = (ByteBuffer)list[x].slice().limit(length);
-                    list[x].position(list[x].position()+length);
-                    break;
-                } else {
-                    alloc = ByteBuffer.allocate(length);                
-                }
-            }
-            alloc.put(list[x]);
-            if ( !alloc.hasRemaining() ) {
-                alloc.flip();
-                break;
-            }
-        }
-        return alloc;
-    }
     
     
     @Override
@@ -78,6 +51,7 @@ public abstract class AbstractChunk implements Chunk {
             if ( !list[x].hasRemaining() ) {
                 continue;
             } else if ( list[x].remaining() < 8 ) {
+                list[x].limit(list[x].position());
                 continue;
             }
             
@@ -93,6 +67,7 @@ public abstract class AbstractChunk implements Chunk {
             if ( !list[x].hasRemaining() ) {
                 continue;
             } else if ( list[x].remaining() < 2 ) {
+                list[x].limit(list[x].position());
                 continue;
             }
             return list[x].getShort();
@@ -107,6 +82,7 @@ public abstract class AbstractChunk implements Chunk {
             if ( !list[x].hasRemaining() ) {
                 continue;
             } else if ( list[x].remaining() < 4 ) {
+                list[x].limit(list[x].position());
                 continue;
             }
             return list[x].getInt();
@@ -216,6 +192,38 @@ public abstract class AbstractChunk implements Chunk {
         return count;
     }
     
+    @Override
+    public void skip(long jump) {
+        ByteBuffer[] list = getBuffers();
+        long count = 0;
+        for (int x=0;x<list.length;x++) {
+            if ( !list[x].hasRemaining() ) {
+                continue;
+            } else if ( jump - count > list[x].remaining() ) {
+                count += list[x].remaining();
+                list[x].position(list[x].limit());
+            } else {
+                list[x].position(list[x].position()+(int)(jump-count));
+                return;
+            }
+        }
+        throw new IndexOutOfBoundsException();
+    }
     
+    @Override
+    public void flip() {
+        ByteBuffer[] list = getBuffers();
+        for (ByteBuffer buf : list ) {
+            buf.flip();
+        }
+    }
+    
+    @Override
+    public void clear() {
+        ByteBuffer[] list = getBuffers();
+        for (ByteBuffer buf : list ) {
+            buf.clear();
+        }
+    } 
     
 }

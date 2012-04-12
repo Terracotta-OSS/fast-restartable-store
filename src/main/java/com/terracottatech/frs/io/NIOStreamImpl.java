@@ -29,16 +29,17 @@ class NIOStreamImpl implements Stream {
     private final boolean      crashed;
     private final long segmentSize;
     private List<File> segments;
+    private int position = 0;
 
     private int lastGoodSegment = Integer.MAX_VALUE;
     private long lastGoodPosition = Long.MAX_VALUE;
+    private UUID   streamid;
     
-    
-    private int position = 0;
     private static final String format = "seg%09d.frs";
     private static final String segNumFormat = "000000000";
     private static final String BAD_HOME_DIRECTORY = "no home";
     private static final String LOCKFILE_ACTIVE = "lock file exists";
+    private static final String BAD_STREAMID = "mis-aligned streams";
     private NIOSegmentImpl currentSegment;
     private final ChunkSource pool = new ChunkSource();
 
@@ -57,7 +58,7 @@ class NIOStreamImpl implements Stream {
         if (lock == null) {
             throw new IOException(LOCKFILE_ACTIVE);
         } else {
- 
+
         }
         
         enumerateSegments();
@@ -71,15 +72,23 @@ class NIOStreamImpl implements Stream {
         }
     }
     
+    UUID getStreamId() {
+        return streamid;
+    }
+    
     private void enumerateSegments() throws IOException {        
+        ByteBuffer check = ByteBuffer.allocate(28);
         if ( crashed ) {
-            ByteBuffer check = ByteBuffer.allocate(12);
-            if ( lastSync.read(check) == 12 ) {
-                check.flip();
-                lastGoodSegment = check.getInt();
-                lastGoodPosition = check.getLong();
+            while ( check.hasRemaining() ) {
+                if ( 0 > lastSync.read(check) ) {
+                    throw new IOException("bad log marker");
+                }
             }
-        }
+            check.flip();
+            streamid = new UUID(check.getLong(),check.getLong());
+            lastGoodSegment = check.getInt();
+            lastGoodPosition = check.getLong(); 
+        } 
             
         segments = Arrays.asList(
             directory.listFiles(new FilenameFilter() {
@@ -102,6 +111,9 @@ class NIOStreamImpl implements Stream {
                 break;
             }
         }
+        
+        if ( streamid == null && segments.isEmpty() ) streamid = UUID.randomUUID();
+        
         position = segments.size()-1;
         
     }
@@ -145,13 +157,16 @@ class NIOStreamImpl implements Stream {
     public void sync() throws IOException {
         if (currentSegment != null && !currentSegment.isClosed()) {
             long pos = currentSegment.fsync();
-            ByteBuffer last = ByteBuffer.allocate(12);
+            ByteBuffer last = ByteBuffer.allocate(28);
+            last.putLong(streamid.getMostSignificantBits());
+            last.putLong(streamid.getLeastSignificantBits());
             last.putInt(currentSegment.getSegmentNumber());
             last.putLong(pos);
             last.flip();
-            lastSync.write(last);
+            lastSync.position(0);
+            while ( last.hasRemaining() ) lastSync.write(last);
             lastSync.force(false);
-        }
+        }            
         
     }
     //  segment implementation forces before close.  neccessary?
@@ -176,7 +191,8 @@ class NIOStreamImpl implements Stream {
     @Override
     public Segment read(final Direction dir) throws IOException {
         long setsize = Long.MAX_VALUE;
-        
+        UUID lastStreamId = ( currentSegment != null ) ? currentSegment.getStreamId() : null;
+ 
         if (position == segments.size()-1) {
             setsize = lastGoodPosition;
             assert(lastGoodSegment == Integer.MAX_VALUE || convertSegmentNumber(segments.get(position)) == lastGoodSegment);
@@ -188,6 +204,13 @@ class NIOStreamImpl implements Stream {
             if ( position < 0 ) return null;
             currentSegment = new NIOSegmentImpl(this, dir, segments.get(position--), setsize).openForReading(pool);
         }
+        
+        if (lastStreamId != null && !lastStreamId.equals(currentSegment.getStreamId())) {
+            throw new IOException(BAD_STREAMID);
+        }
+        
+        if ( streamid == null ) streamid = currentSegment.getStreamId();
+        
         return currentSegment;
     }
 

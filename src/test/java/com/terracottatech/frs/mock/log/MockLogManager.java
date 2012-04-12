@@ -93,7 +93,9 @@ static class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
     public List<LogRecord> unpack(Chunk data) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         WritableByteChannel w = Channels.newChannel(bos);
-        w.write(data.getBuffer((int)data.length()));
+        for ( ByteBuffer buf : data.getBuffers(data.length()) ) {
+            w.write(buf);
+        }
         w.close();
         ByteArrayInputStream chunk = new ByteArrayInputStream(bos.toByteArray());
         ObjectInput in = new ObjectInputStream(chunk);

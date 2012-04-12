@@ -14,8 +14,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
-import org.mockito.Mock;
-import static org.mockito.Mockito.mock;
 
 /**
  *
@@ -66,7 +64,7 @@ public class NIOManagerTest {
         int lastSync = -1;
         long lastLen = 0;
         long total = System.nanoTime();
-        LogRegionPacker packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);
+        LogRegionPacker packer = new LogRegionPacker(Signature.ADLER32);
 
         for ( int x=0;x<count;x++) {
             LogRegion test = createLogRegion();
@@ -93,7 +91,7 @@ public class NIOManagerTest {
                 );
     }
     
-    @Test @Ignore
+    @Test 
     public void testAtomicMT() {
         System.out.println("Atomic MT append");
         final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, lsn, 100),manager);
@@ -125,14 +123,14 @@ public class NIOManagerTest {
                     for (int x=0;x<spins;x++) {
                         try {
                             long start = System.nanoTime();
-                            boolean sync = (x%9==9);
+                            int sync = (x%9);
                             LogRecord lr = new TestLogRecord();
-                            Future<Void> wio = ( sync ) ?  lm.appendAndSync(lr) : lm.append(lr);
-
-                            if ( sync ) {
-                                wio.get();
+                            if ( sync == 1 ) {
+                                lm.appendAndSync(lr).get();
                                 System.out.format("Log Stream sync time: %.6f sec \n", 
                                         (System.nanoTime() - start) * 1e-9);
+                            } else {
+                                lm.append(lr);
                             }
                         } catch ( IOException ioe ) {
                             throw new AssertionError(ioe);

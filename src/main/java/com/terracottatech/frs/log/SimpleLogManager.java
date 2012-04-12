@@ -23,11 +23,12 @@ public class SimpleLogManager implements LogManager,Runnable {
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong highestOnDisk = new AtomicLong(0);
+    private final Signature  checksumStyle = Signature.ADLER32;
     private final IOManager io;
-    private final int maxRegion = 100;
     private volatile boolean alive = true;
     private long totalBytes = 0;
-    private LogRegionPacker  packer = new LogRegionPacker(new MasterLogRecordFactory(), Signature.ADLER32);   
+    
+    private LogRegionPacker  packer;   
     
     public SimpleLogManager(IOManager io) {
         this(new AtomicCommitList(true, 100l, 100),io);
@@ -39,7 +40,7 @@ public class SimpleLogManager implements LogManager,Runnable {
         this.daemon.setDaemon(true);
         this.io = io;
         currentLsn.set(list.getBaseLsn());
-//        currentRegion = new AtomicCommitList(true, currentLsn.get(), maxRegion);
+        packer = new LogRegionPacker(checksumStyle);   
     }
     
      //  TODO:  re-examine when more runtime context is available.
@@ -136,7 +137,7 @@ public class SimpleLogManager implements LogManager,Runnable {
 
     @Override
     public Iterator<LogRecord> reader() {
-        ChunkExchange ex = new ChunkExchange(io);
+        ChunkExchange ex = new ChunkExchange(io, checksumStyle);
         Thread reader = new Thread(ex);
         reader.setDaemon(true);
         reader.start();

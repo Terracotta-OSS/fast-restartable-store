@@ -50,14 +50,16 @@ public class AtomicCommitList implements CommitList, Future<Void> {
             return false;
         }
         
-
-        if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
-            golatch.countDown();
-        }
-        
         long end = endLsn.get();
         
         if ( end > 0 && end < record.getLsn() ) return false;
+        
+        if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
+            golatch.countDown();
+        } else {
+            return false;
+        }
+
 
         return true;
     }

@@ -126,7 +126,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testLength() throws Exception {
         System.out.println("length");
-        long expResult = 22L;  //  header length
+        long expResult = 26L;  //  header length
         long result = tester.length();
         assertEquals(expResult, result);
     }
@@ -137,7 +137,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testRemains() throws Exception {
         System.out.println("remains");
-        long expResult = (10L*1024*1024) - 22L;
+        long expResult = (10L*1024*1024) - 26L;  //  test append new file minus header
         long result = tester.remains();
         assertEquals(expResult, result);
     }

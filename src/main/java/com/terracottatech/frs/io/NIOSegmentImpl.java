@@ -30,7 +30,6 @@ class NIOSegmentImpl implements Segment {
     private FileChannel         segment;
     private Chunk               readBuffer;
     private long                limit = 10 * 1024 * 1024;
-    private UUID                uid = UUID.randomUUID();
     private static final byte[] LF_MAGIC = "%flf".getBytes();
     private static final byte[] CF_MAGIC = "!ctl".getBytes();
     private static final byte[] FILE_CHUNK_MAGIC = "~fc~".getBytes();
@@ -38,6 +37,7 @@ class NIOSegmentImpl implements Segment {
     
     private List<Chunk> chunks;
     private final ByteBuffer header = ByteBuffer.allocate(12);
+    private UUID streamid;
     
     public NIOSegmentImpl(NIOStreamImpl p, Direction dir, File file, long segSize) {
         this.parent = p;
@@ -53,11 +53,13 @@ class NIOSegmentImpl implements Segment {
         readBuffer.get(lfm);
         assert(Arrays.equals(lfm,LF_MAGIC));
         short impl = readBuffer.getShort();
+                
+        int checkSeg = readBuffer.getInt();
+        assert(segNum == checkSeg);
+
         assert(impl == IMPL_NUMBER);
-        long low = readBuffer.getLong();
-        long high = readBuffer.getLong();
-        UUID cid = new UUID(high, low);   
-        
+        streamid = new UUID(readBuffer.getLong(), readBuffer.getLong());   
+                
         if ( this.limit < src.length() ) {
             ((FileChunk)readBuffer).setLimit(this.limit);
         }
@@ -71,12 +73,14 @@ class NIOSegmentImpl implements Segment {
     //  open and write the header.
     NIOSegmentImpl openForWriting() throws IOException {
         segment = new FileOutputStream(src).getChannel();
-        ByteBuffer allocate = ByteBuffer.allocate(22);
+        ByteBuffer allocate = ByteBuffer.allocate(26);
+        this.streamid = parent.getStreamId();
 
         allocate.put(LF_MAGIC);
         allocate.putShort(IMPL_NUMBER);
-        allocate.putLong(uid.getMostSignificantBits());
-        allocate.putLong(uid.getLeastSignificantBits());
+        allocate.putInt(segNum);
+        allocate.putLong(streamid.getMostSignificantBits());
+        allocate.putLong(streamid.getLeastSignificantBits());
         allocate.flip();
         segment.write(allocate);
         return this;
@@ -131,6 +135,10 @@ class NIOSegmentImpl implements Segment {
     
     int getSegmentNumber() {
         return segNum;
+    }
+    
+    UUID getStreamId() {
+        return streamid;
     }
 
     @Override

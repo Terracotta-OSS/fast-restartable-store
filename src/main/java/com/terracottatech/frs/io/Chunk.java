@@ -34,6 +34,9 @@ public interface Chunk {
     int get(byte[] buf);
     int put(byte[] buf);
     
-    ByteBuffer getBuffer(int length);
+    void skip(long jump);
     ByteBuffer[] getBuffers(long length);
+    
+    void flip();
+    void clear();
 }

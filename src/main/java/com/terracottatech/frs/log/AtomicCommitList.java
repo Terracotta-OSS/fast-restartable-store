@@ -71,10 +71,15 @@ public class AtomicCommitList implements CommitList, Future<Void> {
      */
     @Override
     public AtomicCommitList next() {
-        assert (endLsn.get() > 0 || golatch.getCount() == 0);
-        long nextLsn = endLsn.get() + 1;
-        if ( nextLsn == 0 ) nextLsn = baseLsn + regions.length() + 1;
         if ( next == null ) {
+            long nextLsn = endLsn.get() + 1;
+            if ( nextLsn == 1 ) {
+                if ( endLsn.compareAndSet(0, baseLsn + regions.length()-1) ) { 
+                    nextLsn = baseLsn + regions.length();
+                } else {
+                    nextLsn = endLsn.get() + 1;
+                }
+            }
             synchronized (guard) {
                 if ( next == null ) next = new AtomicCommitList(dochecksum, nextLsn, regions.length());
             }
@@ -95,22 +100,22 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     @Override
     public boolean close(long end, boolean sync) {
         syncing = sync;
-        long localEnd = end;
         boolean closer;
         
         if ( end >= baseLsn + regions.length() ) {
-            localEnd = baseLsn + regions.length() - 1;
-            syncing = false;
+            return false;
         }
-        closer = endLsn.compareAndSet(0,localEnd);
+        
+        closer = endLsn.compareAndSet(0,end);
               
         if ( closer ) {
             transferOutExtras();
+        } else {
+     // if not set here make sure this end is within the range, if not return false;
+            return ( endLsn.get() > end );
         }
-        
-        if ( localEnd != end ) return next().close(end, sync);
-        
-        return closer;
+                
+        return true;
     }
 
 

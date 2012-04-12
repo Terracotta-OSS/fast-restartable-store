@@ -62,9 +62,11 @@ public class StackingCommitList implements CommitList {
      */
     @Override
     public StackingCommitList next() {
-        assert (closed);
         if (next == null) {
-            synchronized (guard) {
+            synchronized (this) {
+                if ( !closed ) {
+                    closed = true;
+                }
                 if (next == null) {
                     next = new StackingCommitList(dochecksum, endLsn + 1, regions.length);
                 }
@@ -88,29 +90,26 @@ public class StackingCommitList implements CommitList {
             if (lsn > endLsn) {
                 return false;
             }
-            if (count == endLsn - baseLsn) {
-                this.notify();  // adding one will make count match slots
-            } else if (count >= endLsn - baseLsn) {
-                throw new AssertionError();  // too many, something bad happened
-            }
         } else if (lsn > endLsn) {
             endLsn = lsn;
         }
-        count += 1;
-
+        if (count++ == endLsn - baseLsn) {
+            this.notify();  // adding one will make count match slots
+        }
+        
         return true;
     }
 
     @Override
     public synchronized boolean close(long lsn, boolean sync) {
-        closed = true;
-        syncing = sync;
+        if ( lsn <= endLsn ) {
+            if ( sync ) syncing = true;
+            closed = true;
+            this.notify();
+        }
 
-        this.notify();
-        return baseLsn + count == endLsn;
+        return closed;
     }
-
-    //  can this slip due to out of order if its not synchronized?
 
     @Override
     public boolean isSyncing() {
@@ -153,8 +152,11 @@ public class StackingCommitList implements CommitList {
 
     @Override
     public synchronized void waitForContiguous() throws InterruptedException {
-        while (!closed || count != endLsn - baseLsn + 1) {
+        while ((!closed && count != regions.length-1) || (closed && count != endLsn - baseLsn + 1)) {
             this.wait();
+        }
+        if (count != endLsn - baseLsn + 1) {
+            throw new AssertionError();
         }
     }
     

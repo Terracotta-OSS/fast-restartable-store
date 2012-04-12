@@ -47,24 +47,30 @@ public class SimpleLogManager implements LogManager,Runnable {
     @Override
     public void run() {
         while ( alive || currentLsn.get()-1 != highestOnDisk.get() ) {
-            CommitList old_region = currentRegion;
+            CommitList oldRegion = currentRegion;
             try {
-                if ( !alive ) old_region.close(currentLsn.get() -1,false);
-                old_region.waitForContiguous();
+                if ( !alive ) {
+                    CommitList closeAll = oldRegion;
+                    while ( !closeAll.close(currentLsn.get()-1,false) ) {
+                        closeAll = closeAll.next();
+                    }
+                }
                 
-                currentRegion = old_region.next();
+                oldRegion.waitForContiguous();
                 
-                totalBytes += io.write(packer.pack(old_region));
-                if ( old_region.isSyncing() ) {
+                currentRegion = oldRegion.next();
+                                
+                totalBytes += io.write(packer.pack(oldRegion));
+                if ( oldRegion.isSyncing() ) {
                     io.sync();
                 }
-                highestOnDisk.set(old_region.getEndLsn());
-                old_region.written();
+                highestOnDisk.set(oldRegion.getEndLsn());
+                oldRegion.written();
             } catch ( IOException ioe ) {
                 throw new AssertionError(ioe);
             } catch ( InterruptedException ie ) {
                 if ( alive ) throw new AssertionError(ie);
-                else old_region.close(currentLsn.get()-1,false);
+                else oldRegion.close(currentLsn.get()-1,false);
             }        
         }
     }
@@ -76,7 +82,11 @@ public class SimpleLogManager implements LogManager,Runnable {
     //  TODO:  re-examine when more runtime context is available.
     public void shutdown() {
         alive = false;
-        currentRegion.close(currentLsn.get()-1,false);
+        CommitList  current = currentRegion;
+        
+        while ( !current.close(currentLsn.get()-1,false) ) {
+            current = current.next();
+        }
         try {
             daemon.join();
         } catch ( InterruptedException ie ) {
@@ -111,7 +121,7 @@ public class SimpleLogManager implements LogManager,Runnable {
         CommitList mine = currentRegion;
                 
         while ( !mine.append(record) ) {
-            mine.close(record.getLsn(),false);
+//            mine.close(record.getLsn(),false);   // this is not needed
             mine = mine.next();
         }
         
@@ -122,7 +132,10 @@ public class SimpleLogManager implements LogManager,Runnable {
     public Future<Void> appendAndSync(LogRecord record) {
         final CommitList mine = commonAppend(record);
         
-        mine.close(record.getLsn(),true);
+        if ( !mine.close(record.getLsn(),true) ) {
+   //  this close has to be in the range, it just got set
+            throw new AssertionError();
+        }
                 
         return mine;
     }

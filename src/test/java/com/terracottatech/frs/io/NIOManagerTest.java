@@ -98,7 +98,7 @@ public class NIOManagerTest {
         testMTAppend(lm);
     }
 
-    @Test @Ignore
+    @Test
     public void testStackingMT() {
         System.out.println("Stacking MT append");
         final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);

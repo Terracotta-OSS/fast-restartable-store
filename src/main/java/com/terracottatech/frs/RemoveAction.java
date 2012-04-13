@@ -66,8 +66,8 @@ class RemoveAction implements Action {
     // TODO: Can we just return no data for remove? It's not technically necessary to
     // write anything to the log since nothing needs to be replayed.
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putInt(id.limit());
-    header.putInt(key.limit()).flip();
+    header.putInt(id.remaining());
+    header.putInt(key.remaining()).flip();
     return new ByteBuffer[] { header, id.duplicate(), key.duplicate() };
   }
 

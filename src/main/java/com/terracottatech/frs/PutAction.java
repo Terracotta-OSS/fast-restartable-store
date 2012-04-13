@@ -72,9 +72,9 @@ class PutAction implements Action {
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putInt(id.limit());
-    header.putInt(key.limit());
-    header.putInt(value.limit()).flip();
+    header.putInt(id.remaining());
+    header.putInt(key.remaining());
+    header.putInt(value.remaining()).flip();
     return new ByteBuffer[] { header, id.duplicate(), key.duplicate(), value.duplicate() };
   }
 

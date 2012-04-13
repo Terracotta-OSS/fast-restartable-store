@@ -25,7 +25,8 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
 
   @Override
   public long getLsn(I id, K key) {
-    return getStripeFor(id).getLsn(key);
+    Long l = getStripeFor(id).getLsn(key);
+    return l == null ? -1 : l;
   }
 
   @Override

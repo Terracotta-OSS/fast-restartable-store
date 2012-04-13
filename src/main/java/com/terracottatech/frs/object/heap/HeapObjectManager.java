@@ -23,7 +23,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *
  * @author Chris Dennis
  */
-class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
+public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
 
   private final ConcurrentMap<I, ObjectManagerStripe<I, K, V>> maps = new ConcurrentHashMap<I, ObjectManagerStripe<I, K, V>>();
   private final int concurrency;

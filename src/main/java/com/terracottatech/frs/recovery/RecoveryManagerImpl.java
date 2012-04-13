@@ -38,12 +38,6 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     while (i.hasNext()) {
       LogRecord logRecord = i.next();
-      try {
-          System.out.println(logRecord);
-          System.out.println(actionManager.extract(logRecord).toString());
-      } catch ( ActionDecodeException ae ) {
-          ae.printStackTrace();
-      }
       skipsFilter.filter(logRecord, logRecord.getLsn());
     }
   }

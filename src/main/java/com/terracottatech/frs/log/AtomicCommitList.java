@@ -99,7 +99,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public boolean close(long end, boolean sync) {
-        syncing = sync;
+        if ( sync ) syncing = true;
         boolean closer;
         
         if ( end >= baseLsn + regions.length() ) {
@@ -112,7 +112,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
             transferOutExtras();
         } else {
      // if not set here make sure this end is within the range, if not return false;
-            return ( endLsn.get() > end );
+            return ( end <= endLsn.get() );
         }
                 
         return true;

@@ -22,7 +22,9 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
 
   @Override
   public long getLsn(K key) {
-    return getSegmentFor(key).getLsn(key);
+    Long l = getSegmentFor(key).getLsn(key);
+    if ( l == null ) return -1;
+    return l;
   }
 
   @Override

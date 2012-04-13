@@ -18,7 +18,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private final AtomicReferenceArray<LogRecord> regions;
 // set at construction    
     private final boolean dochecksum;
-    private final long baseLsn;
+    private long baseLsn;
 
     private volatile boolean syncing = false;
 
@@ -38,6 +38,12 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         regions = new AtomicReferenceArray<LogRecord>(maxSize);
         this.dochecksum = useChecksum;
         golatch = new CountDownLatch(maxSize);
+    }
+    
+    public void setBaseLsn(long lsn) {
+        assert(next == null);
+        assert(golatch.getCount() == regions.length());
+        baseLsn = lsn;
     }
     
     @Override
@@ -185,7 +191,11 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public void waitForContiguous() throws InterruptedException {
-        golatch.await();
+        while ( !golatch.await(10, TimeUnit.SECONDS) ) {
+            if ( golatch.getCount() != regions.length() ) {
+                this.close(baseLsn + regions.length() + golatch.getCount() - 1,true);
+            }
+        }
         if ( endLsn.compareAndSet(0, baseLsn + regions.length() -1) ) {
  // filled all the slots with no close.  set endLsn now
             assert(golatch.getCount() == 0);
@@ -219,7 +229,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public boolean isDone() {
-        return this.isWritten();
+        return (golatch.getCount() == regions.length() || this.isWritten());
     }   
     
 //  iterator interface

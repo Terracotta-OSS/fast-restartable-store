@@ -46,7 +46,11 @@ public class LogRecordImpl implements LogRecord {
 
     @Override
     public ByteBuffer[] getPayload() {
-        return payload;
+        ByteBuffer[] bufs = new ByteBuffer[payload.length];
+        for (int x=0;x<payload.length;x++) {
+            bufs[x] = payload[x].duplicate();
+        }
+        return bufs;
     }
 
     @Override
@@ -59,4 +63,12 @@ public class LogRecordImpl implements LogRecord {
         this.lsn = lsn;
         if ( listener != null ) listener.record(lsn);
     }
+
+    @Override
+    public String toString() {
+        return "LogRecordImpl{" + "lowestLsn=" + lowestLsn + ", lsn=" + lsn + ", previousLsn=" + previousLsn + '}';
+    }
+
+    
+    
 }

@@ -8,6 +8,7 @@ import com.terracottatech.frs.log.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -104,6 +105,16 @@ public class NIOManagerTest {
         final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
         testMTAppend(lm);
     }
+    
+     @Test
+    public void testWriteSuspend() throws Exception {
+        System.out.println("write then suspend");
+        final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
+        lm.startup();
+        lm.shutdown();
+        
+    }     
+    
         
     private void testMTAppend(final SimpleLogManager lm) {
         int count = 20;

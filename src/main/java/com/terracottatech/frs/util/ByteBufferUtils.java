@@ -48,4 +48,33 @@ public abstract class ByteBufferUtils {
     }
     throw new BufferUnderflowException();
   }
+
+    
+    public void flip(ByteBuffer[] list) {
+        for (ByteBuffer buf : list ) {
+            buf.flip();
+        }
+    }
+    
+    public void clear(ByteBuffer[] list) {
+        for (ByteBuffer buf : list ) {
+            buf.clear();
+        }
+    }
+    
+    public void skip(long jump, ByteBuffer[] list) {
+        long count = 0;
+        for (int x=0;x<list.length;x++) {
+            if ( !list[x].hasRemaining() ) {
+                continue;
+            } else if ( jump - count > list[x].remaining() ) {
+                count += list[x].remaining();
+                list[x].position(list[x].limit());
+            } else {
+                list[x].position(list[x].position()+(int)(jump-count));
+                return;
+            }
+        }
+        throw new IndexOutOfBoundsException();
+    }    
 }

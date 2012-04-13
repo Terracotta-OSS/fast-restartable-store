@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.Seek;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.Future;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class SimpleLogManager implements LogManager,Runnable {
     
-    private final Thread daemon;
+    private Thread daemon;
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong highestOnDisk = new AtomicLong(0);
@@ -36,8 +37,6 @@ public class SimpleLogManager implements LogManager,Runnable {
 
     public SimpleLogManager(CommitList list, IOManager io) {
         this.currentRegion = list;
-        this.daemon = new Thread(this);
-        this.daemon.setDaemon(true);
         this.io = io;
         currentLsn.set(list.getBaseLsn());
         packer = new LogRegionPacker(checksumStyle);   
@@ -46,12 +45,18 @@ public class SimpleLogManager implements LogManager,Runnable {
      //  TODO:  re-examine when more runtime context is available.
     @Override
     public void run() {
-        while ( alive || currentLsn.get()-1 != highestOnDisk.get() ) {
+        try {
+            io.seek(Seek.END.getValue());
+        } catch ( IOException ioe ) {
+            throw new AssertionError(ioe);
+        }
+        
+        while ( (alive || currentLsn.get()-1 != highestOnDisk.get()) ) {
             CommitList oldRegion = currentRegion;
             try {
                 if ( !alive ) {
                     CommitList closeAll = oldRegion;
-                    while ( !closeAll.close(currentLsn.get()-1,false) ) {
+                    while ( !closeAll.close(currentLsn.get()-1,true) ) {
                         closeAll = closeAll.next();
                     }
                 }
@@ -70,12 +75,19 @@ public class SimpleLogManager implements LogManager,Runnable {
                 throw new AssertionError(ioe);
             } catch ( InterruptedException ie ) {
                 if ( alive ) throw new AssertionError(ie);
-                else oldRegion.close(currentLsn.get()-1,false);
+                else oldRegion.close(currentLsn.get()-1,true);
             }        
         }
+        
+        assert(currentRegion.isDone());
     }
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
+        if ( exchanger != null ) this.currentLsn.set(exchanger.getLasLsn() + 1);
+        if ( exchanger != null ) this.currentRegion.setBaseLsn(exchanger.getLasLsn() + 1);
+        this.alive = true;
+        this.daemon = new Thread(this);
+        this.daemon.setDaemon(true);
         this.daemon.start();
     }
 
@@ -150,11 +162,17 @@ public class SimpleLogManager implements LogManager,Runnable {
 
     @Override
     public Iterator<LogRecord> reader() {
-        ChunkExchange ex = new ChunkExchange(io, checksumStyle);
-        Thread reader = new Thread(ex);
+        exchanger = new ChunkExchange(io, checksumStyle);
+        Thread reader = new Thread(exchanger);
         reader.setDaemon(true);
         reader.start();
-        return ex.iterator();
+        return exchanger.iterator();
+    }
+    
+    public ChunkExchange exchanger;
+    
+    public ChunkExchange getRecoveryExchanger() {
+        return exchanger;
     }
 
 }

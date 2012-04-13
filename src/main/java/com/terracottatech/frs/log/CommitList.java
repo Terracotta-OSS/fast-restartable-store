@@ -18,5 +18,6 @@ public interface CommitList extends Iterable<LogRecord>,Future<Void> {
     boolean isSyncing();
     long getEndLsn();
     long getBaseLsn();
+    void setBaseLsn(long lsn);
     void written();
 }

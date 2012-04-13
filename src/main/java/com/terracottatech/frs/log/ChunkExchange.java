@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *
@@ -26,15 +27,31 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     private final IOManager io;
     private final LogRegionFactory packer;
     private volatile boolean done = false;
+    private int  count = 0;
+    private final AtomicInteger  returned = new AtomicInteger(0);
+    private long lastLsn = -1;
 
     public ChunkExchange(IOManager io, Signature style) {
         this.io = io;
         packer = new LogRegionPacker(style);
     }
+    
+    public int returned() {
+        return returned.get();
+    }
+    
+    public int count() {
+        return count;
+    }
+    
+    public long getLasLsn() {
+        return lastLsn;
+    }
 
     @Override
     public void run() {
         try {
+            
             io.seek(Seek.END.getValue());
             Iterable<Chunk> chunks;
             do {
@@ -44,7 +61,9 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                         List<LogRecord> records = packer.unpack(c);
                         Collections.reverse(records);
                         for (LogRecord record : records) {
+                            if ( lastLsn < 0 ) lastLsn = record.getLsn();
                             queue.offer(record);
+                            count++;
                         }
                     }
                 }
@@ -59,7 +78,6 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     @Override
     public Iterator<LogRecord> iterator() {
         return new Iterator<LogRecord>() {
-
             LogRecord queued;
 
             @Override
@@ -67,11 +85,12 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                 try {
                     if ( done && queue.isEmpty() ) return false;
                     while ( queued == null) {
-                        queued = queue.poll(1, TimeUnit.SECONDS);
+                        queued = queue.poll(10, TimeUnit.SECONDS);
                         if ( done ) break;
                     }
                 } catch (InterruptedException ie) {
                 }
+
                 return queued != null;
             }
 
@@ -82,6 +101,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                     throw new NoSuchElementException();
                 }
                 try {
+                    returned.incrementAndGet();
                     return queued;
                 } finally {
                     queued = null;

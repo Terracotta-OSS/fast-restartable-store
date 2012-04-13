@@ -6,12 +6,12 @@ package com.terracottatech.frs.io;
 
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
-import com.terracottatech.frs.log.MasterLogRecordFactory;
 import com.terracottatech.frs.log.Signature;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.UUID;
 import org.junit.*;
 import static org.junit.Assert.*;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -96,7 +96,7 @@ public class NIOStreamImplTest {
         File lock = new File(workarea.getAbsolutePath() + "/FRS.lck");
         assertTrue(lock.exists());
         FileChunk chunk = new FileChunk(new File(workarea.getAbsolutePath() + "/FRS.lck"),ByteBuffer.allocate((int)lock.length()));
-        System.out.format("segment: %d position: %d",chunk.getInt(),chunk.getLong());
+        System.out.format("uuid: %s segment: %d position: %d",new UUID(chunk.getLong(),chunk.getLong()).toString(),chunk.getInt(),chunk.getLong());
     }
 
     /**

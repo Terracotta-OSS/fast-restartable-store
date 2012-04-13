@@ -5,6 +5,10 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.Segment;
+import com.terracottatech.frs.io.TestLogRecord;
+import com.terracottatech.frs.io.TestLogRegion;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 import org.junit.*;
@@ -71,7 +75,7 @@ public class SimpleLogManagerTest {
         instance.shutdown();
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
-    }
+    } 
 
     /**
      * Test of totalBytes method, of class SimpleLogManager.

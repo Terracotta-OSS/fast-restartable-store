@@ -5,10 +5,12 @@
 package com.terracottatech.frs.io;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,12 +29,14 @@ class NIOSegmentImpl implements Segment {
     private final int           segNum;
     private final Direction     direction;
 
+    private FileLock            lock;
     private FileChannel         segment;
     private Chunk               readBuffer;
     private long                limit = 10 * 1024 * 1024;
     private static final byte[] LF_MAGIC = "%flf".getBytes();
     private static final byte[] CF_MAGIC = "!ctl".getBytes();
     private static final byte[] FILE_CHUNK_MAGIC = "~fc~".getBytes();
+    private static final String LOCKED_FILE_ACCESS = "could not obtain file lock";
     private static final short  IMPL_NUMBER = 02;
     
     private List<Chunk> chunks;
@@ -48,7 +52,10 @@ class NIOSegmentImpl implements Segment {
     }
 
     NIOSegmentImpl openForReading(ChunkSource reader) throws IOException {
+        if ( src.length() < 26 ) throw new IOException("bad header");
+        
         readBuffer = reader.wrapFile(src);
+        
         byte[] lfm = new byte[4];
         readBuffer.get(lfm);
         assert(Arrays.equals(lfm,LF_MAGIC));
@@ -72,7 +79,12 @@ class NIOSegmentImpl implements Segment {
 
     //  open and write the header.
     NIOSegmentImpl openForWriting() throws IOException {
+        if ( src.length() > 0 ) throw new IOException("bad access");
+        
         segment = new FileOutputStream(src).getChannel();
+        lock = segment.tryLock();
+        if ( lock == null ) throw new IOException(LOCKED_FILE_ACCESS);
+        
         ByteBuffer allocate = ByteBuffer.allocate(26);
         this.streamid = parent.getStreamId();
 

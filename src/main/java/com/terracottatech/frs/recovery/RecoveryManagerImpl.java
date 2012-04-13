@@ -6,6 +6,7 @@ package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.DeleteFilter;
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionDecodeException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
@@ -37,6 +38,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     while (i.hasNext()) {
       LogRecord logRecord = i.next();
+      try {
+          System.out.println(logRecord);
+          System.out.println(actionManager.extract(logRecord).toString());
+      } catch ( ActionDecodeException ae ) {
+          ae.printStackTrace();
+      }
       skipsFilter.filter(logRecord, logRecord.getLsn());
     }
   }

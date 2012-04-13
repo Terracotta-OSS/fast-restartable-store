@@ -15,35 +15,35 @@ import java.util.ArrayList;
  * Wrap a file in a chunk for easy access.
  * @author mscott
  */
-public class FileChunk extends AbstractChunk {
+public class FileChannelChunk extends AbstractChunk {
     
-    File src;
-    ByteBuffer reserve;
-    ByteBuffer[] ref;
+    private final FileChannel src;
+    private final ByteBuffer reserve;
+    private final long length;
+    private ByteBuffer[] ref;
     
-    public FileChunk(File c, ByteBuffer reserve) throws IOException {
+    public FileChannelChunk(FileChannel c, ByteBuffer reserve) throws IOException {
         this.src = c;
+        this.length = c.size();
         this.reserve = reserve;
         init();
     }
 
     private void init() throws IOException {
         long read = 0;
-        FileChannel channel = new FileInputStream(src).getChannel();
-        if ( reserve.remaining() >= src.length() ) {
+        if ( reserve.remaining() >= src.size() ) {
             ref = new ByteBuffer[]{reserve};
         } else {
-            ByteBuffer end = ByteBuffer.allocate((int)(src.length() - reserve.remaining()));
+            ByteBuffer end = ByteBuffer.allocate((int)(src.size() - reserve.remaining()));
             ref = new ByteBuffer[] {reserve,end};
         }
-        while ( src.length() > read ) {
-            read += channel.read(ref);
+        while ( src.size() > read ) {
+            read += src.read(ref);
         }
-        assert(read == src.length());
+        assert(read == src.size());
         for  ( ByteBuffer b : ref ) {
             b.flip();
         }
-        channel.close();
     }
 
     @Override
@@ -53,7 +53,7 @@ public class FileChunk extends AbstractChunk {
 
     @Override
     public long length() {
-       return src.length();
+       return length;
     }
     
     public ByteBuffer getReserve() {

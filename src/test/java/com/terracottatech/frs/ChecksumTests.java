@@ -41,7 +41,7 @@ public class ChecksumTests {
         }
     }
     
-    @Test
+    @Test @Ignore
     public void testMD5() {
         long n = System.nanoTime();
         try {
@@ -54,7 +54,7 @@ public class ChecksumTests {
         }
     }
     
-    @Test
+    @Test @Ignore
     public void testSHA1() {
         long n = System.nanoTime();
         try {
@@ -67,7 +67,7 @@ public class ChecksumTests {
         }
     }
     
-    @Test
+    @Test @Ignore
     public void testAdler32() {
         long n = System.nanoTime();
         Adler32 tr = new Adler32();
@@ -76,7 +76,7 @@ public class ChecksumTests {
         f.format(format,"Adler32",(System.nanoTime()-n)/1e9);
     }
     
-    @Test
+    @Test @Ignore
     public void testCRC32() {
         long n = System.nanoTime();
         CRC32 tr = new CRC32();

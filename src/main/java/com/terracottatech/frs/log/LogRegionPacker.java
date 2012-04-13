@@ -116,7 +116,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         byte[] temp = null;
         for (ByteBuffer buf : bufs) {
             if (buf.hasArray()) {
-                checksum.update(buf.array());
+                checksum.update(buf.array(),buf.arrayOffset() + buf.position(),buf.arrayOffset() + buf.limit());
             } else {
                 if ( temp == null ) temp = new byte[4096];
                 buf.mark();

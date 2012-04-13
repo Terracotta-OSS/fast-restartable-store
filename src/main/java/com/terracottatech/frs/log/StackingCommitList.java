@@ -18,7 +18,7 @@ public class StackingCommitList implements CommitList {
     private final LogRecord[] regions;
 // set at construction    
     private boolean dochecksum = false;
-    private final long baseLsn;
+    private long baseLsn;
 //  half synchronized
     private volatile boolean syncing = false;
 //  these are synchronized     
@@ -36,6 +36,15 @@ public class StackingCommitList implements CommitList {
         regions = new LogRecord[maxSize];
         this.dochecksum = useChecksum;
     }
+
+    @Override
+    public void setBaseLsn(long lsn) {
+        assert(count==0);
+        assert(next==null);
+        baseLsn = lsn;
+    }
+    
+    
 
      @Override
    public boolean append(LogRecord record) {
@@ -152,8 +161,18 @@ public class StackingCommitList implements CommitList {
 
     @Override
     public synchronized void waitForContiguous() throws InterruptedException {
+        boolean timedout = false;
         while ((!closed && count != regions.length-1) || (closed && count != endLsn - baseLsn + 1)) {
-            this.wait();
+            this.wait(10000);
+            if ( timedout ) {
+                if ( count > 0 ) {
+                    this.close(baseLsn + count - 1,true);
+                    timedout = false;
+                }
+            } else {
+                timedout = true;
+            }
+            
         }
         if (count != endLsn - baseLsn + 1) {
             throw new AssertionError();

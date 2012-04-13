@@ -4,10 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -61,6 +58,7 @@ class NIOStreamImpl implements Stream {
 
         }
         
+        checkForCrash();
         enumerateSegments();
     } 
     
@@ -76,11 +74,12 @@ class NIOStreamImpl implements Stream {
         return streamid;
     }
     
-    private void enumerateSegments() throws IOException {        
+    private void checkForCrash() throws IOException {
         ByteBuffer check = ByteBuffer.allocate(28);
         if ( crashed ) {
+            FileChannel lckChk = new FileInputStream(lockFile).getChannel();
             while ( check.hasRemaining() ) {
-                if ( 0 > lastSync.read(check) ) {
+                if ( 0 > lckChk.read(check) ) {
                     throw new IOException("bad log marker");
                 }
             }
@@ -89,12 +88,17 @@ class NIOStreamImpl implements Stream {
             lastGoodSegment = check.getInt();
             lastGoodPosition = check.getLong(); 
         } 
-            
+    }
+    
+    private void enumerateSegments() throws IOException {                    
         segments = Arrays.asList(
             directory.listFiles(new FilenameFilter() {
 
                 @Override
                 public boolean accept(File file, String string) {
+                    if ( file.length() < 26 ) {
+                        return false;
+                    }
                     return string.startsWith("seg");
                 }
             })
@@ -197,6 +201,7 @@ class NIOStreamImpl implements Stream {
             setsize = lastGoodPosition;
             assert(lastGoodSegment == Integer.MAX_VALUE || convertSegmentNumber(segments.get(position)) == lastGoodSegment);
         }
+        
         if ( dir == Direction.FORWARD ) {
             if ( position > segments.size() - 1 ) return null;
             currentSegment = new NIOSegmentImpl(this, dir, segments.get(position++), setsize).openForReading(pool);

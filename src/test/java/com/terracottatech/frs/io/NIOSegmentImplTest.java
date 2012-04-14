@@ -40,7 +40,7 @@ public class NIOSegmentImplTest {
     @Before
     public void setUp() throws IOException {
             workarea = folder.newFolder();
-            stream = new NIOStreamImpl(workarea.getAbsolutePath(), (10 * 1024 * 1024));
+            stream = new NIOStreamImpl(workarea, (10 * 1024 * 1024));
             tester = (NIOSegmentImpl)stream.append();
     }
 

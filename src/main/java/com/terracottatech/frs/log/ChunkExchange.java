@@ -51,7 +51,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     @Override
     public void run() {
         try {
-            
+            io.open();
             io.seek(Seek.END.getValue());
             Iterable<Chunk> chunks;
             do {
@@ -68,6 +68,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                     }
                 }
             } while (chunks != null);
+            io.close();
         } catch (IOException ioe) {
             throw new AssertionError(ioe);
         } finally {

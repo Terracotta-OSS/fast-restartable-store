@@ -78,11 +78,14 @@ public class SimpleLogManager implements LogManager,Runnable {
                 else oldRegion.close(currentLsn.get()-1,true);
             }        
         }
-        
-        assert(currentRegion.isDone());
     }
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
+        try {
+            io.open();
+        } catch ( IOException ioe ) {
+            ioe.printStackTrace();
+        }
         if ( exchanger != null ) this.currentLsn.set(exchanger.getLasLsn() + 1);
         if ( exchanger != null ) this.currentRegion.setBaseLsn(exchanger.getLasLsn() + 1);
         this.alive = true;

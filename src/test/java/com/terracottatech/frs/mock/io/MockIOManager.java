@@ -54,6 +54,12 @@ public class MockIOManager implements IOManager {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    @Override
+    public void open() throws IOException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }    
+    
+
     public Future<Void> append(LogRegion logRegion) {
         try {
             storage.push(serialize(logRegion));

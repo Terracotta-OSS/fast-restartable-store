@@ -23,4 +23,6 @@ public interface IOManager {
   void sync() throws IOException;
   
   void close() throws IOException;
+  
+  void open() throws IOException;
 }

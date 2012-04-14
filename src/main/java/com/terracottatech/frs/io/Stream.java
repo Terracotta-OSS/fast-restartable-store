@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Logical continuous Log Stream.
@@ -17,11 +18,15 @@ public interface Stream {
     
     Segment read(Direction dir) throws IOException;
     
+//    long write(Chunk c) throws IOException;
+    
     /* close previous segment if any, provide a new segment for appending  */
     
     Segment append() throws IOException;
     
-    void sync() throws IOException;
+    UUID getStreamId();
+    
+    long sync() throws IOException;
     
     void close() throws IOException;
 }

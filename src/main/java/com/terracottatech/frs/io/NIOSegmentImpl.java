@@ -79,7 +79,9 @@ class NIOSegmentImpl implements Segment {
 
     //  open and write the header.
     NIOSegmentImpl openForWriting() throws IOException {
-        if ( src.length() > 0 ) throw new IOException("bad access");
+        if ( src.length() > 0 ) {
+            throw new IOException("bad access");
+        }
         
         segment = new FileOutputStream(src).getChannel();
         lock = segment.tryLock();
@@ -101,7 +103,9 @@ class NIOSegmentImpl implements Segment {
     // getBuffers does the bulk of the work defining header for LogRecord
     @Override
     public long append(Chunk c) throws IOException {
-        if ( segment == null ) throw new IOException("segment not open for writing");
+        if ( segment == null ) {
+            throw new IOException("segment not open for writing");
+        }
         header.clear();
         long amt = c.remaining();
         assert(amt == c.length());
@@ -145,7 +149,7 @@ class NIOSegmentImpl implements Segment {
         return pos;
     }
     
-    int getSegmentNumber() {
+    public int getSegmentId() {
         return segNum;
     }
     

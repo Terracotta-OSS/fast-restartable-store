@@ -45,12 +45,13 @@ public class NIOManagerTest {
             workarea = folder.newFolder();
             System.out.println(workarea.getAbsolutePath());
             manager = new NIOManager(workarea.getAbsolutePath(),(10*1024*1024));
+            manager.open();
             
     }
     
     @After
     public void tearDown() throws IOException {
-        manager.dispose();
+        manager.close();
     }
 
     /**

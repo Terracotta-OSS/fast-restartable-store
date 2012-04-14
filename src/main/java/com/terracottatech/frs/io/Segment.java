@@ -26,6 +26,8 @@ public interface Segment extends Iterable<Chunk> {
     void close() throws IOException;
     // self defined
     boolean isClosed();
+    
+    int  getSegmentId();
     //  the amount of remaining space in the log segment, either reading or 
     //  writing.  In the write direction, it is possible that this is simply 
     //  a recommendation.

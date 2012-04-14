@@ -5,9 +5,6 @@
 package com.terracottatech.frs.io;
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.*;
@@ -20,10 +17,7 @@ import java.util.*;
 class NIOStreamImpl implements Stream {
 
     private final File directory;
-    private final File lockFile;
-    private final FileLock lock;
-    private final FileChannel  lastSync;
-    private final boolean      crashed;
+
     private final long segmentSize;
     private List<File> segments;
     private int position = 0;
@@ -34,31 +28,15 @@ class NIOStreamImpl implements Stream {
     
     private static final String format = "seg%09d.frs";
     private static final String segNumFormat = "000000000";
-    private static final String BAD_HOME_DIRECTORY = "no home";
-    private static final String LOCKFILE_ACTIVE = "lock file exists";
     private static final String BAD_STREAMID = "mis-aligned streams";
     private NIOSegmentImpl currentSegment;
-    private final ChunkSource pool = new ChunkSource();
+    private final ChunkSource   pool = new ChunkSource();
 
-    public NIOStreamImpl(String filepath, long recommendedSize) throws IOException {
-        directory = new File(filepath);
+    public NIOStreamImpl(File filepath, long recommendedSize) throws IOException {
+        directory = filepath;
+        
         segmentSize = recommendedSize;
-        if (!directory.exists() || !directory.isDirectory()) {
-            throw new IOException(BAD_HOME_DIRECTORY);
-        }
-        lockFile = new File(directory, "FRS.lck");
-        crashed = !lockFile.createNewFile();
-        
-        FileOutputStream w = new FileOutputStream(lockFile);
-        lastSync = w.getChannel();
-        lock = lastSync.tryLock();
-        if (lock == null) {
-            throw new IOException(LOCKFILE_ACTIVE);
-        } else {
 
-        }
-        
-        checkForCrash();
         enumerateSegments();
     } 
     
@@ -70,25 +48,11 @@ class NIOStreamImpl implements Stream {
         }
     }
     
-    UUID getStreamId() {
+    @Override
+    public UUID getStreamId() {
         return streamid;
     }
-    
-    private void checkForCrash() throws IOException {
-        ByteBuffer check = ByteBuffer.allocate(28);
-        if ( crashed ) {
-            FileChannel lckChk = new FileInputStream(lockFile).getChannel();
-            while ( check.hasRemaining() ) {
-                if ( 0 > lckChk.read(check) ) {
-                    throw new IOException("bad log marker");
-                }
-            }
-            check.flip();
-            streamid = new UUID(check.getLong(),check.getLong());
-            lastGoodSegment = check.getInt();
-            lastGoodPosition = check.getLong(); 
-        } 
-    }
+
     
     private void enumerateSegments() throws IOException {                    
         segments = Arrays.asList(
@@ -122,10 +86,6 @@ class NIOStreamImpl implements Stream {
         
     }
     
-    ChunkSource getChunkSource() {
-        return pool;
-    }
-
     public void shutdown() {
         try {
             close();
@@ -133,6 +93,7 @@ class NIOStreamImpl implements Stream {
             throw new AssertionError(io);
         }
     }
+    
 //  probably doesn't need to be synchronized.  only IO thread should be calling
 
     @Override
@@ -140,9 +101,14 @@ class NIOStreamImpl implements Stream {
         StringBuilder fn = new StringBuilder();
         Formatter pfn = new Formatter(fn);
         int number = 0;
+        if ( currentSegment == null && !segments.isEmpty() ) {
+            currentSegment = new NIOSegmentImpl(this, Direction.getDefault(), segments.get(segments.size()-1), segmentSize).openForReading(pool);
+            streamid = currentSegment.getStreamId();
+        }
         if ( currentSegment != null ) {
+            assert(currentSegment.getSegmentId() == convertSegmentNumber(segments.get(position)));
             if ( !currentSegment.isClosed() ) currentSegment.close();
-            number = currentSegment.getSegmentNumber() + 1;
+            number = currentSegment.getSegmentId() + 1;
         }
         pfn.format(format, number);
 
@@ -158,20 +124,11 @@ class NIOStreamImpl implements Stream {
     //  fsync current segment.  old segments are fsyncd on close
 
     @Override
-    public void sync() throws IOException {
+    public long sync() throws IOException {
         if (currentSegment != null && !currentSegment.isClosed()) {
-            long pos = currentSegment.fsync();
-            ByteBuffer last = ByteBuffer.allocate(28);
-            last.putLong(streamid.getMostSignificantBits());
-            last.putLong(streamid.getLeastSignificantBits());
-            last.putInt(currentSegment.getSegmentNumber());
-            last.putLong(pos);
-            last.flip();
-            lastSync.position(0);
-            while ( last.hasRemaining() ) lastSync.write(last);
-            lastSync.force(false);
+            return currentSegment.fsync();
         }            
-        
+        return -1;
     }
     //  segment implementation forces before close.  neccessary?
 
@@ -180,16 +137,6 @@ class NIOStreamImpl implements Stream {
         if (currentSegment != null && !currentSegment.isClosed()) {
             currentSegment.close();
         }
-        if (lock != null) {
-            lock.release();
-        }
-        if (lockFile != null) {
-            lockFile.delete();
-        }
-    }
-
-    public boolean isClosed() {
-        return (lock != null && lock.isValid());
     }
 
     @Override
@@ -226,7 +173,7 @@ class NIOStreamImpl implements Stream {
         } else if ( loc == 0 ) {
             position = 0;
         }
-        
+        currentSegment = null;
     }
     
     

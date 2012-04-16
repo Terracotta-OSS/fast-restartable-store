@@ -58,17 +58,8 @@ public class TransactionManagerImpl implements TransactionManager {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    Action commitAction = new TransactionCommitAction(handle);
     try {
-      if (synchronousCommit) {
-        try {
-          actionManager.happened(commitAction).get();
-        } catch (ExecutionException e) {
-          throw new TransactionException("Commit failed.", e);
-        }
-      } else {
-        actionManager.asyncHappened(commitAction);
-      }
+      synchronousHappened(new TransactionCommitAction(handle));
     } finally {
       for (Lock lock : locks) {
         lock.unlock();
@@ -86,5 +77,30 @@ public class TransactionManagerImpl implements TransactionManager {
     Action transactionalAction = new TransactionalAction(handle, action);
     locks.addAll(transactionalAction.lock(transactionLockProvider));
     actionManager.asyncHappened(transactionalAction);
+  }
+
+  @Override
+  public void happened(Action action) throws TransactionException, InterruptedException {
+    Collection<Lock> locks = action.lock(transactionLockProvider);
+    try {
+      synchronousHappened(action);
+    } finally {
+      for (Lock lock : locks) {
+        lock.unlock();
+      }
+    }
+  }
+
+  private void synchronousHappened(Action action) throws InterruptedException,
+          TransactionException {
+    if (synchronousCommit) {
+      try {
+        actionManager.happened(action).get();
+      } catch (ExecutionException e) {
+        throw new TransactionException("Commit failed.", e);
+      }
+    } else {
+      actionManager.asyncHappened(action);
+    }
   }
 }

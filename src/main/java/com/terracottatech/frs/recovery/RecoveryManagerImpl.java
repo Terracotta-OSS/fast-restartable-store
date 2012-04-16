@@ -6,7 +6,6 @@ package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.DeleteFilter;
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionDecodeException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;

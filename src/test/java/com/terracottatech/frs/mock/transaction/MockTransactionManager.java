@@ -66,6 +66,18 @@ public class MockTransactionManager implements TransactionManager {
     rcdManager.happened(new MockTransactionalAction(getIdAndValidateHandle(handle), action));
   }
 
+  @Override
+  public void happened(Action action) {
+    Collection<Lock> actionLocks = action.lock(locks);
+    try {
+      rcdManager.happened(action);
+    } finally {
+      for (Lock lock : actionLocks) {
+        lock.unlock();
+      }
+    }
+  }
+
   private long getIdAndValidateHandle(TransactionHandle handle) {
     if (handle instanceof MockTransactionHandle) {
       MockTransactionHandle mth = (MockTransactionHandle) handle;

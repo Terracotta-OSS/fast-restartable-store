@@ -11,12 +11,13 @@ import com.terracottatech.frs.transaction.TransactionManager;
 import java.nio.ByteBuffer;
 
 /**
- *
  * @author twu
  */
 class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> {
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
-  private final TransactionManager transactionManager;
+  private final TransactionManager                                transactionManager;
+  private final Transaction<ByteBuffer, ByteBuffer, ByteBuffer> autoCommitTransaction =
+          new AutoCommitTransaction();
 
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager) {
     this.transactionManager = transactionManager;
@@ -28,7 +29,41 @@ class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffe
     return new TransactionImpl();
   }
 
-  private class TransactionImpl implements Transaction<ByteBuffer, ByteBuffer, ByteBuffer> {
+  @Override
+  public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginAutoCommitTransaction() {
+    return autoCommitTransaction;
+  }
+
+  private class AutoCommitTransaction implements
+          Transaction<ByteBuffer, ByteBuffer, ByteBuffer> {
+    @Override
+    public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
+            TransactionException, InterruptedException {
+      transactionManager.happened(new PutAction(objectManager, id, key, value));
+      return this;
+    }
+
+    @Override
+    public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
+            TransactionException, InterruptedException {
+      transactionManager.happened(new DeleteAction(objectManager, id));
+      return this;
+    }
+
+    @Override
+    public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) throws
+            TransactionException, InterruptedException {
+      transactionManager.happened(new RemoveAction(objectManager, id, key));
+      return this;
+    }
+
+    @Override
+    public void commit() throws InterruptedException, TransactionException {
+    }
+  }
+
+  private class TransactionImpl implements
+          Transaction<ByteBuffer, ByteBuffer, ByteBuffer> {
     private final TransactionHandle handle;
     private boolean committed = false;
 

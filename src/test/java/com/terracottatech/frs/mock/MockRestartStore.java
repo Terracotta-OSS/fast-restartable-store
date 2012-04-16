@@ -40,6 +40,11 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
     return new MockTransaction(txnManager, objManager);
   }
 
+  @Override
+  public Transaction<Long, String, String> beginAutoCommitTransaction() {
+    throw new UnsupportedOperationException("Mock doesn't support auto-commit transactions");
+  }
+
   public static MockRestartStore create(MockObjectManager<Long, String, String> objManager, IOManager ioManager) {
     LogManager logManager = new MockLogManager(ioManager);
     ActionManager actionManager = new MockActionManager(objManager, logManager);

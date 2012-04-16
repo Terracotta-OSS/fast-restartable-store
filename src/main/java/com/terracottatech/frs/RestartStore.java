@@ -11,4 +11,6 @@ package com.terracottatech.frs;
 public interface RestartStore<I, K, V> {
   
   Transaction<I, K, V> beginTransaction();
+
+  Transaction<I, K, V> beginAutoCommitTransaction();
 }

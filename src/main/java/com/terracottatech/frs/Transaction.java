@@ -10,12 +10,13 @@ package com.terracottatech.frs;
  */
 public interface Transaction<I, K, V> {
 
-  Transaction<I, K, V> put(I id, K key, V value);
-  
-  Transaction<I, K, V> delete(I id);
+  Transaction<I, K, V> put(I id, K key, V value) throws TransactionException,
+          InterruptedException;
 
-  Transaction<I, K, V> remove(I id, K key);
+  Transaction<I, K, V> delete(I id) throws TransactionException, InterruptedException;
+
+  Transaction<I, K, V> remove(I id, K key) throws TransactionException,
+          InterruptedException;
 
   void commit() throws InterruptedException, TransactionException;
-  
 }

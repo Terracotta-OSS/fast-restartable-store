@@ -52,7 +52,9 @@ public class TransactionManagerImplTest {
   @Test
   public void testCommit() throws Exception {
     TransactionHandle handle = transactionManager.begin();
+    transactionManager.happened(handle, action);
     transactionManager.commit(handle);
+    verify(lock).unlock();
     verify(actionManager).happened(new TransactionCommitAction(handle));
     try {
       transactionManager.commit(handle);
@@ -73,7 +75,7 @@ public class TransactionManagerImplTest {
   @Test
   public void testAsyncCommit() throws Exception {
     TransactionManager asyncCommitManager =
-            new TransactionManagerImpl(actionManager, false);
+            new TransactionManagerImpl(actionManager, transactionLockProvider, false);
     TransactionHandle handle = asyncCommitManager.begin();
     asyncCommitManager.commit(handle);
     verify(actionManager).asyncHappened(new TransactionCommitAction(handle));
@@ -86,12 +88,30 @@ public class TransactionManagerImplTest {
     verify(action).lock(transactionLockProvider);
     verify(actionManager).asyncHappened(new TransactionalAction(handle, action));
     transactionManager.commit(handle);
-    verify(lock).unlock();
     try {
       transactionManager.happened(handle, action);
       fail("Using a committed transaction handle should throw.");
     } catch (IllegalArgumentException e) {
       // Expected
     }
+  }
+
+  @Test
+  public void testSynchronousAutoCommit() throws Exception {
+    transactionManager.happened(action);
+    verify(action).lock(transactionLockProvider);
+    verify(actionManager).happened(action);
+    verify(happenedFuture).get();
+    verify(lock).unlock();
+  }
+
+  @Test
+  public void testAsyncAutocommit() throws Exception {
+    TransactionManager asyncTransactionManager =
+            new TransactionManagerImpl(actionManager, transactionLockProvider, false);
+    asyncTransactionManager.happened(action);
+    verify(action).lock(transactionLockProvider);
+    verify(actionManager).asyncHappened(action);
+    verify(lock).unlock();
   }
 }

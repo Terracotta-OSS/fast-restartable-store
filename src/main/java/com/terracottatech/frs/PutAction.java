@@ -75,7 +75,7 @@ class PutAction implements Action {
     header.putInt(id.remaining());
     header.putInt(key.remaining());
     header.putInt(value.remaining()).flip();
-    return new ByteBuffer[] { header, id.duplicate(), key.duplicate(), value.duplicate() };
+    return new ByteBuffer[] { header, id.slice(), key.slice(), value.slice() };
   }
 
   @Override

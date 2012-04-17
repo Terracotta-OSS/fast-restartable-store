@@ -68,7 +68,7 @@ class RemoveAction implements Action {
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
     header.putInt(id.remaining());
     header.putInt(key.remaining()).flip();
-    return new ByteBuffer[] { header, id.duplicate(), key.duplicate() };
+    return new ByteBuffer[] { header, id.slice(), key.slice() };
   }
 
   @Override

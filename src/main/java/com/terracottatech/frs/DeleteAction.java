@@ -63,7 +63,7 @@ class DeleteAction implements Action {
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer buffer = ByteBuffer.allocate(ByteBufferUtils.INT_SIZE);
     buffer.putInt(id.remaining()).flip();
-    return new ByteBuffer[] { buffer, id.duplicate() };
+    return new ByteBuffer[] { buffer, id.slice() };
   }
 
   @Override

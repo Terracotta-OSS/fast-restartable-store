@@ -33,6 +33,7 @@ class PutAction implements Action {
     this.value = value;
   }
 
+  @SuppressWarnings("unused")
   PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this.objectManager = objectManager;
     int idLength = ByteBufferUtils.getInt(buffers);

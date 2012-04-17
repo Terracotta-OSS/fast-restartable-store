@@ -23,6 +23,7 @@ class TransactionCommitAction implements Action {
     this.handle = handle;
   }
 
+  @SuppressWarnings("unused")
   TransactionCommitAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this(TransactionHandleImpl.withByteBuffers(buffers));
   }

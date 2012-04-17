@@ -23,6 +23,7 @@ class TransactionBeginAction implements Action {
     this.handle = handle;
   }
 
+  @SuppressWarnings("unused")
   TransactionBeginAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this(TransactionHandleImpl.withByteBuffers(buffers));
   }

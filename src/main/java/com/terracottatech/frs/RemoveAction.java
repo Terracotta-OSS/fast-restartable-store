@@ -31,6 +31,7 @@ class RemoveAction implements Action {
     this.key = key;
   }
 
+  @SuppressWarnings("unused")
   RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this.objectManager = objectManager;
     int idLength = ByteBufferUtils.getInt(buffers);

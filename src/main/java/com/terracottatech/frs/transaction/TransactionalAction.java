@@ -25,6 +25,7 @@ class TransactionalAction implements Action {
     this.action = action;
   }
 
+  @SuppressWarnings("unused")
   TransactionalAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) throws
           ActionDecodeException {
     this(TransactionHandleImpl.withByteBuffers(buffers), codec.decode(buffers));

@@ -27,6 +27,7 @@ class DeleteAction implements Action {
     this.id = id;
   }
 
+  @SuppressWarnings("unused")
   DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
     this.objectManager = objectManager;
     int idLength = ByteBufferUtils.getInt(buffers);

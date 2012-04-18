@@ -7,7 +7,6 @@ package com.terracottatech.frs.action;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
-import java.lang.reflect.Constructor;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,57 +16,49 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * @author tim
  */
-public class ActionCodecImpl implements ActionCodec {
+public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
   private final Map<Class<? extends Action>, ActionID> classToId =
           new HashMap<Class<? extends Action>, ActionID>();
-  private final Map<ActionID, Class<? extends Action>> idToClass =
-          new HashMap<ActionID, Class<? extends Action>>();
+  private final Map<ActionID, ActionFactory<I, K, V>> idToFactory =
+          new HashMap<ActionID, ActionFactory<I, K, V>>();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
-  private final ObjectManager<?, ?, ?> objectManager;
+  private final ObjectManager<I, K, V> objectManager;
 
-  public ActionCodecImpl(ObjectManager<?, ?, ?> objectManager) {
+  public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
     this.objectManager = objectManager;
   }
 
   @Override
-  public void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass) {
+  public void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
+                             ActionFactory<I, K, V> actionFactory) {
     lock.writeLock().lock();
     try {
       ActionID id = new ActionID(collectionId, actionId);
-      if (getConstructor(actionClass) == null)
-        throw new IllegalArgumentException("Action class " +
-                                                   actionClass +
-                                                   " does not have a constructor (ObjectManager, ActionCodec, ByteBuffer[])");
       if (classToId.containsKey(actionClass)) {
         throw new IllegalArgumentException(
                 "Action class " + actionClass + " already registered to id " + classToId.get(
                         actionClass));
       }
-      if (idToClass.containsKey(id)) {
+      if (idToFactory.containsKey(id)) {
         throw new IllegalArgumentException(
-                "Id " + id + " already registered to action class " + idToClass.get(id));
+                "Id " + id + " already registered to action class " + idToFactory.get(id));
       }
       classToId.put(actionClass, id);
-      idToClass.put(id, actionClass);
+      idToFactory.put(id, actionFactory);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
   @Override
-  public Action decode(ByteBuffer[] buffers) throws ActionDecodeException{
+  public Action decode(ByteBuffer[] buffers) {
     lock.readLock().lock();
     try {
-      ActionID type = ActionID.withByteBuffers(buffers);
-      if (!idToClass.containsKey(type))
-        throw new IllegalArgumentException("Unknown Action type id= " + type);
-      Class<? extends Action> actionClass = idToClass.get(type);
-      Constructor<? extends Action> constructor = getConstructor(actionClass);
-      try {
-        return constructor.newInstance(objectManager, this, buffers);
-      } catch (Exception e) {
-        throw new ActionDecodeException(e);
-      }
+      ActionID id = ActionID.withByteBuffers(buffers);
+      ActionFactory<I, K, V> factory = idToFactory.get(id);
+      if (factory == null)
+        throw new IllegalArgumentException("Unknown Action type id= " + id);
+      return factory.create(objectManager, this, buffers);
     } finally {
       lock.readLock().unlock();
     }
@@ -95,18 +86,6 @@ public class ActionCodecImpl implements ActionCodec {
     }
   }
 
-  private Constructor<? extends Action> getConstructor(Class<? extends Action> c) {
-    try {
-      Constructor<? extends Action> constructor = c.getDeclaredConstructor(ObjectManager.class, ActionCodec.class,
-                                         ByteBuffer[].class);
-      constructor.setAccessible(true);
-      return constructor;
-    } catch (NoSuchMethodException e) {
-      return null;
-    }
-  }
-
-
   private static class ActionID {
     private final int collection;
     private final int action;
@@ -133,10 +112,7 @@ public class ActionCodecImpl implements ActionCodec {
 
       ActionID actionID = (ActionID) o;
 
-      if (action != actionID.action) return false;
-      if (collection != actionID.collection) return false;
-
-      return true;
+      return action == actionID.action && collection == actionID.collection;
     }
 
     @Override

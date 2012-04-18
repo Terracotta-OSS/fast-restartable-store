@@ -6,6 +6,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -19,6 +20,18 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class RemoveAction implements Action {
+  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
+          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
+            @Override
+            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                 ActionCodec codec, ByteBuffer[] buffers) {
+              int idLength = ByteBufferUtils.getInt(buffers);
+              int keyLength = ByteBufferUtils.getInt(buffers);
+              return new RemoveAction(objectManager, ByteBufferUtils.getBytes(idLength, buffers),
+                                      ByteBufferUtils.getBytes(keyLength, buffers));
+            }
+          };
+
   private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 2;
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager;
@@ -29,15 +42,6 @@ class RemoveAction implements Action {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;
-  }
-
-  @SuppressWarnings("unused")
-  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this.objectManager = objectManager;
-    int idLength = ByteBufferUtils.getInt(buffers);
-    int keyLength = ByteBufferUtils.getInt(buffers);
-    this.id = ByteBufferUtils.getBytes(idLength, buffers);
-    this.key = ByteBufferUtils.getBytes(keyLength, buffers);
   }
 
   @Override
@@ -79,8 +83,7 @@ class RemoveAction implements Action {
 
     RemoveAction that = (RemoveAction) o;
 
-    if (id != null ? !id.equals(that.id) : that.id != null) return false;
-    return !(key != null ? !key.equals(that.key) : that.key != null);
+    return id.equals(that.id) && key.equals(that.key);
   }
 
   @Override

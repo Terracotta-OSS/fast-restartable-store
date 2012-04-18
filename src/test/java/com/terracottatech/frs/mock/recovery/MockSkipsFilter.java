@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.mock.recovery;
 
-import com.terracottatech.frs.action.ActionDecodeException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.recovery.Filter;
 import com.terracottatech.frs.action.Action;
@@ -43,10 +42,6 @@ class MockSkipsFilter extends MockAbstractFilter<LogRecord, Action> {
 
   @Override
   protected Action convert(LogRecord element) {
-    try {
-      return actionManager.extract(element);
-    } catch (ActionDecodeException e) {
-      throw new RuntimeException();
-    }
+    return actionManager.extract(element);
   }
 }

@@ -6,7 +6,9 @@ package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -17,15 +19,20 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class TransactionCommitAction implements Action {
+  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
+          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
+            @Override
+            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                 ActionCodec codec, ByteBuffer[] buffers) {
+              return new TransactionCommitAction(
+                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)));
+            }
+          };
+
   private final TransactionHandle handle;
 
   TransactionCommitAction(TransactionHandle handle) {
     this.handle = handle;
-  }
-
-  @SuppressWarnings("unused")
-  TransactionCommitAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this(TransactionHandleImpl.withByteBuffers(buffers));
   }
 
   TransactionHandle getHandle() {
@@ -54,7 +61,7 @@ class TransactionCommitAction implements Action {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[] { handle.toByteBuffer() };
+    return new ByteBuffer[]{handle.toByteBuffer()};
   }
 
   @Override
@@ -64,7 +71,7 @@ class TransactionCommitAction implements Action {
 
     TransactionCommitAction that = (TransactionCommitAction) o;
 
-    return !(handle != null ? !handle.equals(that.handle) : that.handle != null);
+    return handle.equals(that.getHandle());
   }
 
   @Override

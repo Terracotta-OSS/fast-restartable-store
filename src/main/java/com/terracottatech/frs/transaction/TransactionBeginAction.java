@@ -6,7 +6,9 @@ package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -17,15 +19,20 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class TransactionBeginAction implements Action {
+  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
+          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
+            @Override
+            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                 ActionCodec codec, ByteBuffer[] buffers) {
+              return new TransactionBeginAction(
+                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)));
+            }
+          };
+
   private final TransactionHandle handle;
 
   TransactionBeginAction(TransactionHandle handle) {
     this.handle = handle;
-  }
-
-  @SuppressWarnings("unused")
-  TransactionBeginAction(ObjectManager objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this(TransactionHandleImpl.withByteBuffers(buffers));
   }
 
   TransactionHandle getHandle() {
@@ -64,7 +71,7 @@ class TransactionBeginAction implements Action {
 
     TransactionBeginAction that = (TransactionBeginAction) o;
 
-    return !(handle != null ? !handle.equals(that.handle) : that.handle != null);
+    return handle.equals(that.handle);
   }
 
   @Override

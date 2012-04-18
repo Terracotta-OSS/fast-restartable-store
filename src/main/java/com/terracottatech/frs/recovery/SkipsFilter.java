@@ -5,7 +5,6 @@
 package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionDecodeException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.log.LogRecord;
 
@@ -39,11 +38,6 @@ public class SkipsFilter extends AbstractAdaptingFilter<LogRecord, Action> {
 
   @Override
   protected Action convert(LogRecord element) {
-    try {
-      return actionManager.extract(element);
-    } catch (ActionDecodeException e) {
-      // Replace this with some better exception handling
-      throw new RuntimeException("Error decoding action!");
-    }
+    return actionManager.extract(element);
   }
 }

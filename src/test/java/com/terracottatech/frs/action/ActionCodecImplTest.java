@@ -23,13 +23,13 @@ import static org.mockito.Mockito.mock;
  * @author tim
  */
 public class ActionCodecImplTest {
-  private ObjectManager<Long, ByteBuffer, ByteBuffer> objectManager;
-  private ActionCodec actionCodec;
+  private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> actionCodec;
 
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
-    actionCodec = new ActionCodecImpl(objectManager);
+    actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
 
     TransactionActions.registerActions(0, actionCodec);
     MapActions.registerActions(1, actionCodec);
@@ -38,15 +38,15 @@ public class ActionCodecImplTest {
   @Test
   public void testAlreadyRegistered() throws Exception {
     try {
-      actionCodec.registerAction(0, 0, BogusAction.class);
+      actionCodec.registerAction(0, 0, BogusAction.class, BogusAction.FACTORY);
       fail("Replacing action registered to id 0 should have failed.");
     } catch (IllegalArgumentException e) {
       // expected
     }
 
-    actionCodec.registerAction(2, 0, BogusAction.class);
+    actionCodec.registerAction(2, 0, BogusAction.class, BogusAction.FACTORY);
     try {
-      actionCodec.registerAction(2, 1, BogusAction.class);
+      actionCodec.registerAction(2, 1, BogusAction.class, BogusAction.FACTORY);
       fail("Re-registering BogusAction should have failed.");
     } catch (IllegalArgumentException e) {
       // expected
@@ -54,8 +54,8 @@ public class ActionCodecImplTest {
   }
 
   private static class BogusAction implements Action {
-    BogusAction(ObjectManager<?, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    }
+    static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
+            mock(ActionFactory.class);
 
     @Override
     public long getPreviousLsn() {

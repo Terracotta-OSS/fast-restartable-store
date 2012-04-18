@@ -6,6 +6,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -16,32 +17,37 @@ import java.util.Collections;
 import java.util.concurrent.locks.Lock;
 
 /**
-* @author tim
-*/
+ * @author tim
+ */
 class PutAction implements Action {
-  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 3;
+  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY     =
+          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
+            @Override
+            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                 ActionCodec codec, ByteBuffer[] buffers) {
+              int idLength = ByteBufferUtils.getInt(buffers);
+              int keyLength = ByteBufferUtils.getInt(buffers);
+              int valueLength = ByteBufferUtils.getInt(buffers);
+              ByteBuffer id = ByteBufferUtils.getBytes(idLength, buffers);
+              ByteBuffer key = ByteBufferUtils.getBytes(keyLength, buffers);
+              ByteBuffer value = ByteBufferUtils.getBytes(valueLength, buffers);
+              return new PutAction(objectManager, id, key, value);
+            }
+          };
+
+  private static final int                                               HEADER_SIZE =
+          ByteBufferUtils.INT_SIZE * 3;
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
-  private final ByteBuffer id;
-  private final ByteBuffer key;
-  private final ByteBuffer value;
+  private final ByteBuffer                                        id;
+  private final ByteBuffer                                        key;
+  private final ByteBuffer                                        value;
 
   PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ByteBuffer id, ByteBuffer key, ByteBuffer value) {
     this.objectManager = objectManager;
     this.id = id;
     this.key = key;
     this.value = value;
-  }
-
-  @SuppressWarnings("unused")
-  PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this.objectManager = objectManager;
-    int idLength = ByteBufferUtils.getInt(buffers);
-    int keyLength = ByteBufferUtils.getInt(buffers);
-    int valueLength = ByteBufferUtils.getInt(buffers);
-    this.id = ByteBufferUtils.getBytes(idLength, buffers);
-    this.key = ByteBufferUtils.getBytes(keyLength, buffers);
-    this.value = ByteBufferUtils.getBytes(valueLength, buffers);
   }
 
   ByteBuffer getId() {
@@ -76,7 +82,7 @@ class PutAction implements Action {
     header.putInt(id.remaining());
     header.putInt(key.remaining());
     header.putInt(value.remaining()).flip();
-    return new ByteBuffer[] { header, id.slice(), key.slice(), value.slice() };
+    return new ByteBuffer[]{header, id.slice(), key.slice(), value.slice()};
   }
 
   @Override
@@ -86,9 +92,7 @@ class PutAction implements Action {
 
     PutAction putAction = (PutAction) o;
 
-    if (id != null ? !id.equals(putAction.id) : putAction.id != null) return false;
-    if (key != null ? !key.equals(putAction.key) : putAction.key != null) return false;
-    return !(value != null ? !value.equals(putAction.value) : putAction.value != null);
+    return id.equals(putAction.id) && key.equals(putAction.key) && value.equals(putAction.value);
   }
 
   @Override

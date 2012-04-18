@@ -47,7 +47,7 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public Action extract(LogRecord record) throws ActionDecodeException {
+  public Action extract(LogRecord record) {
     return actionCodec.decode(record.getPayload());
   }
 }

@@ -6,6 +6,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -19,19 +20,21 @@ import java.util.concurrent.locks.Lock;
  * @author tim
  */
 class DeleteAction implements Action {
+  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY = new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
+    @Override
+    public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                         ActionCodec codec, ByteBuffer[] buffers) {
+      int idLength = ByteBufferUtils.getInt(buffers);
+      return new DeleteAction(objectManager, ByteBufferUtils.getBytes(idLength, buffers));
+    }
+  };
+
   private final ObjectManager<ByteBuffer, ?, ?> objectManager;
   private final ByteBuffer id;
 
   DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ByteBuffer id) {
     this.objectManager = objectManager;
     this.id = id;
-  }
-
-  @SuppressWarnings("unused")
-  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-    this.objectManager = objectManager;
-    int idLength = ByteBufferUtils.getInt(buffers);
-    this.id = ByteBufferUtils.getBytes(idLength, buffers);
   }
 
   ByteBuffer getId() {
@@ -74,7 +77,7 @@ class DeleteAction implements Action {
 
     DeleteAction that = (DeleteAction) o;
 
-    return !(id != null ? !id.equals(that.id) : that.id != null);
+    return id.equals(that.id);
   }
 
   @Override

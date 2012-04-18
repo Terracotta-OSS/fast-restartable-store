@@ -9,11 +9,12 @@ import java.nio.ByteBuffer;
 /**
  * @author tim
  */
-public interface ActionCodec {
+public interface ActionCodec<I, K, V> {
 
-  void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass);
+  void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
+                      ActionFactory<I, K, V> actionFactory);
 
-  Action decode(ByteBuffer[] buffer) throws ActionDecodeException;
+  Action decode(ByteBuffer[] buffer);
 
   ByteBuffer[] encode(Action action);
 }

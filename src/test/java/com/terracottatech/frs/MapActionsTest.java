@@ -24,12 +24,12 @@ import static org.mockito.Mockito.mock;
  */
 public class MapActionsTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
-  private ActionCodec                                 actionCodec;
+  private ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer>   actionCodec;
 
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
-    actionCodec = new ActionCodecImpl(objectManager);
+    actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
 
     TransactionActions.registerActions(0, actionCodec);
     MapActions.registerActions(1, actionCodec);

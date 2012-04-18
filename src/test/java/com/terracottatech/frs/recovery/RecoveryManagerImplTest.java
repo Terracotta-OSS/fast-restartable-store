@@ -107,6 +107,14 @@ public class RecoveryManagerImplTest {
     private final List<LogRecord> records = new LinkedList<LogRecord>();
 
     @Override
+    public void startup() {
+    }
+
+    @Override
+    public void shutdown() {
+    }
+
+    @Override
     public Future<Void> append(LogRecord record) {
       records.add(0, record);
       return mock(Future.class);

@@ -19,5 +19,5 @@ public interface ActionManager {
   //Optimization
   void asyncHappened(Action action);
   
-  Action extract(LogRecord record) throws ActionDecodeException;
+  Action extract(LogRecord record);
 }

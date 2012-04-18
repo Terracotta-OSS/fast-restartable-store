@@ -6,13 +6,15 @@ package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.action.ActionCodec;
 
+import java.nio.ByteBuffer;
+
 /**
  * @author tim
  */
 public abstract class TransactionActions {
-  public static void registerActions(int id, ActionCodec codec) {
-    codec.registerAction(id, 0, TransactionalAction.class);
-    codec.registerAction(id, 1, TransactionBeginAction.class);
-    codec.registerAction(id, 2, TransactionCommitAction.class);
+  public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
+    codec.registerAction(id, 0, TransactionalAction.class, TransactionalAction.FACTORY);
+    codec.registerAction(id, 1, TransactionBeginAction.class, TransactionBeginAction.FACTORY);
+    codec.registerAction(id, 2, TransactionCommitAction.class, TransactionCommitAction.FACTORY);
   }
 }

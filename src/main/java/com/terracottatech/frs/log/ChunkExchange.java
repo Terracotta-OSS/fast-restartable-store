@@ -27,7 +27,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     private final IOManager io;
     private final LogRegionFactory packer;
     private volatile boolean done = false;
-    private int  count = 0;
+    private volatile int  count = 0;
     private final AtomicInteger  returned = new AtomicInteger(0);
     private long lastLsn = -1;
 
@@ -35,7 +35,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
         this.io = io;
         packer = new LogRegionPacker(style);
     }
-    
+        
     public int returned() {
         return returned.get();
     }
@@ -44,31 +44,42 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
         return count;
     }
     
-    public long getLasLsn() {
+    public synchronized long getLastLsn() throws InterruptedException {
+        while ( lastLsn < 0 ) {
+            this.wait();
+        }
         return lastLsn;
+    }
+    
+    public synchronized void offerLastLsn(long lsn) {
+        if ( lastLsn > 0 ) return;
+        lastLsn = lsn;
+        this.notify();
     }
 
     @Override
     public void run() {
         try {
-            io.open();
             io.seek(Seek.END.getValue());
-            Iterable<Chunk> chunks;
+            Chunk chunk;
             do {
-                chunks = io.read(Direction.REVERSE);
-                if (chunks != null) {
-                    for (Chunk c : chunks) {
-                        List<LogRecord> records = packer.unpack(c);
-                        Collections.reverse(records);
-                        for (LogRecord record : records) {
-                            if ( lastLsn < 0 ) lastLsn = record.getLsn();
-                            queue.offer(record);
-                            count++;
+                chunk = io.read(Direction.REVERSE);
+                if (chunk != null) {
+                    List<LogRecord> records = packer.unpack(chunk);
+                    Collections.reverse(records);
+                    for (LogRecord record : records) {
+                        if ( lastLsn < 0 ) {
+                            offerLastLsn(record.getLsn());
                         }
+                        queue.put(record);
+                        count++;
                     }
                 }
-            } while (chunks != null);
-            io.close();
+            } while (chunk != null);
+            if ( lastLsn < 0 ) {
+                offerLastLsn(0);
+            }
+        } catch (InterruptedException ioe) {
         } catch (IOException ioe) {
             throw new AssertionError(ioe);
         } finally {
@@ -84,10 +95,10 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
             @Override
             public boolean hasNext() {
                 try {
-                    if ( done && queue.isEmpty() ) return false;
+                    if (  queued == null && done && count == returned.get()  ) return false;
                     while ( queued == null) {
                         queued = queue.poll(10, TimeUnit.SECONDS);
-                        if ( done ) break;
+                        if ( done && count == returned.get() ) break;
                     }
                 } catch (InterruptedException ie) {
                 }

@@ -16,13 +16,11 @@ public interface IOManager {
   
   void setLowestLsn(long lsn) throws IOException;
   
-  Iterable<Chunk> read(Direction dir) throws IOException;
+  Chunk read(Direction dir) throws IOException;
   
   long seek(long lsn) throws IOException;
   
   void sync() throws IOException;
   
-  void close() throws IOException;
-  
-  void open() throws IOException;
+  void close() throws IOException;  
 }

@@ -27,7 +27,8 @@ import java.util.concurrent.Future;
  */
 public class MockIOManager implements IOManager {
 
-    private final Deque<byte[]> storage = new LinkedList<byte[]>();
+    private final LinkedList<byte[]> storage = new LinkedList<byte[]>();
+    ListIterator<byte[]> store = storage.listIterator();
 
     public MockIOManager() {
     }
@@ -52,13 +53,7 @@ public class MockIOManager implements IOManager {
     @Override
     public void close() throws IOException {
         throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public void open() throws IOException {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }    
-    
+    } 
 
     public Future<Void> append(LogRegion logRegion) {
         try {
@@ -92,20 +87,25 @@ public class MockIOManager implements IOManager {
     }
 
     @Override
-    public Iterable<Chunk> read(Direction dir) throws IOException {
-        ArrayList<Chunk> list = new ArrayList<Chunk>();
-        Iterator<byte[]> store =( dir == Direction.FORWARD ) ?
-            storage.iterator() : storage.descendingIterator();
-
-        while ( store.hasNext() ) {
-            list.add(new WrappingChunk(ByteBuffer.wrap(store.next())));
+    public Chunk read(Direction dir) throws IOException {
+        if ( dir == Direction.FORWARD ) {
+            if ( !store.hasPrevious() ) return null;
+            return new WrappingChunk(ByteBuffer.wrap(store.previous()));
+        } else {
+            if ( !store.hasNext() ) return null;
+            return new WrappingChunk(ByteBuffer.wrap(store.next()));
         }
         
-        return list;
     }
 
     @Override
     public long seek(long lsn) throws IOException {
+        if ( lsn < 0 ) {
+            store = storage.listIterator();
+        } else {
+            Collections.reverse(storage);
+            store = storage.listIterator();
+        }
         return lsn;
     }
 

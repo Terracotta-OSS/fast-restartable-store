@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class SimpleLogManager implements LogManager {
     
-    private LogWriter daemon;
+    private SimpleLogManager.LogWriter daemon;
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong highestOnDisk = new AtomicLong(0);
@@ -30,6 +30,8 @@ public class SimpleLogManager implements LogManager {
     private long totalBytes = 0;
     
     private LogRegionPacker  packer;   
+    private ChunkExchange exchanger;
+
     
     public SimpleLogManager(IOManager io) {
         this(new AtomicCommitList(true, 100l, 100),io);
@@ -50,6 +52,8 @@ public class SimpleLogManager implements LogManager {
 
       @Override
       public void run() {
+        exchanger.run();
+        
         try {
           io.seek(Seek.END.getValue());
         } catch ( IOException ioe ) {
@@ -88,16 +92,18 @@ public class SimpleLogManager implements LogManager {
 
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
-        try {
-            io.open();
-        } catch ( IOException ioe ) {
-            ioe.printStackTrace();
-        }
-        if ( exchanger != null ) this.currentLsn.set(exchanger.getLasLsn() + 1);
-        if ( exchanger != null ) this.currentRegion.setBaseLsn(exchanger.getLasLsn() + 1);
+        exchanger = new ChunkExchange(io, checksumStyle);
         this.alive = true;
-        this.daemon = new LogWriter();
+        this.daemon = new SimpleLogManager.LogWriter();
         this.daemon.start();
+        
+        try {
+            this.currentLsn.set(exchanger.getLastLsn() + 1);
+            this.highestOnDisk.set(exchanger.getLastLsn());
+            this.currentRegion.setBaseLsn(exchanger.getLastLsn() + 1);
+        } catch ( InterruptedException ie ) {
+
+        }
     }
 
     //  TODO:  re-examine when more runtime context is available.
@@ -113,7 +119,9 @@ public class SimpleLogManager implements LogManager {
         } catch ( InterruptedException ie ) {
             throw new AssertionError(ie);
         }
-        assert(currentLsn.get()-1 == highestOnDisk.get());
+        if (currentLsn.get()-1 != highestOnDisk.get()) {
+            throw new AssertionError();
+        }
         try {
             io.close();
         } catch ( IOException ioe ) {
@@ -152,11 +160,12 @@ public class SimpleLogManager implements LogManager {
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        final CommitList mine = append(record);
+        CommitList mine = append(record);
         
-        if ( !mine.close(record.getLsn(),true) ) {
-   //  this close has to be in the range, it just got set
-            throw new AssertionError();
+        while ( !mine.close(record.getLsn(),true) ) {
+
+            mine = mine.next();
+            
         }
                 
         return mine;
@@ -164,15 +173,9 @@ public class SimpleLogManager implements LogManager {
 
     @Override
     public Iterator<LogRecord> reader() {
-        exchanger = new ChunkExchange(io, checksumStyle);
-        Thread reader = new Thread(exchanger);
-        reader.setDaemon(true);
-        reader.start();
         return exchanger.iterator();
     }
-    
-    public ChunkExchange exchanger;
-    
+        
     public ChunkExchange getRecoveryExchanger() {
         return exchanger;
     }

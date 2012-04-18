@@ -8,6 +8,7 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.Seek;
 import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
@@ -29,7 +30,7 @@ public class MockLogManager implements LogManager {
 
     private final IOManager ioManager;
     private final AtomicLong currentLsn = new AtomicLong();
-    LogRegionFactory packer = new MockLogRegionFactory();
+    LogRegionFactory packer = new MockLogManager.MockLogRegionFactory();
 
     public MockLogManager(IOManager ioManager) {
         this.ioManager = ioManager;
@@ -65,16 +66,17 @@ public class MockLogManager implements LogManager {
     }
 
     public Iterator<LogRecord> reader() {
-//  lame but assume one chunk for mock 
         try {
-            Iterable<Chunk> list = ioManager.read(Direction.REVERSE);
-            Iterator<Chunk> chunks = list.iterator();
-            if ( !chunks.hasNext() ) return Collections.<LogRecord>emptyList().iterator();
+            ioManager.seek(Seek.END.getValue());
+            Chunk cc = ioManager.read(Direction.REVERSE);
+            if ( cc == null ) return Collections.<LogRecord>emptyList().iterator();
             ArrayList<LogRecord> records = new ArrayList<LogRecord>();
-            while ( chunks.hasNext() ) {
-                records.addAll(new MockLogRegionFactory().unpack(chunks.next()));
+            while ( cc != null ) {
+                List<LogRecord> rlist = new MockLogManager.MockLogRegionFactory().unpack(cc);
+                Collections.reverse(rlist);
+                records.addAll(rlist);
+                cc = ioManager.read(Direction.REVERSE);
             }
-            Collections.reverse(records);
             return records.iterator();
         } catch ( IOException ioe ) {
             throw new AssertionError(ioe);

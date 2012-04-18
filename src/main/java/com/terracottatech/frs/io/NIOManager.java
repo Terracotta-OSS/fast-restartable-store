@@ -104,10 +104,10 @@ public class NIOManager implements IOManager {
         return lsn;
     }
     
-    public Iterable<Chunk> read(Direction dir) throws IOException {        
+    public Chunk read(Direction dir) throws IOException {        
         currentSegment = backend.read(dir);
         
-        return currentSegment;
+        throw new UnsupportedOperationException("to be implemented");
     }
 
     @Override

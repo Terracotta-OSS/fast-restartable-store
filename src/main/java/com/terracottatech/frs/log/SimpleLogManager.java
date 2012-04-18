@@ -18,9 +18,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * 
  * @author mscott
  */
-public class SimpleLogManager implements LogManager,Runnable {
+public class SimpleLogManager implements LogManager {
     
-    private Thread daemon;
+    private LogWriter daemon;
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong highestOnDisk = new AtomicLong(0);
@@ -41,44 +41,51 @@ public class SimpleLogManager implements LogManager,Runnable {
         currentLsn.set(list.getBaseLsn());
         packer = new LogRegionPacker(checksumStyle);   
     }
-    
-     //  TODO:  re-examine when more runtime context is available.
-    @Override
-    public void run() {
+
+    private class LogWriter extends Thread {
+      LogWriter() {
+        setDaemon(true);
+        setName("LogManager - Writer Thread");
+      }
+
+      @Override
+      public void run() {
         try {
-            io.seek(Seek.END.getValue());
+          io.seek(Seek.END.getValue());
         } catch ( IOException ioe ) {
+          throw new AssertionError(ioe);
+        }
+
+        while ((alive || currentLsn.get() - 1 != highestOnDisk.get())) {
+          CommitList oldRegion = currentRegion;
+          try {
+            if ( !alive ) {
+              CommitList closeAll = oldRegion;
+              while (!closeAll.close(currentLsn.get() - 1, true)) {
+                closeAll = closeAll.next();
+              }
+            }
+
+            oldRegion.waitForContiguous();
+
+            currentRegion = oldRegion.next();
+
+            totalBytes += io.write(packer.pack(oldRegion));
+            if ( oldRegion.isSyncRequested() ) {
+              io.sync();
+            }
+            highestOnDisk.set(oldRegion.getEndLsn());
+            oldRegion.written();
+          } catch (IOException ioe) {
             throw new AssertionError(ioe);
+          } catch (InterruptedException ie) {
+            if ( alive ) throw new AssertionError(ie);
+            else oldRegion.close(currentLsn.get()-1,true);
+          }
         }
-        
-        while ( (alive || currentLsn.get()-1 != highestOnDisk.get()) ) {
-            CommitList oldRegion = currentRegion;
-            try {
-                if ( !alive ) {
-                    CommitList closeAll = oldRegion;
-                    while ( !closeAll.close(currentLsn.get()-1,true) ) {
-                        closeAll = closeAll.next();
-                    }
-                }
-                
-                oldRegion.waitForContiguous();
-                
-                currentRegion = oldRegion.next();
-                                
-                totalBytes += io.write(packer.pack(oldRegion));
-                if ( oldRegion.isSyncing() ) {
-                    io.sync();
-                }
-                highestOnDisk.set(oldRegion.getEndLsn());
-                oldRegion.written();
-            } catch ( IOException ioe ) {
-                throw new AssertionError(ioe);
-            } catch ( InterruptedException ie ) {
-                if ( alive ) throw new AssertionError(ie);
-                else oldRegion.close(currentLsn.get()-1,true);
-            }        
-        }
+      }
     }
+
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
         try {
@@ -89,8 +96,7 @@ public class SimpleLogManager implements LogManager,Runnable {
         if ( exchanger != null ) this.currentLsn.set(exchanger.getLasLsn() + 1);
         if ( exchanger != null ) this.currentRegion.setBaseLsn(exchanger.getLasLsn() + 1);
         this.alive = true;
-        this.daemon = new Thread(this);
-        this.daemon.setDaemon(true);
+        this.daemon = new LogWriter();
         this.daemon.start();
     }
 
@@ -118,8 +124,9 @@ public class SimpleLogManager implements LogManager,Runnable {
     public long totalBytes() {
         return totalBytes;
     }
-    
-    private CommitList commonAppend(LogRecord record) {
+
+    @Override
+    public CommitList append(LogRecord record) {
 //        if ( !alive.get() ) throw new RuntimeException("shutting down");
         long lsn = currentLsn.getAndIncrement();
         record.updateLsn(lsn);
@@ -145,20 +152,12 @@ public class SimpleLogManager implements LogManager,Runnable {
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        final CommitList mine = commonAppend(record);
+        final CommitList mine = append(record);
         
         if ( !mine.close(record.getLsn(),true) ) {
    //  this close has to be in the range, it just got set
             throw new AssertionError();
         }
-                
-        return mine;
-    }
-
-    @Override
-    public Future<Void> append(LogRecord record) {
-        
-        CommitList mine = commonAppend(record);
                 
         return mine;
     }

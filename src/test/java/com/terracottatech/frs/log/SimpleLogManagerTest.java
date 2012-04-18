@@ -21,13 +21,12 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- *
  * @author mscott
  */
 public class SimpleLogManagerTest {
   private static final long LOG_REGION_WRITE_TIMEOUT = 10;
 
-  private IOManager ioManager;
+  private IOManager  ioManager;
   private LogManager logManager;
 
   @Before
@@ -37,91 +36,84 @@ public class SimpleLogManagerTest {
   }
 
   /**
-     * Test of run method, of class SimpleLogManager.
-     */
-    @Test @Ignore
-    public void testRun() {
-        SimpleLogManager instance = null;
-        instance.run();
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
+   * Test of startup method, of class SimpleLogManager.
+   */
+  @Test
+  @Ignore
+  public void testStartup() {
+    SimpleLogManager instance = null;
+    instance.startup();
+    // TODO review the generated test code and remove the default call to fail.
+    fail("The test case is a prototype.");
+  }
 
-    /**
-     * Test of startup method, of class SimpleLogManager.
-     */
-    @Test @Ignore
-    public void testStartup() {
-        SimpleLogManager instance = null;
-        instance.startup();
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
+  /**
+   * Test of shutdown method, of class SimpleLogManager.
+   */
+  @Test
+  @Ignore
+  public void testShutdown() {
+    SimpleLogManager instance = null;
+    instance.shutdown();
+    // TODO review the generated test code and remove the default call to fail.
+    fail("The test case is a prototype.");
+  }
 
-    /**
-     * Test of shutdown method, of class SimpleLogManager.
-     */
-    @Test @Ignore
-    public void testShutdown() {
-        SimpleLogManager instance = null;
-        instance.shutdown();
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    } 
+  /**
+   * Test of totalBytes method, of class SimpleLogManager.
+   */
+  @Test
+  @Ignore
+  public void testTotalBytes() {
+    SimpleLogManager instance = null;
+    long expResult = 0L;
+    long result = instance.totalBytes();
+    assertEquals(expResult, result);
+    // TODO review the generated test code and remove the default call to fail.
+    fail("The test case is a prototype.");
+  }
 
-    /**
-     * Test of totalBytes method, of class SimpleLogManager.
-     */
-    @Test @Ignore
-    public void testTotalBytes() {
-        SimpleLogManager instance = null;
-        long expResult = 0L;
-        long result = instance.totalBytes();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
+  /**
+   * Test of appendAndSync method, of class SimpleLogManager.
+   */
+  @Test
+  public void testAppendAndSync() throws Exception {
+    logManager.startup();
+    LogRecord record = newRecord(100, -1);
+    Future<Void> f = logManager.appendAndSync(record);
+    f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
+    verify(ioManager).write(any(Chunk.class));
+  }
 
-    /**
-     * Test of appendAndSync method, of class SimpleLogManager.
-     */
-    @Test
-    public void testAppendAndSync() throws Exception {
-      logManager.startup();
-      LogRecord record = newRecord(100, -1);
-      Future<Void> f = logManager.appendAndSync(record);
-      f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
-      verify(ioManager).write(any(Chunk.class));
+  /**
+   * Test of append method, of class SimpleLogManager.
+   */
+  @Test
+  public void testAppend() throws Exception {
+    logManager.startup();
+    Future<Void> writeLsn = null;
+    for (long i = 100; i < 200; i++) {
+      LogRecord record = newRecord(i, -1);
+      writeLsn = logManager.append(record);
+      verify(record).updateLsn(i);
     }
+    writeLsn.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
+    verify(ioManager).write(any(Chunk.class));
+  }
 
-    /**
-     * Test of append method, of class SimpleLogManager.
-     */
-    @Test
-    public void testAppend() throws Exception {
-      logManager.startup();
-      Future<Void> writeLsn = null;
-      for (long i = 100; i < 200; i++) {
-        LogRecord record = newRecord(i, -1);
-        writeLsn = logManager.append(record);
-        verify(record).updateLsn(i);
-      }
-      writeLsn.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
-      verify(ioManager).write(any(Chunk.class));
-    }
-
-    /**
-     * Test of reader method, of class SimpleLogManager.
-     */
-    @Test @Ignore
-    public void testReader() {
-        SimpleLogManager instance = null;
-        Iterator expResult = null;
-        Iterator result = instance.reader();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
+  /**
+   * Test of reader method, of class SimpleLogManager.
+   */
+  @Test
+  @Ignore
+  public void testReader() {
+    SimpleLogManager instance = null;
+    Iterator expResult = null;
+    Iterator result = instance.reader();
+    assertEquals(expResult, result);
+    // TODO review the generated test code and remove the default call to fail.
+    fail("The test case is a prototype.");
+  }
 
   private LogRecord newRecord(long lsn, long lowest) {
     LogRecord r = mock(LogRecord.class);

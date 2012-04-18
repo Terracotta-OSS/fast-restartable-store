@@ -15,7 +15,7 @@ public interface CommitList extends Iterable<LogRecord>,Future<Void> {
     boolean close(long lsn,boolean sync);
     void waitForContiguous() throws InterruptedException;
     CommitList next();
-    boolean isSyncing();
+    boolean isSyncRequested();
     long getEndLsn();
     long getBaseLsn();
     void setBaseLsn(long lsn);

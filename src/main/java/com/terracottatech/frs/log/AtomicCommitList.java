@@ -14,35 +14,30 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * @author mscott
  */
 public class AtomicCommitList implements CommitList, Future<Void> {
-
-    private final AtomicReferenceArray<LogRecord> regions;
-// set at construction    
-    private final boolean dochecksum;
-    private long baseLsn;
-
-    private volatile boolean syncing = false;
-
-    private final AtomicLong endLsn;
-    private final CountDownLatch golatch;
-    
-    private boolean written = false;
-    
-    private final Object guard = new Object();
-    private volatile AtomicCommitList next;
-    
     private static final LogRecord DUMMY_RECORD = new LogRecordImpl(0, null, null);
-    
+
+    private final Object guard = new Object();
+    private final AtomicReferenceArray<LogRecord> regions;
+    private final boolean doChecksum;
+    private final AtomicLong endLsn;
+    private final CountDownLatch goLatch;
+
+    private long baseLsn;
+    private volatile boolean syncRequested = false;
+    private boolean written = false;
+    private volatile AtomicCommitList next;
+
     public AtomicCommitList(boolean useChecksum, long startLsn, int maxSize) {
         baseLsn = startLsn;
         endLsn = new AtomicLong();
         regions = new AtomicReferenceArray<LogRecord>(maxSize);
-        this.dochecksum = useChecksum;
-        golatch = new CountDownLatch(maxSize);
+        this.doChecksum = useChecksum;
+        goLatch = new CountDownLatch(maxSize);
     }
     
     public void setBaseLsn(long lsn) {
         assert(next == null);
-        assert(golatch.getCount() == regions.length());
+        assert(goLatch.getCount() == regions.length());
         baseLsn = lsn;
     }
     
@@ -61,7 +56,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         if ( end > 0 && end < record.getLsn() ) return false;
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
-            golatch.countDown();
+            goLatch.countDown();
         } else {
             return false;
         }
@@ -70,11 +65,6 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         return true;
     }
 
-    /**
-     *  
-     *
-     * @return
-     */
     @Override
     public AtomicCommitList next() {
         if ( next == null ) {
@@ -87,7 +77,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
                 }
             }
             synchronized (guard) {
-                if ( next == null ) next = new AtomicCommitList(dochecksum, nextLsn, regions.length());
+                if ( next == null ) next = new AtomicCommitList(doChecksum, nextLsn, regions.length());
             }
         }
         return next;
@@ -104,15 +94,15 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     }
 
     @Override
-    public boolean close(long end, boolean sync) {
-        if ( sync ) syncing = true;
+    public boolean close(long end, boolean requestSync) {
+        if ( requestSync ) syncRequested = true;
         boolean closer;
         
         if ( end >= baseLsn + regions.length() ) {
             return false;
         }
         
-        closer = endLsn.compareAndSet(0,end);
+        closer = endLsn.compareAndSet(0, end);
               
         if ( closer ) {
             transferOutExtras();
@@ -130,15 +120,15 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         int offset = (int)(endLsn.get()-baseLsn+1);
         for (int x=offset;x<regions.length();x++) {
             LogRecord record = regions.getAndSet(x, DUMMY_RECORD);
-            if ( record == null ) golatch.countDown();
+            if ( record == null ) goLatch.countDown();
             else cnext.append(record);
         }
     }
     
     
     @Override
-    public boolean isSyncing() {
-        return syncing;
+    public boolean isSyncRequested() {
+        return syncRequested;
     }
 
     private void waitForWrite() throws InterruptedException {
@@ -176,32 +166,27 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     }
     
     private boolean checkValues() {
-        for(int x=0;x<(int)(endLsn.get()-baseLsn+1);x++) {
-            if (regions.get(x) == null) {
+        for(int x = 0 ; x < endLsn.get() - baseLsn + 1; x++) {
+            if (regions.get(x) == null || regions.get(x).getLsn() != (baseLsn + x)) {
                 return false;
             }
         }
-        if (endLsn.get()-baseLsn+1 == 0) return true;  //  no records here
-        if (baseLsn != regions.get(0).getLsn() ) return false;
-        if (endLsn.get() != regions.get((int)(endLsn.get()-baseLsn)).getLsn()) return false;
+        if (endLsn.get() - baseLsn + 1 == 0) return true;  //  no records here
         return true;
     }
-    
-    
 
     @Override
     public void waitForContiguous() throws InterruptedException {
-        while ( !golatch.await(10, TimeUnit.SECONDS) ) {
-            if ( golatch.getCount() != regions.length() ) {
-                this.close(baseLsn + regions.length() + golatch.getCount() - 1,true);
+        while ( !goLatch.await(10, TimeUnit.SECONDS) ) {
+            if ( goLatch.getCount() != regions.length() ) {
+                this.close(baseLsn + regions.length() + goLatch.getCount() - 1,true);
             }
         }
         if ( endLsn.compareAndSet(0, baseLsn + regions.length() -1) ) {
  // filled all the slots with no close.  set endLsn now
-            assert(golatch.getCount() == 0);
+            assert(goLatch.getCount() == 0);
         }
         assert(baseLsn == 0 || checkValues());
-       
     }
     
  //  Future interface
@@ -229,7 +214,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public boolean isDone() {
-        return (golatch.getCount() == regions.length() || this.isWritten());
+        return (goLatch.getCount() == regions.length() || this.isWritten());
     }   
     
 //  iterator interface

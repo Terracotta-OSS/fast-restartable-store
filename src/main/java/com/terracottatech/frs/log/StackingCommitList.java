@@ -64,11 +64,6 @@ public class StackingCommitList implements CommitList {
         return true;
     }
 
-    /**
-     *  
-     *
-     * @return
-     */
     @Override
     public StackingCommitList next() {
         if (next == null) {
@@ -121,7 +116,7 @@ public class StackingCommitList implements CommitList {
     }
 
     @Override
-    public boolean isSyncing() {
+    public boolean isSyncRequested() {
         return syncing;
     }
 

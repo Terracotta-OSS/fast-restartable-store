@@ -83,11 +83,6 @@ public class TestLogRecord implements LogRecord  {
     }
 
     @Override
-    public long getPreviousLsn() {
-        return this.lsn - 1;
-    }
-
-    @Override
     public void updateLsn(long lsn) {
         this.lsn = lsn;
     }

@@ -11,6 +11,6 @@ import java.nio.ByteBuffer;
  */
 public interface LogRecordFactory {
 
-  LogRecord createLogRecord(long previousLsn, long lowestLsn, ByteBuffer[] payload, LSNEventListener listener);
+  LogRecord createLogRecord(long lowestLsn, ByteBuffer[] payload, LSNEventListener listener);
 
 }

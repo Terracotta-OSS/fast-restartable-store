@@ -7,9 +7,12 @@ package com.terracottatech.frs.mock.transaction;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.mock.action.MockAction;
@@ -19,7 +22,8 @@ import com.terracottatech.frs.object.ObjectManager;
  * 
  * @author cdennis
  */
-public class MockTransactionalAction implements MockAction, Serializable {
+public class MockTransactionalAction implements MockAction, Serializable,
+        InvalidatingAction {
   private static final long serialVersionUID = 1L;
   private final long id;
   private final Action embedded;
@@ -37,8 +41,12 @@ public class MockTransactionalAction implements MockAction, Serializable {
   }
 
   @Override
-  public long getPreviousLsn() {
-    return embedded.getPreviousLsn();
+  public Set<Long> getInvalidatedLsns() {
+    if (embedded instanceof InvalidatingAction) {
+      return ((InvalidatingAction) embedded).getInvalidatedLsns();
+    } else {
+      return Collections.emptySet();
+    }
   }
 
   @Override

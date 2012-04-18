@@ -6,9 +6,12 @@ package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.log.LogRecord;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.*;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
@@ -22,45 +25,50 @@ import static org.mockito.Mockito.mock;
  * @author tim
  */
 public class SkipsFilterTest {
-  private ActionManager actionManager;
   private Filter<Action> delegate;
-  private Action action;
   private SkipsFilter filter;
 
   @Before
   public void setUp() throws Exception {
-    action = mock(Action.class);
-    actionManager = mock(ActionManager.class);
-    doReturn(action).when(actionManager).extract(any(LogRecord.class));
-
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
-    filter = new SkipsFilter(delegate, actionManager);
+    filter = new SkipsFilter(delegate);
   }
 
   @Test
   public void testSkipping() throws Exception {
-    LogRecord record1 = createRecord(1, -1, true);
-    LogRecord record2 = createRecord(2, 1, true);
-    assertThat(filter.filter(record2, 2), is(true));
-    assertThat(filter.filter(record1, 1), is(false));
+    Action action1 = createAction(false);
+    Action action2 = createAction(true);
+    Action action3 = createAction(Arrays.asList(1L, 2L), false);
+    Action action4 = createAction(3, true);
+    assertThat(filter.filter(action4, 4), is(true));
+    assertThat(filter.filter(action3, 3), is(false));
+    assertThat(filter.filter(action2, 2), is(false));
+    assertThat(filter.filter(action1, 1), is(false));
   }
 
   @Test
   public void testDelegateReturnsFalse() throws Exception {
-    LogRecord record1 = createRecord(1, -1, true);
-    LogRecord record2 = createRecord(2, 1, false);
-    assertThat(filter.filter(record2, 2), is(false));
-    assertThat(filter.filter(record1, 1), is(true));
+    Action action1 = createAction(-1, true);
+    Action action2 = createAction(1, false);
+    assertThat(filter.filter(action2, 2), is(false));
+    assertThat(filter.filter(action1, 1), is(true));
   }
 
-  private LogRecord createRecord(long lsn, long previousLsn, boolean replayReturn) throws Exception {
-    LogRecord record = mock(LogRecord.class);
-    doReturn(lsn).when(record).getLsn();
-    doReturn(previousLsn).when(record).getPreviousLsn();
-    Action logRecordAction = mock(Action.class);
-    doReturn(logRecordAction).when(actionManager).extract(record);
-    doReturn(replayReturn).when(delegate).filter(eq(logRecordAction), anyLong());
-    return record;
+  private Action createAction(boolean replayReturn) {
+    Action action = mock(Action.class);
+    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong());
+    return action;
+  }
+
+  private Action createAction(long previousLsn, boolean replayReturn) {
+    return createAction(Collections.singleton(previousLsn), replayReturn);
+  }
+
+  private Action createAction(final Collection<Long> previousLsns, boolean replayReturn) {
+    InvalidatingAction action = mock(InvalidatingAction.class);
+    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong());
+    doReturn(new HashSet<Long>(previousLsns)).when(action).getInvalidatedLsns();
+    return action;
   }
 }

@@ -17,8 +17,6 @@ import java.util.concurrent.locks.Lock;
  */
 public interface Action extends LSNEventListener {
 
-  long getPreviousLsn();
-  
   void record(long lsn);
   
   void replay(long lsn);

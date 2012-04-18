@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
  * @author tim
  */
 public abstract class ByteBufferUtils {
+  public static int SHORT_SIZE = Short.SIZE / Byte.SIZE;
   public static int LONG_SIZE = Long.SIZE / Byte.SIZE;
   public static int INT_SIZE = Integer.SIZE / Byte.SIZE;
 

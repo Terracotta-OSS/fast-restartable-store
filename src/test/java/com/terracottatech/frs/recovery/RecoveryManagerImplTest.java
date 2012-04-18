@@ -7,6 +7,7 @@ package com.terracottatech.frs.recovery;
 import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.ObjectManager;
@@ -15,6 +16,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -53,42 +55,57 @@ public class RecoveryManagerImplTest {
     return mock(ActionManager.class);
   }
 
-  private LogRecord record(long lsn, long previousLsn, Action action) throws Exception {
+  private LogRecord record(long lsn, Action action) throws Exception {
     LogRecord record = mock(LogRecord.class);
     doReturn(lsn).when(record).getLsn();
-    doReturn(previousLsn).when(record).getPreviousLsn();
     doReturn(action).when(actionManager).extract(record);
     return record;
   }
 
+  private Action action(long previousLsn, boolean shouldReplay) {
+    InvalidatingAction action = mock(InvalidatingAction.class);
+    doReturn(Collections.singleton(previousLsn)).when(action).getInvalidatedLsns();
+    if (!shouldReplay) {
+      doThrow(new AssertionError("Should not have been executed.")).when(action).replay(
+              anyLong());
+    }
+    return action;
+  }
+
+  private Action action(boolean shouldReplay) {
+    Action action = mock(Action.class);
+    if (!shouldReplay) {
+      doThrow(new AssertionError("Should not have been executed.")).when(action).replay(
+              anyLong());
+    }
+    return action;
+  }
+
   @Test
   public void testRecover() throws Exception {
-    Action skippedAction = mock(Action.class);
-    doThrow(new AssertionError("Should not have been executed.")).when(skippedAction).replay(anyLong());
-
     // Try skipping something...
-    logManager.append(record(8, -1, skippedAction));
-    Action skipper = mock(Action.class);
-    logManager.append(record(9, 8, skipper));
+    logManager.append(record(8, action(false)));
+    Action skipper = action(8, true);
+    logManager.append(record(9, skipper));
 
     // Check that an action skipped by one in a transaction is properly skipped
-    logManager.append(record(10, -1, skippedAction));
-    logManager.append(record(11, -1, transactionActionFactory.transactionBegin(1)));
-    Action validTransactional = mock(Action.class);
-    logManager.append(record(12, 10, transactionActionFactory.transactionalAction(1, validTransactional)));
-    logManager.append(record(13, -1, transactionActionFactory.transactionCommit(1)));
+    logManager.append(record(10, action(false)));
+    logManager.append(record(11, transactionActionFactory.transactionBegin(1)));
+    Action validTransactional = action(10, true);
+    logManager.append(record(12, transactionActionFactory.transactionalAction(1, validTransactional)));
+    logManager.append(record(13, transactionActionFactory.transactionCommit(1)));
 
     // Test a torn transaction
-    logManager.append(record(14, -1, transactionActionFactory.transactionBegin(2)));
-    logManager.append(record(15, 12, transactionActionFactory.transactionalAction(2, skippedAction)));
+    logManager.append(record(14, transactionActionFactory.transactionBegin(2)));
+    logManager.append(record(15, transactionActionFactory.transactionalAction(2, action(12, false))));
 
     // Try out a deleted action
-    logManager.append(record(16, -1, skipped(mapActionFactory.put(1, 2, 3))));
-    logManager.append(record(17, -1, skipped(mapActionFactory.put(1, 3, 5))));
-    logManager.append(record(18, -1, skipped(mapActionFactory.put(1, 4, 5))));
+    logManager.append(record(16, skipped(mapActionFactory.put(1, 2, 3))));
+    logManager.append(record(17, skipped(mapActionFactory.put(1, 3, 5))));
+    logManager.append(record(18, skipped(mapActionFactory.put(1, 4, 5))));
     Action checkedPut = spy(mapActionFactory.put(2, 3, 4));
-    logManager.append(record(19, -1, checkedPut));
-    logManager.append(record(20, -1, mapActionFactory.delete(1)));
+    logManager.append(record(19, checkedPut));
+    logManager.append(record(20, mapActionFactory.delete(1)));
 
     recoveryManager.recover();
 

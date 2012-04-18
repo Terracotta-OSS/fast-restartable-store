@@ -14,8 +14,6 @@ public interface LogRecord {
 
   long getLsn();
 
-  long getPreviousLsn();
-
   long getLowestLsn();
   
   void updateLsn(long lsn);

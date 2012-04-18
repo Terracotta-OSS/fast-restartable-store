@@ -17,14 +17,12 @@ public class LogRecordImpl implements LogRecord {
     
     private long lowestLsn;
     private long lsn;
-    private final long previousLsn;
     private final ByteBuffer[] payload;
     
     private final LSNEventListener listener;
 
-    public LogRecordImpl(long lowestLsn, long previousLsn, ByteBuffer[] buffers, LSNEventListener listener) {
+    public LogRecordImpl(long lowestLsn, ByteBuffer[] buffers, LSNEventListener listener) {
         this.lowestLsn = lowestLsn;
-        this.previousLsn = previousLsn;
         this.payload = buffers;
         this.listener = listener;
     }
@@ -54,11 +52,6 @@ public class LogRecordImpl implements LogRecord {
     }
 
     @Override
-    public long getPreviousLsn() {
-        return previousLsn;
-    }
-
-    @Override
     public void updateLsn(long lsn) {
         this.lsn = lsn;
         if ( listener != null ) listener.record(lsn);
@@ -66,9 +59,6 @@ public class LogRecordImpl implements LogRecord {
 
     @Override
     public String toString() {
-        return "LogRecordImpl{" + "lowestLsn=" + lowestLsn + ", lsn=" + lsn + ", previousLsn=" + previousLsn + '}';
+        return "LogRecordImpl{" + "lowestLsn=" + lowestLsn + ", lsn=" + lsn + '}';
     }
-
-    
-    
 }

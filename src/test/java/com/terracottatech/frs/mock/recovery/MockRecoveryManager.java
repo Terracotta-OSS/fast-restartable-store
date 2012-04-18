@@ -37,10 +37,11 @@ public class MockRecoveryManager implements RecoveryManager {
     Filter<Action> deleteFilter = new MockDeleteFilter(replay);
     Filter<Action> transactionFilter = new MockTransactionFilter(deleteFilter);
     
-    Filter<LogRecord> skipsFilter = new MockSkipsFilter(actionManager, transactionFilter);
+    Filter<Action> skipsFilter = new MockSkipsFilter(transactionFilter);
     while (it.hasNext()) {
       LogRecord record = it.next();
-      skipsFilter.filter(record, record.getLsn());
+      Action action = actionManager.extract(record);
+      skipsFilter.filter(action, record.getLsn());
     }
   }
 }

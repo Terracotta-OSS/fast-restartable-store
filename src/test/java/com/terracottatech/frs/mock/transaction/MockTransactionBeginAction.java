@@ -25,11 +25,6 @@ public class MockTransactionBeginAction implements Action, Serializable {
   public MockTransactionBeginAction(long id) {
     this.id = id;
   }
-  
-  @Override
-  public long getPreviousLsn() {
-    return -1;
-  }
 
   @Override
   public void record(long lsn) {

@@ -30,7 +30,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private final Object guard = new Object();
     private volatile AtomicCommitList next;
     
-    private static final LogRecord DUMMY_RECORD = new LogRecordImpl(0, 0, null, null);
+    private static final LogRecord DUMMY_RECORD = new LogRecordImpl(0, null, null);
     
     public AtomicCommitList(boolean useChecksum, long startLsn, int maxSize) {
         baseLsn = startLsn;

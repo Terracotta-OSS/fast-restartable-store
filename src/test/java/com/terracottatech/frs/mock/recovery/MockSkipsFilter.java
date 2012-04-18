@@ -4,10 +4,10 @@
  */
 package com.terracottatech.frs.mock.recovery;
 
-import com.terracottatech.frs.action.ActionManager;
-import com.terracottatech.frs.recovery.Filter;
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.recovery.Filter;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -15,24 +15,22 @@ import java.util.Set;
  *
  * @author cdennis
  */
-class MockSkipsFilter extends MockAbstractFilter<LogRecord, Action> {
+class MockSkipsFilter extends MockAbstractFilter<Action, Action> {
 
   private final Set<Long> skips = new HashSet<Long>();
-  private final ActionManager actionManager;
 
-  public MockSkipsFilter(ActionManager actionManager, Filter<Action> next) {
+  public MockSkipsFilter(Filter<Action> next) {
     super(next);
-    this.actionManager = actionManager;
   }
   
   @Override
-  public boolean filter(LogRecord record, long lsn) {
+  public boolean filter(Action action, long lsn) {
     if (skips.remove(lsn)) {
-      skips.add(record.getPreviousLsn());
+      updateSkips(action);
       return false;
     } else {
-      if (delegate(record, lsn)) {
-        skips.add(record.getPreviousLsn());
+      if (delegate(action, lsn)) {
+        updateSkips(action);
         return true;
       } else {
         return false;
@@ -40,8 +38,14 @@ class MockSkipsFilter extends MockAbstractFilter<LogRecord, Action> {
     }
   }
 
+  private void updateSkips(Action action) {
+    if (action instanceof InvalidatingAction) {
+      skips.addAll(((InvalidatingAction) action).getInvalidatedLsns());
+    }
+  }
+
   @Override
-  protected Action convert(LogRecord element) {
-    return actionManager.extract(element);
+  protected Action convert(Action element) {
+    return element;
   }
 }

@@ -5,8 +5,7 @@
 package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionManager;
-import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.action.InvalidatingAction;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -14,30 +13,29 @@ import java.util.Set;
 /**
  * @author tim
  */
-public class SkipsFilter extends AbstractAdaptingFilter<LogRecord, Action> {
+public class SkipsFilter extends AbstractFilter<Action> {
   private final Set<Long> skips = new HashSet<Long>();
-  private final ActionManager actionManager;
 
-  public SkipsFilter(Filter<Action> nextFilter, ActionManager actionManager) {
+  public SkipsFilter(Filter<Action> nextFilter) {
     super(nextFilter);
-    this.actionManager = actionManager;
   }
 
   @Override
-  public boolean filter(LogRecord element, long lsn) {
-    if (skips.contains(element.getLsn())) {
-      skips.add(element.getPreviousLsn());
+  public boolean filter(Action element, long lsn) {
+    if (skips.remove(lsn)) {
+      updateSkips(element);
     } else {
       if (delegate(element, lsn)) {
-        skips.add(element.getPreviousLsn());
+        updateSkips(element);
         return true;
       }
     }
     return false;
   }
 
-  @Override
-  protected Action convert(LogRecord element) {
-    return actionManager.extract(element);
+  private void updateSkips(Action action) {
+    if (action instanceof InvalidatingAction) {
+      skips.addAll(((InvalidatingAction) action).getInvalidatedLsns());
+    }
   }
 }

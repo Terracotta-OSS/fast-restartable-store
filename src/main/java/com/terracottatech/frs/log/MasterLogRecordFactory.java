@@ -11,10 +11,8 @@ import java.nio.ByteBuffer;
  * @author mscott
  */
 public class MasterLogRecordFactory implements LogRecordFactory {
-
     @Override
-    public LogRecord createLogRecord(long previousLsn, long lowestLsn, ByteBuffer[] payload, LSNEventListener listener) {
-        return new LogRecordImpl(lowestLsn, previousLsn, payload, listener);
+    public LogRecord createLogRecord(long lowestLsn, ByteBuffer[] payload, LSNEventListener listener) {
+        return new LogRecordImpl(lowestLsn, payload, listener);
     }
-    
 }

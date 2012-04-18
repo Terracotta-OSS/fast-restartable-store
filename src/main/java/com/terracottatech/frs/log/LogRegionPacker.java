@@ -5,6 +5,8 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.util.ByteBufferUtils;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -17,6 +19,8 @@ import java.util.zip.Adler32;
  * @author mscott
  */
 public class LogRegionPacker implements LogRegionFactory<LogRecord> {
+    private static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + 3 * ByteBufferUtils.LONG_SIZE;
+
     //  just hinting
     private int tuningMax = 10;
     private static final short REGION_VERSION = 02;
@@ -57,7 +61,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
         buffers.add(header);
         for (LogRecord record : records) {
-            ByteBuffer rhead = ByteBuffer.allocate(34);
+            ByteBuffer rhead = ByteBuffer.allocate(LOG_RECORD_HEADER_SIZE);
             buffers.add(rhead);
 
             ByteBuffer[] payload = record.getPayload();
@@ -74,7 +78,6 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
             rhead.putShort(LR_FORMAT);
             rhead.putLong(record.getLsn());
-            rhead.putLong(record.getPreviousLsn());
             rhead.putLong(record.getLowestLsn());
             rhead.putLong(len);
             rhead.flip();
@@ -136,12 +139,11 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
         short format = buffer.getShort();
         long lsn = buffer.getLong();
-        long pLsn = buffer.getLong();
         long lLsn = buffer.getLong();
         long len = buffer.getLong();
 
         ByteBuffer[] payload = buffer.getBuffers(len);
-        LogRecord record = new LogRecordImpl(lLsn, pLsn, payload, null);
+        LogRecord record = new LogRecordImpl(lLsn, payload, null);
         record.updateLsn(lsn);
         return record;
     }

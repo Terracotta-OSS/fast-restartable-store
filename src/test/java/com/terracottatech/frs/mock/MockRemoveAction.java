@@ -4,31 +4,37 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.object.ObjectManager;
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  *
  * @author cdennis
  */
-public class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Serializable, MockAction {
+public class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implements Serializable, MockAction,
+        InvalidatingAction {
 
+  private final long invalidatedLsn;
   private transient ObjectManager<I, K, ?> objManager;
   
   public MockRemoveAction(ObjectManager<I, K, ?> objManager, I id, K key) {
     super(id, key);
     this.objManager = objManager;
-  }
-
-  @Override
-  public long getPreviousLsn() {
-    return objManager.getLsn(getId(), getKey());
+    invalidatedLsn = objManager.getLsn(id, key);
   }
 
   @Override
   public void record(long lsn) {
      objManager.remove(getId(), getKey());
+  }
+
+  @Override
+  public Set<Long> getInvalidatedLsns() {
+    return Collections.singleton(invalidatedLsn);
   }
 
   @Override

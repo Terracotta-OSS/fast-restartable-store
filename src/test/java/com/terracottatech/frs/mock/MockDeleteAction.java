@@ -31,11 +31,6 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
   }
 
   @Override
-  public long getPreviousLsn() {
-    return -1;
-  }
-
-  @Override
   public void record(long lsn) {
     objManager.delete(id);
   }

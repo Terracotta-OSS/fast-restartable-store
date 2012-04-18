@@ -58,11 +58,6 @@ public class ActionCodecImplTest {
             mock(ActionFactory.class);
 
     @Override
-    public long getPreviousLsn() {
-      return 0;
-    }
-
-    @Override
     public void record(long lsn) {
     }
 

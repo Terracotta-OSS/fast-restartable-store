@@ -40,11 +40,6 @@ class TransactionBeginAction implements Action {
   }
 
   @Override
-  public long getPreviousLsn() {
-    return 0;
-  }
-
-  @Override
   public void record(long lsn) {
 
   }

@@ -35,7 +35,7 @@ public class MockLogManager implements LogManager {
         this.ioManager = ioManager;
     }
 
-    public synchronized Future<Void> append(LogRecord record) {
+  public synchronized Future<Void> append(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
             ioManager.write(packer.pack(new MockLogRegion(record)));

@@ -30,10 +30,9 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   private LogRecord wrapAction(Action action) {
-    long previousLsn = action.getPreviousLsn();
     long lowestLsn = objectManager.getLowestLsn();
     ByteBuffer[] payload = actionCodec.encode(action);
-    return logRecordFactory.createLogRecord(previousLsn, lowestLsn, payload, action);
+    return logRecordFactory.createLogRecord(lowestLsn, payload, action);
   }
 
   @Override

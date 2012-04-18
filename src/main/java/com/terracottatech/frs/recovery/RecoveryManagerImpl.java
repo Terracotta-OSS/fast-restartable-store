@@ -33,11 +33,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     Filter<Action> deleteFilter = new DeleteFilter(REPLAY_FILTER);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
-    Filter<LogRecord> skipsFilter = new SkipsFilter(transactionFilter, actionManager);
+    Filter<Action> skipsFilter = new SkipsFilter(transactionFilter);
 
     while (i.hasNext()) {
       LogRecord logRecord = i.next();
-      skipsFilter.filter(logRecord, logRecord.getLsn());
+      Action action = actionManager.extract(logRecord);
+      skipsFilter.filter(action, logRecord.getLsn());
     }
   }
 

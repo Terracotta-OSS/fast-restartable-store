@@ -4,49 +4,43 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.Segment;
-import com.terracottatech.frs.io.TestLogRecord;
-import com.terracottatech.frs.io.TestLogRegion;
-import java.util.Arrays;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.Future;
-import org.junit.*;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.*;
 
 /**
  *
  * @author mscott
  */
 public class SimpleLogManagerTest {
-    
-    public SimpleLogManagerTest() {
-    }
+  private static final long LOG_REGION_WRITE_TIMEOUT = 10;
 
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-    }
+  private IOManager ioManager;
+  private LogManager logManager;
 
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-    }
-    
-    @Before
-    public void setUp() {
-    }
-    
-    @After
-    public void tearDown() {
-    }
+  @Before
+  public void setUp() throws Exception {
+    ioManager = mock(IOManager.class);
+    logManager = new SimpleLogManager(ioManager);
+  }
 
-    /**
+  /**
      * Test of run method, of class SimpleLogManager.
      */
     @Test @Ignore
     public void testRun() {
-        System.out.println("run");
         SimpleLogManager instance = null;
         instance.run();
         // TODO review the generated test code and remove the default call to fail.
@@ -58,7 +52,6 @@ public class SimpleLogManagerTest {
      */
     @Test @Ignore
     public void testStartup() {
-        System.out.println("startup");
         SimpleLogManager instance = null;
         instance.startup();
         // TODO review the generated test code and remove the default call to fail.
@@ -70,7 +63,6 @@ public class SimpleLogManagerTest {
      */
     @Test @Ignore
     public void testShutdown() {
-        System.out.println("shutdown");
         SimpleLogManager instance = null;
         instance.shutdown();
         // TODO review the generated test code and remove the default call to fail.
@@ -82,7 +74,6 @@ public class SimpleLogManagerTest {
      */
     @Test @Ignore
     public void testTotalBytes() {
-        System.out.println("totalBytes");
         SimpleLogManager instance = null;
         long expResult = 0L;
         long result = instance.totalBytes();
@@ -94,29 +85,29 @@ public class SimpleLogManagerTest {
     /**
      * Test of appendAndSync method, of class SimpleLogManager.
      */
-    @Test @Ignore
-    public void testAppendAndSync() {
-        System.out.println("appendAndSync");
-        LogRecord record = null;
-        SimpleLogManager instance = null;
-        Future expResult = null;
-        Future result = instance.appendAndSync(record);
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    @Test
+    public void testAppendAndSync() throws Exception {
+      logManager.startup();
+      LogRecord record = newRecord(100, -1);
+      Future<Void> f = logManager.appendAndSync(record);
+      f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
+      verify(ioManager).write(any(Chunk.class));
     }
 
     /**
      * Test of append method, of class SimpleLogManager.
      */
-    @Test @Ignore
-    public void testAppend() {
-        System.out.println("append");
-        LogRecord record = mock(LogRecord.class);
-        IOManager io = mock(IOManager.class);
-        SimpleLogManager mgr = new SimpleLogManager(io);
-        mgr.append(record);
-        verify(record).updateLsn(0l);
+    @Test
+    public void testAppend() throws Exception {
+      logManager.startup();
+      Future<Void> writeLsn = null;
+      for (long i = 100; i < 200; i++) {
+        LogRecord record = newRecord(i, -1);
+        writeLsn = logManager.append(record);
+        verify(record).updateLsn(i);
+      }
+      writeLsn.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
+      verify(ioManager).write(any(Chunk.class));
     }
 
     /**
@@ -124,7 +115,6 @@ public class SimpleLogManagerTest {
      */
     @Test @Ignore
     public void testReader() {
-        System.out.println("reader");
         SimpleLogManager instance = null;
         Iterator expResult = null;
         Iterator result = instance.reader();
@@ -132,4 +122,12 @@ public class SimpleLogManagerTest {
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
     }
+
+  private LogRecord newRecord(long lsn, long lowest) {
+    LogRecord r = mock(LogRecord.class);
+    doReturn(lsn).when(r).getLsn();
+    doReturn(lowest).when(r).getLowestLsn();
+    doReturn(new ByteBuffer[0]).when(r).getPayload();
+    return r;
+  }
 }

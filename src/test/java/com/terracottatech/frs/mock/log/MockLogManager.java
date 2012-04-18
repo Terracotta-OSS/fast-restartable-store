@@ -35,6 +35,14 @@ public class MockLogManager implements LogManager {
         this.ioManager = ioManager;
     }
 
+  @Override
+  public void startup() {
+  }
+
+  @Override
+  public void shutdown() {
+  }
+
   public synchronized Future<Void> append(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {

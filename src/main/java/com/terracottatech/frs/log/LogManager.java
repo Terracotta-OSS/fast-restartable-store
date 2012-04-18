@@ -12,6 +12,10 @@ import java.util.concurrent.Future;
  * @author cdennis
  */
 public interface LogManager {
+
+  void startup();
+
+  void shutdown();
   
   Future<Void> append(LogRecord record);
   

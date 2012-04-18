@@ -19,17 +19,31 @@ public interface Chunk {
     
     long length();
     long remaining();
+    
+    void limit(long v);
         
     boolean hasRemaining();
     
+    byte get(long pos);
+    short getShort(long pos);
+    int getInt(long pos);
+    long getLong(long pos);
+
+    byte get();
+    void put(byte v);
+    byte peek();   
+    
     long getLong();
     void putLong(long v);
+    long peekLong();
     
     short getShort();
     void putShort(short v);
-    
+    short peekShort();
+
     int getInt();
     void putInt(int v);  
+    int peekInt();
     
     int get(byte[] buf);
     int put(byte[] buf);

@@ -4,14 +4,46 @@
  */
 package com.terracottatech.frs.io;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import static com.terracottatech.frs.util.ByteBufferUtils.BYTE_SIZE;
+import static com.terracottatech.frs.util.ByteBufferUtils.SHORT_SIZE;
+import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
+import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
+
 
 /**
  *
  * @author mscott
  */
 public abstract class AbstractChunk implements Chunk {
+    
+    
+    private static class BufferReference {
+        ByteBuffer current;
+        int        position;
+        BufferReference(ByteBuffer buf, int pos) {
+            current = buf;
+            position = pos;
+        }
+        
+        public byte get() {
+            return current.get(position);
+        }
+        public short getShort() {
+            if ( current.remaining() < SHORT_SIZE) throw new BufferUnderflowException();
+            return current.getShort(position);
+        }
+        public int getInt() {
+            if ( current.remaining() < INT_SIZE) throw new BufferUnderflowException();
+            return current.getInt(position);
+        }
+        public long getLong() {
+            if ( current.remaining() < LONG_SIZE) throw new BufferUnderflowException();
+            return current.getLong(position);
+        }
+    }
     
     
     @Override
@@ -43,167 +75,154 @@ public abstract class AbstractChunk implements Chunk {
         }
         return copy.toArray(new ByteBuffer[copy.size()]);
     }
-
-    @Override
-    public long getLong() {
+    
+    private AbstractChunk.BufferReference scanTo(long position) {
         ByteBuffer[] list = getBuffers();
+        long seek = 0;
         for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( list[x].remaining() < 8 ) {
-                list[x].limit(list[x].position());
-                continue;
+            if ( seek + list[x].limit() > position ) {
+                return new AbstractChunk.BufferReference(list[x],(int)(position-seek));
             }
-            
-            return list[x].getLong();
-        }
-        throw new IndexOutOfBoundsException();
-    }
-
-    @Override
-    public short getShort() {
-        ByteBuffer[] list = getBuffers();
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( list[x].remaining() < 2 ) {
-                list[x].limit(list[x].position());
-                continue;
-            }
-            return list[x].getShort();
+            seek += list[x].limit();
         }
         throw new IndexOutOfBoundsException();
     }
     
-    @Override
-    public int getInt() {
+    private ByteBuffer findEnd(int size,boolean forPut) {
         ByteBuffer[] list = getBuffers();
         for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
+            if ( forPut && list[x].isReadOnly() ) {
                 continue;
-            } else if ( list[x].remaining() < 4 ) {
-                list[x].limit(list[x].position());
+            } else if ( !list[x].hasRemaining() ) {
+                continue;
+            } else if ( list[x].remaining() < size ) {
+                if ( forPut ) list[x].position(list[x].limit());
+                else throw new BufferUnderflowException();
                 continue;
             }
-            return list[x].getInt();
+            return list[x];
         }
         throw new IndexOutOfBoundsException();
-    }  
-
-    @Override
-    public long length()  {
-        long len = 0;
-        for ( ByteBuffer buf : getBuffers() ) {
-            len += buf.limit();
-        }
-        return len;
-    }
-    
-    @Override
-    public long remaining()  {
-        long len = 0;
-        for ( ByteBuffer buf : getBuffers() ) {
-            len += buf.remaining();
-        }
-        return len;
-    }
-    
-    
-    @Override
-    public boolean hasRemaining()  {
-        long len = 0;
-        for ( ByteBuffer buf : getBuffers() ) {
-            if ( buf.hasRemaining() ) return true;
-        }
-        return false;
     }    
 
     @Override
-    public void putLong(long v) {
-        ByteBuffer[] list = getBuffers();
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( list[x].remaining() < 8 ) {
-                list[x].limit(list[x].position());
-            }
-            list[x].putLong(v);
-            break;
-        }
-    }
+    public byte get(long pos) {
+        return scanTo(pos).get();
+    }   
+    
+     @Override
+    public short getShort(long pos) {
+        return scanTo(pos).getShort();
+    }     
+    
+    @Override
+    public int getInt(long pos) {
+        return scanTo(pos).getInt();
+    } 
+    
+    @Override
+    public long getLong(long pos) {
+        return scanTo(pos).getLong();
+    }  
+    
+    @Override
+    public byte get() {
+        return findEnd(BYTE_SIZE,false).get();
+    } 
 
     @Override
+    public short getShort() {
+        return findEnd(SHORT_SIZE,false).getShort();
+    }    
+    
+    @Override
+    public int getInt() {
+        return findEnd(INT_SIZE,false).getInt();
+    }
+    
+    @Override
+    public long getLong() {
+        return findEnd(LONG_SIZE,false).getLong();
+    }  
+     
+    @Override
+    public byte peek() {
+        ByteBuffer target = findEnd(BYTE_SIZE,false);
+        return target.get(target.position());
+    } 
+
+    @Override
+    public short peekShort() {
+        ByteBuffer target = findEnd(SHORT_SIZE,false);
+        return target.getShort(target.position());
+    }    
+    
+    @Override
+    public int peekInt() {
+        ByteBuffer target = findEnd(INT_SIZE,false);
+        return target.getInt(target.position());
+    }
+    
+    @Override
+    public long peekLong() {
+        ByteBuffer target = findEnd(LONG_SIZE,false);
+        return target.getLong(target.position());
+    }    
+    
+    @Override
+    public void put(byte v) {
+        findEnd(BYTE_SIZE,true).put(v);
+    }
+    
+    @Override
     public void putShort(short v) {
-        ByteBuffer[] list = getBuffers();
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( list[x].remaining() < 2 ) {
-                list[x].limit(list[x].position());
-            }
-            list[x].putShort(v);
-            break;
-        }
+        findEnd(SHORT_SIZE,true).putShort(v);
     }
     
     @Override
     public void putInt(int v) {
-        ByteBuffer[] list = getBuffers();
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( list[x].remaining() < 4 ) {
-                list[x].limit(list[x].position());
-            }
-            list[x].putInt(v);
-            break;
-        }
+        findEnd(INT_SIZE,true).putInt(v);
+    }
+    
+    @Override
+    public void putLong(long v) {
+        findEnd(LONG_SIZE,true).putLong(v);
     }
 
     @Override
     public int get(byte[] buf) {
-        ByteBuffer[] list = getBuffers();
         int count = 0;
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            }
-            int pos = list[x].position();
+        while ( count < buf.length ) {
+            ByteBuffer target = findEnd(BYTE_SIZE,true);
+            int pos = target.position();
             int sw = buf.length-count;
-            count += list[x].get(buf,count,(sw > list[x].remaining()) ? list[x].remaining() : sw).position() - pos;
-            if ( count == buf.length ) break;
+            count += target.get(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;            
         }
         return count;
     }
 
     @Override
     public int put(byte[] buf) {
-        ByteBuffer[] list = getBuffers();
         int count = 0;
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            }
-            int pos = list[x].position();
+        while ( count < buf.length ) {
+            ByteBuffer target = findEnd(BYTE_SIZE,true);
+            int pos = target.position();
             int sw = buf.length-count;
-            count += list[x].put(buf,count,(sw > list[x].remaining()) ? list[x].remaining() : sw).position() - pos;
-            if ( count == buf.length ) break;
+            count += target.put(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;            
         }
         return count;
     }
     
     @Override
     public void skip(long jump) {
-        ByteBuffer[] list = getBuffers();
         long count = 0;
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
-                continue;
-            } else if ( jump - count > list[x].remaining() ) {
-                count += list[x].remaining();
-                list[x].position(list[x].limit());
+        while ( count < jump ) {
+            ByteBuffer target = findEnd(SHORT_SIZE,true);
+            if ( jump - count > target.remaining() ) {
+                count += target.remaining();
+                target.position(target.limit());
             } else {
-                list[x].position(list[x].position()+(int)(jump-count));
+                target.position(target.position()+(int)(jump-count));
                 return;
             }
         }
@@ -225,5 +244,44 @@ public abstract class AbstractChunk implements Chunk {
             buf.clear();
         }
     } 
+    
+    
+    @Override
+    public long length()  {
+        long len = 0;
+        for ( ByteBuffer buf : getBuffers() ) {
+            len += buf.limit();
+        }
+        return len;
+    }
+
+    @Override
+    public void limit(long v) {
+        long len = 0;
+        for ( ByteBuffer buf : getBuffers() ) {
+            len += buf.limit();
+            if ( len > v ) {
+                buf.limit(buf.limit()-(int)(len-v));
+                return;
+            }
+        }
+    }
+
+    @Override
+    public long remaining()  {
+        long len = 0;
+        for ( ByteBuffer buf : getBuffers() ) {
+            len += buf.remaining();
+        }
+        return len;
+    }
+    
+    @Override
+    public boolean hasRemaining()  {
+        for ( ByteBuffer buf : getBuffers() ) {
+            if ( buf.hasRemaining() ) return true;
+        }
+        return false;
+    }   
     
 }

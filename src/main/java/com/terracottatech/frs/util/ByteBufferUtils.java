@@ -11,10 +11,11 @@ import java.nio.ByteBuffer;
  * @author tim
  */
 public abstract class ByteBufferUtils {
-  public static int SHORT_SIZE = Short.SIZE / Byte.SIZE;
-  public static int LONG_SIZE = Long.SIZE / Byte.SIZE;
-  public static int INT_SIZE = Integer.SIZE / Byte.SIZE;
-
+  public static final int LONG_SIZE = Long.SIZE / Byte.SIZE;
+  public static final int INT_SIZE = Integer.SIZE / Byte.SIZE;
+  public static final int SHORT_SIZE = Short.SIZE / Byte.SIZE;
+  public static final int BYTE_SIZE = Byte.SIZE / Byte.SIZE;
+    
   private ByteBufferUtils() {}
 
   public static long getLong(ByteBuffer[] buffers) {
@@ -49,7 +50,7 @@ public abstract class ByteBufferUtils {
     }
     throw new BufferUnderflowException();
   }
-
+  
     
     public void flip(ByteBuffer[] list) {
         for (ByteBuffer buf : list ) {

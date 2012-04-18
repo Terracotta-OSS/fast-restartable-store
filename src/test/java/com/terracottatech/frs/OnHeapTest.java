@@ -9,7 +9,7 @@ import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.NIOManager;
+import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.*;
 import com.terracottatech.frs.mock.object.MockObjectManager;
 import com.terracottatech.frs.object.ObjectManager;
@@ -55,7 +55,7 @@ public class OnHeapTest {
     public void setUp() throws Exception {
         external = Collections.synchronizedMap(new LinkedHashMap<ByteBuffer, Map<ByteBuffer, ByteBuffer>>());
         ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectMgr = new MockObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(external);
-        IOManager ioMgr = new NIOManager(folder.getRoot().getAbsolutePath(), (1 * 1024));
+        IOManager ioMgr = new NIOManager(folder.getRoot().getAbsolutePath(), (1024 * 1024));
         logMgr = new SimpleLogManager(ioMgr);
         ActionCodec codec = new ActionCodecImpl(objectMgr);
         TransactionActions.registerActions(0, codec);
@@ -83,15 +83,16 @@ public class OnHeapTest {
     public void testIt() throws Exception {
         logMgr.startup();
         int count = 0;
-        for (int x=0;x<10;x++) addTransaction(x,store);           
+        for (int x=0;x<1000;x++) addTransaction(x,store);           
         logMgr.shutdown();
-        count += 10;
+        count += 1000;
 
+        logMgr.startup();
         external.clear();
         RecoveryManager recoverMgr = new RecoveryManagerImpl(logMgr, actionMgr);
         recoverMgr.recover();
-        System.out.format("recovered pulled: %d pushed: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count());
-        
+        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
+                    external.size());
         
         for ( Map.Entry<ByteBuffer, Map<ByteBuffer,ByteBuffer>> ids : external.entrySet() ) {
             int id = ids.getKey().getInt(0);
@@ -113,14 +114,15 @@ public class OnHeapTest {
         
         System.out.println("=========");
         
-        logMgr.startup();
-        for (int x=0;x<10;x++) addTransaction(count + x, store);           
+        for (int x=0;x<1000;x++) addTransaction(count + x, store);           
         logMgr.shutdown();
         
         external.clear();
+        logMgr.startup();
         recoverMgr = new RecoveryManagerImpl(logMgr, actionMgr);
         recoverMgr.recover();
-        System.out.format("recovered pulled: %d pushed: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count());
+        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
+                external.entrySet().size());
         
         for ( Map.Entry<ByteBuffer, Map<ByteBuffer,ByteBuffer>> ids : external.entrySet() ) {
             int id = ids.getKey().getInt(0);
@@ -137,7 +139,9 @@ public class OnHeapTest {
                 String sval = new String(g);
                 System.out.println(id + " " + skey + " " + sval);
             }
+            System.out.format("size: %d\n",map.size());
         }
+        logMgr.shutdown();
     }
 
     @After

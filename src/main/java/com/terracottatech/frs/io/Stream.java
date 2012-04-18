@@ -5,24 +5,25 @@
 package com.terracottatech.frs.io;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.UUID;
 
 /**
  * Logical continuous Log Stream.
  * @author mscott
  */
-public interface Stream {
+public interface Stream extends Iterable<Chunk> {
     
     /* stream back segments in forward or reverse direction  */
     void seek(long loc) throws IOException;
     
-    Segment read(Direction dir) throws IOException;
-    
+    Chunk read(Direction dir) throws IOException;
+        
 //    long write(Chunk c) throws IOException;
     
     /* close previous segment if any, provide a new segment for appending  */
     
-    Segment append() throws IOException;
+    long append(Chunk c) throws IOException;
     
     UUID getStreamId();
     

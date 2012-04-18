@@ -6,7 +6,6 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -119,7 +118,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         byte[] temp = null;
         for (ByteBuffer buf : bufs) {
             if (buf.hasArray()) {
-                checksum.update(buf.array(),buf.arrayOffset() + buf.position(),buf.arrayOffset() + buf.limit());
+                checksum.update(buf.array(),buf.arrayOffset() + buf.position(),(buf.limit()-buf.position()));
             } else {
                 if ( temp == null ) temp = new byte[4096];
                 buf.mark();

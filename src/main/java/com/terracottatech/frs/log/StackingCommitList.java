@@ -42,6 +42,7 @@ public class StackingCommitList implements CommitList {
         assert(count==0);
         assert(next==null);
         baseLsn = lsn;
+        endLsn = baseLsn - 1;
     }
     
     

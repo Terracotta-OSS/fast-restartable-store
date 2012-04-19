@@ -120,8 +120,15 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         int offset = (int)(endLsn.get()-baseLsn+1);
         for (int x=offset;x<regions.length();x++) {
             LogRecord record = regions.getAndSet(x, DUMMY_RECORD);
-            if ( record == null ) goLatch.countDown();
-            else cnext.append(record);
+            if ( record == null ) {
+                goLatch.countDown();
+            } else {
+                CommitList nnext = cnext;
+        //  TODO:  can this not fit in the the next region?
+                while ( !nnext.append(record) ) {
+                    nnext = nnext.next();
+                }
+            }
         }
     }
     
@@ -202,8 +209,8 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     }
 
     @Override
-    public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-        this.waitForWrite(tu.convert(l, TimeUnit.MILLISECONDS));
+    public Void get(long time, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
+        this.waitForWrite(tu.convert(time, TimeUnit.MILLISECONDS));
         return null;
     }
 

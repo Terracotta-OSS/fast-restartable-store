@@ -6,10 +6,6 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.Future;
@@ -17,7 +13,9 @@ import java.util.concurrent.Future;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
 import static org.mockito.Mockito.*;
 
 /**

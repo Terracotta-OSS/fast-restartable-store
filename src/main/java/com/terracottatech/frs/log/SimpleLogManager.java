@@ -94,7 +94,7 @@ public class SimpleLogManager implements LogManager {
     public void startup() {
         exchanger = new ChunkExchange(io, checksumStyle);
         this.alive = true;
-        this.daemon = new SimpleLogManager.LogWriter();
+        this.daemon = new LogWriter();
         this.daemon.start();
         
         try {

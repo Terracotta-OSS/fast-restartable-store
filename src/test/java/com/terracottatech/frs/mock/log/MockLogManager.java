@@ -72,7 +72,7 @@ public class MockLogManager implements LogManager {
             if ( cc == null ) return Collections.<LogRecord>emptyList().iterator();
             ArrayList<LogRecord> records = new ArrayList<LogRecord>();
             while ( cc != null ) {
-                List<LogRecord> rlist = new MockLogManager.MockLogRegionFactory().unpack(cc);
+                List<LogRecord> rlist = new MockLogRegionFactory().unpack(cc);
                 Collections.reverse(rlist);
                 records.addAll(rlist);
                 cc = ioManager.read(Direction.REVERSE);

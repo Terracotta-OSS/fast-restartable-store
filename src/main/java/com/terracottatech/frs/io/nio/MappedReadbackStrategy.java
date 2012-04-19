@@ -36,12 +36,12 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     
     @Override
     public boolean hasMore(Direction dir) throws IOException {
+        if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return true;
         if ( dir != queueDirection && chunks.hasPrevious() ) return true;
         return false;
     }
 
-    @Override
     public void queue(Direction dir) throws IOException {
         List<Chunk> list = new ArrayList<Chunk>();
         ByteBuffer[] chunk = readChunk(src);
@@ -57,7 +57,8 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     @Override
-    public Chunk iterate(Direction dir) {
+    public Chunk iterate(Direction dir) throws IOException {
+        if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
         if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
         return null;

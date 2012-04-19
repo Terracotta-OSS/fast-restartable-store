@@ -39,7 +39,10 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
 
     @Override
     public boolean hasMore(Direction dir) throws IOException {
+        
         if ( dir != Direction.REVERSE ) throw new UnsupportedOperationException("reverse iteration only");
+        if ( chunks == null ) queue(dir);
+        
         if (  this.chunks.hasNext() ) return true;
         if ( buffer.offset() > fileJumps.getFirst() ) {
             return true;
@@ -50,12 +53,12 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     @Override
     public Chunk iterate(Direction dir) throws IOException {
         if ( dir != Direction.REVERSE ) throw new UnsupportedOperationException("reverse iteration only");
+        if ( chunks == null ) queue(dir);
         if ( dir == this.queueDirection && this.chunks.hasNext() ) return this.chunks.next();        
         queue(dir);
         return this.chunks.next();
     }
 
-    @Override
     public void queue(Direction dir) throws IOException {
         ArrayList<Chunk> list = new ArrayList<Chunk>();
         if ( dir != Direction.REVERSE ) throw new UnsupportedOperationException("reverse iteration only");

@@ -6,11 +6,9 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.*;
 
 /**
@@ -23,7 +21,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
     public AbstractReadbackStrategy() {
 
     }
-    
+        
     protected BitSet scanFileChunkMagic(Chunk buffer) throws IOException {
         assert(buffer.remaining() < Integer.MAX_VALUE);
         

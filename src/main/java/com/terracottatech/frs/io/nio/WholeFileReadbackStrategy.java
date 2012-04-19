@@ -30,17 +30,22 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
 
     @Override
     public Iterator<Chunk> iterator() {
+        try {
+            if ( chunks == null ) queue(Direction.getDefault());
+        } catch ( IOException ioe ) {
+            throw new RuntimeException(ioe);
+        }
         return chunks;
     }
     
     @Override
     public boolean hasMore(Direction dir) throws IOException {
+        if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return true;
         if ( dir != queueDirection && chunks.hasPrevious() ) return true;
         return false;
     }
 
-    @Override
     public void queue(Direction dir) throws IOException {
         buffer.read(1);
         
@@ -58,7 +63,8 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     @Override
-    public Chunk iterate(Direction dir) {
+    public Chunk iterate(Direction dir) throws IOException {
+        if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
         if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
         return null;

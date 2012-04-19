@@ -44,7 +44,7 @@ public enum SegmentHeaders {
     public int getIntValue() {
         int val = 0;
         for (int x=0;x<ByteBufferUtils.INT_SIZE;x++) {
-            val |= (this.value[x] << ((ByteBufferUtils.INT_SIZE - x - 1) * Byte.SIZE));
+            val |= ((this.value[x] & 0xff) << ((ByteBufferUtils.INT_SIZE - x - 1) * Byte.SIZE));
         }
         return val;
     }

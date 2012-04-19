@@ -124,7 +124,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
                 goLatch.countDown();
             } else {
                 CommitList nnext = cnext;
-        //  TODO:  can this not fit in the the next region?
+        //  TODO: is this check necessary?  
                 while ( !nnext.append(record) ) {
                     nnext = nnext.next();
                 }

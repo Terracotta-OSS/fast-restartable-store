@@ -85,7 +85,7 @@ class NIOSegmentImpl {
             } else {
                 if ( direction == Direction.REVERSE ) {
 //                    strategy = new ReverseReadbackStrategy(buffer);
-                    throw new UnsupportedOperationException("only backward iteration currently");
+                    throw new UnsupportedOperationException("only whole file read back supported");
                 } else {
                     throw new UnsupportedOperationException("only backward iteration currently");
                 }

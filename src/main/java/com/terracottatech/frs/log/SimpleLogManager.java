@@ -19,6 +19,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author mscott
  */
 public class SimpleLogManager implements LogManager {
+        
+    static enum MachineState {
+        RECOVERY,NORMAL,SHUTDOWN,ERROR,IDLE
+    }
     
     private SimpleLogManager.LogWriter daemon;
     private volatile CommitList currentRegion;
@@ -26,7 +30,7 @@ public class SimpleLogManager implements LogManager {
     private final AtomicLong highestOnDisk = new AtomicLong(0);
     private final Signature  checksumStyle = Signature.ADLER32;
     private final IOManager io;
-    private volatile boolean alive = true;
+    private volatile MachineState   state = MachineState.RECOVERY;
     private long totalBytes = 0;
     
     private LogRegionPacker  packer;   
@@ -52,6 +56,7 @@ public class SimpleLogManager implements LogManager {
 
       @Override
       public void run() {
+          
         exchanger.run();
         
         try {
@@ -60,10 +65,12 @@ public class SimpleLogManager implements LogManager {
           throw new AssertionError(ioe);
         }
 
-        while ((alive || currentLsn.get() - 1 != highestOnDisk.get())) {
+        state = MachineState.NORMAL;
+        
+        while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
           CommitList oldRegion = currentRegion;
           try {
-            if ( !alive ) {
+            if ( state != MachineState.NORMAL ) {
               CommitList closeAll = oldRegion;
               while (!closeAll.close(currentLsn.get() - 1, true)) {
                 closeAll = closeAll.next();
@@ -83,8 +90,10 @@ public class SimpleLogManager implements LogManager {
           } catch (IOException ioe) {
             throw new AssertionError(ioe);
           } catch (InterruptedException ie) {
-            if ( alive ) throw new AssertionError(ie);
+            if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
             else oldRegion.close(currentLsn.get()-1,true);
+          } finally {
+              state = MachineState.IDLE;
           }
         }
       }
@@ -93,7 +102,6 @@ public class SimpleLogManager implements LogManager {
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
         exchanger = new ChunkExchange(io, checksumStyle);
-        this.alive = true;
         this.daemon = new LogWriter();
         this.daemon.start();
         
@@ -108,7 +116,8 @@ public class SimpleLogManager implements LogManager {
 
     //  TODO:  re-examine when more runtime context is available.
     public void shutdown() {
-        alive = false;
+        state = MachineState.SHUTDOWN;
+        
         CommitList  current = currentRegion;
         
         while ( !current.close(currentLsn.get()-1,false) ) {
@@ -179,5 +188,6 @@ public class SimpleLogManager implements LogManager {
     public ChunkExchange getRecoveryExchanger() {
         return exchanger;
     }
+
 
 }

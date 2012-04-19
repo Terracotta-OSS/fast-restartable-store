@@ -20,7 +20,7 @@ import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
@@ -53,7 +53,7 @@ public class OnHeapTest {
 
     @Before
     public void setUp() throws Exception {
-        external = Collections.synchronizedMap(new LinkedHashMap<ByteBuffer, Map<ByteBuffer, ByteBuffer>>());
+        external = Collections.synchronizedMap(new HashMap<ByteBuffer, Map<ByteBuffer, ByteBuffer>>());
         ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectMgr = new MockObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(external);
         IOManager ioMgr = new NIOManager(folder.getRoot().getAbsolutePath(), (1024 * 1024));
         logMgr = new SimpleLogManager(ioMgr);

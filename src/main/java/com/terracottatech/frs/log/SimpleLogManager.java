@@ -92,10 +92,11 @@ public class SimpleLogManager implements LogManager {
           } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
             else oldRegion.close(currentLsn.get()-1,true);
-          } finally {
-              state = MachineState.IDLE;
-          }
+          } 
         }
+        
+        state = MachineState.IDLE;
+
       }
     }
 

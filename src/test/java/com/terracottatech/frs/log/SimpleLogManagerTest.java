@@ -5,16 +5,14 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,8 +20,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.*;
 
 /**
@@ -32,51 +30,13 @@ import static org.mockito.Mockito.*;
 public class SimpleLogManagerTest {
   private static final long LOG_REGION_WRITE_TIMEOUT = 10;
 
-  private IOManager  ioManager;
+  private DummyIOManager ioManager;
   private LogManager logManager;
 
   @Before
   public void setUp() throws Exception {
-    ioManager = mock(IOManager.class);
+    ioManager = spy(new DummyIOManager());
     logManager = new SimpleLogManager(ioManager);
-  }
-
-  /**
-   * Test of startup method, of class SimpleLogManager.
-   */
-  @Test
-  @Ignore
-  public void testStartup() {
-    SimpleLogManager instance = null;
-    instance.startup();
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
-
-  /**
-   * Test of shutdown method, of class SimpleLogManager.
-   */
-  @Test
-  @Ignore
-  public void testShutdown() {
-    SimpleLogManager instance = null;
-    instance.shutdown();
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
-  }
-
-  /**
-   * Test of totalBytes method, of class SimpleLogManager.
-   */
-  @Test
-  @Ignore
-  public void testTotalBytes() {
-    SimpleLogManager instance = null;
-    long expResult = 0L;
-    long result = instance.totalBytes();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
   }
 
   /**
@@ -85,7 +45,7 @@ public class SimpleLogManagerTest {
   @Test
   public void testAppendAndSync() throws Exception {
     logManager.startup();
-    LogRecord record = newRecord(100);
+    LogRecord record = newRecord(-1);
     Future<Void> f = logManager.appendAndSync(record);
     f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
     verify(ioManager).write(any(Chunk.class));
@@ -97,13 +57,12 @@ public class SimpleLogManagerTest {
   @Test
   public void testAppend() throws Exception {
     logManager.startup();
-    Future<Void> writeLsn = null;
     for (long i = 100; i < 200; i++) {
       LogRecord record = spy(newRecord(-1));
-      writeLsn = logManager.append(record);
+      logManager.append(record);
       verify(record).updateLsn(i);
     }
-    writeLsn.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
+    logManager.shutdown();
     verify(ioManager).write(any(Chunk.class));
   }
 
@@ -148,17 +107,66 @@ public class SimpleLogManagerTest {
    * Test of reader method, of class SimpleLogManager.
    */
   @Test
-  @Ignore
-  public void testReader() {
-    SimpleLogManager instance = null;
-    Iterator expResult = null;
-    Iterator result = instance.reader();
-    assertEquals(expResult, result);
-    // TODO review the generated test code and remove the default call to fail.
-    fail("The test case is a prototype.");
+  public void testReader() throws Exception {
+    LogRegionPacker packer = new LogRegionPacker(Signature.ADLER32);
+    long lsn = 100;
+    for (int i = 0; i < 10; i++) {
+      List<LogRecord> records = new ArrayList<LogRecord>();
+      for (int j = 0; j < 100; j++) {
+        LogRecord record = newRecord(-1);
+        record.updateLsn(lsn);
+        lsn++;
+        records.add(record);
+      }
+      ioManager.write(packer.pack(records));
+    }
+    logManager.startup();
+
+    long expectedLsn = 1099;
+    Iterator<LogRecord> i = logManager.reader();
+    while (i.hasNext()) {
+      LogRecord record = i.next();
+      assertThat(record.getLowestLsn(), is(-1L));
+      assertThat(record.getLsn(), is(expectedLsn));
+      expectedLsn--;
+    }
+    assertThat(expectedLsn, is(99L));
   }
 
   private LogRecord newRecord(long lowest) {
     return new LogRecordImpl(lowest, new ByteBuffer[0], mock(LSNEventListener.class));
+  }
+
+  private class DummyIOManager implements IOManager {
+    private final Deque<Chunk> chunks = new LinkedList<Chunk>();
+
+    @Override
+    public long write(Chunk region) throws IOException {
+      chunks.push(region);
+      return 0;
+    }
+
+    @Override
+    public void setLowestLsn(long lsn) throws IOException {
+    }
+
+    @Override
+    public Chunk read(Direction dir) throws IOException {
+      if (chunks.isEmpty()) return null;
+      return chunks.pop();
+    }
+
+    @Override
+    public long seek(long lsn) throws IOException {
+      return 0;
+    }
+
+    @Override
+    public void sync() throws IOException {
+    }
+
+    @Override
+    public void close() throws IOException {
+    }
   }
 }

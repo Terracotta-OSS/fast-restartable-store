@@ -77,7 +77,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                 }
             } while (chunk != null);
             if ( lastLsn < 0 ) {
-                offerLastLsn(0);
+                offerLastLsn(99);
             }
         } catch (InterruptedException ioe) {
         } catch (IOException ioe) {

@@ -76,12 +76,12 @@ public abstract class AbstractChunk implements Chunk {
         return copy.toArray(new ByteBuffer[copy.size()]);
     }
     
-    private AbstractChunk.BufferReference scanTo(long position) {
+    private BufferReference scanTo(long position) {
         ByteBuffer[] list = getBuffers();
         long seek = 0;
         for (int x=0;x<list.length;x++) {
             if ( seek + list[x].limit() > position ) {
-                return new AbstractChunk.BufferReference(list[x],(int)(position-seek));
+                return new BufferReference(list[x],(int)(position-seek));
             }
             seek += list[x].limit();
         }

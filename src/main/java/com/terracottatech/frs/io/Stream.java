@@ -4,15 +4,15 @@
  */
 package com.terracottatech.frs.io;
 
+import java.io.Closeable;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.UUID;
 
 /**
  * Logical continuous Log Stream.
  * @author mscott
  */
-public interface Stream extends Iterable<Chunk> {
+public interface Stream extends Iterable<Chunk>,Closeable  {
     
     /* stream back segments in forward or reverse direction  */
     void seek(long loc) throws IOException;
@@ -28,6 +28,5 @@ public interface Stream extends Iterable<Chunk> {
     UUID getStreamId();
     
     long sync() throws IOException;
-    
-    void close() throws IOException;
+
 }

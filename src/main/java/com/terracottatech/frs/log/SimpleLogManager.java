@@ -4,9 +4,11 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.Seek;
 import java.io.IOException;
+import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,7 +33,9 @@ public class SimpleLogManager implements LogManager {
     private final Signature  checksumStyle = Signature.ADLER32;
     private final IOManager io;
     private volatile MachineState   state = MachineState.RECOVERY;
-    private long totalBytes = 0;
+    private long totalIn = 0;
+    private long totalOut = 0;
+    private long rawOut = 0;
     
     private LogRegionPacker  packer;   
     private ChunkExchange exchanger;
@@ -47,6 +51,12 @@ public class SimpleLogManager implements LogManager {
         currentLsn.set(list.getBaseLsn());
         packer = new LogRegionPacker(checksumStyle);   
     }
+    
+    public String debugInfo() {
+        StringBuilder build = new StringBuilder();
+        Formatter f = new Formatter(build).format("in: %d out:%d raw: %d", totalIn,totalOut,rawOut);
+        return build.toString();
+    }
 
     private class LogWriter extends Thread {
       LogWriter() {
@@ -57,7 +67,7 @@ public class SimpleLogManager implements LogManager {
       @Override
       public void run() {
           
-        exchanger.run();
+        totalOut += exchanger.recover();
         
         try {
           io.seek(Seek.END.getValue());
@@ -81,7 +91,14 @@ public class SimpleLogManager implements LogManager {
 
             currentRegion = oldRegion.next();
 
-            totalBytes += io.write(packer.pack(oldRegion));
+            Chunk send = packer.pack(oldRegion);
+            long out = io.write(send);
+            if ( out < 0 ) {
+                throw new IOException("no bytes out");
+            } else {
+                totalIn += send.length();
+                rawOut += out;
+            }
             if ( oldRegion.isSyncRequested() ) {
               io.sync();
             }
@@ -139,9 +156,9 @@ public class SimpleLogManager implements LogManager {
             throw new AssertionError(ioe);
         }
     }
-    
+
     public long totalBytes() {
-        return totalBytes;
+        return rawOut;
     }
 
     @Override

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -13,7 +14,7 @@ import java.util.ArrayList;
  *
  * @author mscott
  */
-public class MappedFileBuffer extends AbstractChunk {
+public class MappedFileBuffer extends AbstractChunk implements Closeable {
     
     private final java.nio.MappedByteBuffer base;
     private       ByteBuffer[]              buffer;
@@ -45,5 +46,12 @@ public class MappedFileBuffer extends AbstractChunk {
         buffer = sections.toArray(new ByteBuffer[sections.size()]);
         return this;
     }
+
+    @Override
+    public void close() throws IOException {
+        base.force();
+    }
+    
+    
     
 }

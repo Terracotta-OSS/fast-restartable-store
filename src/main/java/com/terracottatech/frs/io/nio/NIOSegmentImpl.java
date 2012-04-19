@@ -41,7 +41,7 @@ class NIOSegmentImpl {
     private static final short  IMPL_NUMBER = 02;
     
     private UUID streamid;
-    
+        
     NIOSegmentImpl(NIOStreamImpl p, File file, long segSize) {
         this.parent = p;
         this.src = file;
@@ -155,16 +155,17 @@ class NIOSegmentImpl {
         buffer.putLong(amt);
         buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
         long wl = buffer.write(c.getBuffers().length + 2);
-        writeJumpList.add(buffer.getTotal());
+        writeJumpList.add(buffer.offset());
         if (segment.position() >= limit) {
             close();
         }
+        
         return wl;
     }
 
-    public void close() throws IOException {
+    public long close() throws IOException {
         if (segment == null || !segment.isOpen()) {
-            return;
+            return 0;
         }
         if ( lock != null ) {
             buffer.clear();
@@ -189,6 +190,8 @@ class NIOSegmentImpl {
         }
         
         segment = null;
+        
+        return (buffer != null ) ? buffer.getTotal() : 0;
     }
 //  assume single threaded
     public long fsync() throws IOException {

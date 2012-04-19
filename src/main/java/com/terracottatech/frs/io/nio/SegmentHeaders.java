@@ -49,11 +49,6 @@ public enum SegmentHeaders {
         return val;
     }
     
-    public static void main(String[] arg) {
-        System.out.println(SegmentHeaders.CHUNK_START.getIntValue());
-        System.out.println((((byte)'-')<<24)|(((byte)'s')<<16)|(((byte)'t')<<8)|(((byte)'-')));
-    }
-    
     public byte[] getBytes() {
         return this.value;
     }

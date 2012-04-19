@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author mscott
  */
-public class ChunkExchange implements Runnable, Iterable<LogRecord> {
+public class ChunkExchange implements Iterable<LogRecord> {
 
     private final ArrayBlockingQueue<LogRecord> queue = new ArrayBlockingQueue<LogRecord>(1000);
     private final IOManager io;
@@ -33,7 +33,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     private long lastLsn = -1;
     private Exception exception;
 
-    public ChunkExchange(IOManager io, Signature style) {
+    ChunkExchange(IOManager io, Signature style) {
         this.io = io;
         packer = new LogRegionPacker(style);
     }
@@ -59,14 +59,15 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
         this.notify();
     }
 
-    @Override
-    public void run() {
+    long recover() {
+        long totalRead = 0;
         try {
             io.seek(Seek.END.getValue());
             Chunk chunk;
             do {
                 chunk = io.read(Direction.REVERSE);
                 if (chunk != null) {
+                    totalRead += chunk.length();
                     List<LogRecord> records = packer.unpack(chunk);
                     Collections.reverse(records);
                     for (LogRecord record : records) {
@@ -88,6 +89,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
         } finally {
             done = true;
         }
+        return totalRead;
     }
 
     @Override

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -17,7 +18,7 @@ import java.util.Arrays;
  * Wrap a file in a chunk for easy access.
  * @author mscott
  */
-public class FileBuffer extends AbstractChunk {
+public class FileBuffer extends AbstractChunk implements Closeable {
     
     private final FileChannel channel;
     private final ByteBuffer  base;
@@ -32,9 +33,7 @@ public class FileBuffer extends AbstractChunk {
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
     }
-    
-    
-    
+
     public FileBuffer(File src) throws IOException {
         this.channel = new FileInputStream(src).getChannel();
         if ( channel.size() > Integer.MAX_VALUE ) throw new RuntimeException("integer overflow error");
@@ -154,5 +153,13 @@ public class FileBuffer extends AbstractChunk {
             ref[loc+x] = bufs[x].asReadOnlyBuffer();
         }
     }
+
+    @Override
+    public void close() throws IOException {
+        channel.close();
+        ref = null;
+    }
+    
+    
 
 }

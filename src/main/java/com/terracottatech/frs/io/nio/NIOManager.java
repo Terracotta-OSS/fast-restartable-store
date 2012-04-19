@@ -15,6 +15,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.UUID;
+import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
+import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
+
 
 /**
  * Top level IO Manager using NIO.
@@ -33,6 +36,8 @@ public class NIOManager implements IOManager {
     private UUID                streamid;
     private int                 lastGoodSegment;
     private long                lastGoodPosition;
+    private final boolean       writeToLockFile = false;
+    private static int          LOCKFILE_INFO_SIZE = LONG_SIZE + LONG_SIZE + INT_SIZE + LONG_SIZE;
         
     private static final String BAD_HOME_DIRECTORY = "no home";
     private static final String LOCKFILE_ACTIVE = "lock file exists";
@@ -65,16 +70,8 @@ public class NIOManager implements IOManager {
             open();
         }
         long pos = backend.sync();
-        ByteBuffer last = ByteBuffer.allocate(28);
-        last.putLong(backend.getStreamId().getMostSignificantBits());
-        last.putLong(backend.getStreamId().getLeastSignificantBits());
-        last.putInt(backend.getSegmentId());
-        last.putLong(pos);
-        last.flip();
-        lastSync.position(0);
-        while ( last.hasRemaining() ) lastSync.write(last);
-        lastSync.force(false);
-            
+
+        saveForCrash(pos);    
     }
     
     @Override
@@ -128,10 +125,28 @@ public class NIOManager implements IOManager {
             checkForCrash();
         }
     }
+    
+    private void saveForCrash(long position) throws IOException {
+        if ( writeToLockFile ) {
+            ByteBuffer last = ByteBuffer.allocate(LOCKFILE_INFO_SIZE);
+            last.putLong(backend.getStreamId().getMostSignificantBits());
+            last.putLong(backend.getStreamId().getLeastSignificantBits());
+            last.putInt(backend.getSegmentId());
+            last.putLong(position);
+            last.flip();
+            lastSync.position(0);
+            while ( last.hasRemaining() ) lastSync.write(last);
+            lastSync.force(false);
+        }
+    }
         
     private void checkForCrash() throws IOException {
-        ByteBuffer check = ByteBuffer.allocate(28);
+        ByteBuffer check = ByteBuffer.allocate(LOCKFILE_INFO_SIZE);
         FileChannel lckChk = new FileInputStream(lockFile).getChannel();
+        if ( lckChk.size() != LOCKFILE_INFO_SIZE ) {
+            // no good move on
+            return;
+        }
         while ( check.hasRemaining() ) {
             if ( 0 > lckChk.read(check) ) {
                 throw new IOException("bad log marker");

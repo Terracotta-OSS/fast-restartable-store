@@ -4,13 +4,14 @@
  */
 package com.terracottatech.frs.io;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 /**
  *
  * @author cdennis
  */
-public interface IOManager {
+public interface IOManager extends Closeable {
   
   long write(Chunk region) throws IOException;
   
@@ -22,5 +23,4 @@ public interface IOManager {
   
   void sync() throws IOException;
   
-  void close() throws IOException;  
 }

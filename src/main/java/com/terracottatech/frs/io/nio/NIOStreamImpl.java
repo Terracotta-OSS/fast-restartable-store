@@ -30,6 +30,9 @@ class NIOStreamImpl implements Stream {
     private static final String BAD_STREAMID = "mis-aligned streams";
     private NIOSegmentImpl      currentSegment;
     private final BufferSource  pool = new AllocatingBufferSource();
+    
+    private long debugIn;
+    private long debugOut;
 
     public NIOStreamImpl(File filepath, long recommendedSize) throws IOException {
         directory = filepath;
@@ -116,13 +119,13 @@ class NIOStreamImpl implements Stream {
         if ( currentSegment == null || currentSegment.isClosed() ) {
             if ( currentSegment == null && !segments.isEmpty() ) {
                 currentSegment = new NIOSegmentImpl(this, segments.get(segments.size()-1), segmentSize).openForReading(pool);
+                currentSegment.close();
             }
             
             if ( currentSegment != null ) {
                 assert(currentSegment.getFile().equals(segments.get(segments.size()-1)));
                 assert(currentSegment.getSegmentId() == convertSegmentNumber(segments.get(position)));
                 number = currentSegment.getSegmentId() + 1;
-                currentSegment.close();
             }
 
             pfn.format(format, number);
@@ -135,7 +138,9 @@ class NIOStreamImpl implements Stream {
         }
         
         long w = currentSegment.append(c);
-        if ( currentSegment.length() > segmentSize) currentSegment.close();
+        if ( currentSegment.length() > segmentSize) {
+            debugIn += currentSegment.close();
+        }
         return w;
         
         
@@ -163,7 +168,9 @@ class NIOStreamImpl implements Stream {
     public Chunk read(final Direction dir) throws IOException {
         
         while ( currentSegment == null || !currentSegment.hasMore(dir) ) {
-            if ( currentSegment != null ) currentSegment.close();
+            if ( currentSegment != null ) {
+                debugOut += currentSegment.close();
+            }
             pool.reclaim();
             
             try {

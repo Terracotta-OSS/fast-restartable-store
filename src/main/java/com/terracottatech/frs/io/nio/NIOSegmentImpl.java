@@ -24,27 +24,28 @@ class NIOSegmentImpl {
 
     private final NIOStreamImpl parent;
     private final int           segNum;
-    private final Direction     direction;
-
     private final File          src;
-    private FileLock            lock;
     private FileChannel         segment;
-    private FileBuffer          buffer;
+    
+//  for reading 
     private ReadbackStrategy    strategy;
+
+//  for writing
+    private FileLock            lock;
+    private FileBuffer          buffer;
     private ArrayList<Long>     writeJumpList;
     
     private long                limit = 10 * 1024 * 1024;
-    static final int    FILE_HEADER_SIZE = 26;
+    static final int            FILE_HEADER_SIZE = 26;
     private static final String LOCKED_FILE_ACCESS = "could not obtain file lock";
     private static final short  IMPL_NUMBER = 02;
     
     private UUID streamid;
     
-    NIOSegmentImpl(NIOStreamImpl p, Direction dir, File file, long segSize) {
+    NIOSegmentImpl(NIOStreamImpl p, File file, long segSize) {
         this.parent = p;
         this.src = file;
         this.limit = segSize;
-        this.direction = dir;
         this.segNum = p.convertSegmentNumber(file);
     }
     
@@ -83,18 +84,10 @@ class NIOSegmentImpl {
     //  then queueing backward.
                 strategy = new WholeFileReadbackStrategy(buffer);
             } else {
-                if ( direction == Direction.REVERSE ) {
-//                    strategy = new ReverseReadbackStrategy(buffer);
-                    throw new UnsupportedOperationException("only whole file read back supported");
-                } else {
-                    throw new UnsupportedOperationException("only backward iteration currently");
-                }
-//                buffer.clear();
+                throw new UnsupportedOperationException("only whole file read back supported");
             }
         }
-        
-        strategy.queue(direction);
-         
+                 
         return this;
    }
     

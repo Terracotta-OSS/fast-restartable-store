@@ -54,7 +54,7 @@ class NIOStreamImpl implements Stream {
     
     void limit(UUID streamid, int segment,long position) throws IOException {
         for (int x=segments.size()-1;x>=0;x--) {
-            NIOSegmentImpl seg = new NIOSegmentImpl(this, Direction.getDefault(), segments.get(x), segmentSize);
+            NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(x), segmentSize);
             try {
                 seg.openForReading(pool);
                 if ( seg.getStreamId().equals(streamid) ) throw new IOException(BAD_STREAMID);
@@ -78,10 +78,7 @@ class NIOStreamImpl implements Stream {
 
                 @Override
                 public boolean accept(File file, String string) {
-                    if ( file.length() < NIOSegmentImpl.FILE_HEADER_SIZE ) {
-                        return false;
-                    }
-                    return string.startsWith("seg");
+                    return string.startsWith("seg") && string.endsWith(".frs");
                 }
             })
         );
@@ -89,7 +86,14 @@ class NIOStreamImpl implements Stream {
         segments = new ArrayList(segments);
         Collections.sort(segments);        
         
-        if ( streamid == null && segments.isEmpty() ) streamid = UUID.randomUUID();
+        if ( segments.isEmpty() ) {
+            streamid = UUID.randomUUID();
+        } else {
+//  use the first segment to get the streamid.  if that is no good, the stream is no good.
+            currentSegment = new NIOSegmentImpl(this, segments.get(0), segmentSize).openForReading(pool);
+            streamid = currentSegment.getStreamId();
+            currentSegment.close();
+        }
         
         position = segments.size()-1;
         
@@ -108,27 +112,26 @@ class NIOStreamImpl implements Stream {
         StringBuilder fn = new StringBuilder();
         Formatter pfn = new Formatter(fn);
         int number = 0;
-        
+                
         if ( currentSegment == null || currentSegment.isClosed() ) {
             if ( currentSegment == null && !segments.isEmpty() ) {
-                currentSegment = new NIOSegmentImpl(this, Direction.getDefault(), segments.get(segments.size()-1), segmentSize).openForReading(pool);
-                streamid = currentSegment.getStreamId();
+                currentSegment = new NIOSegmentImpl(this, segments.get(segments.size()-1), segmentSize).openForReading(pool);
             }
-
+            
             if ( currentSegment != null ) {
                 assert(currentSegment.getFile().equals(segments.get(segments.size()-1)));
                 assert(currentSegment.getSegmentId() == convertSegmentNumber(segments.get(position)));
                 number = currentSegment.getSegmentId() + 1;
+                currentSegment.close();
             }
 
             pfn.format(format, number);
 
-            if ( segments == null ) segments = new ArrayList<File>();
             File nf = new File(directory, fn.toString());
             position = segments.size();
             segments.add(nf);
-
-            currentSegment = new NIOSegmentImpl(this, Direction.getDefault(), nf, segmentSize).openForWriting(pool);
+            
+            currentSegment = new NIOSegmentImpl(this, nf, segmentSize).openForWriting(pool);
         }
         
         long w = currentSegment.append(c);
@@ -158,31 +161,37 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public Chunk read(final Direction dir) throws IOException {
-        if ( currentSegment != null ) {
-            UUID lastStreamId = currentSegment.getStreamId();
-            
-            if (lastStreamId != null && !lastStreamId.equals(currentSegment.getStreamId())) {
-                throw new IOException(BAD_STREAMID);
-            }
-        }
         
-        if ( currentSegment == null || !currentSegment.hasMore(dir) ) {
+        while ( currentSegment == null || !currentSegment.hasMore(dir) ) {
             if ( currentSegment != null ) currentSegment.close();
             pool.reclaim();
-
-            if ( dir == Direction.FORWARD ) {
-                if ( position > segments.size() - 1 ) return null;
-                currentSegment = new NIOSegmentImpl(this, dir, segments.get(position++), segmentSize).openForReading(pool);
-            } else {
-                if ( position < 0 ) return null;
-                currentSegment = new NIOSegmentImpl(this, dir, segments.get(position--), segmentSize).openForReading(pool);
+            
+            try {
+                if ( dir == Direction.FORWARD ) {
+                    if ( position > segments.size() - 1 ) return null;
+                    currentSegment = new NIOSegmentImpl(this, segments.get(position++), segmentSize).openForReading(pool);
+                } else {
+                    if ( position < 0 ) return null;
+                    currentSegment = new NIOSegmentImpl(this, segments.get(position--), segmentSize).openForReading(pool);
+                }
+            } catch ( IOException ioe ) {
+                if ( currentSegment == null && dir == Direction.REVERSE ) {
+//  something bad happened.  Can't even open the header.  but this is the end of the log so move on to the next and see if it will open
+                } else {
+                    throw ioe;
+                }
             }
+            
+            checkStreamId(currentSegment);
         }        
-        
-        if ( streamid == null ) streamid = currentSegment.getStreamId();
-        
-        if ( !currentSegment.hasMore(dir) ) return null;
+                
         return currentSegment.next(dir);            
+    }
+    
+    private void checkStreamId(NIOSegmentImpl segment) throws IOException {
+        if ( !streamid.equals(segment.getStreamId()) ) {
+            throw new IOException(BAD_STREAMID);
+        }
     }
 
     @Override

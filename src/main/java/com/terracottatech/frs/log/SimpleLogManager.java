@@ -102,6 +102,7 @@ public class SimpleLogManager implements LogManager {
 
     //  TODO:  re-examine when more runtime context is available.
     public void startup() {
+        state = MachineState.RECOVERY;
         exchanger = new ChunkExchange(io, checksumStyle);
         this.daemon = new LogWriter();
         this.daemon.start();

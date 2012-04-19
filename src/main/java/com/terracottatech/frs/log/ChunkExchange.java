@@ -14,6 +14,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,6 +31,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
     private volatile int  count = 0;
     private final AtomicInteger  returned = new AtomicInteger(0);
     private long lastLsn = -1;
+    private Exception exception;
 
     public ChunkExchange(IOManager io, Signature style) {
         this.io = io;
@@ -79,9 +81,10 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
             if ( lastLsn < 0 ) {
                 offerLastLsn(99);
             }
-        } catch (InterruptedException ioe) {
+        } catch (InterruptedException i) {
+            exception = i;
         } catch (IOException ioe) {
-            throw new AssertionError(ioe);
+            exception = ioe;
         } finally {
             done = true;
         }
@@ -94,6 +97,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
 
             @Override
             public boolean hasNext() {
+                if ( exception != null ) throw new RuntimeException(exception);
                 try {
                     if (  queued == null && done && count == returned.get()  ) return false;
                     while ( queued == null) {
@@ -101,6 +105,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
                         if ( done && count == returned.get() ) break;
                     }
                 } catch (InterruptedException ie) {
+                    throw new RuntimeException(ie);
                 }
 
                 return queued != null;
@@ -108,6 +113,7 @@ public class ChunkExchange implements Runnable, Iterable<LogRecord> {
 
             @Override
             public LogRecord next() {
+                if ( exception != null ) throw new RuntimeException(exception);
                 hasNext();
                 if (queued == null) {
                     throw new NoSuchElementException();

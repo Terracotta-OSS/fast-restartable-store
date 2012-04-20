@@ -87,7 +87,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
                 target.position(target.position() + p);
             }
         }
-        sections.add((ByteBuffer)target.slice());
+        sections.add(target.slice());
         
         ref = sections.toArray(new ByteBuffer[sections.size()]);
         mark = 0; //  reset the mark count so we start reading from the start again
@@ -103,7 +103,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public long read(int count) throws IOException {
         long lt = 0;
         offset = channel.position();
-        for (int x=mark;x<mark + count;x++) {
+        for (int x = mark; x < mark + count; x++) {
             if ( ref[x].isReadOnly() ) {
                 ref[x] = ref[x].duplicate();
                 ref[x].position(ref[x].limit());

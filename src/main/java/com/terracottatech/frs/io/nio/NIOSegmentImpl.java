@@ -11,7 +11,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.*;
@@ -21,6 +20,9 @@ import java.util.*;
  * @author mscott
  */
 class NIOSegmentImpl {
+  static final int            FILE_HEADER_SIZE = 26;
+  private static final String LOCKED_FILE_ACCESS = "could not obtain file lock";
+  private static final short  IMPL_NUMBER = 02;
 
     private final NIOStreamImpl parent;
     private final int           segNum;
@@ -36,11 +38,9 @@ class NIOSegmentImpl {
     private ArrayList<Long>     writeJumpList;
     
     private long                limit = 10 * 1024 * 1024;
-    static final int            FILE_HEADER_SIZE = 26;
-    private static final String LOCKED_FILE_ACCESS = "could not obtain file lock";
-    private static final short  IMPL_NUMBER = 02;
+
     
-    private UUID streamid;
+    private UUID streamId;
         
     NIOSegmentImpl(NIOStreamImpl p, File file, long segSize) {
         this.parent = p;
@@ -55,11 +55,11 @@ class NIOSegmentImpl {
 
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException {
         segment = new FileInputStream(src).getChannel();
-        this.limit = segment.size();
+        limit = segment.size();
         
-        if ( this.limit < FILE_HEADER_SIZE ) throw new IOException("bad header");
+        if ( limit < FILE_HEADER_SIZE ) throw new IOException("bad header");
         
-        int size = ( this.limit > Integer.MAX_VALUE ) ? Integer.MAX_VALUE : (int)this.limit;
+        int size = ( limit > Integer.MAX_VALUE ) ? Integer.MAX_VALUE : (int) limit;
         
         ByteBuffer fbuf = reader.getBuffer(size);
         while ( fbuf == null ) {
@@ -74,7 +74,7 @@ class NIOSegmentImpl {
             
             readFileHeader(mapped.getBuffer());
         } else {
-            buffer = new FileBuffer(segment,fbuf);
+            buffer = new FileBuffer(segment, fbuf);
             
             buffer.partition(FILE_HEADER_SIZE).read(1);
             readFileHeader(buffer);
@@ -106,7 +106,7 @@ class NIOSegmentImpl {
             throw new IOException("unknown implementation number");
         }
         
-        streamid = new UUID(readBuffer.getLong(), readBuffer.getLong());   
+        streamId = new UUID(readBuffer.getLong(), readBuffer.getLong());
    }
 
     //  open and write the header.
@@ -130,15 +130,15 @@ class NIOSegmentImpl {
     }
     
     private void insertFileHeader() throws IOException {
-        this.streamid = parent.getStreamId();
+        this.streamId = parent.getStreamId();
         
         buffer.clear();
 
         buffer.put(SegmentHeaders.LOG_FILE.getBytes());
         buffer.putShort(IMPL_NUMBER);
         buffer.putInt(segNum);
-        buffer.putLong(streamid.getMostSignificantBits());
-        buffer.putLong(streamid.getLeastSignificantBits());
+        buffer.putLong(streamId.getMostSignificantBits());
+        buffer.putLong(streamId.getLeastSignificantBits());
         buffer.write(1);
     }
 
@@ -205,7 +205,7 @@ class NIOSegmentImpl {
     }
     
     UUID getStreamId() {
-        return streamid;
+        return streamId;
     }
 
     public boolean isClosed() {

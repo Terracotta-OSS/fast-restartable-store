@@ -16,6 +16,16 @@ import java.util.*;
  * @author mscott
  */
 class NIOStreamImpl implements Stream {
+    static final FilenameFilter SEGMENT_FILENAME_FILTER = new FilenameFilter() {
+      @Override
+      public boolean accept(File file, String string) {
+        return string.startsWith("seg") && string.endsWith(".frs");
+      }
+    };
+
+    private static final String SEGMENT_NAME_FORMAT = "seg%09d.frs";
+    private static final String SEG_NUM_FORMAT = "000000000";
+    private static final String BAD_STREAM_ID = "mis-aligned streams";
 
     private final File directory;
 
@@ -23,19 +33,17 @@ class NIOStreamImpl implements Stream {
     private List<File> segments;
     private int position = 0;
 
-    private UUID   streamid;
+    private UUID streamId;
     
-    private static final String format = "seg%09d.frs";
-    private static final String segNumFormat = "000000000";
-    private static final String BAD_STREAMID = "mis-aligned streams";
+
     private NIOSegmentImpl      currentSegment;
     private final BufferSource  pool = new AllocatingBufferSource();
     
     private long debugIn;
     private long debugOut;
 
-    public NIOStreamImpl(File filepath, long recommendedSize) throws IOException {
-        directory = filepath;
+    public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
+        directory = filePath;
         
         segmentSize = recommendedSize;
 
@@ -44,7 +52,7 @@ class NIOStreamImpl implements Stream {
     
     int convertSegmentNumber(File f) {
         try {
-            return new DecimalFormat(segNumFormat).parse(f.getName().substring(3,f.getName().length()-4)).intValue();
+            return new DecimalFormat(SEG_NUM_FORMAT).parse(f.getName().substring(3, f.getName().length() - 4)).intValue();
         } catch ( ParseException pe ) {
             throw new RuntimeException("bad filename",pe);
         }
@@ -52,15 +60,16 @@ class NIOStreamImpl implements Stream {
     
     @Override
     public UUID getStreamId() {
-        return streamid;
+        return streamId;
     }
     
-    void limit(UUID streamid, int segment,long position) throws IOException {
+    void limit(UUID streamId, int segment,long position) throws IOException {
         for (int x=segments.size()-1;x>=0;x--) {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(x), segmentSize);
             try {
                 seg.openForReading(pool);
-                if ( seg.getStreamId().equals(streamid) ) throw new IOException(BAD_STREAMID);
+                if ( seg.getStreamId().equals(streamId) ) throw new IOException(
+                        BAD_STREAM_ID);
                 if ( seg.getSegmentId() > segment ) {
                     segments.get(x).delete();
                     segments.remove(x);
@@ -76,25 +85,17 @@ class NIOStreamImpl implements Stream {
     }
     
     private void enumerateSegments() throws IOException {                    
-        segments = Arrays.asList(
-            directory.listFiles(new FilenameFilter() {
-
-                @Override
-                public boolean accept(File file, String string) {
-                    return string.startsWith("seg") && string.endsWith(".frs");
-                }
-            })
-        );
+        segments = Arrays.asList(directory.listFiles(SEGMENT_FILENAME_FILTER));
         
-        segments = new ArrayList(segments);
+        segments = new ArrayList<File>(segments);
         Collections.sort(segments);        
         
         if ( segments.isEmpty() ) {
-            streamid = UUID.randomUUID();
+            streamId = UUID.randomUUID();
         } else {
-//  use the first segment to get the streamid.  if that is no good, the stream is no good.
+//  use the first segment to get the streamId.  if that is no good, the stream is no good.
             currentSegment = new NIOSegmentImpl(this, segments.get(0), segmentSize).openForReading(pool);
-            streamid = currentSegment.getStreamId();
+            streamId = currentSegment.getStreamId();
             currentSegment.close();
         }
         
@@ -128,7 +129,7 @@ class NIOStreamImpl implements Stream {
                 number = currentSegment.getSegmentId() + 1;
             }
 
-            pfn.format(format, number);
+            pfn.format(SEGMENT_NAME_FORMAT, number);
 
             File nf = new File(directory, fn.toString());
             position = segments.size();
@@ -196,8 +197,8 @@ class NIOStreamImpl implements Stream {
     }
     
     private void checkStreamId(NIOSegmentImpl segment) throws IOException {
-        if ( !streamid.equals(segment.getStreamId()) ) {
-            throw new IOException(BAD_STREAMID);
+        if ( !streamId.equals(segment.getStreamId()) ) {
+            throw new IOException(BAD_STREAM_ID);
         }
     }
 

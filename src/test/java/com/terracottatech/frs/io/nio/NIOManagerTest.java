@@ -6,47 +6,40 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.TestLogRecord;
 import com.terracottatech.frs.io.TestLogRegion;
-import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import org.junit.*;
-import org.junit.rules.TemporaryFolder;
+
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  *
  * @author mscott
  */
 public class NIOManagerTest {
-    
-    NIOManager manager;
-    long lsn = 0;
-    File workarea;
+    private NIOManager manager;
+    private long lsn = 100;
+    private File workArea;
     
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
     
-    public NIOManagerTest() {
-    }
-
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-    }
-
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-    }
-    
     @Before
     public void setUp() throws IOException {
-            workarea = folder.newFolder();
-            System.out.println(workarea.getAbsolutePath());
-            manager = new NIOManager(workarea.getAbsolutePath(),(10*1024*1024));
-            
+            workArea = folder.newFolder();
+            System.out.println(workArea.getAbsolutePath());
+            manager = new NIOManager(workArea.getAbsolutePath(), 10 * 1024 * 1024);
     }
     
     @After
@@ -54,11 +47,11 @@ public class NIOManagerTest {
         manager.close();
     }
 
-    /**
+  /**
      * Test of append method, of class IOManagerImpl.
      */
     @Test
-    public void testAppend() throws IOException {
+    public void testAppendPerformance() throws IOException {
         System.out.println("append");
         int count = (int)(Math.random() * 100);
         System.out.format("writing %d log regions\n",count);
@@ -72,13 +65,13 @@ public class NIOManagerTest {
             LogRegion test = createLogRegion();
             long start = System.nanoTime();
             tb +=manager.write(packer.pack(test));
-            System.out.format("Log Region write time: %.6f sec\n", (System.nanoTime() - start) * 1e-9);
+            System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
             
             if ( Math.random() * 10 < 1 ) {
                 start = System.nanoTime();
                 manager.sync();
-                System.out.format("Log Stream sync time: %.6f sec count: %d length: %dk \n", 
-                        (System.nanoTime() - start) * 1e-9,
+                System.out.format("Log Stream sync time: %dms count: %d length: %dk \n",
+                       NANOSECONDS.toMillis(System.nanoTime() - start),
                         x-lastSync,
                         (tb - lastLen)/1024
                 );
@@ -87,10 +80,11 @@ public class NIOManagerTest {
             }
         }
 
-        System.out.format("bytes written: %.3fM in %.6f sec = %.3f MB/sec\n",tb/(1024d*1024d),
-                (System.nanoTime() - total)*1e-9,
-                (tb/(1024d*1024d))/((System.nanoTime() - total)*1e-9)
-                );
+        System.out.format("bytes written: %.3fM in %dms = %.3f MB/sec\n",
+                          tb / (1024d * 1024d),
+                          NANOSECONDS.toMillis(System.nanoTime() - total),
+                          (tb / (1024d * 1024d)) / ((System.nanoTime() - total) * 1e-9)
+        );
     }
     
     @Test 
@@ -113,7 +107,6 @@ public class NIOManagerTest {
         final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
         lm.startup();
         lm.shutdown();
-        
     }     
     
         

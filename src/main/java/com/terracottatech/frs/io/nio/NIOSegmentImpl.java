@@ -37,15 +37,13 @@ class NIOSegmentImpl {
     private FileBuffer          buffer;
     private ArrayList<Long>     writeJumpList;
     
-    private long                limit = 10 * 1024 * 1024;
 
     
     private UUID streamId;
         
-    NIOSegmentImpl(NIOStreamImpl p, File file, long segSize) {
+    NIOSegmentImpl(NIOStreamImpl p, File file) {
         this.parent = p;
         this.src = file;
-        this.limit = segSize;
         this.segNum = p.convertSegmentNumber(file);
     }
     
@@ -54,17 +52,18 @@ class NIOSegmentImpl {
     }
 
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException {
+        long fileSize = segment.size();
+        
         segment = new FileInputStream(src).getChannel();
-        limit = segment.size();
         
-        if ( limit < FILE_HEADER_SIZE ) throw new IOException("bad header");
+        if ( fileSize < FILE_HEADER_SIZE ) throw new IOException("bad header");
         
-        int size = ( limit > Integer.MAX_VALUE ) ? Integer.MAX_VALUE : (int) limit;
+        int bufferSize = ( fileSize > Integer.MAX_VALUE ) ? Integer.MAX_VALUE : (int)fileSize;
         
-        ByteBuffer fbuf = reader.getBuffer(size);
+        ByteBuffer fbuf = reader.getBuffer(bufferSize);
         while ( fbuf == null ) {
-            if ( size < 100 * 1024 ) throw new IOException("no buffer available");
-            fbuf = reader.getBuffer(size/=2);
+            if ( bufferSize < 100 * 1024 ) throw new IOException("no buffer available");
+            fbuf = reader.getBuffer(bufferSize/=2);
         }
         
         if ( fbuf == null ) {
@@ -79,7 +78,7 @@ class NIOSegmentImpl {
             buffer.partition(FILE_HEADER_SIZE).read(1);
             readFileHeader(buffer);
 
-            if ( size >= this.limit ) {
+            if ( bufferSize >= segment.size() ) {
     //  the buffer is big enough for the whole file.  cheat by reading forward 
     //  then queueing backward.
                 strategy = new WholeFileReadbackStrategy(buffer);
@@ -156,10 +155,7 @@ class NIOSegmentImpl {
         buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
         long wl = buffer.write(c.getBuffers().length + 2);
         writeJumpList.add(buffer.offset());
-        if (segment.position() >= limit) {
-            close();
-        }
-        
+
         return wl;
     }
 
@@ -222,17 +218,11 @@ class NIOSegmentImpl {
     }
     
     public long length() throws IOException {
-        if ( lock != null ) return segment.size();
-        return limit;
-    }
-
-    public long remains() throws IOException {
-        return limit - segment.position();
+        return segment.size();
     }
     
     public void limit(long pos) throws IOException {
         segment.truncate(pos);
-        limit = segment.size();
     }
     
 }

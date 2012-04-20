@@ -65,7 +65,7 @@ class NIOStreamImpl implements Stream {
     
     void limit(UUID streamId, int segment,long position) throws IOException {
         for (int x=segments.size()-1;x>=0;x--) {
-            NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(x), segmentSize);
+            NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(x));
             try {
                 seg.openForReading(pool);
                 if ( seg.getStreamId().equals(streamId) ) throw new IOException(
@@ -94,7 +94,7 @@ class NIOStreamImpl implements Stream {
             streamId = UUID.randomUUID();
         } else {
 //  use the first segment to get the streamId.  if that is no good, the stream is no good.
-            currentSegment = new NIOSegmentImpl(this, segments.get(0), segmentSize).openForReading(pool);
+            currentSegment = new NIOSegmentImpl(this, segments.get(0)).openForReading(pool);
             streamId = currentSegment.getStreamId();
             currentSegment.close();
         }
@@ -119,7 +119,7 @@ class NIOStreamImpl implements Stream {
                 
         if ( currentSegment == null || currentSegment.isClosed() ) {
             if ( currentSegment == null && !segments.isEmpty() ) {
-                currentSegment = new NIOSegmentImpl(this, segments.get(segments.size()-1), segmentSize).openForReading(pool);
+                currentSegment = new NIOSegmentImpl(this, segments.get(segments.size()-1)).openForReading(pool);
                 currentSegment.close();
             }
             
@@ -135,7 +135,7 @@ class NIOStreamImpl implements Stream {
             position = segments.size();
             segments.add(nf);
             
-            currentSegment = new NIOSegmentImpl(this, nf, segmentSize).openForWriting(pool);
+            currentSegment = new NIOSegmentImpl(this, nf).openForWriting(pool);
         }
         
         long w = currentSegment.append(c);
@@ -177,10 +177,10 @@ class NIOStreamImpl implements Stream {
             try {
                 if ( dir == Direction.FORWARD ) {
                     if ( position > segments.size() - 1 ) return null;
-                    currentSegment = new NIOSegmentImpl(this, segments.get(position++), segmentSize).openForReading(pool);
+                    currentSegment = new NIOSegmentImpl(this, segments.get(position++)).openForReading(pool);
                 } else {
                     if ( position < 0 ) return null;
-                    currentSegment = new NIOSegmentImpl(this, segments.get(position--), segmentSize).openForReading(pool);
+                    currentSegment = new NIOSegmentImpl(this, segments.get(position--)).openForReading(pool);
                 }
             } catch ( IOException ioe ) {
                 if ( currentSegment == null && dir == Direction.REVERSE ) {

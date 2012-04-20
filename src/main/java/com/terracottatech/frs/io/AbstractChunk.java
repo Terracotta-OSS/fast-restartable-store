@@ -32,15 +32,15 @@ public abstract class AbstractChunk implements Chunk {
             return current.get(position);
         }
         public short getShort() {
-            if ( current.remaining() < SHORT_SIZE) throw new BufferUnderflowException();
+            if ( current.limit() < SHORT_SIZE) throw new BufferUnderflowException();
             return current.getShort(position);
         }
         public int getInt() {
-            if ( current.remaining() < INT_SIZE) throw new BufferUnderflowException();
+            if ( current.limit() < INT_SIZE) throw new BufferUnderflowException();
             return current.getInt(position);
         }
         public long getLong() {
-            if ( current.remaining() < LONG_SIZE) throw new BufferUnderflowException();
+            if ( current.limit() < LONG_SIZE) throw new BufferUnderflowException();
             return current.getLong(position);
         }
     }
@@ -96,7 +96,7 @@ public abstract class AbstractChunk implements Chunk {
             } else if ( !list[x].hasRemaining() ) {
                 continue;
             } else if ( list[x].remaining() < size ) {
-                if ( forPut ) list[x].position(list[x].limit());
+                if ( forPut ) list[x].limit(list[x].position());
                 else throw new BufferUnderflowException();
                 continue;
             }

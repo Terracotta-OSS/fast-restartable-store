@@ -13,8 +13,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import org.hamcrest.Matchers;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.doReturn;
@@ -139,9 +142,9 @@ public class AtomicCommitListTest {
         });
       }
     }
-    assertThat((Collection) errors, empty());
+    assertThat(errors,Matchers.<Throwable>empty());
   }
-
+  
   private LogRecord record(long lsn) {
     LogRecord record = mock(LogRecord.class);
     doReturn(lsn).when(record).getLsn();

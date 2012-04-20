@@ -52,9 +52,11 @@ class NIOSegmentImpl {
     }
 
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException {
-        long fileSize = segment.size();
+        long fileSize = 0;
         
         segment = new FileInputStream(src).getChannel();
+            
+        fileSize = segment.size();
         
         if ( fileSize < FILE_HEADER_SIZE ) throw new IOException("bad header");
         
@@ -163,10 +165,18 @@ class NIOSegmentImpl {
         if (segment == null || !segment.isOpen()) {
             return 0;
         }
+        
         if ( lock != null ) {
             buffer.clear();
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
             for (long jump : writeJumpList ) {
+                if ( buffer.remaining() < ByteBufferUtils.LONG_SIZE + 
+                       ByteBufferUtils.SHORT_SIZE +
+                       ByteBufferUtils.INT_SIZE
+                ) {
+                    buffer.write(1);
+                    buffer.clear();
+                }
                 buffer.putLong(jump);
             }
             if ( writeJumpList.size() < Short.MAX_VALUE ) {

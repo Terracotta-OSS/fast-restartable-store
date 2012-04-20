@@ -51,6 +51,9 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( !buffer.hasRemaining() ) {
             return null;
         }
+        if ( buffer.remaining() < ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
+            return null;
+        }
 // do we see chunk start?  
         if ( !SegmentHeaders.CHUNK_START.validate(buffer.peekInt()) ) {
             return null;

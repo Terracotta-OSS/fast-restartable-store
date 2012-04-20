@@ -62,10 +62,12 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
   
   static class InHeapObjectManagerStripe<I, K, V> extends AbstractObjectManagerStripe<I, K, V> {
     
+    private final I identifier;
     private final ObjectManagerSegment<I, K, V>[] segments;
 
     @SuppressWarnings("unchecked")
     public InHeapObjectManagerStripe(I identifier, int stripes) {
+      this.identifier = identifier;
       this.segments = new ObjectManagerSegment[stripes];
       for (int i = 0; i < segments.length; i++) {
         segments[i] = new InHeapObjectManagerSegment<I, K, V>(identifier);
@@ -77,10 +79,20 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       return Arrays.asList(segments);
     }
 
-    protected ObjectManagerSegment<I, K, V> getSegmentFor(K key) {
-      int hash = key.hashCode();
+    protected ObjectManagerSegment<I, K, V> getSegmentFor(int hash, K key) {
       return segments[Math.abs(hash % segments.length)];
     }
+
+    @Override
+    protected int extractHashCode(K key) {
+      return key.hashCode();
+    }
+    
+    @Override
+    public I identifier() {
+      return identifier;
+    }
+
   }
   
   /*
@@ -128,7 +140,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
 
     @Override
-    public Long firstLsn() {
+    public Long getLowestLsn() {
       Lock l = lock.readLock();
       l.lock();
       try {
@@ -146,7 +158,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public Long getLsn(K key) {
+    public Long getLsn(int hash, K key) {
       Lock l = lock.readLock();
       l.lock();
       try {
@@ -157,12 +169,12 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public void replayPut(K key, V value, long lsn) {
-      put(key, value, lsn);
+    public void replayPut(int hash, K key, V value, long lsn) {
+      put(hash, key, value, lsn);
     }
 
     @Override
-    public void put(K key, V value, long lsn) {
+    public void put(int hash, K key, V value, long lsn) {
       Lock l = lock.writeLock();
       l.lock();
       try {
@@ -175,7 +187,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public void remove(K key) {
+    public void remove(int hash, K key) {
       Lock l = lock.writeLock();
       l.lock();
       try {
@@ -188,7 +200,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
 
     @Override
-    public V replaceLsn(K key, long newLsn) {
+    public V replaceLsn(int hash, K key, long newLsn) {
       Lock l = lock.writeLock();
       l.lock();
       try {

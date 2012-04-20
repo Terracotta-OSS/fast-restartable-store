@@ -14,15 +14,15 @@ public interface ObjectManagerSegment<I, K, V> {
 
   K firstKey();
   
-  Long firstLsn();
+  Long getLowestLsn();
   
-  Long getLsn(K key);
+  Long getLsn(int hash, K key);
   
-  void put(K key, V value, long lsn);
+  void put(int hash, K key, V value, long lsn);
   
-  void replayPut(K key, V value, long lsn);
+  void replayPut(int hash, K key, V value, long lsn);
   
-  void remove(K key);
+  void remove(int hash, K key);
   
-  V replaceLsn(K key, long newLsn);
+  V replaceLsn(int hash, K key, long newLsn);
 }

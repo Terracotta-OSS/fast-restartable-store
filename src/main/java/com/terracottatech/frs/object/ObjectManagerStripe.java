@@ -4,6 +4,8 @@ import java.util.Collection;
 
 public interface ObjectManagerStripe<I, K, V> {
 
+  I identifier();
+  
   Long getLowestLsn();
 
   long getLsn(K key);

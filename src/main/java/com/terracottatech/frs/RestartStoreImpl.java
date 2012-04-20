@@ -13,13 +13,13 @@ import java.nio.ByteBuffer;
 /**
  * @author twu
  */
-class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> {
+public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> {
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager                                transactionManager;
   private final Transaction<ByteBuffer, ByteBuffer, ByteBuffer> autoCommitTransaction =
           new AutoCommitTransaction();
 
-  RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager) {
+  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
   }

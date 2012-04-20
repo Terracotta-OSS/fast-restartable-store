@@ -77,8 +77,8 @@ class PutAction implements InvalidatingAction {
   }
 
   @Override
-  public void replay(long lsn) {
-    objectManager.replayPut(id, key, value, lsn);
+  public Set<Long> replay(long lsn) {
+    return objectManager.replayPut(id, key, value, lsn);
   }
 
   @Override

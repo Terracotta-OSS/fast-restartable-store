@@ -55,7 +55,7 @@ public class MockTransactionalAction implements MockAction, Serializable,
   }
 
   @Override
-  public void replay(long lsn) {
+  public Set<Long> replay(long lsn) {
     throw new AssertionError();
   }
 

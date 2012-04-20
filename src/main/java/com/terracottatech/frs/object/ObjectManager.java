@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.object;
 
+import java.util.Set;
+
 /**
  * @author cdennis
  */
@@ -32,7 +34,17 @@ public interface ObjectManager<I, K, V> {
   
   void remove(I id, K key);
 
-  void replayPut(I id, K key, V value, long lsn);
+  /**
+   * Replay a put. For purposes of handling evictions during recovery, also returns
+   * a list of LSNs for entries that have been evicted.
+   *
+   * @param id identifier
+   * @param key key
+   * @param value value
+   * @param lsn lsn
+   * @return list of LSNs of entries that have been evicted.
+   */
+  Set<Long> replayPut(I id, K key, V value, long lsn);
 
   /**
    * Return a complete key suitable for compaction.

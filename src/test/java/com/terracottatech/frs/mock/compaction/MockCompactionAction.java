@@ -13,6 +13,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.object.ObjectManager;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -53,10 +54,11 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> i
   }
 
   @Override
-  public void replay(long lsn) {
+  public Set<Long> replay(long lsn) {
     if (valid) {
       compacted.replay(lsn);
     }
+    return Collections.emptySet();
   }
 
   @Override

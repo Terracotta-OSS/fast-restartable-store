@@ -13,6 +13,7 @@ import com.terracottatech.frs.util.ByteBufferUtils;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -45,8 +46,8 @@ class TransactionBeginAction implements Action {
   }
 
   @Override
-  public void replay(long lsn) {
-
+  public Set<Long> replay(long lsn) {
+    return Collections.emptySet();
   }
 
   @Override

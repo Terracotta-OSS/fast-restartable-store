@@ -5,6 +5,7 @@
 package com.terracottatech.frs.object;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -45,8 +46,8 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
   }
 
   @Override
-  public void replayPut(I id, K key, V value, long lsn) {
-    getStripeFor(id).replayPut(key, value, lsn);
+  public Set<Long> replayPut(I id, K key, V value, long lsn) {
+    return getStripeFor(id).replayPut(key, value, lsn);
   }
 
   @Override

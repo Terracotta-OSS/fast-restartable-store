@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 public class MockDeleteAction<I> implements MockAction, Serializable {
@@ -36,7 +37,7 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
   }
 
   @Override
-  public void replay(long lsn) {
+  public Set<Long> replay(long lsn) {
     throw new AssertionError();
   }
 

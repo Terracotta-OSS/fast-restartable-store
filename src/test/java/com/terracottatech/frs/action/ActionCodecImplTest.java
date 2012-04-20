@@ -14,6 +14,8 @@ import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 import static org.junit.Assert.fail;
@@ -62,7 +64,8 @@ public class ActionCodecImplTest {
     }
 
     @Override
-    public void replay(long lsn) {
+    public Set<Long> replay(long lsn) {
+      return Collections.emptySet();
     }
 
     @Override

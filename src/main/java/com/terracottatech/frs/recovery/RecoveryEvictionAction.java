@@ -2,47 +2,49 @@
  * All content copyright (c) 2012 Terracotta, Inc., except as may otherwise
  * be noted in a separate copyright notice. All rights reserved.
  */
-package com.terracottatech.frs.transaction;
+package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
+import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
  */
-class TransactionCommitAction implements Action {
+class RecoveryEvictionAction implements InvalidatingAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
             public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                  ActionCodec codec, ByteBuffer[] buffers) {
-              return new TransactionCommitAction(
-                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)));
+              return new RecoveryEvictionAction(ByteBufferUtils.getLongSet(buffers));
             }
           };
 
-  private final TransactionHandle handle;
+  private final Set<Long> invalidatedLsns = new HashSet<Long>();
 
-  TransactionCommitAction(TransactionHandle handle) {
-    this.handle = handle;
+  RecoveryEvictionAction(Set<Long> invalidatedLsns) {
+    this.invalidatedLsns.addAll(invalidatedLsns);
   }
 
-  TransactionHandle getHandle() {
-    return handle;
+  @Override
+  public Set<Long> getInvalidatedLsns() {
+    return invalidatedLsns;
   }
 
   @Override
   public void record(long lsn) {
-
   }
 
   @Override
@@ -52,12 +54,16 @@ class TransactionCommitAction implements Action {
 
   @Override
   public Collection<Lock> lock(TransactionLockProvider lockProvider) {
+    // This is probably only OK for now.
     return Collections.emptySet();
   }
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[]{handle.toByteBuffer()};
+    if (invalidatedLsns.isEmpty()) {
+      return new ByteBuffer[0];
+    }
+    return new ByteBuffer[] { ByteBufferUtils.serializeLongSet(invalidatedLsns) };
   }
 
   @Override
@@ -65,20 +71,13 @@ class TransactionCommitAction implements Action {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
 
-    TransactionCommitAction that = (TransactionCommitAction) o;
+    RecoveryEvictionAction that = (RecoveryEvictionAction) o;
 
-    return handle.equals(that.getHandle());
+    return invalidatedLsns.equals(that.invalidatedLsns);
   }
 
   @Override
   public int hashCode() {
-    return handle != null ? handle.hashCode() : 0;
-  }
-
-  @Override
-  public String toString() {
-    return "TransactionCommitAction{" +
-            "handle=" + handle +
-            '}';
+    return invalidatedLsns.hashCode();
   }
 }

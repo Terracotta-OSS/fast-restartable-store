@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.object;
 
+import java.util.Set;
+
 /**
  *
  * @author Chris Dennis
@@ -20,7 +22,7 @@ public interface ObjectManagerSegment<I, K, V> {
   
   void put(int hash, K key, V value, long lsn);
   
-  void replayPut(int hash, K key, V value, long lsn);
+  Set<Long> replayPut(int hash, K key, V value, long lsn);
   
   void remove(int hash, K key);
   

@@ -63,8 +63,8 @@ class TransactionalAction implements InvalidatingAction {
   }
 
   @Override
-  public void replay(long lsn) {
-    action.replay(lsn);
+  public Set<Long> replay(long lsn) {
+    return action.replay(lsn);
   }
 
   @Override

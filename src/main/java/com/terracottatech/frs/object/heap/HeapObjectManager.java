@@ -9,10 +9,8 @@ import com.terracottatech.frs.object.AbstractObjectManagerStripe;
 import com.terracottatech.frs.object.ObjectManagerSegment;
 import com.terracottatech.frs.object.ObjectManagerStripe;
 import com.terracottatech.frs.object.ValueSortedMap;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
@@ -169,8 +167,9 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public void replayPut(int hash, K key, V value, long lsn) {
+    public Set<Long> replayPut(int hash, K key, V value, long lsn) {
       put(hash, key, value, lsn);
+      return Collections.emptySet();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.terracottatech.frs.object;
 
 import java.util.Collection;
+import java.util.Set;
 
 public interface ObjectManagerStripe<I, K, V> {
 
@@ -14,7 +15,7 @@ public interface ObjectManagerStripe<I, K, V> {
 
   void remove(K key);
 
-  void replayPut(K key, V value, long lsn);
+  Set<Long> replayPut(K key, V value, long lsn);
 
   V replaceLsn(K key, long newLsn);
 

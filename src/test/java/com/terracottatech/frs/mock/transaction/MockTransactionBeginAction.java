@@ -12,6 +12,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -32,7 +33,7 @@ public class MockTransactionBeginAction implements Action, Serializable {
   }
 
   @Override
-  public void replay(long lsn) {
+  public Set<Long> replay(long lsn) {
     throw new AssertionError();
   }
 

@@ -38,8 +38,9 @@ public class MockRemoveAction<I, K> extends MockCompleteKeyAction<I, K> implemen
   }
 
   @Override
-  public void replay(long lsn) {
+  public Set<Long> replay(long lsn) {
     //no-op
+    return Collections.emptySet();
   }
   
   public String toString() {

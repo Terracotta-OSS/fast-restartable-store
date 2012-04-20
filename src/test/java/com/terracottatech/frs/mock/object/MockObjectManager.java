@@ -4,15 +4,12 @@
  */
 package com.terracottatech.frs.mock.object;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import com.terracottatech.frs.object.CompleteKey;
 import com.terracottatech.frs.object.ObjectManager;
+
+import java.util.AbstractMap.SimpleEntry;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  *
@@ -95,7 +92,7 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public void replayPut(I id, K key, V value, long lsn) {
+  public Set<Long> replayPut(I id, K key, V value, long lsn) {
     Map<K, V> m = external.get(id);
     if (m == null) {
       m = new HashMap<K, V>();
@@ -103,6 +100,7 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
     }
     m.put(key, value);
     put(id, key, value, lsn);
+    return Collections.emptySet();
   }
 
   @Override

@@ -6,6 +6,8 @@ package com.terracottatech.frs.util;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * @author tim
@@ -49,6 +51,26 @@ public abstract class ByteBufferUtils {
       }
     }
     throw new BufferUnderflowException();
+  }
+
+  public static ByteBuffer serializeLongSet(Set<Long> longs) {
+    ByteBuffer buffer = ByteBuffer.allocate(
+            LONG_SIZE * longs.size() + INT_SIZE);
+    buffer.putInt(longs.size());
+    for (long lsn : longs) {
+      buffer.putLong(lsn);
+    }
+    buffer.flip();
+    return buffer;
+  }
+
+  public static Set<Long> getLongSet(ByteBuffer[] buffers) {
+    Set<Long> longs = new HashSet<Long>();
+    int size = getInt(buffers);
+    for (int i = 0; i < size; i++) {
+      longs.add(getLong(buffers));
+    }
+    return longs;
   }
   
     

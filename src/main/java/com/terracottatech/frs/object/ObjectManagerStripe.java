@@ -9,7 +9,7 @@ public interface ObjectManagerStripe<I, K, V> {
   
   Long getLowestLsn();
 
-  long getLsn(K key);
+  Long getLsn(K key);
 
   void put(K key, V value, long lsn);
 

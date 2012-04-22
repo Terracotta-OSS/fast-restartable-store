@@ -23,11 +23,9 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
   }
 
   @Override
-  public long getLsn(K key) {
+  public Long getLsn(K key) {
     int hash = extractHashCode(key);
-    Long l = getSegmentFor(hash, key).getLsn(hash, key);
-    if ( l == null ) return -1;
-    return l;
+    return getSegmentFor(hash, key).getLsn(hash, key);
   }
 
   @Override

@@ -13,6 +13,9 @@ import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
+import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
+
 /**
  * @author tim
  */
@@ -66,13 +69,7 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
 
   @Override
   public ByteBuffer[] encode(Action action) {
-    ByteBuffer header = headerBuffer(action);
-    ByteBuffer[] actionPayload = action.getPayload(this);
-    ByteBuffer[] data = new ByteBuffer[actionPayload.length + 1];
-
-    data[0] = header;
-    System.arraycopy(actionPayload, 0, data, 1, actionPayload.length);
-    return data;
+    return concatenate(headerBuffer(action), action.getPayload(this));
   }
 
   private ByteBuffer headerBuffer(Action action) {
@@ -96,7 +93,7 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
     }
 
     static ActionID withByteBuffers(ByteBuffer[] buffers) {
-      return new ActionID(ByteBufferUtils.getInt(buffers), ByteBufferUtils.getInt(buffers));
+      return new ActionID(getInt(buffers), getInt(buffers));
     }
 
     ByteBuffer toByteBuffer() {

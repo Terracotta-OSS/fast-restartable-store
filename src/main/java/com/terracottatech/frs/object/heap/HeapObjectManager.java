@@ -91,6 +91,14 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       return identifier;
     }
 
+    @Override
+    public long size() {
+      long size = 0;
+      for (ObjectManagerSegment<I, K, V> segment : getSegments()) {
+        size += segment.size();
+      }
+      return size;
+    }
   }
   
   /*
@@ -216,5 +224,10 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       }
     }
 
+    @Override
+    public long size() {
+      assert dataMap.size() == lsnMap.size();
+      return dataMap.size();
+    }
   }
 }

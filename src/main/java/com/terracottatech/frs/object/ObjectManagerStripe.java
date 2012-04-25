@@ -20,4 +20,6 @@ public interface ObjectManagerStripe<I, K, V> {
   V replaceLsn(K key, long newLsn);
 
   Collection<ObjectManagerSegment<I, K, V>> getSegments();
+
+  long size();
 }

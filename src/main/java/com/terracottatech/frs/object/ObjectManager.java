@@ -54,4 +54,13 @@ public interface ObjectManager<I, K, V> {
   CompleteKey<I, K> getCompactionKey();
   
   V replaceLsn(I id, K key, long newLsn);
+
+  /**
+   * Get an approximately correct count of the number of live objects in the system.
+   *
+   * @return number of live objects
+   */
+  long size();
+
+  void updateLowestLsn();
 }

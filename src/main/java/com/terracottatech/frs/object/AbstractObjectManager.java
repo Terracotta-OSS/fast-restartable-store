@@ -105,6 +105,14 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     }
     latestLowestLsn = lowest;
   }
+
+  public long size() {
+    long size = 0;
+    for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
+      size += stripe.size();
+    }
+    return size;
+  }
   
   /**
    * Returns the stripes of a segmented sorted map.

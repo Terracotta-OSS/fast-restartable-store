@@ -117,4 +117,13 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
       return null;
     }
   }
+
+  @Override
+  public long size() {
+    return map.size();
+  }
+
+  @Override
+  public void updateLowestLsn() {
+  }
 }

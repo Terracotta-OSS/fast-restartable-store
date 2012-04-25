@@ -27,4 +27,6 @@ public interface ObjectManagerSegment<I, K, V> {
   void remove(int hash, K key);
   
   V replaceLsn(int hash, K key, long newLsn);
+
+  long size();
 }

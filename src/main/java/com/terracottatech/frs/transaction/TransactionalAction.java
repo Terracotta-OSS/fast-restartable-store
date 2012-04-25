@@ -76,7 +76,7 @@ class TransactionalAction implements InvalidatingAction {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    return concatenate(handle.toByteBuffer(), action.getPayload(codec));
+    return concatenate(handle.toByteBuffer(), codec.encode(action));
   }
 
   @Override

@@ -53,6 +53,27 @@ public abstract class ByteBufferUtils {
     throw new BufferUnderflowException();
   }
 
+  public static ByteBuffer[] concatenate(ByteBuffer before, ByteBuffer[] after) {
+    ByteBuffer[] newBufferArray = new ByteBuffer[after.length + 1];
+    newBufferArray[0] = before;
+    System.arraycopy(after, 0, newBufferArray, 1, after.length);
+    return newBufferArray;
+  }
+
+  public static ByteBuffer[] concatenate(ByteBuffer[] before, ByteBuffer[] after) {
+    ByteBuffer[] newBufferArray = new ByteBuffer[before.length + after.length];
+    System.arraycopy(before, 0, newBufferArray, 0, before.length);
+    System.arraycopy(after, 0, newBufferArray, before.length, after.length);
+    return newBufferArray;
+  }
+
+  public static ByteBuffer[] concatenate(ByteBuffer[] before, ByteBuffer after) {
+    ByteBuffer[] newBufferArray = new ByteBuffer[before.length + 1];
+    newBufferArray[before.length] = after;
+    System.arraycopy(before, 0, newBufferArray, 0, before.length);
+    return newBufferArray;
+  }
+
   public static ByteBuffer serializeLongSet(Set<Long> longs) {
     ByteBuffer buffer = ByteBuffer.allocate(
             LONG_SIZE * longs.size() + INT_SIZE);

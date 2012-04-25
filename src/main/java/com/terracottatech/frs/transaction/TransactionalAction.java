@@ -17,6 +17,8 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
+import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
+
 /**
  * @author tim
  */
@@ -74,11 +76,7 @@ class TransactionalAction implements InvalidatingAction {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer[] embeddedPayload = codec.encode(action);
-    ByteBuffer[] payload = new ByteBuffer[embeddedPayload.length + 1];
-    payload[0] = handle.toByteBuffer();
-    System.arraycopy(embeddedPayload, 0, payload, 1, embeddedPayload.length);
-    return payload;
+    return concatenate(handle.toByteBuffer(), action.getPayload(codec));
   }
 
   @Override

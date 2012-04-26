@@ -52,6 +52,14 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
     return getSegmentFor(hash, key).replaceLsn(hash, key, newLsn);
   }
 
+  public long size() {
+    long total = 0;
+    for (ObjectManagerSegment<?, ?, ?> s : getSegments()) {
+      total += s.size();
+    }
+    return total;
+  }
+  
   protected abstract ObjectManagerSegment<I, K, V> getSegmentFor(int hash, K key);
   
   protected abstract int extractHashCode(K key);

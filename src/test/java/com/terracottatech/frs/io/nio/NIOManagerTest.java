@@ -4,8 +4,8 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.TestLogRecord;
-import com.terracottatech.frs.io.TestLogRegion;
+import com.terracottatech.frs.io.RandomLogRecord;
+import com.terracottatech.frs.io.DummyLogRegion;
 import com.terracottatech.frs.log.*;
 import org.junit.After;
 import org.junit.Before;
@@ -129,7 +129,7 @@ public class NIOManagerTest {
                         try {
                             long start = System.nanoTime();
                             int sync = (x%9);
-                            LogRecord lr = new TestLogRecord();
+                            LogRecord lr = new RandomLogRecord();
                             if ( sync == 1 ) {
                                 lm.appendAndSync(lr).get();
                                 System.out.format("Log Stream sync time: %.6f sec \n", 
@@ -164,12 +164,12 @@ public class NIOManagerTest {
                 );
     }
     
-    private TestLogRegion createLogRegion() throws IOException {
+    private DummyLogRegion createLogRegion() throws IOException {
         ArrayList<LogRecord> items = new ArrayList<LogRecord>();
-        TestLogRegion region = new TestLogRegion(items);
+        DummyLogRegion region = new DummyLogRegion(items);
         int count = (int)(Math.random() * 100) + 3;
         for ( int x=0;x<count;x++) {
-            LogRecord lr = new TestLogRecord();
+            LogRecord lr = new RandomLogRecord();
             lr.updateLsn(lsn++);
             items.add(lr);
         }
@@ -185,7 +185,7 @@ public class NIOManagerTest {
        final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, 100l, 100), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
-            TestLogRecord lr1 = new TestLogRecord();
+            RandomLogRecord lr1 = new RandomLogRecord();
            lm.append(lr1);
        }
 

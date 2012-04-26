@@ -102,7 +102,7 @@ public class NIOStreamImplTest {
   public void testSync() throws Exception {
     System.out.println("sync");
     stream.append(new LogRegionPacker(Signature.ADLER32).pack(
-            new TestLogRegion(Arrays.asList(new LogRecord[]{new TestLogRecord()}))));
+            new DummyLogRegion(Arrays.asList(new LogRecord[]{new RandomLogRecord()}))));
     stream.sync();
     File lock = new File(workArea.getAbsolutePath() + "/FRS.lck");
     assertTrue(lock.exists());

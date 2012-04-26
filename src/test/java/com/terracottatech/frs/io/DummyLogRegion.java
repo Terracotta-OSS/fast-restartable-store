@@ -13,11 +13,11 @@ import java.util.List;
  *
  * @author mscott
  */
-public class TestLogRegion implements LogRegion {
+public class DummyLogRegion implements LogRegion {
     
     List<LogRecord> records;
 
-    public TestLogRegion(List<LogRecord> records) {
+    public DummyLogRegion(List<LogRecord> records) {
         this.records = records;
     }
     

@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
  *
  * @author mscott
  */
-public class TestLogRecord implements LogRecord  {
+public class RandomLogRecord implements LogRecord  {
     
     ByteBuffer[] list;
     int keyr = (int)(Math.random() * (2 * 1024));
@@ -29,12 +29,12 @@ public class TestLogRecord implements LogRecord  {
         }
     }
     
-    public TestLogRecord(long lsn) throws IOException {
+    public RandomLogRecord(long lsn) throws IOException {
         this();
         this.lsn = lsn;
     }
 
-    public TestLogRecord() throws IOException {
+    public RandomLogRecord() throws IOException {
         this.lsn = lsn;
         double mutation = Math.random() * 2;
         if ( mutation < 1) {

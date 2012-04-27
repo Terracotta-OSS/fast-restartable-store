@@ -95,19 +95,19 @@ public abstract class ByteBufferUtils {
   }
   
     
-    public void flip(ByteBuffer[] list) {
+    public static void flip(ByteBuffer[] list) {
         for (ByteBuffer buf : list ) {
             buf.flip();
         }
     }
     
-    public void clear(ByteBuffer[] list) {
+    public static void clear(ByteBuffer[] list) {
         for (ByteBuffer buf : list ) {
             buf.clear();
         }
     }
     
-    public void skip(long jump, ByteBuffer[] list) {
+    public static void skip(long jump, ByteBuffer[] list) {
         long count = 0;
         for (int x=0;x<list.length;x++) {
             if ( !list[x].hasRemaining() ) {

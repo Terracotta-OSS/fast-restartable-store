@@ -4,9 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
-import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.LogRecord;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -14,20 +12,20 @@ import java.nio.ByteBuffer;
  *
  * @author mscott
  */
-public class TestLogRecord implements LogRecord {
+public class DummyLogRecord implements LogRecord {
 
     ByteBuffer[] list;
     int keyr = 1024;
     int valuer = 10 * 1024;
     long lsn;
 
-    public TestLogRecord(int ksize, int vsize) throws IOException {
+    public DummyLogRecord(int ksize, int vsize) throws IOException {
         keyr = ksize;
         valuer = vsize;
         build();
     }
 
-    public TestLogRecord() throws IOException {
+    public DummyLogRecord() throws IOException {
         keyr = 100;
         valuer = 1024;
         build();

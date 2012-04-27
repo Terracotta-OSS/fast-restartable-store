@@ -44,7 +44,7 @@ public class LogManagerThroughputTest {
         int it = 0;
         long total = System.nanoTime();
         while ( count < 1l * 1024 * 1024 * 1024 ) {
-            TestLogRecord log = new TestLogRecord(1024,10 * 1024);
+            DummyLogRecord log = new DummyLogRecord(1024,10 * 1024);
             count += log.size();
             if ( it++ % 100 == 99 ) {
                 long nano = System.nanoTime();

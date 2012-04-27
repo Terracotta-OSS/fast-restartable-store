@@ -130,7 +130,7 @@ public class NIOManagerTest {
                         try {
                             long start = System.nanoTime();
                             int sync = (x%9);
-                            LogRecord lr = new TestLogRecord(100,1024);
+                            LogRecord lr = new DummyLogRecord(100,1024);
                             if ( sync == 1 ) {
                                 lm.appendAndSync(lr).get();
                                 System.out.format("Log Stream sync time: %.6f sec \n", 
@@ -178,7 +178,7 @@ public class NIOManagerTest {
        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
-            TestLogRecord lr1 = new TestLogRecord(100,1024);
+            DummyLogRecord lr1 = new DummyLogRecord(100,1024);
            lm.append(lr1);
        }
 

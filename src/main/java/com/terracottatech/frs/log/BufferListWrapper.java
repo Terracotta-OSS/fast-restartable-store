@@ -14,7 +14,8 @@ import java.util.List;
  */
 public class BufferListWrapper extends AbstractChunk {
     
-    List<ByteBuffer> base;
+    private final List<ByteBuffer> base;
+    private ByteBuffer[]  converted;
     
     public BufferListWrapper(List<ByteBuffer> base) {
         this.base = base;
@@ -22,7 +23,9 @@ public class BufferListWrapper extends AbstractChunk {
 
     @Override
     public ByteBuffer[] getBuffers() {
-        return base.toArray(new ByteBuffer[base.size()]);
+        if ( converted != null ) return converted;
+        converted = base.toArray(new ByteBuffer[base.size()]);
+        return converted;
     }
     
 }

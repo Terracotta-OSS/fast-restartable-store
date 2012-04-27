@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -17,7 +19,6 @@ public class StackingCommitList implements CommitList {
 
     private final LogRecord[] regions;
 // set at construction    
-    private boolean dochecksum = false;
     private long baseLsn;
 //  half synchronized
     private volatile boolean syncing = false;
@@ -28,27 +29,16 @@ public class StackingCommitList implements CommitList {
     private int count = 0;
     
     private final Object guard = new Object();
-    private volatile StackingCommitList next;
+    private volatile CommitList next;
     
-    public StackingCommitList(boolean useChecksum, long startLsn, int maxSize) {
+    public StackingCommitList(long startLsn, int maxSize) {
         baseLsn = startLsn;
         endLsn = startLsn-1;
         regions = new LogRecord[maxSize];
-        this.dochecksum = useChecksum;
     }
-
-    @Override
-    public void setBaseLsn(long lsn) {
-        assert(count==0);
-        assert(next==null);
-        baseLsn = lsn;
-        endLsn = baseLsn - 1;
-    }
-    
-    
 
      @Override
-   public boolean append(LogRecord record) {
+   public boolean append(LogRecord record, boolean sync) {
         assert (record.getLsn() >= baseLsn);
 
         if (record.getLsn() >= regions.length + baseLsn) {
@@ -57,31 +47,40 @@ public class StackingCommitList implements CommitList {
 
         regions[(int) (record.getLsn() - baseLsn)] = record;
 
-        if (!countRecord(record.getLsn())) {
+        if (!countRecord(record.getLsn(),sync)) {
             regions[(int) (record.getLsn() - baseLsn)] = null; //  just to be clean;
             return false;
         }
-
+        
         return true;
     }
 
     @Override
-    public StackingCommitList next() {
+    public CommitList next() {
         if (next == null) {
             synchronized (this) {
                 if ( !closed ) {
                     closed = true;
                 }
                 if (next == null) {
-                    next = new StackingCommitList(dochecksum, endLsn + 1, regions.length);
+                    next = create(endLsn + 1);
                 }
             }
         }
         return next;
     }
+    
+    public CommitList create(long nextLsn) {
+        return new StackingCommitList( nextLsn, regions.length);
+    }
 
-     @Override
-   public long getBaseLsn() {
+    @Override
+    public boolean isEmpty() {
+        return ( endLsn < baseLsn );
+    }
+    
+    @Override
+    public long getBaseLsn() {
         return baseLsn;
     }
 
@@ -90,7 +89,7 @@ public class StackingCommitList implements CommitList {
         return endLsn;
     }
     //  TODO:  make more concurrent
-    private synchronized boolean countRecord(long lsn) {
+    private synchronized boolean countRecord(long lsn, boolean sync) {
         if (closed) {
             if (lsn > endLsn) {
                 return false;
@@ -101,14 +100,14 @@ public class StackingCommitList implements CommitList {
         if (count++ == endLsn - baseLsn) {
             this.notify();  // adding one will make count match slots
         }
+        if ( sync ) this.syncing = true;
         
         return true;
     }
-
+    
     @Override
-    public synchronized boolean close(long lsn, boolean sync) {
+    public synchronized boolean close(long lsn) {
         if ( lsn <= endLsn ) {
-            if ( sync ) syncing = true;
             closed = true;
             this.notify();
         }
@@ -158,11 +157,15 @@ public class StackingCommitList implements CommitList {
     @Override
     public synchronized void waitForContiguous() throws InterruptedException {
         boolean timedout = false;
-        while ((!closed && count != regions.length-1) || (closed && count != endLsn - baseLsn + 1)) {
-            this.wait(10000);
+        if ( count > 0 && !closed ) {
+            this.close(baseLsn + count - 1);
+        }
+        
+        while ((!closed && count != regions.length) || (closed && count != endLsn - baseLsn + 1)) {
+            this.wait(10);
             if ( timedout ) {
                 if ( count > 0 ) {
-                    this.close(baseLsn + count - 1,true);
+                    this.close(baseLsn + count - 1);
                     timedout = false;
                 }
             } else {
@@ -170,7 +173,7 @@ public class StackingCommitList implements CommitList {
             }
             
         }
-        if (count != endLsn - baseLsn + 1) {
+        if (count != regions.length && count != endLsn - baseLsn + 1) {
             throw new AssertionError();
         }
     }
@@ -181,15 +184,24 @@ public class StackingCommitList implements CommitList {
     public boolean cancel(boolean bln) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+    
+    private synchronized void checkForClose() {
+        if ( !closed ) {
+            closed = true;
+            this.notify();
+        }
+    }
 
     @Override
     public Void get() throws InterruptedException, ExecutionException {
+        checkForClose();
         this.waitForWrite();
         return null;
     }
 
     @Override
     public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
+        checkForClose();
         this.waitForWrite(tu.convert(l, TimeUnit.MILLISECONDS));
         return null;
     }
@@ -229,5 +241,5 @@ public class StackingCommitList implements CommitList {
             }
         };
     }
-
+    
 }

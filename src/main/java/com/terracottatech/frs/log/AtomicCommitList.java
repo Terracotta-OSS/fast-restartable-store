@@ -18,31 +18,25 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     private final Object guard = new Object();
     private final AtomicReferenceArray<LogRecord> regions;
-    private final boolean doChecksum;
+
     private final AtomicLong endLsn;
     private final CountDownLatch goLatch;
 
-    private long baseLsn;
-    private volatile boolean syncRequested = false;
+    private final long baseLsn;
+    private final AtomicLong syncRequest = new AtomicLong();
     private boolean written = false;
-    private volatile AtomicCommitList next;
+    private volatile CommitList next;
 
-    public AtomicCommitList(boolean useChecksum, long startLsn, int maxSize) {
+    public AtomicCommitList( long startLsn, int maxSize) {
         baseLsn = startLsn;
         endLsn = new AtomicLong();
         regions = new AtomicReferenceArray<LogRecord>(maxSize);
-        this.doChecksum = useChecksum;
+//        this.doChecksum = useChecksum;
         goLatch = new CountDownLatch(maxSize);
     }
     
-    public void setBaseLsn(long lsn) {
-        assert(next == null);
-        assert(goLatch.getCount() == regions.length());
-        baseLsn = lsn;
-    }
-    
     @Override
-    public boolean append(LogRecord record) {
+    public boolean append(LogRecord record, boolean sync) {
         if ( record == null ) return true;
         
         assert (record.getLsn() >= baseLsn);
@@ -55,6 +49,13 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         
         if ( end > 0 && end < record.getLsn() ) return false;
         
+        if ( sync ) {
+   //  if a sync is requested, go ahead and set the flag whether the 
+   //  record actually gets dropped here we need to ensure the sync request moves
+   //  with the highest lsn that reqested it.  a couple extra syncs are ok.
+            setSyncRequest(record.getLsn());
+        }
+        
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
             goLatch.countDown();
         } else {
@@ -64,9 +65,18 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
         return true;
     }
+    
+    private void setSyncRequest(long newRequest) {
+        long csync = syncRequest.get();
+        while (  csync < newRequest ) {
+            if ( !syncRequest.compareAndSet(csync, newRequest) ) {
+                csync = syncRequest.get();
+            }
+        }
+    }
 
     @Override
-    public AtomicCommitList next() {
+    public CommitList next() {
         if ( next == null ) {
             long nextLsn = endLsn.get() + 1;
             if ( nextLsn == 1 ) {
@@ -77,10 +87,14 @@ public class AtomicCommitList implements CommitList, Future<Void> {
                 }
             }
             synchronized (guard) {
-                if ( next == null ) next = new AtomicCommitList(doChecksum, nextLsn, regions.length());
+                if ( next == null ) next = create(nextLsn);
             }
         }
         return next;
+    }
+    
+    public CommitList create(long nextLsn) {
+        return new AtomicCommitList( nextLsn, regions.length());
     }
 
     @Override
@@ -94,10 +108,14 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     }
 
     @Override
-    public boolean close(long end, boolean requestSync) {
-        if ( requestSync ) syncRequested = true;
+    public boolean isEmpty() {
+        return baseLsn > endLsn.get();
+    }
+
+    @Override
+    public boolean close(long end) {
         boolean closer;
-        
+                
         if ( end >= baseLsn + regions.length() ) {
             return false;
         }
@@ -110,13 +128,13 @@ public class AtomicCommitList implements CommitList, Future<Void> {
      // if not set here make sure this end is within the range, if not return false;
             return ( end <= endLsn.get() );
         }
-                
+                        
         return true;
     }
 
 
     private void transferOutExtras() {
-        AtomicCommitList cnext = next(); 
+        CommitList cnext = next(); 
         int offset = (int)(endLsn.get()-baseLsn+1);
         for (int x=offset;x<regions.length();x++) {
             LogRecord record = regions.getAndSet(x, DUMMY_RECORD);
@@ -125,17 +143,16 @@ public class AtomicCommitList implements CommitList, Future<Void> {
             } else {
                 CommitList nnext = cnext;
         //  TODO: is this check necessary?  
-                while ( !nnext.append(record) ) {
+                while ( !nnext.append(record, syncRequest.get() >= record.getLsn()) ) {
                     nnext = nnext.next();
                 }
             }
         }
     }
-    
-    
+
     @Override
     public boolean isSyncRequested() {
-        return syncRequested;
+        return syncRequest.get() > 0;
     }
 
     private void waitForWrite() throws InterruptedException {
@@ -184,9 +201,14 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public void waitForContiguous() throws InterruptedException {
-        while ( !goLatch.await(10, TimeUnit.SECONDS) ) {
+        if ( goLatch.getCount() != regions.length() ) {
+            checkForClosed();
+        } else {
+        }
+        
+        while ( !goLatch.await(20, TimeUnit.MILLISECONDS) ) {
             if ( goLatch.getCount() != regions.length() ) {
-                this.close(baseLsn + regions.length() + goLatch.getCount() - 1,true);
+                checkForClosed();
             }
         }
         if ( endLsn.compareAndSet(0, baseLsn + regions.length() -1) ) {
@@ -201,15 +223,32 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     public boolean cancel(boolean bln) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+    
+    private void checkForClosed() {
+        if ( endLsn.get() == 0 ) {
+            int size = regions.length() - (int)goLatch.getCount();
+            LogRecord record = null;
+            while ( record == null && size-- > 0) {
+                record = regions.get(size);
+            }
+            if ( size < 0 ) {
+//                this.close(baseLsn-1, false);
+            } else {
+                this.close(record.getLsn());
+            }
+        }
+    }
 
     @Override
     public Void get() throws InterruptedException, ExecutionException {
+        checkForClosed();
         this.waitForWrite();
         return null;
     }
 
     @Override
     public Void get(long time, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
+        checkForClosed();
         this.waitForWrite(tu.convert(time, TimeUnit.MILLISECONDS));
         return null;
     }

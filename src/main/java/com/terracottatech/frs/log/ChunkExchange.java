@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.CopyingChunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import java.io.IOException;
@@ -25,6 +26,7 @@ public class ChunkExchange implements Iterable<LogRecord> {
     private volatile int  count = 0;
     private final AtomicInteger  returned = new AtomicInteger(0);
     private long lastLsn = -1;
+    private long lowestLsn = -1;
     private Exception exception;
     
     private long waiting;
@@ -50,9 +52,10 @@ public class ChunkExchange implements Iterable<LogRecord> {
         return lastLsn;
     }
     
-    public synchronized void offerLastLsn(long lsn) {
+    public synchronized void offerLsns(long lowest, long last) {
         if ( lastLsn > 0 ) return;
-        lastLsn = lsn;
+        lastLsn = last;
+        lowestLsn = lowest;
         this.notify();
     }
 
@@ -69,13 +72,13 @@ public class ChunkExchange implements Iterable<LogRecord> {
                     totalRead += chunk.length();
                     reading += (System.nanoTime() - last);
                     last = System.nanoTime();
-                    queue.put(chunk);
+                    queue.put(new CopyingChunk(chunk));
                     waiting += (System.nanoTime() - last);
                     last = System.nanoTime();
                 }
-            } while (chunk != null);
+            } while (chunk != null && !done);
             if ( lastLsn < 0 ) {
-                offerLastLsn(99);
+                offerLsns(99,99);
             }
         } catch (InterruptedException i) {
             exception = i;
@@ -91,36 +94,50 @@ public class ChunkExchange implements Iterable<LogRecord> {
     @Override
     public Iterator<LogRecord> iterator() {
         return new Iterator<LogRecord>() {
+            
+            boolean first = true;
             Deque<LogRecord> list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
 
             @Override
             public boolean hasNext() {
                 if ( exception != null ) throw new RuntimeException(exception);
-                if ( !list.isEmpty() ) return true;
-                try {
-                    Chunk queued = null;
-                    while ( queued == null && list.isEmpty() ) {
-                        if ( done && count == returned.get() ) break;
-                        queued = queue.poll(10, TimeUnit.SECONDS);
-                        if ( queued != null ) {
-                            returned.incrementAndGet();
-                            List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
-                            Collections.reverse(records);
-                            list = new ArrayDeque<LogRecord>(records);
-                            for (LogRecord record : records) {
-                                if ( lastLsn < 0 ) {
-                                    offerLastLsn(record.getLsn());
+                if ( list.isEmpty()) {
+                    try {
+                        Chunk queued = null;
+                        while ( queued == null && list.isEmpty() ) {
+                            if ( done && count == returned.get() ) break;
+                            queued = queue.poll(10, TimeUnit.SECONDS);
+                            if ( queued != null ) {
+                                returned.incrementAndGet();
+                                List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
+                                Collections.reverse(records);
+                                list = new ArrayDeque<LogRecord>(records);
+                                for (LogRecord record : records) {
+                                    if ( first ) {
+                                        offerLsns(record.getLowestLsn(),record.getLsn());
+                                        first = false;
+                                    } 
                                 }
                             }
                         }
+                    } catch (InterruptedException ie) {
+                        throw new RuntimeException(ie);
+                    } catch ( IOException ioe ) {
+                        throw new RuntimeException(ioe);
                     }
-                } catch (InterruptedException ie) {
-                    throw new RuntimeException(ie);
-                } catch ( IOException ioe ) {
-                    throw new RuntimeException(ioe);
                 }
-
-                return !list.isEmpty();
+                
+                if ( !list.isEmpty() ) {
+  //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
+                    if ( list.peek().getLsn() < lowestLsn ) {
+                        done = true;
+                        return false;
+                    } else {
+                        return true;
+                    }
+                } else {
+                    return false;
+                }
             }
 
             @Override

@@ -253,10 +253,13 @@ public class StagingLogManager implements LogManager {
         } catch ( InterruptedException it ) {
             throw new RuntimeException(it);
         }
-        
+        CommitList mine = currentRegion;
         long lsn = currentLsn.getAndIncrement();
         try {
             record.updateLsn(lsn);
+        } catch ( Error e ) {
+            e.printStackTrace();
+            throw e;
         } finally {
         
    // if highest lsn on disk is < the lowest lsn transmitted by record, then 
@@ -267,8 +270,6 @@ public class StagingLogManager implements LogManager {
             if ( record.getLowestLsn() > highOnDisk ) {
                 record.setLowestLsn(highOnDisk);
             }
-
-            CommitList mine = currentRegion;
 
             int spincount = 0;
             while ( !mine.append(record,sync) ) {
@@ -289,8 +290,8 @@ public class StagingLogManager implements LogManager {
 
             }
 
-            return mine;
         }
+        return mine;
     }
 
 

@@ -45,7 +45,6 @@ public class AllocatingBufferSource implements BufferSource {
     @Override
     public void reclaim() {
         if ( soleSource != null ) soleSource.limit(0);
-        soleSource = null;
     }
     
     

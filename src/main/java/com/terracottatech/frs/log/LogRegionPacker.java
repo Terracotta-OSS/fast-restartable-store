@@ -19,6 +19,7 @@ import java.util.zip.Adler32;
  */
 public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     private static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + 3 * ByteBufferUtils.LONG_SIZE;
+    private static final int LOG_REGION_HEADER_SIZE = 24;
 
     //  just hinting
     private int tuningMax = 10;
@@ -28,20 +29,66 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     private static final String BAD_CHECKSUM = "bad checksum";
     private final Signature cType;
     
+    private ByteBuffer headers = ByteBuffer.allocate(1024 * 128);
+    
+    private Chunk  stored;
+    private CommitList list;
+    
     public LogRegionPacker(Signature sig) {
         cType = sig;
         
         assert(cType == Signature.NONE || cType == Signature.ADLER32);
-    }
-
+    }   
+    
     @Override
     public Chunk pack(Iterable<LogRecord> payload) {
         return writeRecords(payload);
     }
+    
+    public Chunk pack(CommitList target) {
+        this.list = target;
+        stored = writeRecords(list);
+        return stored;
+    }  
+    
+    public long lsn() {
+        return list.getEndLsn();
+    }
+    
+    public boolean doSync() {
+        return list.isSyncRequested();
+    }
+    
+    public void written() {
+        list.written();
+    }
+    
+    public void clear() {
+        stored = null;
+        list = null;
+    }
+    
+    public Chunk take() {
+        try {
+            return stored;
+        } finally {
+            stored = null;
+        }
+    }
+    
+    public static List<LogRecord> unpack(Signature type, Chunk data) throws IOException {
+        int headCheck = readHeader(type, data);
+        
+        ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
+                
+        while ( data.hasRemaining() ) {
+            queue.add(readRecord(data));
+        }
+        return queue;
+    }
 
-    @Override
     public List<LogRecord> unpack(Chunk data) throws IOException {
-        int headCheck = readHeader(data);
+        int headCheck = readHeader(cType, data);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
                 
@@ -55,18 +102,24 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         long lowestLsn = 0;
         int count = 0;
-        
-        ByteBuffer header = ByteBuffer.allocate(24);
+
+        ByteBuffer header = headers.duplicate();
+        headers.position(LOG_REGION_HEADER_SIZE);
 
         buffers.add(header);
         for (LogRecord record : records) {
-            ByteBuffer rhead = ByteBuffer.allocate(LOG_RECORD_HEADER_SIZE);
+            ByteBuffer rhead = headers.slice();
+            headers.position(headers.position() + LOG_RECORD_HEADER_SIZE);
+            
             buffers.add(rhead);
 
             ByteBuffer[] payload = record.getPayload();
             long len = 0;
             for ( ByteBuffer bb : payload ) {
                 len += bb.remaining();
+//                if ( !bb.isDirect() ) {
+//                    bb = (ByteBuffer)ByteBuffer.allocateDirect(bb.remaining()).put(bb).flip();
+//                }
                 buffers.add(bb);
                 count++;
             }
@@ -82,19 +135,19 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             rhead.flip();
         }
         
-        formHeader(checksum(buffers.subList(1, buffers.size())),header);
+        formHeader(checksum(cType,buffers.subList(1, buffers.size())),header);
         tuningMax = tuningMax + (int)Math.round((count - tuningMax) * .1);
         return new BufferListWrapper(buffers);
     }
     
-    private int readHeader(Chunk data) throws IOException {
+    private static int readHeader(Signature defaultSig, Chunk data) throws IOException {
         short region = data.getShort();
         long check = data.getLong();
         long check2 = data.getLong();
         byte[] rf = new byte[2];
         data.get(rf);
         
-        long checksum = checksum(Arrays.asList(data.getBuffers()));
+        long checksum = checksum((check == 0) ? Signature.NONE:Signature.ADLER32,Arrays.asList(data.getBuffers()));
         
         if ( checksum != check ) throw new IOException(BAD_CHECKSUM);
         return 0;
@@ -111,8 +164,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return header.remaining();
     }
 
-    private long checksum(Iterable<ByteBuffer> bufs) {
-        if (cType != Signature.ADLER32) return 0;
+    private static long checksum(Signature checksumType, Iterable<ByteBuffer> bufs) {
+        if (checksumType != Signature.ADLER32) return 0;
 
         Adler32 checksum = new Adler32();
         byte[] temp = null;
@@ -134,7 +187,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return checksum.getValue();
     }
     
-    private LogRecord readRecord(Chunk buffer) {
+    private static LogRecord readRecord(Chunk buffer) {
 
         short format = buffer.getShort();
         long lsn = buffer.getLong();

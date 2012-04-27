@@ -5,7 +5,6 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -16,10 +15,17 @@ import java.util.*;
  * @author mscott
  */
 abstract class AbstractReadbackStrategy implements ReadbackStrategy {
+    private boolean                 consistent = false;
 
 
     public AbstractReadbackStrategy() {
 
+    }
+    
+    
+    @Override
+    public boolean isConsistent() {
+        return consistent;
     }
         
     protected BitSet scanFileChunkMagic(Chunk buffer) throws IOException {
@@ -56,6 +62,10 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         }
 // do we see chunk start?  
         if ( !SegmentHeaders.CHUNK_START.validate(buffer.peekInt()) ) {
+            if ( SegmentHeaders.CLOSE_FILE.validate(buffer.peekInt()) ) {
+//  close file magic is in a reasonable place, call this segment consistent
+                consistent = true;
+            }
             return null;
         }
         int start = buffer.getInt();

@@ -63,13 +63,28 @@ class NIOStreamImpl implements Stream {
         return streamId;
     }
     
+    boolean checkForCleanExit() throws IOException {
+        if ( segments.size() == 0 ) return true;
+        NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(segments.size()-1));
+        try {
+            pool.reclaim();
+            seg.openForReading(pool);
+            if ( seg.getStreamId().equals(streamId) ) 
+                throw new IOException(BAD_STREAM_ID);
+            return seg.wasProperlyClosed();
+        } finally {
+            seg.close();
+        }
+    }
+    
     void limit(UUID streamId, int segment,long position) throws IOException {
         for (int x=segments.size()-1;x>=0;x--) {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.get(x));
             try {
+                pool.reclaim();
                 seg.openForReading(pool);
-                if ( seg.getStreamId().equals(streamId) ) throw new IOException(
-                        BAD_STREAM_ID);
+                if ( seg.getStreamId().equals(streamId) ) 
+                    throw new IOException(BAD_STREAM_ID);
                 if ( seg.getSegmentId() > segment ) {
                     segments.get(x).delete();
                     segments.remove(x);
@@ -84,8 +99,10 @@ class NIOStreamImpl implements Stream {
         }
     }
     
-    private void enumerateSegments() throws IOException {                    
-        segments = Arrays.asList(directory.listFiles(SEGMENT_FILENAME_FILTER));
+    private void enumerateSegments() throws IOException {   
+        File[] list = directory.listFiles(SEGMENT_FILENAME_FILTER);
+        if ( list == null ) list = new File[0];
+        segments = Arrays.asList(list);
         
         segments = new ArrayList<File>(segments);
         Collections.sort(segments);        
@@ -101,14 +118,9 @@ class NIOStreamImpl implements Stream {
         
         position = segments.size()-1;
         
-    }
-    
-    public void shutdown() {
-        try {
-            close();
-        } catch (IOException io) {
-            throw new AssertionError(io);
-        }
+//        System.out.println("u:" + directory.getUsableSpace());
+//        System.out.println("t:" + directory.getTotalSpace());
+//        System.out.println("f:" + directory.getFreeSpace());
     }
     
     @Override
@@ -135,6 +147,7 @@ class NIOStreamImpl implements Stream {
             position = segments.size();
             segments.add(nf);
             
+            pool.reclaim();
             currentSegment = new NIOSegmentImpl(this, nf).openForWriting(pool);
         }
         
@@ -213,7 +226,7 @@ class NIOStreamImpl implements Stream {
         currentSegment = null;
     }
     
-    public int getSegmentId() {
+    int getSegmentId() {
         return currentSegment.getSegmentId();
     }
 

@@ -28,13 +28,15 @@ class NIOSegmentImpl {
     private final int           segNum;
     private final File          src;
     private FileChannel         segment;
-    
+
+//  for reading and writing
+    private FileBuffer          buffer;
+
 //  for reading 
     private ReadbackStrategy    strategy;
 
 //  for writing
     private FileLock            lock;
-    private FileBuffer          buffer;
     private ArrayList<Long>     writeJumpList;
     
 
@@ -68,25 +70,18 @@ class NIOSegmentImpl {
             fbuf = reader.getBuffer(bufferSize/=2);
         }
         
-        if ( fbuf == null ) {
-            MappedReadbackStrategy mapped = new MappedReadbackStrategy(segment);
+        buffer = ( fbuf == null ) ? new MappedFileBuffer(segment,FileChannel.MapMode.READ_ONLY,fileSize < Integer.MAX_VALUE ? (int)fileSize : Integer.MAX_VALUE) :
+                new FileBuffer(segment, fbuf);
             
-            strategy = mapped;
-            
-            readFileHeader(mapped.getBuffer());
-        } else {
-            buffer = new FileBuffer(segment, fbuf);
-            
-            buffer.partition(FILE_HEADER_SIZE).read(1);
-            readFileHeader(buffer);
+        buffer.partition(FILE_HEADER_SIZE).read(1);
+        readFileHeader(buffer);
 
-            if ( bufferSize >= segment.size() ) {
-    //  the buffer is big enough for the whole file.  cheat by reading forward 
-    //  then queueing backward.
-                strategy = new WholeFileReadbackStrategy(buffer);
-            } else {
-                throw new UnsupportedOperationException("only whole file read back supported");
-            }
+        if ( buffer.capacity() >= segment.size() ) {
+//  the buffer is big enough for the whole file.  cheat by reading forward 
+//  then queueing backward.
+            strategy = new WholeFileReadbackStrategy(buffer);
+        } else {
+            throw new UnsupportedOperationException("only whole file read back supported");
         }
                  
         return this;
@@ -119,9 +114,8 @@ class NIOSegmentImpl {
         segment = new FileOutputStream(src).getChannel();
         lock = segment.tryLock();
         if ( lock == null ) throw new IOException(LOCKED_FILE_ACCESS);
-        pool.reclaim();
         
-        buffer = new FileBuffer(segment, pool.getBuffer(100 * 1024));
+        buffer = new FileBuffer(segment, pool.getBuffer(10 * 1024 * 1024));
         
         writeJumpList = new ArrayList<Long>();
         
@@ -155,10 +149,12 @@ class NIOSegmentImpl {
         buffer.insert(c.getBuffers(), 1);
         buffer.putLong(amt);
         buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
-        long wl = buffer.write(c.getBuffers().length + 2);
-        writeJumpList.add(buffer.offset());
+        try {
+            return buffer.write(c.getBuffers().length + 2);
+        } finally {
+            writeJumpList.add(buffer.offset());
+        }
 
-        return wl;
     }
 
     public long close() throws IOException {
@@ -190,6 +186,7 @@ class NIOSegmentImpl {
             segment.force(false);
             lock.release();
             segment.close();
+            buffer = null;
             lock = null;
         } else {
             
@@ -217,6 +214,30 @@ class NIOSegmentImpl {
     public boolean isClosed() {
         return (segment == null);
     }
+    
+    public boolean wasProperlyClosed() throws IOException {
+        if ( strategy != null && strategy.isConsistent() ) {
+//  close file magic was seen as part of read back scan
+            return true;
+        } else {
+// do it the hard way
+            if ( segment.size() < FILE_HEADER_SIZE + ByteBufferUtils.INT_SIZE) {
+                return false;
+            }
+            assert(buffer.remaining() == buffer.capacity());
+            buffer.clear();
+            buffer.position(segment.size() - buffer.capacity()).read(1);
+            int fileEnd = buffer.getInt(buffer.remaining()-ByteBufferUtils.INT_SIZE);
+            if ( SegmentHeaders.CLOSE_FILE.validate(fileEnd) ) {
+                return true;
+            }
+            if ( SegmentHeaders.JUMP_LIST.validate(fileEnd) ) {
+                return true;
+            }
+            
+            return false;
+        }
+    }
 
     public Chunk next(Direction dir) throws IOException {
         if ( strategy.hasMore(dir) ) return strategy.iterate(dir);
@@ -232,7 +253,11 @@ class NIOSegmentImpl {
     }
     
     public void limit(long pos) throws IOException {
+        assert(SegmentHeaders.FILE_CHUNK.validate(buffer.get(pos-4)));
         segment.truncate(pos);
+        buffer.clear();
+        buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        buffer.write(1);
     }
     
 }

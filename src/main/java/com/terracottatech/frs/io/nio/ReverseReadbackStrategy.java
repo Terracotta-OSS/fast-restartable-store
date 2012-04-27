@@ -22,16 +22,17 @@ import java.util.*;
 class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     
     private boolean                 initialized = false;
+    private boolean                 consistent = false;
     private final Deque<Long>       fileJumps = new ArrayDeque<Long>();
     private final FileBuffer        buffer;
-    protected ListIterator<Chunk>   chunks;
-    protected Direction             queueDirection;    
+    private ListIterator<Chunk>   chunks;
+    private Direction             queueDirection;    
     
     public ReverseReadbackStrategy(FileBuffer buffer) {
         super();
         this.buffer = buffer;
     }
-
+    
     @Override
     public Iterator<Chunk> iterator() {
         throw new UnsupportedOperationException("Not supported yet.");

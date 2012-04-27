@@ -22,7 +22,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     protected Direction             queueDirection;
     
     public MappedReadbackStrategy(FileChannel data) throws IOException {
-        src = new MappedFileBuffer(data.map(MapMode.READ_ONLY, 0, data.size()));
+        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
     }
     
     public Chunk getBuffer() {

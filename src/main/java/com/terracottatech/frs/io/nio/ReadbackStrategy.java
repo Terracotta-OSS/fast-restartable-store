@@ -15,4 +15,5 @@ import java.io.IOException;
 public interface ReadbackStrategy extends Iterable<Chunk> {
     Chunk iterate(Direction dir) throws IOException;
     boolean hasMore(Direction dir) throws IOException;
+    boolean isConsistent();
 }

@@ -56,7 +56,8 @@ public class NIOManager implements IOManager {
     public long write(Chunk region) throws IOException {
         if (backend == null) {
             open();
-        }        
+        }    
+        
         return backend.append(region);
     }
 
@@ -123,6 +124,8 @@ public class NIOManager implements IOManager {
         }
         if ( crashed ) {
             checkForCrash();
+        } else {
+//            backend.checkForCleanExit();
         }
     }
     
@@ -145,6 +148,7 @@ public class NIOManager implements IOManager {
         FileChannel lckChk = new FileInputStream(lockFile).getChannel();
         if ( lckChk.size() != LOCKFILE_INFO_SIZE ) {
             // no good move on
+            
             return;
         }
         while ( check.hasRemaining() ) {

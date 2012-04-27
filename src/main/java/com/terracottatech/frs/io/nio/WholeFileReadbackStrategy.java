@@ -18,16 +18,16 @@ import java.util.*;
  */
 class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
     
-    FileBuffer                      buffer;
-    protected ListIterator<Chunk>   chunks;
-    protected Direction             queueDirection;
+    private final FileBuffer                      buffer;
+    private ListIterator<Chunk>   chunks;
+    private Direction             queueDirection;
     
     
     public WholeFileReadbackStrategy(FileBuffer buffer) {
         super();
         this.buffer = buffer;
     }
-
+    
     @Override
     public Iterator<Chunk> iterator() {
         try {
@@ -56,6 +56,7 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
             list.add(new WrappingChunk(chunk));
             chunk = readChunk(buffer);
         }
+        
         if ( dir == Direction.REVERSE ) Collections.reverse(list); 
         
         this.chunks = list.listIterator();

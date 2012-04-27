@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.Chunk;
 import java.nio.ByteBuffer;
 
 /**
@@ -46,7 +47,7 @@ public class LogRecordImpl implements LogRecord {
     public ByteBuffer[] getPayload() {
         ByteBuffer[] bufs = new ByteBuffer[payload.length];
         for (int x=0;x<payload.length;x++) {
-            bufs[x] = payload[x].duplicate();
+            bufs[x] = payload[x].asReadOnlyBuffer();
         }
         return bufs;
     }

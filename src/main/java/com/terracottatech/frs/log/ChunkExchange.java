@@ -7,14 +7,9 @@ package com.terracottatech.frs.log;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.Seek;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,18 +19,20 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ChunkExchange implements Iterable<LogRecord> {
 
-    private final ArrayBlockingQueue<LogRecord> queue = new ArrayBlockingQueue<LogRecord>(1000);
+    private final ArrayBlockingQueue<Chunk> queue;
     private final IOManager io;
-    private final LogRegionFactory packer;
     private volatile boolean done = false;
     private volatile int  count = 0;
     private final AtomicInteger  returned = new AtomicInteger(0);
     private long lastLsn = -1;
     private Exception exception;
+    
+    private long waiting;
+    private long reading;
 
-    ChunkExchange(IOManager io, Signature style) {
+    ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;
-        packer = new LogRegionPacker(style);
+        queue = new ArrayBlockingQueue<Chunk>(maxQueue);
     }
         
     public int returned() {
@@ -62,21 +59,19 @@ public class ChunkExchange implements Iterable<LogRecord> {
     long recover() {
         long totalRead = 0;
         try {
-            io.seek(Seek.END.getValue());
+            io.seek(IOManager.Seek.END.getValue());
             Chunk chunk;
+            long last = System.nanoTime();
             do {
                 chunk = io.read(Direction.REVERSE);
                 if (chunk != null) {
+                    count++;
                     totalRead += chunk.length();
-                    List<LogRecord> records = packer.unpack(chunk);
-                    Collections.reverse(records);
-                    for (LogRecord record : records) {
-                        if ( lastLsn < 0 ) {
-                            offerLastLsn(record.getLsn());
-                        }
-                        queue.put(record);
-                        count++;
-                    }
+                    reading += (System.nanoTime() - last);
+                    last = System.nanoTime();
+                    queue.put(chunk);
+                    waiting += (System.nanoTime() - last);
+                    last = System.nanoTime();
                 }
             } while (chunk != null);
             if ( lastLsn < 0 ) {
@@ -89,42 +84,56 @@ public class ChunkExchange implements Iterable<LogRecord> {
         } finally {
             done = true;
         }
+        System.out.format("read -- waiting: %d active: %d\n",waiting,reading);
         return totalRead;
     }
 
     @Override
     public Iterator<LogRecord> iterator() {
         return new Iterator<LogRecord>() {
-            LogRecord queued;
+            Deque<LogRecord> list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
 
             @Override
             public boolean hasNext() {
                 if ( exception != null ) throw new RuntimeException(exception);
+                if ( !list.isEmpty() ) return true;
                 try {
-                    if (  queued == null && done && count == returned.get()  ) return false;
-                    while ( queued == null) {
-                        queued = queue.poll(10, TimeUnit.SECONDS);
+                    Chunk queued = null;
+                    while ( queued == null && list.isEmpty() ) {
                         if ( done && count == returned.get() ) break;
+                        queued = queue.poll(10, TimeUnit.SECONDS);
+                        if ( queued != null ) {
+                            returned.incrementAndGet();
+                            List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
+                            Collections.reverse(records);
+                            list = new ArrayDeque<LogRecord>(records);
+                            for (LogRecord record : records) {
+                                if ( lastLsn < 0 ) {
+                                    offerLastLsn(record.getLsn());
+                                }
+                            }
+                        }
                     }
                 } catch (InterruptedException ie) {
                     throw new RuntimeException(ie);
+                } catch ( IOException ioe ) {
+                    throw new RuntimeException(ioe);
                 }
 
-                return queued != null;
+                return !list.isEmpty();
             }
 
             @Override
             public LogRecord next() {
                 if ( exception != null ) throw new RuntimeException(exception);
                 hasNext();
-                if (queued == null) {
+                if (list.isEmpty()) {
                     throw new NoSuchElementException();
                 }
                 try {
-                    returned.incrementAndGet();
-                    return queued;
+                    return list.removeFirst();
                 } finally {
-                    queued = null;
+
                 }
             }
 

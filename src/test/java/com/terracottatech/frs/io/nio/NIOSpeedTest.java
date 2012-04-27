@@ -43,14 +43,14 @@ public class NIOSpeedTest {
     }
     
     
-    @Test
+    @Test @Ignore
     public void nullSpeed() throws IOException {
         File nf = new File("/dev/null");
         FileChannel fc = new FileOutputStream(nf).getChannel();
         ByteBuffer buf = ByteBuffer.allocateDirect(512 * 1024);
         long w = 0;
         long n = System.nanoTime();
-        while ( w < 1L * 1024 * 1024 *1024 ) {
+        while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
             w += fc.write(buf);
             try {
@@ -70,7 +70,7 @@ public class NIOSpeedTest {
         ByteBuffer buf = ByteBuffer.allocateDirect(512 * 1024);
         long w = 0;
         long n = System.nanoTime();
-        while ( w < 1L * 1024 * 1024 *1024 ) {
+        while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
             w += fc.write(buf);
 //            fc.force(false);
@@ -85,7 +85,7 @@ public class NIOSpeedTest {
         Chunk c = new WrappingChunk(buf);
         long w = 0;
         long n = System.nanoTime();
-        while ( w < 1L * 1024 * 1024 *1024 ) {
+        while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
             w += stream.append(c);
 //            stream.sync();
@@ -108,7 +108,7 @@ public class NIOSpeedTest {
         
         long w = 0;
         long n = System.nanoTime();
-        while ( w < 1L * 1024 * 1024 *1024 ) {
+        while ( w < 128L * 1024 * 1024 ) {
             while ( c.hasRemaining() ) {
                 w += fc.write(c.getBuffers());
             }

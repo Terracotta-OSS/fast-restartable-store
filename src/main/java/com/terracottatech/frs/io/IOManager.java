@@ -23,4 +23,19 @@ public interface IOManager extends Closeable {
   
   void sync() throws IOException;
   
+  public enum Seek {
+    BEGINNING (0),
+    END (-1);
+    
+    Seek(long value) {
+        this.value = value;
+    }
+    
+    private long value;
+    
+    public long getValue() {
+        return value;
+    }
+}
+  
 }

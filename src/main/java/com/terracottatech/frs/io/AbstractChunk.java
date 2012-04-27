@@ -74,7 +74,7 @@ public abstract class AbstractChunk implements Chunk {
             }
         }
         return copy.toArray(new ByteBuffer[copy.size()]);
-    }
+    }    
     
     private BufferReference scanTo(long position) {
         ByteBuffer[] list = getBuffers();

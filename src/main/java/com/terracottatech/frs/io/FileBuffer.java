@@ -20,15 +20,15 @@ import java.util.Arrays;
  */
 public class FileBuffer extends AbstractChunk implements Closeable {
     
-    private final FileChannel channel;
-    private final ByteBuffer  base;
+    protected final FileChannel channel;
+    protected ByteBuffer      base;
+    protected ByteBuffer[]    ref;
     private int               mark = 0;
     private long              total = 0;
     private long              offset = 0;
-    private ByteBuffer[]      ref;
     
     public FileBuffer(FileChannel channel, ByteBuffer src) throws IOException {
-        this.channel = channel;
+        this.channel = channel;        
         this.base = src;
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
@@ -122,30 +122,85 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return lt;
     }
     
+    private long writeFully(ByteBuffer buffer) throws IOException {
+        long lt = 0;
+        while (buffer.hasRemaining()) {
+            lt += channel.write(buffer);
+        }
+        return lt;
+    }
+    
+    private ByteBuffer coalesce(ByteBuffer scratch, ByteBuffer[] list, int start, int count) {
+//  use the remaining buffer space as scratch space for small buffer aggregation and
+//  making sure the memory is direct memory
+        if ( count == 1 && (scratch.isDirect() == list[start].isDirect() || list[start].remaining() > scratch.remaining()) ) {
+    // waste of time
+            return list[start];
+        }
+        scratch.clear();
+        for (int x=start;x<start+count;x++) {
+            if ( list[x].remaining() < scratch.remaining() ) {
+                scratch.put(list[x]);
+            } else {
+ //  no more scratch space, write the remaining the hard way
+                throw new AssertionError("no space");
+            }
+        }
+  //  write out the private copy to disk
+        scratch.flip();
+        
+        return scratch;
+    }
+ //  need to do buffering b/c NIO des not handle small byte buffers quickly.   
     public long write(int count) throws IOException {
         long lt = 0;
+        int usage = 0;
+        int smStart = -1;
+//  see how much private buffer is being used by memory writing and flip those buffers
         for (int x=mark;x<mark + count;x++) {
-            if ( !ref[x].isReadOnly() ) ref[x].flip();
-            assert(ref[x].position() == 0);
+            if ( !ref[x].isReadOnly() ) {
+                usage +=  ref[x].position();
+                ref[x].flip();
+            }
         }
-        while (ref[mark+count-1].hasRemaining()) {
-            lt += channel.write(ref,mark,count);
+//  use the remaining buffer space as scratch space for small buffer aggregation and
+//  making sure the memory is direct memory
+        ByteBuffer memcpy = ((ByteBuffer)base.position(usage)).slice();
+        int currentRun = 0;
+        for (int x=mark;x<mark + count;x++) {
+            if ( ref[x].isDirect() && ref[x].remaining() > 512 ) {
+                if ( smStart >= 0 ) {
+ //  write out smalls first
+                    lt += writeFully(coalesce(memcpy, ref, smStart, x-smStart));
+                    smStart = -1;
+                    currentRun = 0;
+                }
+ //  write out big directs
+                lt += writeFully(coalesce(memcpy, ref, x, 1));
+            } else if ( currentRun + ref[x].remaining() > memcpy.capacity() ) {
+ // buffer is full
+                lt += writeFully(coalesce(memcpy, ref, smStart, x-smStart));
+                smStart = x;
+                currentRun = ref[x].remaining();
+            } else {
+                if ( smStart < 0 ) smStart = x;
+                currentRun += ref[x].remaining();
+            }
         }
+        
+        if ( smStart >= 0 ) {
+//  finish the writes
+            lt += writeFully(coalesce(memcpy, ref, smStart, (mark+count)-smStart));
+        }
+        
+        base.position(0);
         offset = channel.position();
         mark += count;
         total += lt;
         return lt;
     }
     
-    public void append(ByteBuffer[] bufs) {
-        int pos = ref.length;
-        ref = Arrays.copyOf(ref,ref.length + bufs.length);
-        for (int x=pos;x<bufs.length+pos;x++) {
-            ref[pos+x] = bufs[x].asReadOnlyBuffer();
-        }
-    }
-    
-    public void insert(ByteBuffer[] bufs,int loc) {
+    public void insert(ByteBuffer[] bufs,int loc) throws IOException {
         int len = ref.length;
         ref = Arrays.copyOf(ref,ref.length + bufs.length);
         System.arraycopy(ref, loc, ref, loc + bufs.length, len - loc);

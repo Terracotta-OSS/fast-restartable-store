@@ -53,7 +53,11 @@ public class NIOSpeedTest {
         while ( w < 1L * 1024 * 1024 *1024 ) {
             buf.position(0);
             w += fc.write(buf);
-            fc.force(false);
+            try {
+              fc.force(false);
+            } catch (IOException e) {
+              System.out.format("fsync on /dev/null threw %s [was this run on linux?]\n", e.toString());
+            }
         }
         n = System.nanoTime() - n;
         System.out.format("null %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));

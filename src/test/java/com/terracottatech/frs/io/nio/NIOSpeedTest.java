@@ -11,6 +11,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 
@@ -68,7 +69,7 @@ public class NIOSpeedTest {
         while ( w < 1L * 1024 * 1024 *1024 ) {
             buf.position(0);
             w += fc.write(buf);
-            fc.force(false);
+//            fc.force(false);
         }
         n = System.nanoTime() - n;
         System.out.format("raw %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
@@ -83,11 +84,35 @@ public class NIOSpeedTest {
         while ( w < 1L * 1024 * 1024 *1024 ) {
             buf.position(0);
             w += stream.append(c);
-            stream.sync();
+//            stream.sync();
         }
         n = System.nanoTime() - n;
         System.out.format("frs %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));        
     }
+    
+     
+    @Test
+    public void speedTiny() throws IOException {
+        File nf = folder.newFile();
+        FileChannel fc = new FileOutputStream(nf).getChannel();
+        ArrayList<ByteBuffer> fd = new ArrayList<ByteBuffer>();
+        for(int x=0;x<1024;x++) {
+            fd.add(ByteBuffer.allocateDirect(32));
+        }
+        
+        Chunk c = new WrappingChunk(fd.toArray(new ByteBuffer[fd.size()]));
+        
+        long w = 0;
+        long n = System.nanoTime();
+        while ( w < 1L * 1024 * 1024 *1024 ) {
+            while ( c.hasRemaining() ) {
+                w += fc.write(c.getBuffers());
+            }
+            c.flip();
+        }
+        n = System.nanoTime() - n;
+        System.out.format("tiny %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));        
+    }   
     
     @After
     public void tearDown() {

@@ -8,7 +8,6 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.Seek;
 import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
@@ -67,7 +66,7 @@ public class MockLogManager implements LogManager {
 
     public Iterator<LogRecord> reader() {
         try {
-            ioManager.seek(Seek.END.getValue());
+            ioManager.seek(IOManager.Seek.END.getValue());
             Chunk cc = ioManager.read(Direction.REVERSE);
             if ( cc == null ) return Collections.<LogRecord>emptyList().iterator();
             ArrayList<LogRecord> records = new ArrayList<LogRecord>();

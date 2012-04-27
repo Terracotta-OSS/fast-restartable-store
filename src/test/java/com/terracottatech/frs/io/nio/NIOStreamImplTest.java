@@ -34,7 +34,6 @@ public class NIOStreamImplTest {
     workArea = folder.newFolder();
     stream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE);
     long seed = System.currentTimeMillis();
-    System.out.println("Seed " + seed);
     r = new Random(seed);
   }
 
@@ -101,8 +100,8 @@ public class NIOStreamImplTest {
   @Ignore
   public void testSync() throws Exception {
     System.out.println("sync");
-    stream.append(new LogRegionPacker(Signature.ADLER32).pack(
-            new DummyLogRegion(Arrays.asList(new LogRecord[]{new RandomLogRecord()}))));
+    Chunk c = new WrappingChunk(ByteBuffer.allocateDirect(1024));
+    stream.append(c);
     stream.sync();
     File lock = new File(workArea.getAbsolutePath() + "/FRS.lck");
     assertTrue(lock.exists());

@@ -18,6 +18,7 @@ import com.terracottatech.frs.recovery.RecoveryManagerImpl;
 import com.terracottatech.frs.transaction.TransactionActions;
 import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.transaction.TransactionManagerImpl;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
 import java.util.Collections;
@@ -33,7 +34,7 @@ import org.junit.rules.TemporaryFolder;
 public class OnHeapTest {
 
     RestartStore store;
-    SimpleLogManager   logMgr;
+    StagingLogManager   logMgr;
     ActionManager actionMgr;
     ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectMgr;
     Map<ByteBuffer, Map<ByteBuffer, ByteBuffer>> external;
@@ -56,8 +57,8 @@ public class OnHeapTest {
     public void setUp() throws Exception {
         external = Collections.synchronizedMap(new HashMap<ByteBuffer, Map<ByteBuffer, ByteBuffer>>());
         ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectMgr = new MockObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(external);
-        IOManager ioMgr = new NIOManager(folder.getRoot().getAbsolutePath(), (1024 * 1024));
-        logMgr = new SimpleLogManager(ioMgr);
+        IOManager ioMgr = new NIOManager(folder.getRoot().getAbsolutePath(), ( 1024 * 1024));
+        logMgr = new StagingLogManager(ioMgr);
         ActionCodec codec = new ActionCodecImpl(objectMgr);
         TransactionActions.registerActions(0, codec);
         MapActions.registerActions(1, codec);
@@ -66,35 +67,51 @@ public class OnHeapTest {
         store = new RestartStoreImpl(objectMgr, transactionMgr);
     }
 
-    DecimalFormat df = new DecimalFormat("0000000");
+    DecimalFormat df = new DecimalFormat("0000000000");
     
-    private void addTransaction(int count, RestartStore store) throws Exception {
+    private int addTransaction(int count, RestartStore store) throws Exception {
         String[] r = {"foo","bar","baz","boo","tim","sar","myr","chr"};
         Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction = store.beginTransaction();
         ByteBuffer i = (ByteBuffer)ByteBuffer.allocate(4).putInt(1).flip();
         String sk = df.format(count);
         String sv = r[(int)(Math.random()*r.length)%r.length];
 //        System.out.format("insert: %s=%s\n",sk,sv);
-        ByteBuffer k = (ByteBuffer)ByteBuffer.allocate(25).put(sk.getBytes()).flip();
-        ByteBuffer v = (ByteBuffer)ByteBuffer.allocate(3).put(sv.getBytes()).flip();
+        ByteBuffer k = (ByteBuffer)ByteBuffer.allocate(1024).put(sk.getBytes()).position(1024).flip();
+        ByteBuffer v = (ByteBuffer)ByteBuffer.allocate(3000).put(sv.getBytes()).position(1024).flip();
+        int size = k.remaining() + v.remaining();
         transaction.put(i,k,v);
         transaction.commit();
+        return size;
     }
 
     @Test
     public void testIt() throws Exception {
         logMgr.startup();
         int count = 0;
-        for (int x=0;x<100;x++) {
-            addTransaction(x,store);  
-            count++;
+        long bin = 0;
+        long time = System.nanoTime();
+        while ( bin < 1 * 1024 * 1024 ) {
+            bin += addTransaction(count++,store);  
         }
+        System.out.format("%.6f sec.\n",(System.nanoTime() - time)/(1e9));
         logMgr.shutdown();
+//        System.out.println(logMgr.debugInfo());
+        System.out.format("bytes in: %d\n",bin);
+        
+        File[] list = folder.getRoot().listFiles();
+        long fl = 0;
+        for ( File f : list  ){
+            System.out.println(f.getName() + " " + f.length());
+            fl += f.length();
+        }
+        System.out.println("file total: " + fl);
 
+        time = System.nanoTime();
         logMgr.startup();
         external.clear();
         RecoveryManager recoverMgr = new RecoveryManagerImpl(logMgr, actionMgr);
         recoverMgr.recover();
+        System.out.format("%.6f sec.\n",(System.nanoTime() - time)/(1e9));
         long esize = 0;
         for ( Map.Entry e : external.entrySet() ) {
             esize += ((Map)e.getValue()).size();
@@ -154,7 +171,7 @@ public class OnHeapTest {
 //            System.out.format("size: %d\n",map.size());
 //        }
         logMgr.shutdown();
-        System.out.println(logMgr.debugInfo());
+//        System.out.println(logMgr.debugInfo());
     }
 
     @After

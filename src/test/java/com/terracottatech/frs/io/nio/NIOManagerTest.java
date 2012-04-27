@@ -4,8 +4,8 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.RandomLogRecord;
-import com.terracottatech.frs.io.DummyLogRegion;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.*;
 import org.junit.After;
 import org.junit.Before;
@@ -15,9 +15,9 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
@@ -62,9 +62,9 @@ public class NIOManagerTest {
         LogRegionPacker packer = new LogRegionPacker(Signature.ADLER32);
 
         for ( int x=0;x<count;x++) {
-            LogRegion test = createLogRegion();
+            Chunk test = createLogRegion();
             long start = System.nanoTime();
-            tb +=manager.write(packer.pack(test));
+            tb +=manager.write(test);
             System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
             
             if ( Math.random() * 10 < 1 ) {
@@ -90,27 +90,27 @@ public class NIOManagerTest {
     @Test 
     public void testAtomicMT() {
         System.out.println("Atomic MT append");
-        final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( lsn, 100),manager);
         testMTAppend(lm);
     }
 
     @Test
     public void testStackingMT() {
         System.out.println("Stacking MT append");
-        final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100),manager);
         testMTAppend(lm);
     }
     
      @Test
     public void testWriteSuspend() throws Exception {
         System.out.println("write then suspend");
-        final SimpleLogManager lm = new SimpleLogManager(new StackingCommitList(true, lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100),manager);
         lm.startup();
         lm.shutdown();
     }     
     
         
-    private void testMTAppend(final SimpleLogManager lm) {
+    private void testMTAppend(final StagingLogManager lm) {
         int count = 20;
         lm.startup();
         System.out.format("forming %d user threads\n",count);
@@ -125,11 +125,12 @@ public class NIOManagerTest {
                 public void run() {
                     int spins = 100;
                      System.out.format("pushing %d log records\n",spins);
+                     try {
                     for (int x=0;x<spins;x++) {
                         try {
                             long start = System.nanoTime();
                             int sync = (x%9);
-                            LogRecord lr = new RandomLogRecord();
+                            LogRecord lr = new TestLogRecord(100,1024);
                             if ( sync == 1 ) {
                                 lm.appendAndSync(lr).get();
                                 System.out.format("Log Stream sync time: %.6f sec \n", 
@@ -145,7 +146,9 @@ public class NIOManagerTest {
                             throw new AssertionError(e);
                         }
                     }
+                     } finally {
                     wait.countDown();
+                     }
                 }
                 
             }).start();
@@ -157,23 +160,13 @@ public class NIOManagerTest {
             throw new AssertionError(ie);
         }
         lm.shutdown();
-        long tb = lm.totalBytes();
-        System.out.format("bytes written: %.3fM in %.6f sec = %.3f MB/sec\n",tb/(1024d*1024d),
-                (System.nanoTime() - total)*1e-9,
-                (tb/(1024d*1024d))/((System.nanoTime() - total)*1e-9)
-                );
     }
     
-    private DummyLogRegion createLogRegion() throws IOException {
+    private Chunk createLogRegion() throws IOException {
         ArrayList<LogRecord> items = new ArrayList<LogRecord>();
-        DummyLogRegion region = new DummyLogRegion(items);
         int count = (int)(Math.random() * 100) + 3;
-        for ( int x=0;x<count;x++) {
-            LogRecord lr = new RandomLogRecord();
-            lr.updateLsn(lsn++);
-            items.add(lr);
-        }
-        return region;
+        
+        return new WrappingChunk(ByteBuffer.allocate(1024));
     }
 
     /**
@@ -182,10 +175,10 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       final SimpleLogManager lm = new SimpleLogManager(new AtomicCommitList(true, 100l, 100), manager);
+       final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
-            RandomLogRecord lr1 = new RandomLogRecord();
+            TestLogRecord lr1 = new TestLogRecord(100,1024);
            lm.append(lr1);
        }
 

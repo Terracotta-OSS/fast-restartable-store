@@ -13,12 +13,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import org.hamcrest.Matchers;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -31,20 +28,20 @@ public class AtomicCommitListTest {
 
   @Before
   public void setUp() throws Exception {
-    commitList = new AtomicCommitList(true, 10, 10);
+    commitList = new AtomicCommitList(10, 10);
   }
 
   @Test
   public void testBasicAppend() throws Exception {
     LogRecord record0 = record(10);
-    assertThat(commitList.append(record0), is(true));
+    assertThat(commitList.append(record0,false), is(true));
     // Test re-append
-    assertThat(commitList.append(record0), is(false));
+    assertThat(commitList.append(record0,false), is(false));
 
     // Test outside of range
-    assertThat(commitList.append(record(21)), is(false));
+    assertThat(commitList.append(record(21),false), is(false));
 
-    commitList.close(10, false);
+    commitList.close(10);
     for (LogRecord record : commitList) {
       assertThat(record, is(record0));
     }
@@ -53,19 +50,21 @@ public class AtomicCommitListTest {
   @Test
   public void testBasicClose() throws Exception {
     LogRecord record0 = record(10);
-    assertThat(commitList.append(record0), is(true));
+    assertThat(commitList.append(record0,false), is(true));
     LogRecord record1 = record(11);
-    assertThat(commitList.append(record1), is(true));
+    assertThat(commitList.append(record1,false), is(true));
 
-    assertThat(commitList.close(10, false), is(true));
+    assertThat(commitList.close(10), is(true));
     assertThat(commitList.isSyncRequested(), is(false));
     for (LogRecord record : commitList) {
       assertThat(record, is(record0));
     }
-
-    assertThat(commitList.next().close(11, true), is(true));
-    assertThat(commitList.next().isSyncRequested(), is(true));
-
+    
+    LogRecord record2 = record(12);
+    assertThat(commitList.append(record2,true), is(false));
+    assertThat(commitList.isSyncRequested(), is(false));
+   
+    commitList.next().close(11);
     for (LogRecord record : commitList.next()) {
       assertThat(record, is(record1));
     }
@@ -73,8 +72,8 @@ public class AtomicCommitListTest {
 
   @Test
   public void testWaitForContiguous() throws Exception {
-    assertThat(commitList.append(record(15)), is(true));
-    assertThat(commitList.close(15, false), is(true));
+    assertThat(commitList.append(record(15),false), is(true));
+    assertThat(commitList.close(15), is(true));
 
     final AtomicReference<Exception> error = new AtomicReference<Exception>();
     final AtomicBoolean waitComplete = new AtomicBoolean(false);
@@ -95,15 +94,15 @@ public class AtomicCommitListTest {
 
     for (int i = 16; i < 21; i++) {
       // Try appending a few records that land in the next link
-      assertThat(commitList.append(record(i)), is(false));
-      assertThat(commitList.next().append(record(i)), is(true));
+      assertThat(commitList.append(record(i),false), is(false));
+      assertThat(commitList.next().append(record(i),false), is(true));
     }
 
     waiter.join(5 * 1000); // Should still not be done waiting.
     assertThat(waitComplete.get(), is(false));
 
     for (int i = 10; i < 15; i++) {
-      assertThat(commitList.append(record(i)), is(true));
+      assertThat(commitList.append(record(i),false), is(true));
     }
 
     waiter.join(5 * 1000);
@@ -153,14 +152,14 @@ public class AtomicCommitListTest {
 
   private void append(LogRecord record) {
     CommitList l = commitList;
-    while (!l.append(record)) {
+    while (!l.append(record,false)) {
       l = l.next();
     }
   }
 
   private void close(long lsn) {
     CommitList l = commitList;
-    while (!l.close(lsn, false)) {
+    while (!l.close(lsn)) {
       l = l.next();
     }
   }

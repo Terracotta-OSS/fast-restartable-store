@@ -35,10 +35,11 @@ public class RotatingBufferSource implements BufferSource {
 
     @Override
     public ByteBuffer getBuffer(int size) {
-        clearQueue();
+        clearQueue(totalCapacity > MAX_CAPACITY);
         ByteBuffer factor = checkFree(size);
         while ( factor == null ) {
-            if ( waitForMoreCapacity() ) {
+            if ( totalCapacity > MAX_CAPACITY ) {
+                clearQueue(true);
                 factor = checkFree(size);
             } else {
                 // pad some extra for later
@@ -52,27 +53,18 @@ public class RotatingBufferSource implements BufferSource {
         return factor;
     }
     
-    private void clearQueue() {
+    private void clearQueue(boolean wait) {
         BaseHolder holder = (BaseHolder)queue.poll();
         while ( holder != null ) { 
             if ( used.remove(holder) ) {
                 returnBuffer(holder.getBase());
             }
-            holder = (BaseHolder)queue.poll();
-        };
-    }
-    
-    private synchronized boolean waitForMoreCapacity() {
-        boolean waited = false;
-        while ( totalCapacity > MAX_CAPACITY ) {
-            waited = true;
             try {
-                this.wait();
-            } catch ( InterruptedException ie ) {
-                throw new RuntimeException(ie);
+                holder = (wait) ? (BaseHolder)queue.remove() : (BaseHolder)queue.poll();
+            } catch ( InterruptedException re ) {
+                throw new RuntimeException(re);
             }
-        }
-        return waited;
+        };
     }
     
     private ByteBuffer addUsed(ByteBuffer buffer) {
@@ -81,7 +73,7 @@ public class RotatingBufferSource implements BufferSource {
         return pass;
     }
     
-    private ByteBuffer checkFree(int request) {
+    private  ByteBuffer checkFree(int request) {
         if ( freeList.isEmpty() ) return null;
         Iterator<ByteBuffer> list = freeList.iterator();
         while ( list.hasNext() ) {
@@ -113,7 +105,6 @@ public class RotatingBufferSource implements BufferSource {
             totalCapacity -= buffer.capacity();
 //                drop it on the floor
         }
-        this.notifyAll();
     }
 
     @Override

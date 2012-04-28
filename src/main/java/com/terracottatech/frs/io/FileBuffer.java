@@ -8,8 +8,6 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.lang.ref.PhantomReference;
-import java.lang.ref.ReferenceQueue;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;

@@ -75,13 +75,13 @@ public class RotatingBufferSource implements BufferSource {
         return waited;
     }
     
-    private synchronized ByteBuffer addUsed(ByteBuffer buffer) {
+    private ByteBuffer addUsed(ByteBuffer buffer) {
         ByteBuffer pass = buffer.duplicate();
         used.add(new BaseHolder(buffer,pass));
         return pass;
     }
     
-    private synchronized ByteBuffer checkFree(int request) {
+    private ByteBuffer checkFree(int request) {
         if ( freeList.isEmpty() ) return null;
         Iterator<ByteBuffer> list = freeList.iterator();
         while ( list.hasNext() ) {
@@ -105,7 +105,7 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     @Override
-    public synchronized void returnBuffer(ByteBuffer buffer) {
+    public void returnBuffer(ByteBuffer buffer) {
         if ( freeList.size() < 100 ) {
             freeList.add(buffer);
         } else {

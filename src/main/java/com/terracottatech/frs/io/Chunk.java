@@ -50,6 +50,7 @@ public interface Chunk {
     
     void skip(long jump);
     ByteBuffer[] getBuffers(long length);
+    Chunk getChunk(long length);
     
     void flip();
     void clear();

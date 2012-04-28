@@ -26,6 +26,5 @@ public class CopyingChunk extends AbstractChunk {
     @Override
     public ByteBuffer[] getBuffers() {
         return list;
-    }
-    
+    } 
 }

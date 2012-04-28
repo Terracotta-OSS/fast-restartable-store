@@ -258,7 +258,6 @@ public class StagingLogManager implements LogManager {
         try {
             record.updateLsn(lsn);
         } catch ( Error e ) {
-            e.printStackTrace();
             throw e;
         } finally {
         

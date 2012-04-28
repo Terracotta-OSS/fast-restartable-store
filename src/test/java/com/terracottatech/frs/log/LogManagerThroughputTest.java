@@ -47,9 +47,7 @@ public class LogManagerThroughputTest {
             DummyLogRecord log = new DummyLogRecord(1024,10 * 1024);
             count += log.size();
             if ( it++ % 100 == 99 ) {
-                long nano = System.nanoTime();
                 mgr.appendAndSync(log).get();
-                System.out.format("wait sync: %.6f\n",(System.nanoTime()-nano)/1e9);
             } else {
                 mgr.append(log);
             }

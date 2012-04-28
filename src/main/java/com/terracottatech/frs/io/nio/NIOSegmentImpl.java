@@ -115,7 +115,7 @@ class NIOSegmentImpl {
         lock = segment.tryLock();
         if ( lock == null ) throw new IOException(LOCKED_FILE_ACCESS);
         
-        buffer = new FileBuffer(segment, pool.getBuffer(10 * 1024 * 1024));
+        buffer = new FileBuffer(segment, pool.getBuffer(1 * 1024 * 1024));
         
         writeJumpList = new ArrayList<Long>();
         

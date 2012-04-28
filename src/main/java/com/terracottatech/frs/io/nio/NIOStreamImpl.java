@@ -37,7 +37,7 @@ class NIOStreamImpl implements Stream {
     
 
     private NIOSegmentImpl      currentSegment;
-    private final BufferSource  pool = new AllocatingBufferSource();
+    private final RotatingBufferSource  pool = new RotatingBufferSource();
     
     private long debugIn;
     private long debugOut;
@@ -176,6 +176,7 @@ class NIOStreamImpl implements Stream {
             currentSegment.close();
         }
         currentSegment = null;
+        System.out.println("buffer pool created: " + pool.getCount() + " capacity: " + pool.getCapacity());
     }
 
     @Override

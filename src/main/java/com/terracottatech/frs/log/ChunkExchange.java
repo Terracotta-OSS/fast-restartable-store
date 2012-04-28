@@ -28,9 +28,7 @@ public class ChunkExchange implements Iterable<LogRecord> {
     private long lastLsn = -1;
     private long lowestLsn = -1;
     private Exception exception;
-    
-    private long waiting;
-    private long reading;
+
 
     ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;
@@ -60,7 +58,10 @@ public class ChunkExchange implements Iterable<LogRecord> {
     }
 
     long recover() {
+        long waiting = 0;
+        long reading = 0;
         long totalRead = 0;
+        long fill = 0;
         try {
             io.seek(IOManager.Seek.END.getValue());
             Chunk chunk;
@@ -72,7 +73,8 @@ public class ChunkExchange implements Iterable<LogRecord> {
                     totalRead += chunk.length();
                     reading += (System.nanoTime() - last);
                     last = System.nanoTime();
-                    queue.put(new CopyingChunk(chunk));
+                    fill += queue.size();
+                    queue.put(chunk);
                     waiting += (System.nanoTime() - last);
                     last = System.nanoTime();
                 }
@@ -87,7 +89,7 @@ public class ChunkExchange implements Iterable<LogRecord> {
         } finally {
             done = true;
         }
-        System.out.format("read -- waiting: %d active: %d\n",waiting,reading);
+        System.out.format("read -- waiting: %d active: %d ave queue: %d\n",waiting,reading,(count==0)? 0 : fill/count);
         return totalRead;
     }
 

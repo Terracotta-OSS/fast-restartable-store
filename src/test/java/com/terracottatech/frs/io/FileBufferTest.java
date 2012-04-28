@@ -4,10 +4,13 @@
  */
 package com.terracottatech.frs.io;
 
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import org.junit.*;
 import static org.junit.Assert.*;
+import org.junit.rules.TemporaryFolder;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -15,6 +18,10 @@ import static org.mockito.Mockito.mock;
  * @author mscott
  */
 public class FileBufferTest {
+    
+    
+    @Rule
+    public TemporaryFolder folder = new TemporaryFolder();
     
     public FileBufferTest() {
     }
@@ -183,13 +190,23 @@ public class FileBufferTest {
     @Test @Ignore
     public void testWrite() throws Exception {
         System.out.println("write");
+        FileChannel channel = new FileOutputStream(folder.newFile()).getChannel();
+        ByteBuffer  direct = ByteBuffer.allocateDirect(10 * 1024);
         int count = 0;
-        FileBuffer instance = null;
+        FileBuffer instance = new FileBuffer(channel, direct);
         long expResult = 0L;
         long result = instance.write(count);
         assertEquals(expResult, result);
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
+    }
+    
+    ByteBuffer[] produceArray(int...sizes) {
+        ArrayList<ByteBuffer> bufs = new ArrayList<ByteBuffer>();
+        for ( int i : sizes ) {
+            bufs.add(ByteBuffer.allocate(i));
+        }
+        return bufs.toArray(new ByteBuffer[bufs.size()]);
     }
 
 

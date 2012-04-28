@@ -61,11 +61,11 @@ public abstract class AbstractChunk implements Chunk {
             if ( list[x].remaining() >= length - count ) {
                 ByteBuffer add = list[x].slice();
                 add.limit((int)(length-count));
-                copy.add(add);
+                copy.add(add.asReadOnlyBuffer());
                 list[x].position(list[x].position() + (int)(length-count));
                 count = length;
             } else {
-                copy.add(list[x].duplicate());
+                copy.add(list[x].asReadOnlyBuffer());
                 count += list[x].remaining();
                 list[x].position(list[x].limit());
             }
@@ -74,6 +74,19 @@ public abstract class AbstractChunk implements Chunk {
             }
         }
         return copy.toArray(new ByteBuffer[copy.size()]);
+    }  
+    
+
+    @Override
+    public Chunk getChunk(long length) {
+        final ByteBuffer[] list = getBuffers(length);
+        return new AbstractChunk() {
+
+            @Override
+            public ByteBuffer[] getBuffers() {
+                return list;
+            }
+        };
     }    
     
     private BufferReference scanTo(long position) {
@@ -193,7 +206,7 @@ public abstract class AbstractChunk implements Chunk {
     public int get(byte[] buf) {
         int count = 0;
         while ( count < buf.length ) {
-            ByteBuffer target = findEnd(BYTE_SIZE,true);
+            ByteBuffer target = findEnd(BYTE_SIZE,false);
             int pos = target.position();
             int sw = buf.length-count;
             count += target.get(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;            
@@ -217,7 +230,7 @@ public abstract class AbstractChunk implements Chunk {
     public void skip(long jump) {
         long count = 0;
         while ( count < jump ) {
-            ByteBuffer target = findEnd(SHORT_SIZE,true);
+            ByteBuffer target = findEnd(SHORT_SIZE,false);
             if ( jump - count > target.remaining() ) {
                 count += target.remaining();
                 target.position(target.limit());

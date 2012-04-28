@@ -8,11 +8,14 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.ref.PhantomReference;
+import java.lang.ref.ReferenceQueue;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Wrap a file in a chunk for easy access.
@@ -21,17 +24,25 @@ import java.util.Arrays;
 public class FileBuffer extends AbstractChunk implements Closeable {
     
     protected final FileChannel channel;
+    protected BufferSource src;
     protected ByteBuffer      base;
     protected ByteBuffer[]    ref;
     private int               mark = 0;
     private long              total = 0;
     private long              offset = 0;
     
+    private final AtomicInteger outReferences = new AtomicInteger(1);
+    
     public FileBuffer(FileChannel channel, ByteBuffer src) throws IOException {
         this.channel = channel;        
         this.base = src;
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
+    }
+     
+    public FileBuffer(FileChannel channel, BufferSource src) throws IOException {
+        this(channel,src.getBuffer((int)channel.size()));
+        this.src = src;
     }
 
     public FileBuffer(File src) throws IOException {
@@ -213,8 +224,14 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public void close() throws IOException {
         channel.close();
         ref = null;
+        dereference();
     }
     
-    
-
+    private void dereference() {
+        if ( outReferences.decrementAndGet() == 0 ) {
+            if ( src != null ) {
+                src.returnBuffer(base);
+            }
+        }
+    }
 }

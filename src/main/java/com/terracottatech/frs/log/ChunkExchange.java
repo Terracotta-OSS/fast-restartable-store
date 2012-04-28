@@ -131,6 +131,9 @@ public class ChunkExchange implements Iterable<LogRecord> {
   //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
                     if ( list.peek().getLsn() < lowestLsn ) {
                         done = true;
+                        // TODO: This is a total hack to work around the race between finishing
+                        // the iteration and the reader thread blocking on the queue.
+                        queue.clear();
                         return false;
                     } else {
                         return true;

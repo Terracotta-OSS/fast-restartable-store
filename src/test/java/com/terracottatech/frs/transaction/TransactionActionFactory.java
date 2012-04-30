@@ -12,15 +12,19 @@ import com.terracottatech.frs.action.Action;
 public class TransactionActionFactory {
   public TransactionActionFactory() {}
 
+  public TransactionHandle transactionHandle(long id) {
+    return new TransactionHandleImpl(id);
+  }
+
   public Action transactionBegin(long id) {
-    return new TransactionBeginAction(new TransactionHandleImpl(id));
+    return new TransactionBeginAction(transactionHandle(id));
   }
 
   public Action transactionCommit(long id) {
-    return new TransactionCommitAction(new TransactionHandleImpl(id));
+    return new TransactionCommitAction(transactionHandle(id));
   }
 
   public Action transactionalAction(long id, Action action) {
-    return new TransactionalAction(new TransactionHandleImpl(id), action);
+    return new TransactionalAction(transactionHandle(id), action);
   }
 }

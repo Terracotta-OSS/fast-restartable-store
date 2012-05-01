@@ -36,6 +36,11 @@ public class RotatingBufferSource implements BufferSource {
 
     @Override
     public ByteBuffer getBuffer(int size) {
+        //  super small, just allocate heap
+        if ( size < 1024 ) {
+            return ByteBuffer.allocate(size);
+        }
+        
         clearQueue(totalCapacity > MAX_CAPACITY);
         ByteBuffer factor = checkFree(size);
         int spins = 0;
@@ -47,16 +52,16 @@ public class RotatingBufferSource implements BufferSource {
                 // pad some extra for later
                 try {
                     int allocate = Math.round(size * 1.05f);
-                    if ( allocate < 1 * 1024 * 1024 ) allocate = 1 * 1024 * 1024 + 8;
+                    if ( allocate < 1024 * 1024 ) allocate = 1024 * 1024 + 8;
                     factor = ByteBuffer.allocateDirect(allocate);
+                     created += 1;
+                    totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
                     System.gc();
                     clearQueue(true);
                 }
-                created += 1;
-                totalCapacity += factor.capacity();
             }
-            if (spins++ > 10) {
+            if (spins++ > 100) {
                 return null;
             }
         }

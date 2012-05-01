@@ -119,11 +119,7 @@ public class MockIOManager implements IOManager {
             private Iterator<T> current;
 
             {
-                try {
-                    current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
-                } catch (IOException ioe) {
-                    throw new AssertionError(ioe);
-                }
+                current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
             }
 
             public boolean hasNext() {
@@ -137,11 +133,7 @@ public class MockIOManager implements IOManager {
                 if (!delegate.hasNext()) {
                     return false;
                 }
-                try {
-                    current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
-                } catch (IOException ioe) {
-                    throw new AssertionError(ioe);
-                }
+                current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
                 return current.hasNext();
             }
 

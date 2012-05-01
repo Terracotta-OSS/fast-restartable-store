@@ -70,8 +70,7 @@ class NIOSegmentImpl {
             fbuf = reader.getBuffer(bufferSize/=2);
         }
         
-        buffer = ( fbuf == null ) ? new MappedFileBuffer(segment,FileChannel.MapMode.READ_ONLY,fileSize < Integer.MAX_VALUE ? (int)fileSize : Integer.MAX_VALUE) :
-                new FileBuffer(segment, fbuf);
+        buffer = new FileBuffer(segment, fbuf);
             
         buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
@@ -81,7 +80,7 @@ class NIOSegmentImpl {
 //  then queueing backward.
             strategy = new WholeFileReadbackStrategy(buffer);
         } else {
-            throw new UnsupportedOperationException("only whole file read back supported");
+            strategy = new ReverseReadbackStrategy(segment,reader);
         }
                  
         return this;

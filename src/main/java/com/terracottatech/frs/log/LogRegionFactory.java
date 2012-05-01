@@ -14,6 +14,6 @@ import java.util.List;
  */
 public interface LogRegionFactory<T> {
 
-  Chunk pack(Iterable<T> payload) throws IOException;
-  List<T> unpack(Chunk data) throws IOException;
+  Chunk pack(Iterable<T> payload);
+  List<T> unpack(Chunk data);
 }

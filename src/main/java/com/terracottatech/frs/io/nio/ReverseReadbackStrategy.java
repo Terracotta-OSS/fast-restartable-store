@@ -4,15 +4,13 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.io.FileBuffer;
-import com.terracottatech.frs.io.WrappingChunk;
+import com.terracottatech.frs.io.*;
 import static com.terracottatech.frs.util.ByteBufferUtils.SHORT_SIZE;
 import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
 import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.*;
 
 /**
@@ -21,16 +19,20 @@ import java.util.*;
  */
 class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     
-    private boolean                 initialized = false;
     private boolean                 consistent = false;
     private final Deque<Long>       fileJumps = new ArrayDeque<Long>();
-    private final FileBuffer        buffer;
+    private final FileChannel        channel;
     private ListIterator<Chunk>   chunks;
-    private Direction             queueDirection;    
+    private Direction             queueDirection; 
+    private final BufferSource    bufferSrc;
+    private ByteBuffer              buffer;
     
-    public ReverseReadbackStrategy(FileBuffer buffer) {
+    private final int  READ_SIZE = 1024 * 1024;
+    
+    public ReverseReadbackStrategy(FileChannel channel, BufferSource src) {
         super();
-        this.buffer = buffer;
+        this.channel = channel;
+        bufferSrc = src;
     }
     
     @Override
@@ -45,7 +47,7 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
         if ( chunks == null ) queue(dir);
         
         if (  this.chunks.hasNext() ) return true;
-        if ( buffer.offset() > fileJumps.getFirst() ) {
+        if ( channel.position() > fileJumps.getFirst() ) {
             return true;
         }
         return false;
@@ -64,53 +66,56 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
         ArrayList<Chunk> list = new ArrayList<Chunk>();
         if ( dir != Direction.REVERSE ) throw new UnsupportedOperationException("reverse iteration only");
         
-        if ( !initialized ) {
+        if ( buffer == null ) {
+            buffer = bufferSrc.getBuffer(READ_SIZE);
             buffer.clear();
-            buffer.position(-buffer.capacity());
-            long read = buffer.read(1);
-            assert(read == buffer.length());
-            initialized = true;
+            channel.position(-buffer.capacity());
         } else {
-            int front = buffer.getBuffers()[0].remaining();
-            assert(buffer.getBuffers()[0].position() == 0);
-            int confirm = buffer.getBuffers()[1].getInt(buffer.getBuffers()[1].position()-4);
+            int front = buffer.position();
+            int confirm = buffer.getInt(buffer.position()-4);
             assert(SegmentHeaders.FILE_CHUNK.validate(confirm) || SegmentHeaders.CLOSE_FILE.validate(confirm));
             buffer.clear();
-            long cp = buffer.offset();
-            if ( cp < buffer.length() ) {
-                buffer.position(0).limit(cp);
-                buffer.partition((int)cp);
+            long cp = channel.position();
+            ByteBuffer copy = bufferSrc.getBuffer(READ_SIZE);
+            if ( cp < copy.capacity() ) {
+                copy.limit((int)cp);
+                channel.position(0);
             } else {
-                buffer.position(cp - buffer.capacity() + (int)front);
-                buffer.bufferMove(0, buffer.capacity() - (int)front, front);
-                buffer.partition(buffer.capacity() - (int)front);
+                copy.limit(front);
+                channel.position(cp - buffer.capacity() + front);
             }
-            buffer.read(1);
+            while ( copy.hasRemaining() ) channel.read(copy);
+            copy.limit(copy.capacity());
+            copy.put(buffer);
+            copy.clear();
+            buffer = copy;
         }
-        long pos = findStartLocation();
+        int pos = findStartLocation();
         if ( pos >= 0 ) {
-            buffer.partition((int)(pos - buffer.offset()));
-            Chunk c = new WrappingChunk(buffer.getBuffers()[1]);
+            buffer.position(pos);
+            buffer.mark();
+            Chunk c = new WrappingChunk(buffer);
             ByteBuffer[] dest = readChunk(c);
             while ( dest != null ) {
                 list.add(new WrappingChunk(dest));
                 dest = readChunk(c);
             }
+            buffer.reset();
             Collections.reverse(list);
             this.chunks = list.listIterator();
             this.queueDirection = dir;
         }
     }
     
-    private long findStartLocation() throws IOException {
+    private int findStartLocation() throws IOException {
         if ( !fileJumps.isEmpty() ) {
             for ( long jump : fileJumps ) {
-                if ( jump >= buffer.position() ) return jump;
+                if ( jump >= channel.position() ) return (int)(jump - channel.position());
             }
         }
         
  //  look for close file magic at the end of the buffer
-        long pos = buffer.length()-INT_SIZE;
+        int pos = buffer.limit()-INT_SIZE;
         int cfm = buffer.getInt(pos);
         int fc = 0;
         if ( SegmentHeaders.JUMP_LIST.validate(cfm) ) {
@@ -124,7 +129,7 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
                 }
                 if ( SegmentHeaders.CLOSE_FILE.validate(buffer.getInt(pos-INT_SIZE)) ) {
                     for ( long next : fileJumps ) {
-                        if ( next >= buffer.position() ) return next;
+                        if ( next >= channel.position() ) return (int)(next - channel.position());
                     }
                     throw new IOException("buffer is not wide enough");
                 }
@@ -140,14 +145,14 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
        //  looks like a file chunk, jump to the next
             pos = jumpBackwardChunk(pos-INT_SIZE);
             while ( pos >= 0 ) {
-                fileJumps.push(buffer.position()+pos);
+                fileJumps.push(channel.position()+pos);
                 pos = jumpBackwardChunk(pos);
             }
             if ( fileJumps.isEmpty() ) throw new IOException("buffer is not wide enough");
-            return fileJumps.getFirst();
+            return (int)(fileJumps.getFirst() - channel.position());
         }
  //   brute force
-        BitSet fcs = scanFileChunkMagic(buffer);
+        BitSet fcs = scanFileChunkMagic(new WrappingChunk(buffer));
         int attempt = 0;
         while ( attempt >= 0 ) {
             pos = fcs.nextSetBit(attempt+1);
@@ -168,10 +173,10 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
         return -1;
     }
     
-    private long jumpBackwardChunk(long magicPos) throws IOException {
+    private int jumpBackwardChunk(int magicPos) throws IOException {
         if ( magicPos < 0 ) return -1;
         if ( !SegmentHeaders.FILE_CHUNK.validate(buffer.getInt(magicPos)) ) return -1;
-        long pos = magicPos - LONG_SIZE;
+        int pos = magicPos - LONG_SIZE;
         if ( pos < 0 ) return -1;
         long length = buffer.getLong(pos);
         pos -= length;

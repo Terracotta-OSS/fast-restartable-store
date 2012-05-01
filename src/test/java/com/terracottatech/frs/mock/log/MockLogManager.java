@@ -47,11 +47,11 @@ public class MockLogManager implements LogManager {
   public void startup() {
   }
 
-  @Override
-  public void shutdown() {
-  }
+    @Override
+    public void shutdown() {
+    }
 
-  public synchronized Future<Void> append(LogRecord record) {
+    public synchronized Future<Void> append(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
             ioManager.write(packer.pack(new MockLogRegion(record)));
@@ -76,55 +76,59 @@ public class MockLogManager implements LogManager {
         try {
             ioManager.seek(IOManager.Seek.END.getValue());
             Chunk cc = ioManager.read(Direction.REVERSE);
-            if ( cc == null ) return Collections.<LogRecord>emptyList().iterator();
+            if (cc == null) {
+                return Collections.<LogRecord>emptyList().iterator();
+            }
             ArrayList<LogRecord> records = new ArrayList<LogRecord>();
-            while ( cc != null ) {
+            while (cc != null) {
                 List<LogRecord> rlist = new MockLogRegionFactory().unpack(cc);
                 Collections.reverse(rlist);
                 records.addAll(rlist);
                 cc = ioManager.read(Direction.REVERSE);
             }
             return records.iterator();
-        } catch ( IOException ioe ) {
+        } catch (IOException ioe) {
             throw new AssertionError(ioe);
         }
     }
 
-static class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
+    static class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
 
-    @Override
-    public Chunk pack(Iterable<LogRecord> payload) throws IOException {
-        ArrayList<ByteBuffer> list = new ArrayList<ByteBuffer>();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream oo = new ObjectOutputStream(bos);        
-        for ( LogRecord record : payload ) {
-            oo.writeObject(record);
-        }
-        oo.close();
-        list.add(ByteBuffer.wrap(bos.toByteArray()));
-        return new BufferListWrapper(list);
-        
-    }
+        @Override
+        public Chunk pack(Iterable<LogRecord> payload) {
+            try {
+                ArrayList<ByteBuffer> list = new ArrayList<ByteBuffer>();
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream oo = new ObjectOutputStream(bos);
+                for (LogRecord record : payload) {
+                    oo.writeObject(record);
+                }
+                oo.close();
+                list.add(ByteBuffer.wrap(bos.toByteArray()));
+                return new BufferListWrapper(list);
+            } catch (IOException ioe) {
+                throw new RuntimeException(ioe);
+            }
 
-    @Override
-    public List<LogRecord> unpack(Chunk data) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        WritableByteChannel w = Channels.newChannel(bos);
-        for ( ByteBuffer buf : data.getBuffers(data.length()) ) {
-            w.write(buf);
         }
-        w.close();
-        ByteArrayInputStream chunk = new ByteArrayInputStream(bos.toByteArray());
-        ObjectInput in = new ObjectInputStream(chunk);
-        ArrayList<LogRecord> list = new ArrayList<LogRecord>();
-        try {
-                list.add((LogRecord)in.readObject());
-        } catch (ClassNotFoundException ex) {
-            throw new IOException(ex);
-        } catch ( EOFException eof ) {
-          throw new RuntimeException(eof);
+
+        @Override
+        public List<LogRecord> unpack(Chunk data) {
+            try {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                WritableByteChannel w = Channels.newChannel(bos);
+                for (ByteBuffer buf : data.getBuffers(data.length())) {
+                    w.write(buf);
+                }
+                w.close();
+                ByteArrayInputStream chunk = new ByteArrayInputStream(bos.toByteArray());
+                ObjectInput in = new ObjectInputStream(chunk);
+                return Collections.singletonList((LogRecord) in.readObject());
+            } catch (ClassNotFoundException ex) {
+                throw new RuntimeException(ex);                
+            } catch (IOException ioe) {
+                throw new RuntimeException(ioe);
+            }
         }
-        return list;
     }
-}
 }

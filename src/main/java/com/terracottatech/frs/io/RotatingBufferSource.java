@@ -37,7 +37,7 @@ public class RotatingBufferSource implements BufferSource {
     @Override
     public ByteBuffer getBuffer(int size) {
         //  super small, just allocate heap
-        if ( size < 1024 ) {
+        if ( size < 512 * 1024 ) {
             return ByteBuffer.allocate(size);
         }
         

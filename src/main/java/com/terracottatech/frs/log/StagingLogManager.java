@@ -6,11 +6,9 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.RotatingBufferSource;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -40,8 +38,8 @@ public class StagingLogManager implements LogManager {
     
     private static final int MAX_QUEUE_SIZE = 1000;
     
-    private ChunkExchange exchanger;
-    private final ArrayBlockingQueue<LogRegionPacker> queue = new ArrayBlockingQueue<LogRegionPacker>(20);
+    private ChunkExchange           exchanger;
+    private final ArrayBlockingQueue<WritingPackage> queue = new ArrayBlockingQueue<WritingPackage>(20);
     
     public StagingLogManager(IOManager io) {
         this(Signature.NONE,new AtomicCommitList( 100l, MAX_QUEUE_SIZE),io);
@@ -77,7 +75,10 @@ public class StagingLogManager implements LogManager {
     private class WriteQueuer extends Thread {
       long waiting;
       long processing;
-      List<LogRegionPacker> pool = Collections.synchronizedList(new ArrayList<LogRegionPacker>());
+      
+      RotatingBufferSource    buffers = new RotatingBufferSource();
+      LogRegionFactory        regionFactory = new CopyingPacker(checksumStyle,buffers);
+      
         
       WriteQueuer() {
         setDaemon(true);
@@ -85,14 +86,8 @@ public class StagingLogManager implements LogManager {
         setPriority(MAX_PRIORITY);
       }
       
-      void returnPacker(LogRegionPacker packer) {
-          if ( packer == null ) return;
-          packer.clear();
-          pool.add(packer);
-      }
-      
       void done() {
-          pool = null;
+          regionFactory = null;
           this.interrupt();
       }
     
@@ -102,7 +97,7 @@ public class StagingLogManager implements LogManager {
         long turns = 0;
         long size = 0;
         int fill = 0;
-        while (pool != null) {
+        while (regionFactory != null) {
           CommitList oldRegion = currentRegion;
           try {
             if ( state != MachineState.NORMAL ) {
@@ -122,9 +117,7 @@ public class StagingLogManager implements LogManager {
                 oldRegion.written();
                 continue;
             }
-            LogRegionPacker packer = ( pool.isEmpty() ) ? new LogRegionPacker(checksumStyle) : pool.remove(0);
-            Chunk send = packer.pack(oldRegion);
-            queue.put(packer);
+            queue.put(new WritingPackage(oldRegion,regionFactory.pack(oldRegion)));
             size += queue.size();
             fill += (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
             turns+=1;
@@ -169,7 +162,7 @@ public class StagingLogManager implements LogManager {
         
         long last = System.nanoTime();
         while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
-          LogRegionPacker packer = null;
+          WritingPackage packer = null;
           try {
             long mark = System.nanoTime();
             writing += (mark - last);
@@ -195,7 +188,7 @@ public class StagingLogManager implements LogManager {
           } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
           } finally {
-              queuer.returnPacker(packer);
+
           }
         }
         
@@ -321,4 +314,34 @@ public class StagingLogManager implements LogManager {
     }
 
 
+    static class WritingPackage {
+        CommitList list;
+        Chunk      data;
+        
+        WritingPackage(CommitList list, Chunk data) {
+            this.list= list;
+            this.data = data;
+        }
+
+    
+        public long lsn() {
+            return list.getEndLsn();
+        }
+
+        public boolean doSync() {
+            return list.isSyncRequested();
+        }
+
+        public void written() {
+            list.written();
+        }
+        
+        public Chunk take() {
+            try {
+                return data;
+            } finally {
+                data = null;
+            }
+        }
+    }
 }

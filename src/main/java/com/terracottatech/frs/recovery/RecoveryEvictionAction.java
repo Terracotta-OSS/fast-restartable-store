@@ -9,15 +9,12 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
@@ -49,12 +46,6 @@ class RecoveryEvictionAction implements InvalidatingAction {
 
   @Override
   public Set<Long> replay(long lsn) {
-    return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-    // This is probably only OK for now.
     return Collections.emptySet();
   }
 

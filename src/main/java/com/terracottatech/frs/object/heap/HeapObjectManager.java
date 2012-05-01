@@ -126,13 +126,17 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
 
     @Override
-    public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+    public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
       Lock l = lock.writeLock();
       l.lock();
       try {
         assert compactingEntry == null;
         K firstKey = lsnMap.firstKey();
         if (firstKey != null) {
+          if (lsnMap.firstValue() >= ceilingLsn) {
+            l.unlock();
+            return null;
+          }
           long lsn = lsnMap.get(firstKey);
           V value = dataMap.get(firstKey);
           compactingEntry = new SimpleObjectManagerEntry<I, K, V>(identifier(), firstKey, value, lsn);

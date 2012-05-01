@@ -99,10 +99,10 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+  public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
     assert compactingEntry == null;
     Entry<CompleteKey<I, K>, Long> lowest = lowestEntry();
-    if (lowest != null) {
+    if (lowest != null && lowest.getValue() < ceilingLsn) {
       V value = external.get(lowest.getKey().getId()).get(lowest.getKey().getKey());
       long lsn = lowest.getValue();
       compactingEntry = new SimpleObjectManagerEntry<I, K, V>(lowest.getKey().getId(),

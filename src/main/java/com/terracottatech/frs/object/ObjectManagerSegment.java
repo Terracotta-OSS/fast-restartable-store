@@ -14,7 +14,7 @@ public interface ObjectManagerSegment<I, K, V> {
 
   I identifier();
 
-  ObjectManagerEntry<I, K, V> acquireCompactionEntry();
+  ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn);
 
   void updateLsn(int hash, ObjectManagerEntry<I, K, V> entry, long newLsn);
 

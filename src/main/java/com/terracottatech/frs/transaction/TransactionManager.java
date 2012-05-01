@@ -46,4 +46,11 @@ public interface TransactionManager {
    * @throws TransactionException thrown if the flush fails for some reason
    */
   void happened(Action action) throws InterruptedException, TransactionException;
+
+  /**
+   * Get the beginning LSN of the lowest open transaction in the system.
+   *
+   * @return lowest transaciton begin LSN of a live transaction
+   */
+  long getLowestOpenTransactionLsn();
 }

@@ -49,9 +49,10 @@ public interface ObjectManager<I, K, V> {
   /**
    * Get and lock an entry to be compacted in the object manager
    *
+   * @param ceilingLsn highest LSN eligible for compaction
    * @return entry to be compacted.
    */
-  ObjectManagerEntry<I, K, V> acquireCompactionEntry();
+  ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn);
 
   /**
    * Release the lock entry after compaction is complete.

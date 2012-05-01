@@ -10,14 +10,11 @@ import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
@@ -52,7 +49,7 @@ public class PutAction implements InvalidatingAction {
 
   protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
             ByteBuffer key, ByteBuffer value) {
-    this(objectManager, compactor, id, key, value, -1L);
+    this(objectManager, compactor, id, key, value, objectManager.getLsn(id, key));
   }
 
   public PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
@@ -93,14 +90,6 @@ public class PutAction implements InvalidatingAction {
   @Override
   public Set<Long> replay(long lsn) {
     return objectManager.replayPut(getId(), getKey(), getValue(), lsn);
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-    Lock lock = lockProvider.getLockForKey(id, key).writeLock();
-    lock.lock();
-    invalidatedLsn = objectManager.getLsn(id, key);
-    return Collections.singleton(lock);
   }
 
   @Override

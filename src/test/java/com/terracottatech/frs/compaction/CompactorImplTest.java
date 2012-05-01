@@ -88,7 +88,7 @@ public class CompactorImplTest {
     private long lsn = 100L;
 
     @Override
-    public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> acquireCompactionEntry() {
+    public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> acquireCompactionEntry(long ceilingLsn) {
       assert compactingEntry == null;
       if (lsn % 3 == 0) {
         return null;

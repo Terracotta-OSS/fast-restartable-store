@@ -16,8 +16,8 @@ public class TransactionActionFactory {
     return new TransactionHandleImpl(id);
   }
 
-  public Action transactionBegin(long id) {
-    return new TransactionBeginAction(transactionHandle(id));
+  public Action transactionBegin(long id, TransactionLSNCallback callback) {
+    return new TransactionBeginAction(transactionHandle(id), callback);
   }
 
   public Action transactionCommit(long id) {

@@ -7,14 +7,11 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.*;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
@@ -34,14 +31,14 @@ class RemoveAction implements InvalidatingAction {
   private final Compactor compactor;
   private final ByteBuffer id;
   private final ByteBuffer key;
-
-  private long invalidatedLsn;
+  private final long invalidatedLsn;
 
   RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key) {
     this.objectManager = objectManager;
     this.compactor = compactor;
     this.id = id;
     this.key = key;
+    this.invalidatedLsn = objectManager.getLsn(id, key);
   }
 
   @Override
@@ -61,14 +58,6 @@ class RemoveAction implements InvalidatingAction {
   public Set<Long> replay(long lsn) {
     // Nothing to remove on replay
     return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-    Lock lock = lockProvider.getLockForKey(id, key).writeLock();
-    lock.lock();
-    invalidatedLsn = objectManager.getLsn(id, key);
-    return Collections.singleton(lock);
   }
 
   @Override

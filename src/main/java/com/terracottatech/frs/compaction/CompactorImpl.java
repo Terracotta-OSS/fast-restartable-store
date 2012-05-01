@@ -95,8 +95,9 @@ public class CompactorImpl implements Compactor {
   private void compact(long currentLsn, long liveSize) throws TransactionException,
           InterruptedException {
     compactionCondition.drainPermits();
+    long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     for (long i = 0; i < liveSize; i++) {
-      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry();
+      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
       if (compactionEntry != null) {
         try {
           // The way this termination condition works is by checking the approximate length

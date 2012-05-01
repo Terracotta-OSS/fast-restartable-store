@@ -7,16 +7,13 @@ package com.terracottatech.frs.action;
 import com.terracottatech.frs.MapActions;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActions;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
@@ -66,11 +63,6 @@ public class ActionCodecImplTest {
     @Override
     public Set<Long> replay(long lsn) {
       return Collections.emptySet();
-    }
-
-    @Override
-    public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-      return null;
     }
 
     @Override

@@ -4,14 +4,10 @@
  */
 package com.terracottatech.frs.action;
 
-import com.terracottatech.frs.transaction.TransactionLockProvider;
-
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
@@ -34,11 +30,6 @@ public class SimpleInvalidatingAction implements InvalidatingAction {
 
   @Override
   public Set<Long> replay(long lsn) {
-    return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
     return Collections.emptySet();
   }
 

@@ -63,12 +63,12 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
    * @return Compaction entry
    */
   @Override
-  public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+  public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
     ObjectManagerSegment<I, K, V> stripe = getCompactionSource();
     if (stripe == null) {
       return null;
     } else {
-      return stripe.acquireCompactionEntry();
+      return stripe.acquireCompactionEntry(ceilingLsn);
     }
   }
 

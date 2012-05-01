@@ -9,14 +9,11 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
@@ -55,13 +52,6 @@ class DeleteAction implements Action {
   public Set<Long> replay(long lsn) {
     // nothing to do on replay
     return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-    Lock lock = lockProvider.getLockForId(id).writeLock();
-    lock.lock();
-    return Collections.singleton(lock);
   }
 
   @Override

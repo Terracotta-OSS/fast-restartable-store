@@ -24,12 +24,13 @@ import static org.mockito.Mockito.mock;
 public class TransactionActionsTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer>   actionCodec;
+  private TransactionLSNCallback callback;
 
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
     actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
-
+    callback = mock(TransactionLSNCallback.class);
     TransactionActions.registerActions(0, actionCodec);
     MapActions.registerActions(1, actionCodec);
   }
@@ -40,7 +41,7 @@ public class TransactionActionsTest {
 
   @Test
   public void testTransactionBegin() throws Exception {
-    Action begin = new TransactionBeginAction(new TransactionHandleImpl(10L));
+    Action begin = new TransactionBeginAction(new TransactionHandleImpl(10L), callback);
     checkEncodeDecode(begin);
   }
 
@@ -52,7 +53,7 @@ public class TransactionActionsTest {
 
   @Test
   public void testTransactionalAction() throws Exception {
-    Action txnBegin = new TransactionBeginAction(new TransactionHandleImpl(1L));
+    Action txnBegin = new TransactionBeginAction(new TransactionHandleImpl(1L), callback);
     Action txn = new TransactionalAction(new TransactionHandleImpl(3L), txnBegin);
 
     ByteBuffer[] encoded = actionCodec.encode(txn);

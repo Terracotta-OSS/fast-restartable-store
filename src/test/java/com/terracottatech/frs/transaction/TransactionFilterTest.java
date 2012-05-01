@@ -19,12 +19,14 @@ import static org.mockito.Mockito.*;
 public class TransactionFilterTest {
   private Filter<Action> delegate;
   private TransactionFilter filter;
+  private TransactionLSNCallback callback;
 
   @Before
   public void setUp() throws Exception {
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
     filter = new TransactionFilter(delegate);
+    callback = mock(TransactionLSNCallback.class);
   }
 
   @Test
@@ -85,6 +87,6 @@ public class TransactionFilterTest {
   }
 
   private TransactionBeginAction transactionBeginAction(long id) {
-    return new TransactionBeginAction(new TransactionHandleImpl(id));
+    return new TransactionBeginAction(new TransactionHandleImpl(id), callback);
   }
 }

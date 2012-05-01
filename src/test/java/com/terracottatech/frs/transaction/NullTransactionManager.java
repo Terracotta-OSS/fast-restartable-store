@@ -28,4 +28,9 @@ public class NullTransactionManager implements TransactionManager {
   @Override
   public void happened(Action action) throws InterruptedException, TransactionException {
   }
+
+  @Override
+  public long getLowestOpenTransactionLsn() {
+    return 0;
+  }
 }

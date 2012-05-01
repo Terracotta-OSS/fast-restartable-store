@@ -12,10 +12,8 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
 
@@ -67,11 +65,6 @@ class TransactionalAction implements InvalidatingAction {
   @Override
   public Set<Long> replay(long lsn) {
     return action.replay(lsn);
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
-    return action.lock(lockProvider);
   }
 
   @Override

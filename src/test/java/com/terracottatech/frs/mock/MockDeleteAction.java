@@ -6,15 +6,11 @@ package com.terracottatech.frs.mock;
 
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.mock.action.MockAction;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.object.ObjectManager;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 public class MockDeleteAction<I> implements MockAction, Serializable {
 
@@ -39,13 +35,6 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
   @Override
   public Set<Long> replay(long lsn) {
     throw new AssertionError();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider locks) {
-    Lock idLock = locks.getLockForId(id).writeLock();
-    idLock.lock();
-    return Collections.singleton(idLock);
   }
 
   @Override

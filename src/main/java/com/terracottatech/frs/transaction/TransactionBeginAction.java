@@ -11,29 +11,36 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  * @author tim
  */
 class TransactionBeginAction implements Action {
+  public static final TransactionLSNCallback NO_RECORD_CALLBACK = new TransactionLSNCallback() {
+    @Override
+    public void setLsn(TransactionHandle handle, long lsn) {
+      throw new AssertionError();
+    }
+  };
+
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
             public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                  ActionCodec codec, ByteBuffer[] buffers) {
               return new TransactionBeginAction(
-                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)));
+                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)), NO_RECORD_CALLBACK);
             }
           };
 
   private final TransactionHandle handle;
+  private final TransactionLSNCallback callback;
 
-  TransactionBeginAction(TransactionHandle handle) {
+  TransactionBeginAction(TransactionHandle handle, TransactionLSNCallback callback) {
     this.handle = handle;
+    this.callback = callback;
   }
 
   TransactionHandle getHandle() {
@@ -42,16 +49,11 @@ class TransactionBeginAction implements Action {
 
   @Override
   public void record(long lsn) {
-
+    callback.setLsn(handle, lsn);
   }
 
   @Override
   public Set<Long> replay(long lsn) {
-    return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider lockProvider) {
     return Collections.emptySet();
   }
 

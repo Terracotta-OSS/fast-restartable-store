@@ -4,6 +4,11 @@
  */
 package com.terracottatech.frs.mock.transaction;
 
+import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.transaction.TransactionHandle;
+import com.terracottatech.frs.transaction.TransactionManager;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,12 +18,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
-
-import com.terracottatech.frs.action.ActionManager;
-import com.terracottatech.frs.transaction.TransactionHandle;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
-import com.terracottatech.frs.transaction.TransactionManager;
-import com.terracottatech.frs.action.Action;
 
 /**
  *
@@ -31,11 +30,9 @@ public class MockTransactionManager implements TransactionManager {
   private final ActionManager rcdManager;
   
   private final Map<TransactionHandle, Collection<Lock>> heldLocks = new ConcurrentHashMap<TransactionHandle, Collection<Lock>>();
-  private final TransactionLockProvider locks;
   
   public MockTransactionManager(ActionManager rcdManager) {
     this.rcdManager = rcdManager;
-    locks = new MockTransactionLockProvider(1024, 1024);
   }
 
   public TransactionHandle begin() {
@@ -62,20 +59,12 @@ public class MockTransactionManager implements TransactionManager {
   }
 
   public void happened(TransactionHandle handle, Action action) {
-    heldLocks.get(handle).addAll(action.lock(locks));
     rcdManager.happened(new MockTransactionalAction(getIdAndValidateHandle(handle), action));
   }
 
   @Override
   public void happened(Action action) {
-    Collection<Lock> actionLocks = action.lock(locks);
-    try {
-      rcdManager.happened(action);
-    } finally {
-      for (Lock lock : actionLocks) {
-        lock.unlock();
-      }
-    }
+    rcdManager.happened(action);
   }
 
   private long getIdAndValidateHandle(TransactionHandle handle) {
@@ -107,5 +96,10 @@ public class MockTransactionManager implements TransactionManager {
         return id;
       }
     }
+  }
+
+  @Override
+  public long getLowestOpenTransactionLsn() {
+    return Long.MAX_VALUE;
   }
 }

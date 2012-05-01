@@ -4,19 +4,16 @@
  */
 package com.terracottatech.frs.mock.transaction;
 
-import java.io.Serializable;
-import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.locks.Lock;
-
+import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.InvalidatingAction;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
-import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.object.ObjectManager;
+
+import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * 
@@ -65,11 +62,6 @@ public class MockTransactionalAction implements MockAction, Serializable,
 
   long getId() {
     return id;
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider locks) {
-    return embedded.lock(locks);
   }
 
   @Override

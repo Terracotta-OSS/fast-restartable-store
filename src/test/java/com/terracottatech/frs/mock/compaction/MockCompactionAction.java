@@ -10,12 +10,9 @@ import com.terracottatech.frs.mock.MockPutAction;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
-import com.terracottatech.frs.transaction.TransactionLockProvider;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 
 /**
  *
@@ -23,7 +20,6 @@ import java.util.concurrent.locks.Lock;
  */
 public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> implements MockAction {
 
-  private boolean valid = true;
   private final ObjectManagerEntry<I, K, V> entry;
   private Action compacted = null;
   private transient final ObjectManager<I, K, V> objManager;
@@ -43,29 +39,14 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> i
 
   @Override
   public void record(long lsn) {
-    if (valid) {
-      objManager.updateLsn(entry, lsn);
-      compacted = new MockPutAction<I, K, V>(objManager, getId(), getKey(), entry.getValue());
-    }
+    objManager.updateLsn(entry, lsn);
+    compacted = new MockPutAction<I, K, V>(objManager, getId(), getKey(), entry.getValue());
   }
 
   @Override
   public Set<Long> replay(long lsn) {
-    if (valid) {
-      compacted.replay(lsn);
-    }
+    compacted.replay(lsn);
     return Collections.emptySet();
-  }
-
-  @Override
-  public Collection<Lock> lock(TransactionLockProvider locks) {
-    Lock lock = getLock(locks).writeLock();
-    if (lock.tryLock()) {
-      return Collections.singleton(lock);
-    } else {
-      valid = false;
-      return Collections.emptyList();
-    }
   }
 
   @Override

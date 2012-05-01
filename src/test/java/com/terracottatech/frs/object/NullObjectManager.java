@@ -38,7 +38,7 @@ public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+  public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
     return null;
   }
 

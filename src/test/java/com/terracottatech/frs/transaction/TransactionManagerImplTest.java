@@ -10,10 +10,8 @@ import com.terracottatech.frs.action.ActionManager;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.Lock;
 
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
@@ -23,30 +21,27 @@ import static org.mockito.Mockito.*;
  */
 public class TransactionManagerImplTest {
   private TransactionManager transactionManager;
-  private TransactionLockProvider transactionLockProvider;
   private ActionManager actionManager;
   private Future<Void> happenedFuture;
   private Action action;
-  private Lock lock;
+  private TransactionLSNCallback callback;
 
   @Before
   public void setUp() throws Exception {
     happenedFuture = mock(Future.class);
-    lock = mock(Lock.class);
     action = mock(Action.class);
-    when(action.lock(any(TransactionLockProvider.class))).thenReturn(Collections.singleton(lock));
     actionManager = mock(ActionManager.class);
     when(actionManager.happened(any(Action.class))).thenReturn(happenedFuture);
-    transactionLockProvider = mock(TransactionLockProvider.class);
-    transactionManager = new TransactionManagerImpl(actionManager, transactionLockProvider, true);
+    transactionManager = new TransactionManagerImpl(actionManager, true);
+    callback = mock(TransactionLSNCallback.class);
   }
 
   @Test
   public void testBegin() throws Exception {
     TransactionHandle handle = transactionManager.begin();
-    verify(actionManager).asyncHappened(new TransactionBeginAction(handle));
+    verify(actionManager).asyncHappened(new TransactionBeginAction(handle, callback));
     handle = transactionManager.begin();
-    verify(actionManager).asyncHappened(new TransactionBeginAction(handle));
+    verify(actionManager).asyncHappened(new TransactionBeginAction(handle, callback));
   }
 
   @Test
@@ -54,7 +49,6 @@ public class TransactionManagerImplTest {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
     transactionManager.commit(handle);
-    verify(lock).unlock();
     verify(actionManager).happened(new TransactionCommitAction(handle));
     try {
       transactionManager.commit(handle);
@@ -75,7 +69,7 @@ public class TransactionManagerImplTest {
   @Test
   public void testAsyncCommit() throws Exception {
     TransactionManager asyncCommitManager =
-            new TransactionManagerImpl(actionManager, transactionLockProvider, false);
+            new TransactionManagerImpl(actionManager, false);
     TransactionHandle handle = asyncCommitManager.begin();
     asyncCommitManager.commit(handle);
     verify(actionManager).asyncHappened(new TransactionCommitAction(handle));
@@ -85,7 +79,6 @@ public class TransactionManagerImplTest {
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    verify(action).lock(transactionLockProvider);
     verify(actionManager).asyncHappened(new TransactionalAction(handle, action));
     transactionManager.commit(handle);
     try {
@@ -99,19 +92,15 @@ public class TransactionManagerImplTest {
   @Test
   public void testSynchronousAutoCommit() throws Exception {
     transactionManager.happened(action);
-    verify(action).lock(transactionLockProvider);
     verify(actionManager).happened(action);
     verify(happenedFuture).get();
-    verify(lock).unlock();
   }
 
   @Test
   public void testAsyncAutocommit() throws Exception {
     TransactionManager asyncTransactionManager =
-            new TransactionManagerImpl(actionManager, transactionLockProvider, false);
+            new TransactionManagerImpl(actionManager, false);
     asyncTransactionManager.happened(action);
-    verify(action).lock(transactionLockProvider);
     verify(actionManager).asyncHappened(action);
-    verify(lock).unlock();
   }
 }

@@ -63,7 +63,7 @@ public class MockCompactor<I, K, V> implements Compactor {
   }
 
   public void compact() {
-    ObjectManagerEntry<I, K, V> entry = objManager.acquireCompactionEntry();
+    ObjectManagerEntry<I, K, V> entry = objManager.acquireCompactionEntry(txnManager.getLowestOpenTransactionLsn());
     if (entry != null) {
       try {
         txnManager.happened(new MockCompactionAction<I, K, V>(objManager, entry));

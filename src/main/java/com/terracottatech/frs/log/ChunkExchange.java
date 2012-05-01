@@ -5,7 +5,6 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.CopyingChunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import java.io.IOException;
@@ -124,7 +123,9 @@ public class ChunkExchange implements Iterable<LogRecord> {
                         }
                     } catch (InterruptedException ie) {
                         throw new RuntimeException(ie);
-                    } catch ( IOException ioe ) {
+                    } catch ( RuntimeException ioe ) {
+                        done = true;
+                        queue.clear();
                         throw new RuntimeException(ioe);
                     }
                 }

@@ -7,6 +7,7 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -26,15 +27,17 @@ class DeleteAction implements Action {
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                          ActionCodec codec, ByteBuffer[] buffers) {
       int idLength = ByteBufferUtils.getInt(buffers);
-      return new DeleteAction(objectManager, ByteBufferUtils.getBytes(idLength, buffers));
+      return new DeleteAction(objectManager, null, ByteBufferUtils.getBytes(idLength, buffers));
     }
   };
 
   private final ObjectManager<ByteBuffer, ?, ?> objectManager;
+  private final Compactor compactor;
   private final ByteBuffer id;
 
-  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, ByteBuffer id) {
+  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, Compactor compactor, ByteBuffer id) {
     this.objectManager = objectManager;
+    this.compactor = compactor;
     this.id = id;
   }
 
@@ -45,6 +48,7 @@ class DeleteAction implements Action {
   @Override
   public void record(long lsn) {
     objectManager.delete(id);
+    compactor.compactNow();
   }
 
   @Override

@@ -29,7 +29,12 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   private final TransactionManager txnManager;
   private final ObjectManager<Long, String, String> objManager;
   private final Compactor compactor;
-  
+
+  @Override
+  public void shutdown() throws InterruptedException {
+    compactor.shutdown();
+  }
+
   private MockRestartStore(TransactionManager txnManager, ObjectManager<Long, String, String> objManager, Compactor compactor) {
     this.txnManager = txnManager;
     this.objManager = objManager;

@@ -47,13 +47,20 @@ public interface ObjectManager<I, K, V> {
   Set<Long> replayPut(I id, K key, V value, long lsn);
 
   /**
-   * Return a complete key suitable for compaction.
-   * 
-   * @return a key to be compacted.
+   * Get and lock an entry to be compacted in the object manager
+   *
+   * @return entry to be compacted.
    */
-  CompleteKey<I, K> getCompactionKey();
-  
-  V replaceLsn(I id, K key, long newLsn);
+  ObjectManagerEntry<I, K, V> acquireCompactionEntry();
+
+  /**
+   * Release the lock entry after compaction is complete.
+   *
+   * @param entry compacted entry
+   */
+  void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry);
+
+  void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn);
 
   /**
    * Get an approximately correct count of the number of live objects in the system.

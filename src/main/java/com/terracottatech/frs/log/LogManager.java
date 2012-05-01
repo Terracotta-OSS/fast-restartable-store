@@ -13,6 +13,8 @@ import java.util.concurrent.Future;
  */
 public interface LogManager {
 
+  long currentLsn();
+
   void startup();
 
   void shutdown();

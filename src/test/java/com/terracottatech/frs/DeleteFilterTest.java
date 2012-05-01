@@ -5,6 +5,7 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.Filter;
 import com.terracottatech.frs.util.TestUtils;
@@ -29,9 +30,11 @@ public class DeleteFilterTest {
   private Filter<Action>                                    delegate;
   private DeleteFilter                                      filter;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private Compactor compactor;
 
   @Before
   public void setUp() throws Exception {
+    compactor = mock(Compactor.class);
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
     objectManager = mock(ObjectManager.class);
@@ -63,11 +66,11 @@ public class DeleteFilterTest {
   }
 
   private DeleteAction deleteAction(int i) {
-    return new DeleteAction(objectManager, TestUtils.byteBufferWithInt(i));
+    return new DeleteAction(objectManager, compactor, TestUtils.byteBufferWithInt(i));
   }
 
   private PutAction putAction(int i, int k, int v) {
-    return new PutAction(objectManager, TestUtils.byteBufferWithInt(i),
+    return new PutAction(objectManager, compactor, TestUtils.byteBufferWithInt(i),
                          TestUtils.byteBufferWithInt(k), TestUtils.byteBufferWithInt(v));
   }
 }

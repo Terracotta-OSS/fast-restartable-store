@@ -8,6 +8,8 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
+import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.compaction.CompactorImpl;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.*;
@@ -64,7 +66,8 @@ public class OnHeapTest {
         MapActions.registerActions(1, codec);
         actionMgr = new ActionManagerImpl(logMgr, objectMgr, codec, new MasterLogRecordFactory());
         TransactionManager transactionMgr = new TransactionManagerImpl(actionMgr, true);
-        store = new RestartStoreImpl(objectMgr, transactionMgr);
+        Compactor compactor = new CompactorImpl(objectMgr, transactionMgr, logMgr);
+        store = new RestartStoreImpl(objectMgr, transactionMgr, logMgr, compactor);
     }
 
     DecimalFormat df = new DecimalFormat("0000000000");

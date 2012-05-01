@@ -8,8 +8,10 @@ import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
 import org.junit.Before;
@@ -38,7 +40,7 @@ public class RecoveryManagerImplTest {
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
     transactionActionFactory = new TransactionActionFactory();
-    mapActionFactory = new MapActionFactory(objectManager);
+    mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
     recoveryActionFactory = new RecoveryActionFactory();
     logManager = newLogManager();
     actionManager = newActionManager();
@@ -46,7 +48,7 @@ public class RecoveryManagerImplTest {
   }
 
   private LogManager newLogManager() {
-    LogManager lm = new TestLogManager();
+    LogManager lm = new RecoveryTestLogManager();
     return spy(lm);
   }
 
@@ -127,16 +129,8 @@ public class RecoveryManagerImplTest {
     return a;
   }
 
-  private class TestLogManager implements LogManager {
+  private class RecoveryTestLogManager extends NullLogManager {
     private final List<LogRecord> records = new LinkedList<LogRecord>();
-
-    @Override
-    public void startup() {
-    }
-
-    @Override
-    public void shutdown() {
-    }
 
     @Override
     public Future<Void> append(LogRecord record) {

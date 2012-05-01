@@ -6,18 +6,21 @@ package com.terracottatech.frs.mock.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.mock.MockFuture;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -34,6 +37,11 @@ public class MockLogManager implements LogManager {
     public MockLogManager(IOManager ioManager) {
         this.ioManager = ioManager;
     }
+
+  @Override
+  public long currentLsn() {
+    return currentLsn.get();
+  }
 
   @Override
   public void startup() {
@@ -114,7 +122,7 @@ static class MockLogRegionFactory implements LogRegionFactory<LogRecord> {
         } catch (ClassNotFoundException ex) {
             throw new IOException(ex);
         } catch ( EOFException eof ) {
-            
+          throw new RuntimeException(eof);
         }
         return list;
     }

@@ -4,16 +4,14 @@
  */
 package com.terracottatech.frs.mock.compaction;
 
+import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.object.ObjectManagerEntry;
+import com.terracottatech.frs.transaction.TransactionManager;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-
-import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.compaction.Compactor;
-import com.terracottatech.frs.object.CompleteKey;
-import com.terracottatech.frs.transaction.TransactionHandle;
-import com.terracottatech.frs.transaction.TransactionManager;
-import com.terracottatech.frs.object.ObjectManager;
 
 /**
  * 
@@ -30,6 +28,18 @@ public class MockCompactor<I, K, V> implements Compactor {
       return t;
     }
   });
+
+  @Override
+  public void startup() {
+  }
+
+  @Override
+  public void shutdown() throws InterruptedException {
+  }
+
+  @Override
+  public void generatedGarbage() {
+  }
 
   private final Runnable runCompactor = new Runnable() {
     @Override
@@ -53,15 +63,14 @@ public class MockCompactor<I, K, V> implements Compactor {
   }
 
   public void compact() {
-    CompleteKey<I, K> key = objManager.getCompactionKey();
-    if (key != null) {
-      TransactionHandle txnHandle = txnManager.begin();
-      Action compactionAction = new MockCompactionAction<I, K, V>(objManager, key);
-      txnManager.happened(txnHandle, compactionAction);
+    ObjectManagerEntry<I, K, V> entry = objManager.acquireCompactionEntry();
+    if (entry != null) {
       try {
-        txnManager.commit(txnHandle);
+        txnManager.happened(new MockCompactionAction<I, K, V>(objManager, entry));
       } catch (Exception e) {
         throw new RuntimeException(e);
+      } finally {
+        objManager.releaseCompactionEntry(entry);
       }
     }
   }

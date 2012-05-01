@@ -53,8 +53,12 @@ public class StagingLogManager implements LogManager {
         currentLsn.set(list.getBaseLsn());
         this.checksumStyle = check;
     }
-    
-    
+
+    @Override
+    public long currentLsn() {
+      return currentLsn.get();
+    }
+
     private synchronized void enterNormalState(long lastLsn) {
         if ( state != MachineState.RECOVERY ) return;
         currentLsn.set(lastLsn + 1);

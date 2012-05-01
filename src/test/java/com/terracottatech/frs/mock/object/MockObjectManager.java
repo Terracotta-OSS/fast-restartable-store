@@ -6,6 +6,8 @@ package com.terracottatech.frs.mock.object;
 
 import com.terracottatech.frs.object.CompleteKey;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.object.ObjectManagerEntry;
+import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.*;
@@ -20,6 +22,8 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   private final Map<I, LinkedHashMap<K, Long>> map = new HashMap<I, LinkedHashMap<K, Long>>();
 
   private final Map<I, Map<K, V>> external;
+
+  private ObjectManagerEntry<I, K, V> compactingEntry;
   
   public MockObjectManager(Map<I, Map<K, V>> external) {
     this.external = external;
@@ -56,15 +60,6 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
       }
     }
     return lowest;
-  }
-  
-  public CompleteKey<I, K> getCompactionKey() {
-    Entry<CompleteKey<I, K>, Long> lowest = lowestEntry();
-    if (lowest == null) {
-      return null;
-    } else {
-      return lowest.getKey();
-    }
   }
   
   @Override
@@ -104,18 +99,35 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public V replaceLsn(I id, K key, long newLsn) {
-    LinkedHashMap<K, Long> m = map.get(id);
-    if (m != null) {
-      m.put(key, newLsn);
-      Map<K, V> em = external.get(id);
-      assert em != null;
-      V value = em.get(key);
-      assert value != null;
-      return value;
+  public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+    assert compactingEntry == null;
+    Entry<CompleteKey<I, K>, Long> lowest = lowestEntry();
+    if (lowest != null) {
+      V value = external.get(lowest.getKey().getId()).get(lowest.getKey().getKey());
+      long lsn = lowest.getValue();
+      compactingEntry = new SimpleObjectManagerEntry<I, K, V>(lowest.getKey().getId(),
+                                                   lowest.getKey().getKey(), value, lsn);
+      return compactingEntry;
     } else {
       return null;
     }
+  }
+
+  @Override
+  public void releaseCompactionEntry(ObjectManagerEntry<I, K, V> ikvObjectManagerEntry) {
+    assert compactingEntry == ikvObjectManagerEntry;
+    compactingEntry = null;
+  }
+
+  @Override
+  public void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn) {
+    assert compactingEntry == entry;
+    LinkedHashMap<K, Long> m = map.get(entry.getId());
+    assert m != null;
+    assert m.get(entry.getKey()) == entry.getLsn();
+    // re-put needs to be a remove-put in order to rearrange the LHM order
+    m.remove(entry.getKey());
+    m.put(entry.getKey(), newLsn);
   }
 
   @Override
@@ -125,5 +137,6 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
 
   @Override
   public void updateLowestLsn() {
+    // Nothing to do for the mock implementation
   }
 }

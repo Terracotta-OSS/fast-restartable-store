@@ -28,109 +28,125 @@ import static org.junit.Assert.assertThat;
 public abstract class ObjectManagerTest {
   
   protected abstract <I, K, V> ObjectManager<I, K, V> createObjectManager();
-  
+
+  private ObjectManagerEntry<String, String, String> entry(String id, String key,
+                                                           String value, long lsn) {
+    return new SimpleObjectManagerEntry<String, String, String>(id, key, value, lsn);
+  }
+
   @Test
   public void basicPutTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
-    
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
+
     objMgr.put("foo", "bar", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 1)));
+    objMgr.releaseCompactionEntry(entry);
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
 
     objMgr.put("foo", "bat", "baz", 2);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
+    assertThat(objMgr.acquireCompactionEntry(), CombinableMatcher.<ObjectManagerEntry<String, String, String>>either(
+            is(entry)).or(is(entry("foo", "bat", "baz", 2))));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
     assertThat(objMgr.getLsn("foo", "bat"), is(2L));
   }
-  
+
   @Test
   public void basicRemoveTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
-    
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
+
     objMgr.put("foo", "bar", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 1)));
+    objMgr.releaseCompactionEntry(entry);
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
 
     objMgr.remove("foo", "bar");
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
   }
-  
+
   @Test
-  public void basicReplaceTest() {
+  public void basicUpdateTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
-    
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
+
     objMgr.put("foo", "bar", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 1)));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
 
-    assertThat(objMgr.replaceLsn("foo", "bar", 2L), is("baz"));
-    
+    objMgr.updateLsn(entry, 2L);
+
+    objMgr.releaseCompactionEntry(entry);
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(2L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 2L)));
     assertThat(objMgr.getLsn("foo", "bar"), is(2L));
   }
-  
+
   @Test
   public void basicDeleteTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
-    
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
+
     objMgr.put("foo", "bar", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 1L)));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
+    objMgr.releaseCompactionEntry(entry);
 
     objMgr.put("foo", "bat", "baz", 2);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
+    entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, CombinableMatcher.<ObjectManagerEntry<String, String, String>>either(
+            is(entry("foo", "bar", "baz", 1L))).or(
+            is(entry("foo", "bat", "baz", 2L))));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
     assertThat(objMgr.getLsn("foo", "bat"), is(2L));
+    objMgr.releaseCompactionEntry(entry);
 
     objMgr.delete("foo");
 
     //TODO what should be the assertion here?
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(2L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
   }
-  
+
   @Test
   public void basicReplayTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     objMgr.replayPut("foo", "bar", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    assertThat(objMgr.acquireCompactionEntry(), is(entry("foo", "bar", "baz", 1)));
     assertThat(objMgr.getLsn("foo", "bar"), is(1L));
   }
-  
+
   @Test
   @Ignore
   /**
@@ -140,20 +156,22 @@ public abstract class ObjectManagerTest {
     ObjectManager<String, String, String> objMgr = createObjectManager();
 
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
-    
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
+
     objMgr.put("foo", "bar", "baz", 2);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar")));
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(entry, is(entry("foo", "bar", "baz", 2)));
     assertThat(objMgr.getLsn("foo", "bar"), is(2L));
+    objMgr.releaseCompactionEntry(entry);
 
     objMgr.put("foo", "bat", "baz", 1);
-    
+
     assertThat(objMgr.getLowestLsn(), lessThanOrEqualTo(1L));
-    assertThat(objMgr.getCompactionKey(), CombinableMatcher.<CompleteKey<String, String>>either(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bar"))).or(
-            is((CompleteKey<String, String>) new SimpleCompleteKey<String, String>("foo", "bat"))));
+    assertThat(objMgr.acquireCompactionEntry(), CombinableMatcher.<ObjectManagerEntry<String, String, String>>either(
+            is(entry("foo", "bar", "baz", 2))).or(
+            is(entry("foo", "bat", "baz", 1))));
     assertThat(objMgr.getLsn("foo", "bar"), is(2L));
     assertThat(objMgr.getLsn("foo", "bat"), is(1L));
   }
@@ -164,35 +182,41 @@ public abstract class ObjectManagerTest {
     Assume.assumeThat(objMgr, instanceOf(AbstractObjectManager.class));
 
     AbstractObjectManager<String, String, String> absObjMgr = (AbstractObjectManager<String, String, String>) objMgr;
-    
+
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
 
     absObjMgr.updateLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
 
     for (long i = 0L; i < 100L; i++) {
       objMgr.put("foo", Long.toString(i), "bar", i);
 
       assertThat(objMgr.getLowestLsn(), is(-1L));
-      assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), lessThanOrEqualTo(i));
+      ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+      assertThat(Long.parseLong(entry.getKey()), lessThanOrEqualTo(i));
+      objMgr.releaseCompactionEntry(entry);
       assertThat(objMgr.getLsn("foo", Long.toString(i)), is(i));
     }
 
     absObjMgr.updateLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(0L));
-    assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), lessThan(100L));
-    
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(Long.parseLong(entry.getKey()), lessThan(100L));
+    objMgr.releaseCompactionEntry(entry);
+
     for (long i = 0L; i < 100L; i++) {
       objMgr.remove("foo", Long.toString(i));
       absObjMgr.updateLowestLsn();
       if (i == 99L) {
         assertThat(objMgr.getLowestLsn(), is(-1L));
-        assertThat(objMgr.getCompactionKey(), nullValue());
+        assertThat(objMgr.acquireCompactionEntry(), nullValue());
       } else {
         assertThat(objMgr.getLowestLsn(), is(i + 1));
-        assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), CombinableMatcher.<Long>both(lessThan(100L)).and(greaterThan(i)));
+        entry = objMgr.acquireCompactionEntry();
+        assertThat(Long.parseLong(entry.getKey()), CombinableMatcher.<Long>both(lessThan(100L)).and(greaterThan(i)));
+        objMgr.releaseCompactionEntry(entry);
       }
     }
   }
@@ -203,13 +227,13 @@ public abstract class ObjectManagerTest {
     Assume.assumeThat(objMgr, instanceOf(AbstractObjectManager.class));
 
     AbstractObjectManager<String, String, String> absObjMgr = (AbstractObjectManager<String, String, String>) objMgr;
-    
+
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
 
     absObjMgr.updateLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(-1L));
-    assertThat(objMgr.getCompactionKey(), nullValue());
+    assertThat(objMgr.acquireCompactionEntry(), nullValue());
 
     List<Long> liveLsn = new LinkedList<Long>();
     for (long i = 0L; i < 100L; i++) {
@@ -217,14 +241,18 @@ public abstract class ObjectManagerTest {
       liveLsn.add(i);
 
       assertThat(objMgr.getLowestLsn(), is(-1L));
-      assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), lessThanOrEqualTo(i));
+      ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+      assertThat(Long.parseLong(entry.getKey()), lessThanOrEqualTo(i));
       assertThat(objMgr.getLsn("foo", Long.toString(i)), is(i));
+      objMgr.releaseCompactionEntry(entry);
     }
 
     absObjMgr.updateLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(0L));
-    assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), lessThan(100L));
-    
+    ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry();
+    assertThat(Long.parseLong(entry.getKey()), lessThan(100L));
+    objMgr.releaseCompactionEntry(entry);
+
     long seed = System.nanoTime();
     System.err.println("randomUpdateLowestLsnTest using seed " + seed);
     Random rndm = new Random(seed);
@@ -235,14 +263,14 @@ public abstract class ObjectManagerTest {
       absObjMgr.updateLowestLsn();
       if (liveLsn.isEmpty()) {
         assertThat(objMgr.getLowestLsn(), is(-1L));
-        assertThat(objMgr.getCompactionKey(), nullValue());
+        assertThat(objMgr.acquireCompactionEntry(), nullValue());
       } else {
         assertThat(objMgr.getLowestLsn(), is(liveLsn.get(0)));
-        assertThat(Long.parseLong(objMgr.getCompactionKey().getKey()), isIn(liveLsn));
+        entry = objMgr.acquireCompactionEntry();
+        assertThat(Long.parseLong(entry.getKey()), isIn(liveLsn));
+        objMgr.releaseCompactionEntry(entry);
       }
-      
-    }
-    for (long i = 0L; i < 100L; i++) {
+
     }
   }
 }

@@ -9,6 +9,8 @@ package com.terracottatech.frs;
  * @author cdennis
  */
 public interface RestartStore<I, K, V> {
+
+  void shutdown() throws InterruptedException;
   
   Transaction<I, K, V> beginTransaction();
 

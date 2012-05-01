@@ -4,11 +4,7 @@
  */
 package com.terracottatech.frs.object.heap;
 
-import com.terracottatech.frs.object.AbstractObjectManager;
-import com.terracottatech.frs.object.AbstractObjectManagerStripe;
-import com.terracottatech.frs.object.ObjectManagerSegment;
-import com.terracottatech.frs.object.ObjectManagerStripe;
-import com.terracottatech.frs.object.ValueSortedMap;
+import com.terracottatech.frs.object.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,6 +113,8 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     
     private final Map<K, V> dataMap = new HashMap<K, V>();
     private final ValueSortedMap<K, Long> lsnMap = new HeapValueSortedMap<K, Long>();
+
+    private ObjectManagerEntry<I, K, V> compactingEntry;
     
     public InHeapObjectManagerSegment(I identifier) {
       this.identifier = identifier;
@@ -128,17 +126,39 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
 
     @Override
-    public K firstKey() {
-      Lock l = lock.readLock();
+    public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
+      Lock l = lock.writeLock();
       l.lock();
       try {
+        assert compactingEntry == null;
         K firstKey = lsnMap.firstKey();
-        if (firstKey == null) {
-          assert dataMap.size() == lsnMap.size();
-          return null;
-        } else {
-          assert dataMap.size() == lsnMap.size();
-          return firstKey;
+        if (firstKey != null) {
+          long lsn = lsnMap.get(firstKey);
+          V value = dataMap.get(firstKey);
+          compactingEntry = new SimpleObjectManagerEntry<I, K, V>(identifier(), firstKey, value, lsn);
+          return compactingEntry;
+        }
+      } catch (Exception e) {
+        l.unlock();
+        throw new RuntimeException(e);
+      }
+      return null;
+    }
+
+    @Override
+    public void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry) {
+      assert entry == compactingEntry;
+      compactingEntry = null;
+      lock.writeLock().unlock();
+    }
+
+    @Override
+    public void updateLsn(int hash, ObjectManagerEntry<I, K, V> entry, long newLsn) {
+      Lock l = lock.writeLock();
+      l.lock();
+      try {
+        if (lsnMap.get(entry.getKey()) == entry.getLsn()) {
+          lsnMap.put(entry.getKey(), newLsn);
         }
       } finally {
         l.unlock();
@@ -201,24 +221,6 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
         dataMap.remove(key);
         lsnMap.remove(key);
         assert dataMap.size() == lsnMap.size();
-      } finally {
-        l.unlock();
-      }
-    }
-
-    @Override
-    public V replaceLsn(int hash, K key, long newLsn) {
-      Lock l = lock.writeLock();
-      l.lock();
-      try {
-        V current = dataMap.get(key);
-        if (current == null) {
-          return null;
-        } else {
-          lsnMap.put(key, newLsn);
-          assert dataMap.size() == lsnMap.size();
-          return current;
-        }
       } finally {
         l.unlock();
       }

@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
@@ -23,6 +25,7 @@ import static org.mockito.Mockito.*;
 public class RestartStoreImplTest {
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>  restartStore;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private Compactor                                         compactor;
   private TransactionManager                                transactionManager;
   private TransactionHandle                                 handle;
 
@@ -32,7 +35,8 @@ public class RestartStoreImplTest {
     transactionManager = mock(TransactionManager.class);
     doReturn(handle).when(transactionManager).begin();
     objectManager = mock(ObjectManager.class);
-    restartStore = new RestartStoreImpl(objectManager, transactionManager);
+    compactor = mock(Compactor.class);
+    restartStore = new RestartStoreImpl(objectManager, transactionManager, mock(LogManager.class), compactor);
   }
 
   @Test
@@ -63,7 +67,7 @@ public class RestartStoreImplTest {
             restartStore.beginTransaction();
     transaction.put(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2),
                     TestUtils.byteBufferWithInt(3));
-    verify(transactionManager).happened(handle, new PutAction(objectManager,
+    verify(transactionManager).happened(handle, new PutAction(objectManager, compactor,
                                                             TestUtils.byteBufferWithInt(
                                                                     1),
                                                             TestUtils.byteBufferWithInt(
@@ -85,7 +89,7 @@ public class RestartStoreImplTest {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
     transaction.delete(TestUtils.byteBufferWithInt(1));
-    verify(transactionManager).happened(handle, new DeleteAction(objectManager,
+    verify(transactionManager).happened(handle, new DeleteAction(objectManager, compactor,
                                                                TestUtils.byteBufferWithInt(
                                                                        1)));
     transaction.commit();
@@ -102,7 +106,7 @@ public class RestartStoreImplTest {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
     transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
-    verify(transactionManager).happened(handle, new RemoveAction(objectManager,
+    verify(transactionManager).happened(handle, new RemoveAction(objectManager, compactor,
                                                                TestUtils.byteBufferWithInt(
                                                                        1),
                                                                TestUtils.byteBufferWithInt(
@@ -122,7 +126,7 @@ public class RestartStoreImplTest {
             restartStore.beginAutoCommitTransaction();
     transaction.put(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2),
                     TestUtils.byteBufferWithInt(3));
-    verify(transactionManager).happened(new PutAction(objectManager,
+    verify(transactionManager).happened(new PutAction(objectManager, compactor,
                                                       TestUtils.byteBufferWithInt(1),
                                                       TestUtils.byteBufferWithInt(2),
                                                       TestUtils.byteBufferWithInt(3)));
@@ -133,7 +137,7 @@ public class RestartStoreImplTest {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction();
     transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(15));
-    verify(transactionManager).happened(new RemoveAction(objectManager,
+    verify(transactionManager).happened(new RemoveAction(objectManager, compactor,
                                                          TestUtils.byteBufferWithInt(1),
                                                          TestUtils.byteBufferWithInt(15)));
   }
@@ -143,7 +147,8 @@ public class RestartStoreImplTest {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction();
     transaction.delete(TestUtils.byteBufferWithInt(99));
-    verify(transactionManager).happened(new DeleteAction(objectManager, TestUtils.byteBufferWithInt(99)));
+    verify(transactionManager).happened(new DeleteAction(objectManager, compactor,
+                                                         TestUtils.byteBufferWithInt(99)));
   }
 
   @Test

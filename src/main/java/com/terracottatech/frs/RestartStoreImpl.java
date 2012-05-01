@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
@@ -16,12 +18,22 @@ import java.nio.ByteBuffer;
 public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> {
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager                                transactionManager;
+  private final Compactor compactor;
+  private final LogManager logManager;
   private final Transaction<ByteBuffer, ByteBuffer, ByteBuffer> autoCommitTransaction =
           new AutoCommitTransaction();
 
-  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager) {
+  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, Compactor compactor) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
+    this.logManager = logManager;
+    this.compactor = compactor;
+  }
+
+  @Override
+  public void shutdown() throws InterruptedException {
+    compactor.shutdown();
+    logManager.shutdown();
   }
 
   @Override
@@ -39,21 +51,21 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
             TransactionException, InterruptedException {
-      transactionManager.happened(new PutAction(objectManager, id, key, value));
+      transactionManager.happened(new PutAction(objectManager, compactor, id, key, value));
       return this;
     }
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
             TransactionException, InterruptedException {
-      transactionManager.happened(new DeleteAction(objectManager, id));
+      transactionManager.happened(new DeleteAction(objectManager, compactor, id));
       return this;
     }
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) throws
             TransactionException, InterruptedException {
-      transactionManager.happened(new RemoveAction(objectManager, id, key));
+      transactionManager.happened(new RemoveAction(objectManager, compactor, id, key));
       return this;
     }
 
@@ -74,21 +86,21 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     @Override
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) {
       checkCommitted();
-      transactionManager.happened(handle, new PutAction(objectManager, id, key, value));
+      transactionManager.happened(handle, new PutAction(objectManager, compactor, id, key, value));
       return this;
     }
 
     @Override
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) {
       checkCommitted();
-      transactionManager.happened(handle, new DeleteAction(objectManager, id));
+      transactionManager.happened(handle, new DeleteAction(objectManager, compactor, id));
       return this;
     }
 
     @Override
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) {
       checkCommitted();
-      transactionManager.happened(handle, new RemoveAction(objectManager, id, key));
+      transactionManager.happened(handle, new RemoveAction(objectManager, compactor, id, key));
       return this;
     }
 

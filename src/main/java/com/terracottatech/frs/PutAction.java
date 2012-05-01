@@ -8,6 +8,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -21,7 +22,7 @@ import java.util.concurrent.locks.Lock;
 /**
  * @author tim
  */
-class PutAction implements InvalidatingAction {
+public class PutAction implements InvalidatingAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -34,7 +35,7 @@ class PutAction implements InvalidatingAction {
               ByteBuffer id = ByteBufferUtils.getBytes(idLength, buffers);
               ByteBuffer key = ByteBufferUtils.getBytes(keyLength, buffers);
               ByteBuffer value = ByteBufferUtils.getBytes(valueLength, buffers);
-              return new PutAction(objectManager, id, key, value, invalidatedLsn);
+              return new PutAction(objectManager, null, id, key, value, invalidatedLsn);
             }
           };
 
@@ -45,46 +46,60 @@ class PutAction implements InvalidatingAction {
   private final ByteBuffer                                        id;
   private final ByteBuffer                                        key;
   private final ByteBuffer                                        value;
-  private final long                                              invalidatedLsn;
+  private final Compactor                                         compactor;
 
-  PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ByteBuffer id,
+  private long                                                    invalidatedLsn;
+
+  protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
             ByteBuffer key, ByteBuffer value) {
-    this(objectManager, id, key, value, -1L);
+    this(objectManager, compactor, id, key, value, -1L);
   }
 
-  private PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ByteBuffer id,
+  public PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
                     ByteBuffer key, ByteBuffer value, long invalidatedLsn) {
     this.objectManager = objectManager;
+    this.compactor = compactor;
     this.id = id;
     this.key = key;
     this.value = value;
     this.invalidatedLsn = invalidatedLsn;
   }
 
-  ByteBuffer getId() {
+  protected ByteBuffer getId() {
     return id;
+  }
+
+  protected ByteBuffer getKey() {
+    return key;
+  }
+
+  protected ByteBuffer getValue() {
+    return value;
   }
 
   @Override
   public Set<Long> getInvalidatedLsns() {
-    // TODO: This is going to be null on the write direction... Do we care?
     return Collections.singleton(invalidatedLsn);
   }
 
   @Override
   public void record(long lsn) {
-    objectManager.put(id, key, value, lsn);
+    objectManager.put(getId(), getKey(), getValue(), lsn);
+    if (invalidatedLsn != -1) {
+      compactor.generatedGarbage();
+    }
   }
 
   @Override
   public Set<Long> replay(long lsn) {
-    return objectManager.replayPut(id, key, value, lsn);
+    return objectManager.replayPut(getId(), getKey(), getValue(), lsn);
   }
 
   @Override
   public Collection<Lock> lock(TransactionLockProvider lockProvider) {
     Lock lock = lockProvider.getLockForKey(id, key).writeLock();
     lock.lock();
+    invalidatedLsn = objectManager.getLsn(id, key);
     return Collections.singleton(lock);
   }
 
@@ -94,7 +109,7 @@ class PutAction implements InvalidatingAction {
     header.putInt(id.remaining());
     header.putInt(key.remaining());
     header.putInt(value.remaining());
-    header.putLong(objectManager.getLsn(id, key)).flip();
+    header.putLong(invalidatedLsn).flip();
     return new ByteBuffer[]{header, id.slice(), key.slice(), value.slice()};
   }
 
@@ -106,7 +121,7 @@ class PutAction implements InvalidatingAction {
     PutAction putAction = (PutAction) o;
 
     return id.equals(putAction.id) && key.equals(putAction.key) && value.equals(
-            putAction.value);
+            putAction.value) && invalidatedLsn == putAction.invalidatedLsn;
   }
 
   @Override

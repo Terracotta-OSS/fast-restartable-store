@@ -4,10 +4,8 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
-import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.action.*;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionLockProvider;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -27,31 +25,23 @@ class RemoveAction implements InvalidatingAction {
             @Override
             public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                  ActionCodec codec, ByteBuffer[] buffers) {
-              int idLength = ByteBufferUtils.getInt(buffers);
-              int keyLength = ByteBufferUtils.getInt(buffers);
               long invalidatedLsn = ByteBufferUtils.getLong(buffers);
-              return new RemoveAction(objectManager, ByteBufferUtils.getBytes(idLength, buffers),
-                                      ByteBufferUtils.getBytes(keyLength, buffers), invalidatedLsn);
+              return new SimpleInvalidatingAction(Collections.singleton(invalidatedLsn));
             }
           };
 
-  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 2 + ByteBufferUtils.LONG_SIZE;
-
   private final ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager;
+  private final Compactor compactor;
   private final ByteBuffer id;
   private final ByteBuffer key;
-  private final long invalidatedLsn;
 
-  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, ByteBuffer id, ByteBuffer key) {
-    this(objectManager, id, key, -1L);
-  }
+  private long invalidatedLsn;
 
-  private RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager,
-                       ByteBuffer id, ByteBuffer key, long invalidatedLsn) {
+  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key) {
     this.objectManager = objectManager;
+    this.compactor = compactor;
     this.id = id;
     this.key = key;
-    this.invalidatedLsn = invalidatedLsn;
   }
 
   @Override
@@ -62,6 +52,9 @@ class RemoveAction implements InvalidatingAction {
   @Override
   public void record(long lsn) {
     objectManager.remove(id, key);
+    if (invalidatedLsn != -1) {
+      compactor.generatedGarbage();
+    }
   }
 
   @Override
@@ -74,18 +67,15 @@ class RemoveAction implements InvalidatingAction {
   public Collection<Lock> lock(TransactionLockProvider lockProvider) {
     Lock lock = lockProvider.getLockForKey(id, key).writeLock();
     lock.lock();
+    invalidatedLsn = objectManager.getLsn(id, key);
     return Collections.singleton(lock);
   }
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    // TODO: Can we just return no data for remove? It's not technically necessary to
-    // write anything to the log since nothing needs to be replayed.
-    ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putInt(id.remaining());
-    header.putInt(key.remaining());
-    header.putLong(objectManager.getLsn(id, key)).flip();
-    return new ByteBuffer[] { header, id.slice(), key.slice() };
+    ByteBuffer header = ByteBuffer.allocate(ByteBufferUtils.LONG_SIZE);
+    header.putLong(invalidatedLsn).flip();
+    return new ByteBuffer[] { header };
   }
 
   @Override

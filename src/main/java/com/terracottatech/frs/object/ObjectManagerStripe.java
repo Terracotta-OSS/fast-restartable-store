@@ -17,9 +17,11 @@ public interface ObjectManagerStripe<I, K, V> {
 
   Set<Long> replayPut(K key, V value, long lsn);
 
-  V replaceLsn(K key, long newLsn);
-
   Collection<ObjectManagerSegment<I, K, V>> getSegments();
+
+  void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn);
+
+  void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry);
 
   long size();
 }

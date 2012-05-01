@@ -14,7 +14,11 @@ public interface ObjectManagerSegment<I, K, V> {
 
   I identifier();
 
-  K firstKey();
+  ObjectManagerEntry<I, K, V> acquireCompactionEntry();
+
+  void updateLsn(int hash, ObjectManagerEntry<I, K, V> entry, long newLsn);
+
+  void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry);
   
   Long getLowestLsn();
   
@@ -25,8 +29,6 @@ public interface ObjectManagerSegment<I, K, V> {
   Set<Long> replayPut(int hash, K key, V value, long lsn);
   
   void remove(int hash, K key);
-  
-  V replaceLsn(int hash, K key, long newLsn);
 
   long size();
 }

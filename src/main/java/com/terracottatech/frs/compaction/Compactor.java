@@ -10,7 +10,24 @@ package com.terracottatech.frs.compaction;
  * @author cdennis
  */
 public interface Compactor {
-  
-  void compactNow();
 
+  /**
+   * Startup the compactor.
+   */
+  void startup();
+
+  /**
+   * Synchronously shut down the compactor.
+   */
+  void shutdown() throws InterruptedException;
+
+  /**
+   * Callback to notify the compactor that some piece of garbage was generated in the log.
+   */
+  void generatedGarbage();
+
+  /**
+   * Callback to tell the compactor to run right now, unless it's already running.
+   */
+  void compactNow();
 }

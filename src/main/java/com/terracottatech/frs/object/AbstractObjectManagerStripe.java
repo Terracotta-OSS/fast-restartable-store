@@ -47,9 +47,15 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
   }
 
   @Override
-  public V replaceLsn(K key, long newLsn) {
-    int hash = extractHashCode(key);
-    return getSegmentFor(hash, key).replaceLsn(hash, key, newLsn);
+  public void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn) {
+    int hash = extractHashCode(entry.getKey());
+    getSegmentFor(hash, entry.getKey()).updateLsn(hash, entry, newLsn);
+  }
+
+  @Override
+  public void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry) {
+    int hash = extractHashCode(entry.getKey());
+    getSegmentFor(hash, entry.getKey()).releaseCompactionEntry(entry);
   }
 
   public long size() {

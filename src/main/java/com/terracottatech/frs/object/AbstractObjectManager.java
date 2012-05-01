@@ -51,30 +51,30 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
   }
 
   @Override
-  public V replaceLsn(I id, K key, long newLsn) {
-    return getStripeFor(id).replaceLsn(key, newLsn);
+  public void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn) {
+    getStripeFor(entry.getId()).updateLsn(entry, newLsn);
   }
-  
+
   /**
    * For initial implementations as long as this returns a key biased toward the
    * early records (and eventually returns <em>all</em> early records) then that
    * is good enough.
    * 
-   * @return 
+   * @return Compaction entry
    */
   @Override
-  public CompleteKey<I, K> getCompactionKey() {
+  public ObjectManagerEntry<I, K, V> acquireCompactionEntry() {
     ObjectManagerSegment<I, K, V> stripe = getCompactionSource();
     if (stripe == null) {
       return null;
     } else {
-      K firstKey = stripe.firstKey();
-      if (firstKey == null) {
-        return null;
-      } else {
-        return new SimpleCompleteKey<I, K>(stripe.identifier(), firstKey);
-      }
+      return stripe.acquireCompactionEntry();
     }
+  }
+
+  @Override
+  public void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry) {
+    getStripeFor(entry.getId()).releaseCompactionEntry(entry);
   }
 
   private ObjectManagerSegment<I, K, V> getCompactionSource() {

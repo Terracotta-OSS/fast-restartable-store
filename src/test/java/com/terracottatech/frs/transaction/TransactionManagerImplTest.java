@@ -6,13 +6,15 @@ package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.NullActionManager;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 
@@ -21,7 +23,7 @@ import static org.mockito.Mockito.*;
  */
 public class TransactionManagerImplTest {
   private TransactionManager transactionManager;
-  private ActionManager actionManager;
+  private TxnManagerTestActionManager actionManager;
   private Future<Void> happenedFuture;
   private Action action;
   private TransactionLSNCallback callback;
@@ -30,7 +32,7 @@ public class TransactionManagerImplTest {
   public void setUp() throws Exception {
     happenedFuture = mock(Future.class);
     action = mock(Action.class);
-    actionManager = mock(ActionManager.class);
+    actionManager = spy(new TxnManagerTestActionManager());
     when(actionManager.happened(any(Action.class))).thenReturn(happenedFuture);
     transactionManager = new TransactionManagerImpl(actionManager, true);
     callback = mock(TransactionLSNCallback.class);
@@ -102,5 +104,31 @@ public class TransactionManagerImplTest {
             new TransactionManagerImpl(actionManager, false);
     asyncTransactionManager.happened(action);
     verify(actionManager).asyncHappened(action);
+  }
+
+  @Test
+  public void testLowestLsn() throws Exception {
+    assertThat(transactionManager.getLowestOpenTransactionLsn(), is(Long.MAX_VALUE));
+
+    TransactionHandle txn1 = transactionManager.begin();
+    TransactionHandle txn2 = transactionManager.begin();
+
+    assertThat(transactionManager.getLowestOpenTransactionLsn(), is(0L));
+
+    transactionManager.commit(txn1);
+
+    assertThat(transactionManager.getLowestOpenTransactionLsn(), is(1L));
+
+    transactionManager.commit(txn2);
+
+    assertThat(transactionManager.getLowestOpenTransactionLsn(), is(Long.MAX_VALUE));
+  }
+
+  private class TxnManagerTestActionManager extends NullActionManager {
+    long lsn = 0;
+    @Override
+    public void asyncHappened(Action action) {
+      action.record(lsn++);
+    }
   }
 }

@@ -160,18 +160,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         
         return scratch;
     }
- //  need to do buffering b/c NIO des not handle small byte buffers quickly.   
-    public long write(int count) throws IOException {
-        long lt = 0;
-        int usage = 0;
+    
+    private long coalescingWrite(int usage,int count) throws IOException {
         int smStart = -1;
-//  see how much private buffer is being used by memory writing and flip those buffers
-        for (int x=mark;x<mark + count;x++) {
-            if ( !ref[x].isReadOnly() ) {
-                usage +=  ref[x].position();
-                ref[x].flip();
-            }
-        }
+        long lt = 0;
 //  use the remaining buffer space as scratch space for small buffer aggregation and
 //  making sure the memory is direct memory
         ByteBuffer memcpy = ((ByteBuffer)base.position(usage)).slice();
@@ -203,6 +195,28 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         }
         
         base.position(0);
+        return lt;
+    }
+ //  need to do buffering b/c NIO des not handle small byte buffers quickly.   
+    public long write(int count) throws IOException {
+        long lt = 0;
+        int usage = 0;
+        boolean direct = true;
+//  see how much private buffer is being used by memory writing and flip those buffers
+        for (int x=mark;x<mark + count;x++) {
+            if ( !ref[x].isReadOnly() ) {
+                usage +=  ref[x].position();
+                if ( !ref[x].isDirect() ) direct = false;
+                ref[x].flip();
+            }
+        }
+        
+        if ( count > 5 || !direct ) {
+            lt += coalescingWrite(usage, count);
+        } else {
+            lt += channel.write(ref);
+        }
+
         offset = channel.position();
         mark += count;
         total += lt;

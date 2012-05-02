@@ -50,8 +50,8 @@ public class MockPutAction<I, K, V> extends MockCompleteKeyAction<I, K> implemen
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
-    return objManager.replayPut(getId(), getKey(), value, lsn);
+  public void replay(long lsn) {
+    objManager.replayPut(getId(), getKey(), value, lsn);
   }
 
   public String toString() {

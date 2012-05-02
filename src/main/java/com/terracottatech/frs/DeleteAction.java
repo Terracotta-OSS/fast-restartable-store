@@ -12,8 +12,6 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * @author tim
@@ -49,9 +47,8 @@ class DeleteAction implements Action {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     // nothing to do on replay
-    return Collections.emptySet();
   }
 
   @Override

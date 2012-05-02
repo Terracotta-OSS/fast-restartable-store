@@ -32,7 +32,6 @@ public class RecoveryManagerImplTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private TransactionActionFactory transactionActionFactory;
   private MapActionFactory mapActionFactory;
-  private RecoveryActionFactory recoveryActionFactory;
   private LogManager logManager;
   private ActionManager actionManager;
   private RecoveryManager recoveryManager;
@@ -43,7 +42,6 @@ public class RecoveryManagerImplTest {
     objectManager = mock(ObjectManager.class);
     transactionActionFactory = new TransactionActionFactory();
     mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
-    recoveryActionFactory = new RecoveryActionFactory();
     logManager = newLogManager();
     actionManager = newActionManager();
     recoveryManager = new RecoveryManagerImpl(logManager, actionManager);
@@ -111,19 +109,11 @@ public class RecoveryManagerImplTest {
     logManager.append(record(19, checkedPut));
     logManager.append(record(20, mapActionFactory.delete(1)));
 
-    // Test evictions during recovery
-    Action evictor = action(true);
-    Set<Long> evictedLsns = new HashSet<Long>(Arrays.asList(22L, 23L, 24L));
-    doReturn(evictedLsns).when(evictor).replay(
-            anyLong());
-    logManager.append(record(21, evictor));
-
     recoveryManager.recover();
 
     verify(skipper).replay(9);
     verify(validTransactional).replay(12);
     verify(checkedPut).replay(19);
-    verify(actionManager).asyncHappened(recoveryActionFactory.eviction(evictedLsns));
   }
 
   private Action skipped(Action action) {

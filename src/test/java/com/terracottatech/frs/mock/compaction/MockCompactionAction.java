@@ -44,9 +44,8 @@ public class MockCompactionAction<I, K, V> extends MockCompleteKeyAction<I, K> i
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     compacted.replay(lsn);
-    return Collections.emptySet();
   }
 
   @Override

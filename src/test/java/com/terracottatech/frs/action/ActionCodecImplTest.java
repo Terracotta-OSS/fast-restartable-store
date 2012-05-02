@@ -12,8 +12,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Set;
 
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
@@ -61,8 +59,7 @@ public class ActionCodecImplTest {
     }
 
     @Override
-    public Set<Long> replay(long lsn) {
-      return Collections.emptySet();
+    public void replay(long lsn) {
     }
 
     @Override

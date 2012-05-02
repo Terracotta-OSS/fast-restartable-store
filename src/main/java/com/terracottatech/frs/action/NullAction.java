@@ -5,8 +5,6 @@
 package com.terracottatech.frs.action;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * @author tim
@@ -17,8 +15,7 @@ public class NullAction implements Action {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
-    return Collections.emptySet();
+  public void replay(long lsn) {
   }
 
   @Override

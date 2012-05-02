@@ -29,7 +29,7 @@ public class MockTransactionBeginAction implements Action, Serializable {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     throw new AssertionError();
   }
 

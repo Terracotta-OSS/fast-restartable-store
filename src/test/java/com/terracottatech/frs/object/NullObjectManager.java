@@ -33,8 +33,7 @@ public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public Set<Long> replayPut(I id, K key, V value, long lsn) {
-    return null;
+  public void replayPut(I id, K key, V value, long lsn) {
   }
 
   @Override

@@ -11,9 +11,7 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.transaction.TransactionFilter;
 
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 /**
  * @author tim
@@ -41,19 +39,13 @@ public class RecoveryManagerImpl implements RecoveryManager {
       Action action = actionManager.extract(logRecord);
       skipsFilter.filter(action, logRecord.getLsn());
     }
-
-    // TODO: Should we batch the evictions?
-    if (!replayFilter.invalidatedLsns.isEmpty()) {
-      actionManager.asyncHappened(new RecoveryEvictionAction(replayFilter.invalidatedLsns));
-    }
   }
 
   private static class ReplayFilter implements Filter<Action> {
-    private final Set<Long> invalidatedLsns = new HashSet<Long>();
 
     @Override
     public boolean filter(Action element, long lsn) {
-      invalidatedLsns.addAll(element.replay(lsn));
+      element.replay(lsn);
       return true;
     }
   }

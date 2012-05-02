@@ -7,7 +7,6 @@ package com.terracottatech.frs.action;
 import com.terracottatech.frs.log.LSNEventListener;
 
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 /**
  *
@@ -18,13 +17,11 @@ public interface Action extends LSNEventListener {
   void record(long lsn);
 
   /**
-   * Replay the given action. Also returns a set of LSNs that this action may
-   * have invalidated.
+   * Replay the given action.
    *
    * @param lsn lsn of the action
-   * @return invalidated lsns
    */
-  Set<Long> replay(long lsn);
+  void replay(long lsn);
 
   ByteBuffer[] getPayload(ActionCodec codec);
 }

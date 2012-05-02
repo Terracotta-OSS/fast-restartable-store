@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Set;
-
 /**
  * @author cdennis
  */
@@ -44,7 +42,7 @@ public interface ObjectManager<I, K, V> {
    * @param lsn lsn
    * @return list of LSNs of entries that have been evicted.
    */
-  Set<Long> replayPut(I id, K key, V value, long lsn);
+  void replayPut(I id, K key, V value, long lsn);
 
   /**
    * Get and lock an entry to be compacted in the object manager

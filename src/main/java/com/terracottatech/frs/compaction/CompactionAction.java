@@ -12,7 +12,6 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 /**
  * @author tim
@@ -54,7 +53,7 @@ class CompactionAction extends PutAction {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     throw new UnsupportedOperationException("Compaction actions can't be replayed.");
   }
 }

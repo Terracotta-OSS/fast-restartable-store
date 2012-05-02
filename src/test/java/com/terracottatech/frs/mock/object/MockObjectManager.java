@@ -87,7 +87,7 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public Set<Long> replayPut(I id, K key, V value, long lsn) {
+  public void replayPut(I id, K key, V value, long lsn) {
     Map<K, V> m = external.get(id);
     if (m == null) {
       m = new HashMap<K, V>();
@@ -95,7 +95,6 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
     }
     m.put(key, value);
     put(id, key, value, lsn);
-    return Collections.emptySet();
   }
 
   @Override

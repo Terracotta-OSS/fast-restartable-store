@@ -5,7 +5,6 @@
 package com.terracottatech.frs.action;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,8 +28,7 @@ public class SimpleInvalidatingAction implements InvalidatingAction {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
-    return Collections.emptySet();
+  public void replay(long lsn) {
   }
 
   @Override

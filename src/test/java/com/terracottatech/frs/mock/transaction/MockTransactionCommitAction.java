@@ -9,7 +9,6 @@ import com.terracottatech.frs.action.ActionCodec;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 /**
  *
@@ -29,7 +28,7 @@ public class MockTransactionCommitAction implements Action, Serializable {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     throw new AssertionError();
   }
 

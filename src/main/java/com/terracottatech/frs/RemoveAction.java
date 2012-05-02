@@ -55,9 +55,8 @@ class RemoveAction implements InvalidatingAction {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     // Nothing to remove on replay
-    return Collections.emptySet();
   }
 
   @Override

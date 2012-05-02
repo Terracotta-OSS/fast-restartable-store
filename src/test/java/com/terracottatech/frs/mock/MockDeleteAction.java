@@ -10,7 +10,6 @@ import com.terracottatech.frs.object.ObjectManager;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 public class MockDeleteAction<I> implements MockAction, Serializable {
 
@@ -33,7 +32,7 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
+  public void replay(long lsn) {
     throw new AssertionError();
   }
 

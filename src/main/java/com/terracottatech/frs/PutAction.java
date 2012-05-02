@@ -88,8 +88,8 @@ public class PutAction implements InvalidatingAction {
   }
 
   @Override
-  public Set<Long> replay(long lsn) {
-    return objectManager.replayPut(getId(), getKey(), getValue(), lsn);
+  public void replay(long lsn) {
+    objectManager.replayPut(getId(), getKey(), getValue(), lsn);
   }
 
   @Override

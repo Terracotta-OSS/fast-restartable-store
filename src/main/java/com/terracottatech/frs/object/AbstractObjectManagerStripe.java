@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Set;
-
 public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectManagerStripe<I, K, V> {
   
   @Override
@@ -41,9 +39,9 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
   }
 
   @Override
-  public Set<Long> replayPut(K key, V value, long lsn) {
+  public void replayPut(K key, V value, long lsn) {
     int hash = extractHashCode(key);
-    return getSegmentFor(hash, key).replayPut(hash, key, value, lsn);
+    getSegmentFor(hash, key).replayPut(hash, key, value, lsn);
   }
 
   @Override

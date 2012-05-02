@@ -199,9 +199,8 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public Set<Long> replayPut(int hash, K key, V value, long lsn) {
+    public void replayPut(int hash, K key, V value, long lsn) {
       put(hash, key, value, lsn);
-      return Collections.emptySet();
     }
 
     @Override

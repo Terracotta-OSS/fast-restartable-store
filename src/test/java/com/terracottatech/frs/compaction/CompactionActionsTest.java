@@ -4,7 +4,7 @@
  */
 package com.terracottatech.frs.compaction;
 
-import com.terracottatech.frs.PutAction;
+import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.object.ObjectManager;
@@ -28,6 +28,7 @@ public class CompactionActionsTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec;
   private Compactor compactor;
+  private MapActionFactory mapActionFactory;
 
   @Before
   public void setUp() throws Exception {
@@ -36,6 +37,7 @@ public class CompactionActionsTest {
     codec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(
             objectManager);
     CompactionActions.registerActions(0, codec);
+    mapActionFactory = new MapActionFactory(objectManager, compactor);
   }
 
   private CompactionAction createCompactionAction(int id, int key, Integer value, long invalidates) {
@@ -50,9 +52,8 @@ public class CompactionActionsTest {
   @Test
   public void testCompactionAction() throws Exception {
     CompactionAction validCompaction = createCompactionAction(1, 2, 3, 4);
-    assertThat((PutAction) codec.decode(codec.encode(validCompaction)),
-               is(new PutAction(objectManager, compactor, byteBufferWithInt(1),
-                                byteBufferWithInt(2), byteBufferWithInt(3), 4)));
+    assertThat(codec.decode(codec.encode(validCompaction)),
+               is(mapActionFactory.put(1, 2, 3, 4L)));
 
     validCompaction.record(123);
     validCompaction.updateObjectManager();

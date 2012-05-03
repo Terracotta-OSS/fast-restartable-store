@@ -22,7 +22,7 @@ class DeleteAction implements Action {
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                          ActionCodec codec, ByteBuffer[] buffers) {
       int idLength = ByteBufferUtils.getInt(buffers);
-      return new DeleteAction(objectManager, null, ByteBufferUtils.getBytes(idLength, buffers));
+      return new DeleteAction(objectManager, null, ByteBufferUtils.getBytes(idLength, buffers), false);
     }
   };
 
@@ -30,10 +30,14 @@ class DeleteAction implements Action {
   private final Compactor compactor;
   private final ByteBuffer id;
 
-  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, Compactor compactor, ByteBuffer id) {
+  DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, Compactor compactor, ByteBuffer id, boolean recovery) {
     this.objectManager = objectManager;
     this.compactor = compactor;
     this.id = id;
+
+    if (recovery) {
+      throw new IllegalStateException("Delete is unsupported during recovery.");
+    }
   }
 
   ByteBuffer getId() {

@@ -19,6 +19,9 @@ import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.mock.compaction.MockCompactor;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.util.NullFuture;
+
+import java.util.concurrent.Future;
 
 /**
  *
@@ -34,6 +37,13 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   public void shutdown() throws InterruptedException {
     compactor.shutdown();
   }
+
+  @Override
+  public Future<Void> startup() {
+    compactor.startup();
+    return new NullFuture();
+  }
+
 
   private MockRestartStore(TransactionManager txnManager, ObjectManager<Long, String, String> objManager, Compactor compactor) {
     this.txnManager = txnManager;

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 
@@ -36,6 +37,6 @@ public class NullLogManager implements LogManager {
 
   @Override
   public Iterator<LogRecord> reader() {
-    return null;
+    return Collections.<LogRecord>emptyList().iterator();
   }
 }

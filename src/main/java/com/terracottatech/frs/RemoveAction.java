@@ -33,12 +33,17 @@ class RemoveAction implements InvalidatingAction {
   private final ByteBuffer key;
   private final long invalidatedLsn;
 
-  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key) {
+  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key, boolean recovery) {
     this.objectManager = objectManager;
     this.compactor = compactor;
     this.id = id;
     this.key = key;
     this.invalidatedLsn = objectManager.getLsn(id, key);
+
+    if (invalidatedLsn == -1L && recovery) {
+      throw new IllegalStateException(
+              "Removing a non-existent key is unsupported during recovery.");
+    }
   }
 
   @Override

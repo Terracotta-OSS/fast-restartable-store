@@ -31,6 +31,7 @@ public class DeleteFilterTest {
   private DeleteFilter                                      filter;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private Compactor compactor;
+  private MapActionFactory mapActionFactory;
 
   @Before
   public void setUp() throws Exception {
@@ -39,21 +40,22 @@ public class DeleteFilterTest {
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
     objectManager = mock(ObjectManager.class);
     filter = new DeleteFilter(delegate);
+    mapActionFactory = new MapActionFactory(objectManager, compactor);
   }
 
   @Test
   public void testFilterDeleteAction() throws Exception {
-    assertThat(filter.filter(deleteAction(1), 2), is(true));
-    assertThat(filter.filter(putAction(1, 2, 3), 1), is(true));
+    assertThat(filter.filter(mapActionFactory.delete(1), 2), is(true));
+    assertThat(filter.filter(mapActionFactory.put(1, 2, 3), 1), is(true));
     verify(delegate, never()).filter(any(Action.class), anyLong());
-    assertThat(filter.filter(putAction(2, 3, 3), 0), is(true));
+    assertThat(filter.filter(mapActionFactory.put(2, 3, 3), 0), is(true));
     verify(delegate).filter(any(PutAction.class), anyLong());
   }
 
   @Test
   public void testPassthrough() throws Exception {
     Action bogusAction = mock(Action.class);
-    assertThat(filter.filter(deleteAction(1), 2), is(true));
+    assertThat(filter.filter(mapActionFactory.delete(1), 2), is(true));
     assertThat(filter.filter(bogusAction, 1), is(true));
     verify(delegate).filter(eq(bogusAction), anyLong());
   }
@@ -63,14 +65,5 @@ public class DeleteFilterTest {
     Set<ByteBuffer> buffers = new HashSet<ByteBuffer>();
     buffers.add(TestUtils.byteBufferWithInt(1));
     assertThat(buffers.contains(TestUtils.byteBufferWithInt(1)), is(true));
-  }
-
-  private DeleteAction deleteAction(int i) {
-    return new DeleteAction(objectManager, compactor, TestUtils.byteBufferWithInt(i));
-  }
-
-  private PutAction putAction(int i, int k, int v) {
-    return new PutAction(objectManager, compactor, TestUtils.byteBufferWithInt(i),
-                         TestUtils.byteBufferWithInt(k), TestUtils.byteBufferWithInt(v));
   }
 }

@@ -4,17 +4,19 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.log.LogManager;
+import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
-import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
 
+import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
@@ -28,6 +30,8 @@ public class RestartStoreImplTest {
   private Compactor                                         compactor;
   private TransactionManager                                transactionManager;
   private TransactionHandle                                 handle;
+  private LogManager logManager;
+  private MapActionFactory mapActionFactory;
 
   @Before
   public void setUp() throws Exception {
@@ -36,7 +40,36 @@ public class RestartStoreImplTest {
     doReturn(handle).when(transactionManager).begin();
     objectManager = mock(ObjectManager.class);
     compactor = mock(Compactor.class);
-    restartStore = new RestartStoreImpl(objectManager, transactionManager, mock(LogManager.class), compactor);
+    logManager = spy(new NullLogManager());
+    restartStore = createStore();
+    restartStore.startup();
+    mapActionFactory = new MapActionFactory(objectManager, compactor);
+  }
+
+  private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
+    return new RestartStoreImpl(objectManager, transactionManager, logManager, mock(ActionManager.class), compactor);
+  }
+
+  @Test
+  public void testIllegalStates() throws Exception {
+    restartStore = createStore();
+    checkFailBeginTransaction();
+
+    restartStore.startup();
+
+    restartStore.shutdown();
+    checkFailBeginTransaction();
+  }
+
+  private void checkFailBeginTransaction() throws Exception {
+    try {
+      restartStore.beginTransaction();
+      fail();
+    } catch (IllegalStateException e) {}
+    try {
+      restartStore.beginAutoCommitTransaction();
+      fail();
+    } catch (IllegalStateException e) {}
   }
 
   @Test
@@ -65,19 +98,13 @@ public class RestartStoreImplTest {
   public void testPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.put(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2),
-                    TestUtils.byteBufferWithInt(3));
-    verify(transactionManager).happened(handle, new PutAction(objectManager, compactor,
-                                                            TestUtils.byteBufferWithInt(
-                                                                    1),
-                                                            TestUtils.byteBufferWithInt(
-                                                                    2),
-                                                            TestUtils.byteBufferWithInt(
-                                                                    3)));
+    transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
+                    byteBufferWithInt(3));
+    verify(transactionManager).happened(handle, mapActionFactory.put(1, 2, 3));
     transaction.commit();
     try {
-      transaction.put(TestUtils.byteBufferWithInt(4), TestUtils.byteBufferWithInt(5),
-                      TestUtils.byteBufferWithInt(6));
+      transaction.put(byteBufferWithInt(4), byteBufferWithInt(5),
+                      byteBufferWithInt(6));
       fail("Put on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -88,13 +115,11 @@ public class RestartStoreImplTest {
   public void testDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.delete(TestUtils.byteBufferWithInt(1));
-    verify(transactionManager).happened(handle, new DeleteAction(objectManager, compactor,
-                                                               TestUtils.byteBufferWithInt(
-                                                                       1)));
+    transaction.delete(byteBufferWithInt(1));
+    verify(transactionManager).happened(handle, mapActionFactory.delete(1));
     transaction.commit();
     try {
-      transaction.delete(TestUtils.byteBufferWithInt(1));
+      transaction.delete(byteBufferWithInt(1));
       fail("Delete on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -105,15 +130,11 @@ public class RestartStoreImplTest {
   public void testRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginTransaction();
-    transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
-    verify(transactionManager).happened(handle, new RemoveAction(objectManager, compactor,
-                                                               TestUtils.byteBufferWithInt(
-                                                                       1),
-                                                               TestUtils.byteBufferWithInt(
-                                                                       2)));
+    transaction.remove(byteBufferWithInt(1), byteBufferWithInt(2));
+    verify(transactionManager).happened(handle, mapActionFactory.remove(1, 2));
     transaction.commit();
     try {
-      transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2));
+      transaction.remove(byteBufferWithInt(1), byteBufferWithInt(2));
       fail("Remove on a committed transaction should have thrown.");
     } catch (IllegalStateException e) {
       // Expected
@@ -124,31 +145,25 @@ public class RestartStoreImplTest {
   public void testAutoCommitPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginAutoCommitTransaction();
-    transaction.put(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(2),
-                    TestUtils.byteBufferWithInt(3));
-    verify(transactionManager).happened(new PutAction(objectManager, compactor,
-                                                      TestUtils.byteBufferWithInt(1),
-                                                      TestUtils.byteBufferWithInt(2),
-                                                      TestUtils.byteBufferWithInt(3)));
+    transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
+                    byteBufferWithInt(3));
+    verify(transactionManager).happened(mapActionFactory.put(1, 2, 3));
   }
 
   @Test
   public void testAutoCommitRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction();
-    transaction.remove(TestUtils.byteBufferWithInt(1), TestUtils.byteBufferWithInt(15));
-    verify(transactionManager).happened(new RemoveAction(objectManager, compactor,
-                                                         TestUtils.byteBufferWithInt(1),
-                                                         TestUtils.byteBufferWithInt(15)));
+    transaction.remove(byteBufferWithInt(1), byteBufferWithInt(15));
+    verify(transactionManager).happened(mapActionFactory.remove(1, 15));
   }
 
   @Test
   public void testAutoCommitDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction();
-    transaction.delete(TestUtils.byteBufferWithInt(99));
-    verify(transactionManager).happened(new DeleteAction(objectManager, compactor,
-                                                         TestUtils.byteBufferWithInt(99)));
+    transaction.delete(byteBufferWithInt(99));
+    verify(transactionManager).happened(mapActionFactory.delete(99));
   }
 
   @Test

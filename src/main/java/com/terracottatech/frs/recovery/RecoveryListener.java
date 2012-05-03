@@ -4,14 +4,9 @@
  */
 package com.terracottatech.frs.recovery;
 
-import java.util.concurrent.Future;
-
 /**
- *
- * @author cdennis
+ * @author tim
  */
-public interface RecoveryManager {
-
-  public Future<Void> recover(RecoveryListener ... listeners);
-  
+public interface RecoveryListener {
+  void recovered();
 }

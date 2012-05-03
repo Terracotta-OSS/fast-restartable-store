@@ -47,12 +47,16 @@ public class PutAction implements InvalidatingAction {
 
   private long                                                    invalidatedLsn;
 
-  protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
-            ByteBuffer key, ByteBuffer value) {
+  PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
+            ByteBuffer key, ByteBuffer value, boolean recovery) {
     this(objectManager, compactor, id, key, value, objectManager.getLsn(id, key));
+    if (invalidatedLsn == -1L && recovery) {
+      throw new IllegalStateException(
+              "Put over an unrecovered key is unsupported during recovery.");
+    }
   }
 
-  public PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
+  protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
                     ByteBuffer key, ByteBuffer value, long invalidatedLsn) {
     this.objectManager = objectManager;
     this.compactor = compactor;

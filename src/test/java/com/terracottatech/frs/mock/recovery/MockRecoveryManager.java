@@ -9,11 +9,14 @@ import com.terracottatech.frs.mock.MockDeleteFilter;
 import com.terracottatech.frs.mock.transaction.MockTransactionFilter;
 import com.terracottatech.frs.recovery.Filter;
 import com.terracottatech.frs.log.LogManager;
+import com.terracottatech.frs.recovery.RecoveryListener;
 import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.util.NullFuture;
 
 import java.util.Iterator;
+import java.util.concurrent.Future;
 
 /**
  *
@@ -30,7 +33,7 @@ public class MockRecoveryManager implements RecoveryManager {
   }
 
   @Override
-  public void recover() {
+  public Future<Void> recover(RecoveryListener ... listeners) {
     Iterator<LogRecord> it = logManager.reader();
 
     Filter<Action> replay = new MockReplayFilter();
@@ -43,5 +46,7 @@ public class MockRecoveryManager implements RecoveryManager {
       Action action = actionManager.extract(record);
       skipsFilter.filter(action, record.getLsn());
     }
+
+    return new NullFuture();
   }
 }

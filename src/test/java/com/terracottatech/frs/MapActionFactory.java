@@ -7,9 +7,10 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.util.TestUtils;
 
 import java.nio.ByteBuffer;
+
+import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 
 /**
  * @author tim
@@ -25,16 +26,21 @@ public class MapActionFactory {
   }
 
   public Action put(int i, int k, int v) {
-    return new PutAction(objectManager, compactor, TestUtils.byteBufferWithInt(i),
-                         TestUtils.byteBufferWithInt(k), TestUtils.byteBufferWithInt(v));
+    return new PutAction(objectManager, compactor, byteBufferWithInt(i),
+                         byteBufferWithInt(k), byteBufferWithInt(v), false);
+  }
+
+  public Action put(int i, int k, int v, long lsn) {
+    return new PutAction(objectManager, compactor, byteBufferWithInt(i),
+                         byteBufferWithInt(k), byteBufferWithInt(v), lsn);
   }
 
   public Action remove(int i, int k) {
-    return new RemoveAction(objectManager, compactor, TestUtils.byteBufferWithInt(i),
-                            TestUtils.byteBufferWithInt(k));
+    return new RemoveAction(objectManager, compactor, byteBufferWithInt(i),
+                            byteBufferWithInt(k), false);
   }
 
   public Action delete(int i) {
-    return new DeleteAction(objectManager, compactor, TestUtils.byteBufferWithInt(i));
+    return new DeleteAction(objectManager, compactor, byteBufferWithInt(i), false);
   }
 }

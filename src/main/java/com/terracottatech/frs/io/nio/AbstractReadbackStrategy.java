@@ -78,6 +78,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( length != buffer.getLong() ) {
             return null;
         }
+        long maxMarker = buffer.getLong();
 // confirm file chunk magic        
         if ( !SegmentHeaders.FILE_CHUNK.validate(buffer.getInt()) ) {
             return null;

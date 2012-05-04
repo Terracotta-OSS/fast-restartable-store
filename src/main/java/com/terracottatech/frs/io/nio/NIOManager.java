@@ -62,9 +62,36 @@ public class NIOManager implements IOManager {
     }
 
     @Override
-    public void setLowestLsn(long lsn) throws IOException {
-        //  TODO:  Implement compaction
+    public void setCurrentMarker(long marker) throws IOException {
+        backend.setMarker(marker);
     }
+
+    @Override
+    public void setMaximumMarker(long marker) throws IOException {
+        backend.setMaximumMarker(marker);
+    }
+
+    @Override
+    public void setMinimumMarker(long marker) throws IOException {
+        backend.setMinimumMarker(marker);
+    }
+
+    @Override
+    public long getCurrentMarker() throws IOException {
+        return backend.getMarker();
+    }
+
+    @Override
+    public long getMaximumMarker() throws IOException {
+        return backend.getMaximumMarker();
+    }
+
+    @Override
+    public long getMinimumMarker() throws IOException {
+        return backend.getMinimumMarker();
+    }
+    
+    
 
     public void sync() throws IOException {
         if (backend == null) {
@@ -76,12 +103,12 @@ public class NIOManager implements IOManager {
     }
     
     @Override
-    public long seek(long lsn) throws IOException {
+    public long seek(long marker) throws IOException {
         if (backend == null) {
             open();
         }        
-        backend.seek(lsn);
-        return lsn;
+        backend.seek(marker);
+        return marker;
     }
     
     public Chunk read(Direction dir) throws IOException { 
@@ -107,10 +134,12 @@ public class NIOManager implements IOManager {
     }
     
     private final void open() throws IOException {        
-        backend = new NIOStreamImpl(directory, segmentSize);
         if (!directory.exists() || !directory.isDirectory()) {
             throw new IOException(BAD_HOME_DIRECTORY);
         }
+        
+        backend = new NIOStreamImpl(directory, segmentSize);
+
         lockFile = new File(directory, "FRS.lck");
         boolean crashed = !lockFile.createNewFile();
         
@@ -124,9 +153,9 @@ public class NIOManager implements IOManager {
         }
         if ( crashed ) {
             checkForCrash();
-        } else {
-//            backend.checkForCleanExit();
         }
+        
+        backend.open();
     }
     
     private void saveForCrash(long position) throws IOException {

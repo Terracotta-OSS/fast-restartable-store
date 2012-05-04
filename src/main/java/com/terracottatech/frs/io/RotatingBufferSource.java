@@ -62,6 +62,7 @@ public class RotatingBufferSource implements BufferSource {
                 }
             }
             if (spins++ > 100) {
+                System.out.format("WARNING: ran out of direct memory for a request of %d.\n",size);
                 return null;
             }
         }

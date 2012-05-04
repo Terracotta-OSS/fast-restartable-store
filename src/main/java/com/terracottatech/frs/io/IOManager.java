@@ -15,11 +15,18 @@ public interface IOManager extends Closeable {
   
   long write(Chunk region) throws IOException;
   
-  void setLowestLsn(long lsn) throws IOException;
+  void setMinimumMarker(long marker) throws IOException;
+  long getMinimumMarker() throws IOException;
+  
+  void setMaximumMarker(long marker) throws IOException;
+  long getMaximumMarker() throws IOException;
+  
+  void setCurrentMarker(long marker) throws IOException;
+  long getCurrentMarker() throws IOException;
   
   Chunk read(Direction dir) throws IOException;
   
-  long seek(long lsn) throws IOException;
+  long seek(long marker) throws IOException;
   
   void sync() throws IOException;
   

@@ -25,6 +25,7 @@ public interface Stream extends Iterable<Chunk>,Closeable  {
     
     long append(Chunk c) throws IOException;
     
+
     UUID getStreamId();
     
     long sync() throws IOException;

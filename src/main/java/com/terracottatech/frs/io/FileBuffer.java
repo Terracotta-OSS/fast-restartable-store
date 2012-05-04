@@ -4,10 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -67,6 +64,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return offset;
     }
     
+    public long size() throws IOException {
+        return channel.size();
+    }
+    
     public int capacity() {
         return base.capacity();
     }
@@ -115,13 +116,17 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         for (int x = mark; x < mark + count; x++) {
             if ( ref[x].isReadOnly() ) {
                 ref[x] = ref[x].duplicate();
-                ref[x].position(ref[x].limit());
+                ref[x].limit(ref[x].position());
             } else {
                 assert(ref[x].position() == 0);
             }
         }
         while (ref[mark+count-1].hasRemaining()) {
-            lt += channel.read(ref,mark,count);
+            long read = channel.read(ref,mark,count);
+            if ( read < 0 ) {
+                throw new EOFException();
+            }
+            lt += read;
         }
         for (int x=mark;x<mark + count;x++) {
             ref[x].flip();
@@ -208,6 +213,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
                 usage +=  ref[x].position();
                 if ( !ref[x].isDirect() ) direct = false;
                 ref[x].flip();
+            } else {
+//  readonly buffers are inserted into the buffer chain but are not part of 
+//  this file buffer's memory space
             }
         }
         
@@ -236,14 +244,5 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public void close() throws IOException {
         channel.close();
         ref = null;
-        dereference();
-    }
-    
-    private void dereference() {
-        if ( outReferences.decrementAndGet() == 0 ) {
-            if ( src != null ) {
-                src.returnBuffer(base);
-            }
-        }
     }
 }

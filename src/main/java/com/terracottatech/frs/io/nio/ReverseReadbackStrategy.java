@@ -69,25 +69,27 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
         if ( buffer == null ) {
             buffer = bufferSrc.getBuffer(READ_SIZE);
             buffer.clear();
-            channel.position(-buffer.capacity());
+            channel.position(channel.size()-buffer.capacity());
         } else {
-            int front = buffer.position();
-            int confirm = buffer.getInt(buffer.position()-4);
-            assert(SegmentHeaders.FILE_CHUNK.validate(confirm) || SegmentHeaders.CLOSE_FILE.validate(confirm));
-            buffer.clear();
+//            int front = buffer.position();
+//            if ( front >= 4 ) {
+//                int confirm = buffer.getInt(buffer.position()-4);
+//                assert(SegmentHeaders.FILE_CHUNK.validate(confirm) || SegmentHeaders.CLOSE_FILE.validate(confirm));
+//            }
+            buffer.flip();
             long cp = channel.position();
             ByteBuffer copy = bufferSrc.getBuffer(READ_SIZE);
             if ( cp < copy.capacity() ) {
                 copy.limit((int)cp);
                 channel.position(0);
             } else {
-                copy.limit(front);
-                channel.position(cp - buffer.capacity() + front);
+                copy.limit(copy.capacity() - buffer.limit());
+                channel.position(cp - buffer.capacity() + buffer.limit());
             }
             while ( copy.hasRemaining() ) channel.read(copy);
             copy.limit(copy.capacity());
             copy.put(buffer);
-            copy.clear();
+            copy.flip();
             buffer = copy;
         }
         int pos = findStartLocation();
@@ -103,8 +105,10 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
             buffer.reset();
             Collections.reverse(list);
             this.chunks = list.listIterator();
-            this.queueDirection = dir;
+        } else {
+            this.chunks = Collections.<Chunk>emptyList().listIterator();
         }
+        this.queueDirection = dir;
     }
     
     private int findStartLocation() throws IOException {
@@ -176,7 +180,7 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     private int jumpBackwardChunk(int magicPos) throws IOException {
         if ( magicPos < 0 ) return -1;
         if ( !SegmentHeaders.FILE_CHUNK.validate(buffer.getInt(magicPos)) ) return -1;
-        int pos = magicPos - LONG_SIZE;
+        int pos = magicPos - (LONG_SIZE * 2);
         if ( pos < 0 ) return -1;
         long length = buffer.getLong(pos);
         pos -= length;

@@ -126,11 +126,6 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     @Override
-    public ByteBuffer[] getBuffers(long size) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
     public void reclaim() {
         //  noop
     }
@@ -139,13 +134,6 @@ public class RotatingBufferSource implements BufferSource {
     public void returnBuffer(ByteBuffer buffer) {
 //  base buffers are always internal so this should just noop
 
-    }
-
-    @Override
-    public void returnByteBuffers(ByteBuffer[] bufs) {
-        for (ByteBuffer buf : bufs) {
-            returnBuffer(buf);
-        }
     }
 
     public int getCount() {

@@ -27,11 +27,6 @@ public class CascadingBufferSource implements BufferSource {
     }
 
     @Override
-    public void returnByteBuffers(ByteBuffer[] buf) {
-        base.returnByteBuffers(buf);
-    }
-
-    @Override
     public void returnBuffer(ByteBuffer buffer) {
         base.returnBuffer(buffer);
     }
@@ -39,13 +34,5 @@ public class CascadingBufferSource implements BufferSource {
     @Override
     public void reclaim() {
         base.reclaim();
-    }
-
-    @Override
-    public ByteBuffer[] getBuffers(long size) {
-        return base.getBuffers(size);
-    }
-    
-    
-    
+    }    
 }

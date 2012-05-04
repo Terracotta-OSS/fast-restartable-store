@@ -13,8 +13,6 @@ import java.nio.ByteBuffer;
 public interface BufferSource {
     ByteBuffer getBuffer(int size);
     void returnBuffer(ByteBuffer buffer);
-    ByteBuffer[] getBuffers(long size);
-    void returnByteBuffers(ByteBuffer[] buf);
     void reclaim();
     
 }

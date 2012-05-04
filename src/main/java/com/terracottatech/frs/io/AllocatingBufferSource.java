@@ -26,20 +26,10 @@ public class AllocatingBufferSource implements BufferSource {
     }
 
     @Override
-    public ByteBuffer[] getBuffers(long size) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
     public void returnBuffer(ByteBuffer buffer) {
    //  probably does nothing
         assert(buffer == soleSource);
         buffer.limit(0);
-    }
-
-    @Override
-    public void returnByteBuffers(ByteBuffer[] buf) {
-
     }
 
     @Override

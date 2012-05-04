@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
  * @author mscott
  */
 public class NIOStreamImplTest {
-  private static final long CHUNK_OVERHEAD   = 24;
+  private static final long CHUNK_OVERHEAD   = 32;
   private static final long MAX_SEGMENT_SIZE = 10 * 1024 * 1024;
   NIOStreamImpl stream;
   File          workArea;
@@ -80,7 +80,7 @@ public class NIOStreamImplTest {
   }
 
   private File[] listFiles() {
-    return workArea.listFiles(NIOStreamImpl.SEGMENT_FILENAME_FILTER);
+    return workArea.listFiles(NIOSegmentList.SEGMENT_FILENAME_FILTER);
   }
 
   private Chunk newChunk(long size) {

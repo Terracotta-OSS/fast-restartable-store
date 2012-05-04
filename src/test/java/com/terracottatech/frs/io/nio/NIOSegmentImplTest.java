@@ -72,7 +72,7 @@ public class NIOSegmentImplTest {
             }
         };
             long result = stream.append(c);
-            assertEquals(64l, result);  //  length of these bytes plus 20 bytes of header for LogRegions
+            assertEquals(72l, result);  //  length of these bytes plus 32 bytes of header for LogRegions
     }
 
     /**

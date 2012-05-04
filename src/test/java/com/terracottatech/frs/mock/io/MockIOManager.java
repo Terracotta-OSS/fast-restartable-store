@@ -46,9 +46,32 @@ public class MockIOManager implements IOManager {
     }
 
     @Override
-    public void setLowestLsn(long lsn) throws IOException {
-        //  NOOP
+    public void setCurrentMarker(long lsn) throws IOException {
     }
+
+    @Override
+    public void setMaximumMarker(long lsn) throws IOException {
+    }
+
+    @Override
+    public void setMinimumMarker(long lsn) throws IOException {
+    }
+
+    @Override
+    public long getCurrentMarker() throws IOException {
+        return 0;
+    }
+
+    @Override
+    public long getMaximumMarker() throws IOException {
+        return 0;
+    }
+
+    @Override
+    public long getMinimumMarker() throws IOException {
+        return 0;
+    }
+
 
     @Override
     public void close() throws IOException {

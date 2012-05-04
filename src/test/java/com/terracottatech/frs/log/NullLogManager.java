@@ -39,4 +39,11 @@ public class NullLogManager implements LogManager {
   public Iterator<LogRecord> reader() {
     return Collections.<LogRecord>emptyList().iterator();
   }
+
+    @Override
+    public Future<Void> recover() {
+        return null;
+    }
+  
+  
 }

@@ -21,7 +21,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -42,6 +45,39 @@ public class MockLogManager implements LogManager {
   public long currentLsn() {
     return currentLsn.get();
   }
+
+    @Override
+    public Future<Void> recover() {
+        return new Future<Void>() {
+
+            @Override
+            public boolean cancel(boolean bln) {
+                return false;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+
+            @Override
+            public boolean isDone() {
+                return true;
+            }
+
+            @Override
+            public Void get() throws InterruptedException, ExecutionException {
+                return null;
+            }
+
+            @Override
+            public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
+                return null;
+            }
+        };
+    }
+  
+  
 
   @Override
   public void startup() {

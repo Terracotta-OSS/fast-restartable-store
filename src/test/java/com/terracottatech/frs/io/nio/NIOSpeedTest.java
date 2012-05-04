@@ -5,8 +5,11 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -59,9 +62,16 @@ public class NIOSpeedTest {
               System.out.format("fsync on /dev/null threw %s [was this run on linux?]\n", e.toString());
             }
         }
+        long r = w;
         n = System.nanoTime() - n;
-        System.out.format("null %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
-    }    
+        System.out.format("write null %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
+        while ( r > 0 ) {
+            buf.position(0);
+            r -= fc.read(buf);
+        }
+        n = System.nanoTime() - n;
+        System.out.format("read null %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
+     }    
     
     @Test
     public void rawSpeed() throws IOException {
@@ -75,9 +85,11 @@ public class NIOSpeedTest {
             w += fc.write(buf);
 //            fc.force(false);
         }
+        fc.close();
+        long r = w;
         n = System.nanoTime() - n;
-        System.out.format("raw %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
-    }
+        System.out.format("write raw %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
+     }
     
     @Test
     public void speedTest() throws IOException {
@@ -90,8 +102,10 @@ public class NIOSpeedTest {
             w += stream.append(c);
 //            stream.sync();
         }
+        stream.seek(IOManager.Seek.BEGINNING.getValue());
+        long r = w;
         n = System.nanoTime() - n;
-        System.out.format("frs %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));        
+        System.out.format("write frs %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
     }
     
      
@@ -114,8 +128,10 @@ public class NIOSpeedTest {
             }
             c.flip();
         }
+        fc.position(0);
+        long r = w;
         n = System.nanoTime() - n;
-        System.out.format("tiny %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));        
+        System.out.format("write tiny %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
     }   
     
     @After

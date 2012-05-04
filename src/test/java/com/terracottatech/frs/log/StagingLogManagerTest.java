@@ -132,7 +132,7 @@ public class StagingLogManagerTest {
         Iterator<LogRecord> i = logManager.reader();
         while (i.hasNext()) {
             LogRecord record = i.next();
-            assertThat(record.getLowestLsn(), is(-1L));
+//            assertThat(record.getLowestLsn(), is(0L));
             assertThat(record.getLsn(), is(expectedLsn));
             expectedLsn--;
         }
@@ -152,10 +152,33 @@ public class StagingLogManagerTest {
             chunks.push(region);
             return 0;
         }
+    @Override
+    public void setCurrentMarker(long lsn) throws IOException {
+    }
 
-        @Override
-        public void setLowestLsn(long lsn) throws IOException {
-        }
+    @Override
+    public void setMaximumMarker(long lsn) throws IOException {
+    }
+
+    @Override
+    public void setMinimumMarker(long lsn) throws IOException {
+    }
+
+    @Override
+    public long getCurrentMarker() throws IOException {
+        return 0;
+    }
+
+    @Override
+    public long getMaximumMarker() throws IOException {
+        return 0;
+    }
+
+    @Override
+    public long getMinimumMarker() throws IOException {
+        return 0;
+    }
+    
 
         @Override
         public Chunk read(Direction dir) throws IOException {

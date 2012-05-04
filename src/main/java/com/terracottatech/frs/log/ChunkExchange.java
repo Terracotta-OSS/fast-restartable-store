@@ -171,9 +171,13 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                         queued = queue.poll(10, TimeUnit.SECONDS);
                         if (queued != null) {
                             returned.incrementAndGet();
-                            List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
-                            Collections.reverse(records);
-                            list = new ArrayDeque<LogRecord>(records);
+                            try {
+                                List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
+                                Collections.reverse(records);
+                                list = new ArrayDeque<LogRecord>(records);
+                            } catch ( ChecksumException ce ) {
+                                throw new RuntimeException(ce);
+                            }
                         }
                     }
                 } catch (InterruptedException ie) {

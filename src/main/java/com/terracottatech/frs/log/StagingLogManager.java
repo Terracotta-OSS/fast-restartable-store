@@ -350,7 +350,7 @@ public class StagingLogManager implements LogManager {
             this.list= list;
             this.data = data;
         }
-
+        
         public long getLowestLsn() {
             return list.getLowestLsn();
         }

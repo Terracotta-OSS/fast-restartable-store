@@ -89,6 +89,7 @@ class NIOSegmentList {
     }
     
     synchronized void removeCurrentSegment() throws IOException {
+        assert(!readHead.equals(writeHead));
         readHead.delete();
         readPosition.remove();
     }
@@ -99,6 +100,8 @@ class NIOSegmentList {
     
     synchronized void removeSegment(int pos) throws IOException {
         File f = segments.remove(pos);
+        assert(readHead == null || !readHead.equals(f));
+        assert(writeHead == null || !writeHead.equals(f));
         f.delete();
     }
     

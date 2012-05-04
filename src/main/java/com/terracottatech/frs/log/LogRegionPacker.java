@@ -40,7 +40,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return writeRecords(payload);
     }
     
-    public static List<LogRecord> unpack(Signature type, Chunk data) {
+    public static List<LogRecord> unpack(Signature type, Chunk data) throws ChecksumException {
         long headCheck = readRegionHeader(data);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
@@ -51,7 +51,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return queue;
     }
 
-    public List<LogRecord> unpack(Chunk data) {
+    public List<LogRecord> unpack(Chunk data) throws ChecksumException {
         long headCheck = readRegionHeader(data);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
@@ -103,7 +103,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return cType == Signature.ADLER32;
     }
     
-    private static long readRegionHeader(Chunk data) {
+    private static long readRegionHeader(Chunk data) throws ChecksumException {
         short region = data.getShort();
         long check = data.getLong();
         long check2 = data.getLong();
@@ -111,8 +111,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         data.get(rf);
 
         if ( check != 0 ) {
-            if (check != checksum(Arrays.asList(data.getBuffers())) ) {
-                throw new RuntimeException(BAD_CHECKSUM);
+            long value = checksum(Arrays.asList(data.getBuffers()));
+            if (check != value ) {
+                throw new ChecksumException("Adler32",check,value,data.length());
             }
         }
         

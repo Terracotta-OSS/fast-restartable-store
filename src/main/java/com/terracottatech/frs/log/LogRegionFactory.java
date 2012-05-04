@@ -15,5 +15,5 @@ import java.util.List;
 public interface LogRegionFactory<T> {
 
   Chunk pack(Iterable<T> payload);
-  List<T> unpack(Chunk data);
+  List<T> unpack(Chunk data) throws ChecksumException ;
 }

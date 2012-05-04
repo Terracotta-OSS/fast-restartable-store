@@ -7,10 +7,11 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
-import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  *
@@ -23,6 +24,8 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     private long lastMarker = 0;
     private boolean primed = false;
     private boolean done = false;
+    private ArrayList<Long> jumpList = new ArrayList<Long>();
+    
 
     public IntegrityReadbackStrategy(FileBuffer src) {
         buffer = src;
@@ -77,6 +80,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
                 if (SegmentHeaders.FILE_CHUNK.validate(buffer.getInt())) {
                     lastGood = buffer.position();
                 }
+                jumpList.add(buffer.position());
             } else {
                 throw new IOException(new String(check));
             }
@@ -98,6 +102,10 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
 
     long getLastValidMarker() {
         return lastMarker;
+    }
+    
+    List<Long> getJumpList() {
+        return jumpList;
     }
 
     boolean wasClosed() {

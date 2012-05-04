@@ -34,7 +34,7 @@ class NIOSegmentImpl {
     private ReadbackStrategy strategy;
 //  for writing
     private FileLock lock;
-    private ArrayList<Long> writeJumpList;
+    private List<Long> writeJumpList;
     private long lowestMarker;
     private long minMarker;
     private long maxMarker;
@@ -175,21 +175,7 @@ class NIOSegmentImpl {
         if (lock != null) {
             buffer.clear();
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
-            for (long jump : writeJumpList) {
-                if (buffer.remaining() < ByteBufferUtils.LONG_SIZE
-                        + ByteBufferUtils.SHORT_SIZE
-                        + ByteBufferUtils.INT_SIZE) {
-                    buffer.write(1);
-                    buffer.clear();
-                }
-                buffer.putLong(jump);
-            }
-            if (writeJumpList.size() < Short.MAX_VALUE) {
-                buffer.putShort((short) writeJumpList.size());
-            } else {
-                buffer.putShort((short) -1);
-            }
-            buffer.put(SegmentHeaders.JUMP_LIST.getBytes());
+            writeJumpList(buffer);
             buffer.write(1);
             //  TODO: is this force neccessary?  not sure, research
             segment.force(false);
@@ -203,6 +189,26 @@ class NIOSegmentImpl {
         segment = null;
 
         return (buffer != null) ? buffer.getTotal() : 0;
+    }
+    
+    private void writeJumpList(FileBuffer target) throws IOException {
+        target.clear();
+        target.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        for (long jump : writeJumpList) {
+            if (target.remaining() < ByteBufferUtils.LONG_SIZE
+                    + ByteBufferUtils.SHORT_SIZE
+                    + ByteBufferUtils.INT_SIZE) {
+                target.write(1);
+                target.clear();
+            }
+            target.putLong(jump);
+        }
+        if (writeJumpList.size() < Short.MAX_VALUE) {
+            target.putShort((short) writeJumpList.size());
+        } else {
+            target.putShort((short) -1);
+        }
+        target.put(SegmentHeaders.JUMP_LIST.getBytes());
     }
 //  assume single threaded
 
@@ -277,6 +283,10 @@ class NIOSegmentImpl {
     public long position() throws IOException {
         return segment.position();
     }
+    
+    public boolean isEmpty() {
+        return writeJumpList.isEmpty();
+    }
 
     public void limit(long pos) throws IOException {
         buffer.clear();
@@ -292,10 +302,11 @@ class NIOSegmentImpl {
         FileChannel fc = new FileOutputStream(src,true).getChannel();
         fc.truncate(pos);
         fc.position(pos);
-        ByteBuffer close = ByteBuffer.allocate(4);
-        close.put(SegmentHeaders.CLOSE_FILE.getBytes());
-        close.flip();
-        fc.write(close);
+        ByteBuffer close = ByteBuffer.allocate(4096);
+        FileBuffer target = new FileBuffer(fc,close);
+        target.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        writeJumpList(target);
+        target.write(1);
         fc.force(true);
         fc.close();
     }
@@ -307,7 +318,6 @@ class NIOSegmentImpl {
                 try {
                     find.iterate(Direction.FORWARD);
                 } catch (IOException ioe) {
-                    maxMarker = find.getLastValidMarker();
                     return false;
                 }
             }
@@ -315,6 +325,7 @@ class NIOSegmentImpl {
             buffer.clear();
             maxMarker = find.getLastValidMarker();           
             buffer.position(find.getLastValidPosition());
+            writeJumpList = find.getJumpList();
         }
         return find.wasClosed();
     }

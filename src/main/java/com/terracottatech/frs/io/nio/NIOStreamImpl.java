@@ -99,31 +99,38 @@ class NIOStreamImpl implements Stream {
     
     boolean open() throws IOException {
         if ( segments.isEmpty() ) return false;
-        long truncate = 0;
         segments.setReadPosition(-1);
-        int sid = -1;
-        while ( truncate == 0 ) {
+        boolean goodClose = false;
+        while ( !goodClose ) {
             File f = segments.nextReadFile(Direction.REVERSE);
             if ( f == null ) return false;
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
                 pool.reclaim();
                 seg.openForReading(pool);
+                if ( !seg.getStreamId().equals(streamId) ) 
+                    throw new IOException(BAD_STREAM_ID);   
+                
                 if ( !seg.last() ) {
-                    sid = seg.getSegmentId();
+ //  segment did not close cleanly, mark for truncation at last good chunk
+                    if ( seg.isEmpty() ) {
+                        segments.removeCurrentSegment();
+                        continue;
+                    } else {
+//   truncate and exit
+                        seg.limit(seg.position());
+                        seg.close();
+                        return true;
+                    }
                 } else {
                     return false;
                 }
-                if ( !seg.getStreamId().equals(streamId) ) 
-                    throw new IOException(BAD_STREAM_ID);     
-                
-                truncate = seg.position();
             } finally {
                 this.highestMarker = seg.getMaximumMarker();
                 seg.close();
             }
         }
-        limit(streamId,sid,truncate);
+        
         return true;
     }    
     

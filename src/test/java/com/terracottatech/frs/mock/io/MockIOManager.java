@@ -10,6 +10,7 @@ import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
+import com.terracottatech.frs.log.ChecksumException;
 import com.terracottatech.frs.mock.MockFuture;
 
 import java.io.ByteArrayOutputStream;
@@ -142,7 +143,11 @@ public class MockIOManager implements IOManager {
             private Iterator<T> current;
 
             {
-                current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
+                try {
+                    current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
+                } catch ( ChecksumException ce ) {
+                    throw new RuntimeException(ce);
+                }
             }
 
             public boolean hasNext() {
@@ -156,8 +161,12 @@ public class MockIOManager implements IOManager {
                 if (!delegate.hasNext()) {
                     return false;
                 }
+                try {
                 current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
                 return current.hasNext();
+                                } catch ( ChecksumException ce ) {
+                    throw new RuntimeException(ce);
+                }
             }
 
             public T next() {

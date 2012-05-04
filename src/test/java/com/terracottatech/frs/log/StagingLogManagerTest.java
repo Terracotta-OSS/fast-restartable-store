@@ -124,6 +124,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
+            ioManager.setMaximumMarker(lsn-1);
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
         }
         logManager.startup();
@@ -146,6 +147,7 @@ public class StagingLogManagerTest {
     private class DummyIOManager implements IOManager {
 
         private final Deque<Chunk> chunks = new LinkedList<Chunk>();
+        private long max = 0;
 
         @Override
         public long write(Chunk region) throws IOException {
@@ -158,6 +160,7 @@ public class StagingLogManagerTest {
 
     @Override
     public void setMaximumMarker(long lsn) throws IOException {
+        max = lsn;
     }
 
     @Override
@@ -171,7 +174,7 @@ public class StagingLogManagerTest {
 
     @Override
     public long getMaximumMarker() throws IOException {
-        return 0;
+        return max;
     }
 
     @Override

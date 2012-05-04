@@ -212,7 +212,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 throw new NoSuchElementException();
             }
             try {
-                assert(list.peek().getLsn() < lastLsn);
+                assert(list.peek().getLsn() <= lastLsn);
                 return list.removeFirst();
             } finally {
 

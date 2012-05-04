@@ -191,7 +191,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
                     lt += writeFully(coalesce(memcpy, ref, x, 1));
                 } else if (currentRun + ref[x].remaining() > memcpy.capacity()) {
                     // buffer is full
-                    lt += writeFully(coalesce(memcpy, ref, smStart, x - smStart - 1));
+                    lt += writeFully(coalesce(memcpy, ref, smStart, x - smStart));
                     smStart = x;
                     currentRun = ref[x].remaining();
                 } else {

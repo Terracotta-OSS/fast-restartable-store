@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class StagingLogManager implements LogManager {
         
     static enum MachineState {
-        RECOVERY,NORMAL,SHUTDOWN,ERROR,IDLE
+        BOOTSTRAP,NORMAL,SHUTDOWN,ERROR,IDLE
     }
     
     private StagingLogManager.IODaemon daemon;
@@ -34,7 +34,7 @@ public class StagingLogManager implements LogManager {
     private final AtomicLong highestOnDisk = new AtomicLong(99);
     private final Signature  checksumStyle;
     private final IOManager io;
-    private volatile MachineState   state = MachineState.RECOVERY;
+    private volatile MachineState   state = MachineState.IDLE;
     
     private static final int MAX_QUEUE_SIZE = 1000;
     
@@ -56,18 +56,19 @@ public class StagingLogManager implements LogManager {
     public long currentLsn() {
       return currentLsn.get();
     }
-
+    
+ 
     private synchronized void enterNormalState(long lastLsn) {
-        if ( state != MachineState.RECOVERY ) return;
+        if ( state != MachineState.BOOTSTRAP ) return;
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
         currentRegion = currentRegion.create(lastLsn + 1);
-        if ( state == MachineState.RECOVERY ) state = MachineState.NORMAL;  
+        if ( state == MachineState.BOOTSTRAP ) state = MachineState.NORMAL;  
         this.notifyAll();
-    }
+    }   
     
     private synchronized void waitForNormalState() throws InterruptedException {
-        while ( state == MachineState.RECOVERY ) {
+        while ( state == MachineState.BOOTSTRAP ) {
             this.wait();
         }
     }
@@ -142,23 +143,10 @@ public class StagingLogManager implements LogManager {
 
       @Override
       public void run() {
-          
-        exchanger.recover();
-        
-        try {
-          io.seek(IOManager.Seek.END.getValue());
-        } catch ( IOException ioe ) {
-          throw new AssertionError(ioe);
-        }    
-        
-        try {
-            enterNormalState(exchanger.getLastLsn());
-        } catch ( InterruptedException ioe ) {
-          throw new AssertionError(ioe);
-        }  
-        
         WriteQueuer queuer = new WriteQueuer();
-        queuer.start();     
+        queuer.start();  
+        
+        long lowestLsn = 0;
         
         long last = System.nanoTime();
         while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
@@ -175,13 +163,19 @@ public class StagingLogManager implements LogManager {
                 continue;
             }
            
+            if ( packer.getLowestLsn() > lowestLsn ) {
+                io.setMinimumMarker(packer.getLowestLsn());
+                lowestLsn = packer.getLowestLsn();
+            }
+            io.setCurrentMarker(packer.baseLsn());
+            io.setMaximumMarker(packer.endLsn());
             long out = io.write(packer.take());
 
             if ( packer.doSync() ) {
               io.sync();
             }
             
-            highestOnDisk.set(packer.lsn());
+            highestOnDisk.set(packer.endLsn());
             packer.written();
           } catch (IOException ioe) {
             throw new AssertionError(ioe);
@@ -204,17 +198,39 @@ public class StagingLogManager implements LogManager {
 
       }
     }
+    
+    public Future<Void> recover() {
+        if ( exchanger != null ) return exchanger;
+        
+        exchanger = new ChunkExchange(io, checksumStyle,MAX_QUEUE_SIZE);
+        
+        exchanger.recover();
+        
+        return exchanger;
+    }
 
     //  TODO:  re-examine when more runtime context is available.
+    @Override
     public void startup() {
-        state = MachineState.RECOVERY;
-        exchanger = new ChunkExchange(io, checksumStyle,MAX_QUEUE_SIZE);
+        assert(MachineState.IDLE == state);
+        
+        state = MachineState.BOOTSTRAP;
+        
+        if ( exchanger == null ) recover();
+        
+        try {
+            enterNormalState(exchanger.getLastLsn());
+        } catch ( InterruptedException ioe ) {
+          throw new AssertionError(ioe);
+        }  
+        
         this.daemon = new IODaemon();
         this.daemon.start();
         
     }
 
     //  TODO:  re-examine when more runtime context is available.
+    @Override
     public void shutdown() {
         state = MachineState.SHUTDOWN;
         
@@ -234,10 +250,20 @@ public class StagingLogManager implements LogManager {
             throw new AssertionError();
         }
         try {
+            exchanger.cancel(true);
+            exchanger.get();
+        } catch ( ExecutionException ee ) {
+            
+        } catch ( InterruptedException ie ) {
+            
+        }
+        try {
             io.close();
         } catch ( IOException ioe ) {
             throw new AssertionError(ioe);
         }
+        exchanger = null;
+        state = MachineState.IDLE;
     }
     
     private CommitList _append(LogRecord record, boolean sync) {
@@ -303,6 +329,8 @@ public class StagingLogManager implements LogManager {
 
     @Override
     public Iterator<LogRecord> reader() {
+        if ( exchanger == null ) this.startup();
+        
         Iterator<LogRecord> it = exchanger.iterator();
         it.hasNext();
 
@@ -323,11 +351,18 @@ public class StagingLogManager implements LogManager {
             this.data = data;
         }
 
+        public long getLowestLsn() {
+            return list.getLowestLsn();
+        }
     
-        public long lsn() {
+        public long endLsn() {
             return list.getEndLsn();
         }
-
+    
+        public long baseLsn() {
+            return list.getBaseLsn();
+        }
+        
         public boolean doSync() {
             return list.isSyncRequested();
         }

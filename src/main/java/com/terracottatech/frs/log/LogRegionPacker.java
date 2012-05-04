@@ -18,7 +18,7 @@ import java.util.zip.Adler32;
  * @author mscott
  */
 public class LogRegionPacker implements LogRegionFactory<LogRecord> {
-    static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + (3 * ByteBufferUtils.LONG_SIZE);
+    static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + (2 * ByteBufferUtils.LONG_SIZE);
     static final int LOG_REGION_HEADER_SIZE = (2 * ByteBufferUtils.SHORT_SIZE) + (2 * ByteBufferUtils.LONG_SIZE);
 
     //  just hinting
@@ -41,23 +41,23 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }
     
     public static List<LogRecord> unpack(Signature type, Chunk data) {
-        int headCheck = readHeader(data);
+        long headCheck = readRegionHeader(data);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
-            queue.add(readRecord(data));
+            queue.add(readRecord(headCheck,data));
         }
         return queue;
     }
 
     public List<LogRecord> unpack(Chunk data) {
-        int headCheck = readHeader(data);
+        long headCheck = readRegionHeader(data);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
-            queue.add(readRecord(data));
+            queue.add(readRecord(headCheck,data));
         }
         return queue;
     }
@@ -103,7 +103,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return cType == Signature.ADLER32;
     }
     
-    private static int readHeader(Chunk data) {
+    private static long readRegionHeader(Chunk data) {
         short region = data.getShort();
         long check = data.getLong();
         long check2 = data.getLong();
@@ -133,7 +133,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     protected int formRecordHeader(long length, long lsn, long lowestLsn, ByteBuffer header) {
             header.putShort(LR_FORMAT);
             header.putLong(lsn);
-            header.putLong(lowestLsn);
+//            header.putLong(lowestLsn);
             header.putLong(length);
             return header.remaining();
     }
@@ -159,15 +159,14 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return checksum.getValue();
     }
     
-    private static LogRecord readRecord(Chunk buffer) {
+    private static LogRecord readRecord(long lowestLsn, Chunk buffer) {
 
         short format = buffer.getShort();
         long lsn = buffer.getLong();
-        long lLsn = buffer.getLong();
         long len = buffer.getLong();
 
         ByteBuffer[] payload = buffer.getBuffers(len);
-        LogRecord record = new LogRecordImpl(lLsn, payload, null);
+        LogRecord record = new LogRecordImpl(lowestLsn, payload, null);
         record.updateLsn(lsn);
         return record;
     }

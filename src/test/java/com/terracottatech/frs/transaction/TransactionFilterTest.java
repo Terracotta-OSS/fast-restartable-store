@@ -19,14 +19,14 @@ import static org.mockito.Mockito.*;
 public class TransactionFilterTest {
   private Filter<Action> delegate;
   private TransactionFilter filter;
-  private TransactionLSNCallback callback;
+  private Action action;
 
   @Before
   public void setUp() throws Exception {
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
     filter = new TransactionFilter(delegate);
-    callback = mock(TransactionLSNCallback.class);
+    action = mock(Action.class);
   }
 
   @Test
@@ -38,9 +38,9 @@ public class TransactionFilterTest {
     verify(delegate, never()).filter(any(Action.class), anyLong());
 
     // Try some transactional actions that aren't in the set
-    assertThat(filter.filter(transactionalAction(4), 7), is(false));
-    assertThat(filter.filter(transactionalAction(5), 8), is(false));
-    assertThat(filter.filter(transactionalAction(6), 9), is(false));
+    assertThat(filter.filter(transactionalAction(4, false), 7), is(false));
+    assertThat(filter.filter(transactionalAction(5, false), 8), is(false));
+    assertThat(filter.filter(transactionalAction(6, false), 9), is(false));
     verify(delegate, never()).filter(any(Action.class), anyLong());
   }
 
@@ -62,7 +62,7 @@ public class TransactionFilterTest {
     assertThat(filter.filter(transactionCommitAction(1), 3), is(true));
     verify(delegate, never()).filter(any(Action.class), anyLong());
 
-    assertThat(filter.filter(transactionalAction(1), 2), is(true));
+    assertThat(filter.filter(transactionalAction(1, false), 2), is(true));
     verify(delegate).filter(any(Action.class), eq(2L));
   }
 
@@ -71,22 +71,18 @@ public class TransactionFilterTest {
     assertThat(filter.filter(transactionCommitAction(1), 3), is(true));
     verify(delegate, never()).filter(any(Action.class), anyLong());
 
-    assertThat(filter.filter(transactionBeginAction(1), 2), is(true));
-    verify(delegate, never()).filter(any(Action.class), anyLong());
+    assertThat(filter.filter(transactionalAction(1, true), 2), is(true));
+    verify(delegate).filter(action, 2L);
 
-    assertThat(filter.filter(transactionalAction(1), 1), is(false));
-    verify(delegate, never()).filter(any(Action.class), anyLong());
+    assertThat(filter.filter(transactionalAction(1, false), 1), is(false));
+    verify(delegate, never()).filter(action, 1L);
   }
 
-  private TransactionalAction transactionalAction(long id) {
-    return new TransactionalAction(new TransactionHandleImpl(id), mock(Action.class));
+  private TransactionalAction transactionalAction(long id, boolean begin) {
+    return new TransactionalAction(new TransactionHandleImpl(id), begin, false, action, null);
   }
 
   private TransactionCommitAction transactionCommitAction(long id) {
-    return new TransactionCommitAction(new TransactionHandleImpl(id));
-  }
-
-  private TransactionBeginAction transactionBeginAction(long id) {
-    return new TransactionBeginAction(new TransactionHandleImpl(id), callback);
+    return new TransactionCommitAction(new TransactionHandleImpl(id), false);
   }
 }

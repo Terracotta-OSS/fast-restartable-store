@@ -9,38 +9,68 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Set;
 
 import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
+import static com.terracottatech.frs.util.ByteBufferUtils.get;
 
 /**
  * @author tim
  */
-class TransactionalAction implements InvalidatingAction {
+class TransactionalAction implements InvalidatingAction, TransactionAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
             public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                  ActionCodec codec, ByteBuffer[] buffers) {
               return new TransactionalAction(
-                      new TransactionHandleImpl(ByteBufferUtils.getLong(
-                              buffers)), codec.decode(buffers));
+                      TransactionHandleImpl.withByteBuffers(buffers), get(buffers), codec.decode(buffers));
             }
           };
+  
+  private static final byte COMMIT_BIT = 0x01;
+  private static final byte BEGIN_BIT = 0x02;
 
   private final TransactionHandle handle;
   private final Action action;
+  private final byte mode;
+  private final TransactionLSNCallback callback;
 
-  TransactionalAction(TransactionHandle handle, Action action) {
+  TransactionalAction(TransactionHandle handle, byte mode, Action action) {
     this.handle = handle;
     this.action = action;
+    this.mode = mode;
+    this.callback = null;
+  }
+  
+  TransactionalAction(TransactionHandle handle, boolean begin, boolean commit, Action action, TransactionLSNCallback callback) {
+    this.handle = handle;
+    this.action = action;
+    byte tempMode = 0;
+    if (commit) {
+      tempMode |= COMMIT_BIT;
+    }
+    if (begin) {
+      tempMode |= BEGIN_BIT;
+    }
+    mode = tempMode;
+    this.callback = callback;
   }
 
-  TransactionHandle getHandle() {
+  @Override
+  public boolean isCommit() {
+    return (mode & COMMIT_BIT) != 0;
+  }
+
+  @Override
+  public boolean isBegin() {
+    return (mode & BEGIN_BIT) != 0;
+  }
+
+  public TransactionHandle getHandle() {
     return handle;
   }
 
@@ -59,7 +89,9 @@ class TransactionalAction implements InvalidatingAction {
 
   @Override
   public void record(long lsn) {
+    assert callback != null;
     action.record(lsn);
+    callback.setLsn(lsn);
   }
 
   @Override
@@ -69,7 +101,10 @@ class TransactionalAction implements InvalidatingAction {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    return concatenate(handle.toByteBuffer(), codec.encode(action));
+    ByteBuffer handleBuffer = handle.toByteBuffer();
+    ByteBuffer header = ByteBuffer.allocate(handleBuffer.capacity() + 1);
+    header.put(handleBuffer).put(mode).flip();
+    return concatenate(header, codec.encode(action));
   }
 
   @Override
@@ -79,7 +114,7 @@ class TransactionalAction implements InvalidatingAction {
 
     TransactionalAction that = (TransactionalAction) o;
 
-    return handle.equals(that.handle) && action.equals(that.action);
+    return handle.equals(that.handle) && action.equals(that.action) && mode == that.mode;
   }
 
   @Override

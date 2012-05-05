@@ -15,25 +15,39 @@ import java.nio.ByteBuffer;
 /**
  * @author tim
  */
-class TransactionCommitAction implements Action {
+class TransactionCommitAction implements TransactionAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
             public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                  ActionCodec codec, ByteBuffer[] buffers) {
-              return new TransactionCommitAction(
-                      new TransactionHandleImpl(ByteBufferUtils.getLong(buffers)));
+              TransactionHandle handle = TransactionHandleImpl.withByteBuffers(buffers);
+              boolean emptyTransaction = ByteBufferUtils.get(buffers) == 1;
+              return new TransactionCommitAction(handle, emptyTransaction);
             }
           };
 
   private final TransactionHandle handle;
+  private final boolean emptyTransaction;
 
-  TransactionCommitAction(TransactionHandle handle) {
+  TransactionCommitAction(TransactionHandle handle, boolean emptyTransaction) {
     this.handle = handle;
+    this.emptyTransaction = emptyTransaction;
   }
 
-  TransactionHandle getHandle() {
+  @Override
+  public TransactionHandle getHandle() {
     return handle;
+  }
+
+  @Override
+  public boolean isCommit() {
+    return true;
+  }
+
+  @Override
+  public boolean isBegin() {
+    return emptyTransaction;
   }
 
   @Override
@@ -47,7 +61,16 @@ class TransactionCommitAction implements Action {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[]{handle.toByteBuffer()};
+    ByteBuffer handleBuffer = handle.toByteBuffer();
+    ByteBuffer header = ByteBuffer.allocate(handleBuffer.capacity() + 1);
+    header.put(handleBuffer);
+    if (emptyTransaction) {
+      header.put((byte) 1);
+    } else {
+      header.put((byte) 0);
+    }
+    header.flip();
+    return new ByteBuffer[]{header};
   }
 
   @Override
@@ -57,7 +80,7 @@ class TransactionCommitAction implements Action {
 
     TransactionCommitAction that = (TransactionCommitAction) o;
 
-    return handle.equals(that.getHandle());
+    return handle.equals(that.getHandle()) && emptyTransaction == that.emptyTransaction;
   }
 
   @Override

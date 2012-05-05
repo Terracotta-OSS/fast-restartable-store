@@ -40,10 +40,8 @@ public class TransactionManagerImplTest {
 
   @Test
   public void testBegin() throws Exception {
-    TransactionHandle handle = transactionManager.begin();
-    verify(actionManager).asyncHappened(new TransactionBeginAction(handle, callback));
-    handle = transactionManager.begin();
-    verify(actionManager).asyncHappened(new TransactionBeginAction(handle, callback));
+    transactionManager.begin();
+    verify(actionManager, never()).asyncHappened(any(Action.class));
   }
 
   @Test
@@ -51,7 +49,7 @@ public class TransactionManagerImplTest {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
     transactionManager.commit(handle);
-    verify(actionManager).happened(new TransactionCommitAction(handle));
+    verify(actionManager).happened(new TransactionCommitAction(handle, false));
     try {
       transactionManager.commit(handle);
       fail("Committing a handle twice should fail.");
@@ -74,14 +72,16 @@ public class TransactionManagerImplTest {
             new TransactionManagerImpl(actionManager, false);
     TransactionHandle handle = asyncCommitManager.begin();
     asyncCommitManager.commit(handle);
-    verify(actionManager).asyncHappened(new TransactionCommitAction(handle));
+    verify(actionManager).asyncHappened(new TransactionCommitAction(handle, true));
   }
 
   @Test
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    verify(actionManager).asyncHappened(new TransactionalAction(handle, action));
+    verify(actionManager).asyncHappened(new TransactionalAction(handle, true, false, action, callback));
+    transactionManager.happened(handle, action);
+    verify(actionManager).asyncHappened(new TransactionalAction(handle, false, false, action, callback));
     transactionManager.commit(handle);
     try {
       transactionManager.happened(handle, action);
@@ -112,6 +112,9 @@ public class TransactionManagerImplTest {
 
     TransactionHandle txn1 = transactionManager.begin();
     TransactionHandle txn2 = transactionManager.begin();
+
+    transactionManager.happened(txn1, action);
+    transactionManager.happened(txn2, action);
 
     assertThat(transactionManager.getLowestOpenTransactionLsn(), is(0L));
 

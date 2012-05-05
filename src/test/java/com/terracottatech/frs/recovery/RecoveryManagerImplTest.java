@@ -35,7 +35,6 @@ public class RecoveryManagerImplTest {
   private LogManager logManager;
   private ActionManager actionManager;
   private RecoveryManager recoveryManager;
-  private TransactionLSNCallback callback;
 
   @Before
   public void setUp() throws Exception {
@@ -45,7 +44,6 @@ public class RecoveryManagerImplTest {
     logManager = newLogManager();
     actionManager = newActionManager();
     recoveryManager = new RecoveryManagerImpl(logManager, actionManager);
-    callback = mock(TransactionLSNCallback.class);
   }
 
   private LogManager newLogManager() {
@@ -92,14 +90,12 @@ public class RecoveryManagerImplTest {
 
     // Check that an action skipped by one in a transaction is properly skipped
     logManager.append(record(10, action(false)));
-    logManager.append(record(11, transactionActionFactory.transactionBegin(1, callback)));
     Action validTransactional = action(10, true);
-    logManager.append(record(12, transactionActionFactory.transactionalAction(1, validTransactional)));
+    logManager.append(record(12, transactionActionFactory.transactionalAction(1, validTransactional, true)));
     logManager.append(record(13, transactionActionFactory.transactionCommit(1)));
 
     // Test a torn transaction
-    logManager.append(record(14, transactionActionFactory.transactionBegin(2, callback)));
-    logManager.append(record(15, transactionActionFactory.transactionalAction(2, action(12, false))));
+    logManager.append(record(15, transactionActionFactory.transactionalAction(2, action(12, false), true)));
 
     // Try out a deleted action
     logManager.append(record(16, skipped(mapActionFactory.put(1, 2, 3))));

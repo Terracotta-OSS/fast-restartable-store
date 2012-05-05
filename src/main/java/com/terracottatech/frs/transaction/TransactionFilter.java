@@ -33,18 +33,27 @@ public class TransactionFilter extends AbstractAdaptingFilter<Action, Action> {
 
   @Override
   public boolean filter(Action element, long lsn) {
-    if (element instanceof TransactionCommitAction) {
-      openTransactions.add(((TransactionCommitAction) element).getHandle());
-      return true;
-    } else if (element instanceof TransactionBeginAction) {
-      openTransactions.remove(((TransactionBeginAction) element).getHandle());
-      return true;
-    } else if (element instanceof TransactionalAction) {
-      if (openTransactions.contains(((TransactionalAction) element).getHandle())) {
-        return delegate(element, lsn);
-      } else {
-        return false;
+    if (element instanceof  TransactionAction) {
+      TransactionAction transactionAction = (TransactionAction) element;
+      boolean replayed = true;
+
+      if (transactionAction.isCommit()) {
+        openTransactions.add(transactionAction.getHandle());
       }
+
+      if (transactionAction instanceof TransactionalAction) {
+        if (openTransactions.contains(transactionAction.getHandle())) {
+          replayed = delegate(((TransactionalAction) transactionAction).getAction(), lsn);
+        } else {
+          replayed = false;
+        }
+      }
+
+      if (transactionAction.isBegin()) {
+        openTransactions.remove(transactionAction.getHandle());
+      }
+
+      return replayed;
     } else {
       return delegate(element, lsn);
     }

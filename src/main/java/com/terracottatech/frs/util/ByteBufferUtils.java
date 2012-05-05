@@ -20,6 +20,15 @@ public abstract class ByteBufferUtils {
     
   private ByteBufferUtils() {}
 
+  public static byte get(ByteBuffer[] buffers) {
+    for (ByteBuffer buffer : buffers) {
+      if (buffer.hasRemaining()) {
+        return buffer.get();
+      }
+    }
+    throw new BufferUnderflowException();
+  }
+
   public static long getLong(ByteBuffer[] buffers) {
     for (ByteBuffer buffer : buffers) {
       if (buffer.hasRemaining()) {

@@ -10,21 +10,22 @@ import com.terracottatech.frs.action.Action;
  * @author tim
  */
 public class TransactionActionFactory {
+  private static final TransactionLSNCallback NULL_CALLBACK = new TransactionLSNCallback() {
+    @Override
+    public void setLsn(long lsn) {
+    }
+  };
   public TransactionActionFactory() {}
 
   public TransactionHandle transactionHandle(long id) {
     return new TransactionHandleImpl(id);
   }
 
-  public Action transactionBegin(long id, TransactionLSNCallback callback) {
-    return new TransactionBeginAction(transactionHandle(id), callback);
-  }
-
   public Action transactionCommit(long id) {
-    return new TransactionCommitAction(transactionHandle(id));
+    return new TransactionCommitAction(transactionHandle(id), false);
   }
 
-  public Action transactionalAction(long id, Action action) {
-    return new TransactionalAction(transactionHandle(id), action);
+  public Action transactionalAction(long id, Action action, boolean begin) {
+    return new TransactionalAction(transactionHandle(id), begin, false, action, NULL_CALLBACK);
   }
 }

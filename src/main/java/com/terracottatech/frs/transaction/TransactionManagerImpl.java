@@ -16,11 +16,11 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * @author tim
  */
-public class TransactionManagerImpl implements TransactionManager, TransactionLSNCallback {
+public class TransactionManagerImpl implements TransactionManager {
   private final AtomicLong                               currentTransactionId =
           new AtomicLong();
-  private final Map<TransactionHandle, Long> liveTransactions     =
-          new ConcurrentHashMap<TransactionHandle, Long>();
+  private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
+          new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
 
   private final ActionManager           actionManager;
   private final boolean                 synchronousCommit;
@@ -34,30 +34,30 @@ public class TransactionManagerImpl implements TransactionManager, TransactionLS
   public TransactionHandle begin() {
     TransactionHandle handle =
             new TransactionHandleImpl(currentTransactionId.incrementAndGet());
-    liveTransactions.put(handle, Long.MAX_VALUE);
-    actionManager.asyncHappened(new TransactionBeginAction(handle, this));
+    TransactionAccount account = new TransactionAccount();
+    liveTransactions.put(handle, account);
     return handle;
   }
 
   @Override
   public void commit(TransactionHandle handle) throws InterruptedException,
           TransactionException {
-    Long lsn = liveTransactions.remove(handle);
-    if (lsn == null) {
+    TransactionAccount account = liveTransactions.remove(handle);
+    if (account == null) {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    happened(new TransactionCommitAction(handle));
+    happened(new TransactionCommitAction(handle, account.begin()));
   }
 
   @Override
   public void happened(TransactionHandle handle, Action action) {
-    Long lsn = liveTransactions.get(handle);
-    if (lsn == null) {
+    TransactionAccount account = liveTransactions.get(handle);
+    if (account == null) {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    Action transactionalAction = new TransactionalAction(handle, action);
+    Action transactionalAction = new TransactionalAction(handle, account.begin(), false, action, account);
     actionManager.asyncHappened(transactionalAction);
   }
 
@@ -77,15 +77,32 @@ public class TransactionManagerImpl implements TransactionManager, TransactionLS
   @Override
   public long getLowestOpenTransactionLsn() {
     Long lowest = Long.MAX_VALUE;
-    for (long l : liveTransactions.values()) {
-      lowest = Math.min(l, lowest);
+    for (TransactionAccount account : liveTransactions.values()) {
+      lowest = Math.min(account.lsn, lowest);
     }
     return lowest;
   }
 
-  @Override
-  public void setLsn(TransactionHandle handle, long lsn) {
-    Long old = liveTransactions.put(handle, lsn);
-    assert old != null && old == Long.MAX_VALUE;
+  private static class TransactionAccount implements TransactionLSNCallback {
+    private long lsn = Long.MAX_VALUE;
+    private boolean beginWritten = false;
+
+    synchronized boolean begin() {
+      if (beginWritten) {
+        return false;
+      } else {
+        beginWritten = true;
+        return true;
+      }
+    }
+
+    public synchronized void setLsn(long lsn) {
+      if (this.lsn == Long.MAX_VALUE) {
+        this.lsn = lsn;
+      } else {
+        // This shouldn't happen as we're getting LSNs in increasing order
+        assert lsn > this.lsn;
+      }
+    }
   }
 }

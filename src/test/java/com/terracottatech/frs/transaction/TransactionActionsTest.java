@@ -4,10 +4,12 @@
  */
 package com.terracottatech.frs.transaction;
 
+import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.MapActions;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
+import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,12 +27,14 @@ public class TransactionActionsTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer>   actionCodec;
   private TransactionLSNCallback callback;
+  private MapActionFactory mapActionFactory;
 
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
     actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
     callback = mock(TransactionLSNCallback.class);
+    mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
     TransactionActions.registerActions(0, actionCodec);
     MapActions.registerActions(1, actionCodec);
   }
@@ -40,21 +44,14 @@ public class TransactionActionsTest {
   }
 
   @Test
-  public void testTransactionBegin() throws Exception {
-    Action begin = new TransactionBeginAction(new TransactionHandleImpl(10L), callback);
-    checkEncodeDecode(begin);
-  }
-
-  @Test
   public void testTransactionCommit() throws Exception {
-    Action commit = new TransactionCommitAction(new TransactionHandleImpl(11L));
+    Action commit = new TransactionCommitAction(new TransactionHandleImpl(11L), false);
     checkEncodeDecode(commit);
   }
 
   @Test
   public void testTransactionalAction() throws Exception {
-    Action txnBegin = new TransactionBeginAction(new TransactionHandleImpl(1L), callback);
-    Action txn = new TransactionalAction(new TransactionHandleImpl(3L), txnBegin);
+    Action txn = new TransactionalAction(new TransactionHandleImpl(3L),false, false, mapActionFactory.put(1, 2, 3), callback);
 
     ByteBuffer[] encoded = actionCodec.encode(txn);
     assertThat(actionCodec.decode(encoded), is(txn));

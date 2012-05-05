@@ -8,5 +8,5 @@ package com.terracottatech.frs.transaction;
  * @author tim
  */
 public interface TransactionLSNCallback {
-  void setLsn(TransactionHandle handle, long lsn);
+  void setLsn(long lsn);
 }

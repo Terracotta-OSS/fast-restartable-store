@@ -29,6 +29,7 @@ public class RotatingBufferSource implements BufferSource {
     });
     private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
     private int created = 0;
+    private int released = 0;
     private long totalCapacity = 0;
     private static long MAX_CAPACITY = 100L * 1024 * 1024 * 1024;
 
@@ -44,7 +45,8 @@ public class RotatingBufferSource implements BufferSource {
         int spins = 0;
         while (factor == null) {
             if (totalCapacity > MAX_CAPACITY) {
-                freeList.pollLastEntry();
+                totalCapacity -= freeList.pollLastEntry().getValue().capacity();
+                released -= 1;
                 System.gc();
                 clearQueue(true);
                 factor = checkFree(size);
@@ -57,7 +59,8 @@ public class RotatingBufferSource implements BufferSource {
                     created += 1;
                     totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
-                    freeList.pollLastEntry();
+                    totalCapacity -= freeList.pollLastEntry().getValue().capacity();
+                    released -= 1;
                     System.gc();
                     System.out.format("WARNING: ran out of direct memory calling GC for a request of %d.\n",size);
                     clearQueue(true);
@@ -82,15 +85,11 @@ public class RotatingBufferSource implements BufferSource {
             }
             while (holder != null) {
                 if (used.remove(holder)) {
-                    if ( freeList.size() < 100 ) {
-                        holder.getBase().position(0);
-                        ByteBuffer check = holder.getBase();
-                        while ( check != null ) {
-                            check.limit(check.limit()-1);
-                            check = freeList.put(check.limit(),check);
-                        }
-                    } else {
-                        totalCapacity -= holder.getBase().capacity();
+                    holder.getBase().position(0);
+                    ByteBuffer check = holder.getBase();
+                    while ( check != null ) {
+                        check.limit(check.limit()-1);
+                        check = freeList.put(check.limit(),check);
                     }
                 }
                 holder = (BaseHolder) queue.poll();
@@ -132,6 +131,10 @@ public class RotatingBufferSource implements BufferSource {
 
     public int getCount() {
         return created;
+    }
+    
+    public int getReleased() {
+        return released;
     }
 
     public long getCapacity() {

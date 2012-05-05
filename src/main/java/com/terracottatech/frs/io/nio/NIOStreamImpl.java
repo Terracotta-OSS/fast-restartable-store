@@ -232,7 +232,7 @@ class NIOStreamImpl implements Stream {
         }
         readHead = null;        
         
-        System.out.println("buffer pool created: " + pool.getCount() + " capacity: " + pool.getCapacity());
+        System.out.println("buffer pool created: " + pool.getCount() + " released: " + pool.getReleased() + " capacity: " + pool.getCapacity());
     }
 
     @Override

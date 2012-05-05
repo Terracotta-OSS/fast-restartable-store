@@ -6,7 +6,9 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
 import java.io.IOException;
+import java.lang.ref.Reference;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.*;
@@ -17,18 +19,24 @@ import java.util.*;
  */
 class MappedReadbackStrategy extends AbstractReadbackStrategy {
 
-    MappedFileBuffer                      src;
+//    MappedFileBuffer                      src;
+    MappedByteBuffer                src;
     protected ListIterator<Chunk>   chunks;
     protected Direction             queueDirection;
+    FileChannel                     channel;
     
     public MappedReadbackStrategy(FileChannel data) throws IOException {
-        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
+//        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
+        src = data.map(MapMode.READ_ONLY,0,(int)data.size());
+        channel = data;
+        src.position(NIOSegmentImpl.FILE_HEADER_SIZE);
+        data.close();
     }
     
     public Chunk getBuffer() {
-        return src;
+        return new WrappingChunk(src);
     }
-
+    
     @Override
     public Iterator<Chunk> iterator() {
         return chunks;
@@ -44,11 +52,12 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
 
     public void queue(Direction dir) throws IOException {
         List<Chunk> list = new ArrayList<Chunk>();
-        ByteBuffer[] chunk = readChunk(src);
+        Chunk buf = getBuffer();
+        ByteBuffer[] chunk = readChunk(buf);
 
         while (chunk != null) {
             list.add(new WrappingChunk(chunk));
-            chunk = readChunk(src);
+            chunk = readChunk(buf);
         }
         if ( dir == Direction.REVERSE ) Collections.reverse(list); 
         

@@ -157,6 +157,40 @@ class NIOStreamImpl implements Stream {
             f = segments.nextReadFile(Direction.REVERSE);
         }
     }
+    
+    long trimLogHead(long timeout) throws IOException {
+        segments.setReadPosition(0);
+        File f = segments.nextReadFile(Direction.FORWARD);
+        long size = 0;
+        long time = System.currentTimeMillis();
+        while ( f != null ) {
+            NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
+            try {
+                pool.reclaim();
+                seg.openForReading(pool);
+                if ( !seg.getStreamId().equals(streamId) ) 
+                    throw new IOException(BAD_STREAM_ID);
+      //  if the base is greater short circuit out
+                if ( seg.getBaseMaker() > this.lowestMarker ) return size;
+      //   gotta scan it
+                if ( !seg.last() ) {
+      //  not stable and closed, just exit
+                    return size;
+                }
+                if ( seg.getMaximumMarker() < this.lowestMarker ) {
+                    size += f.length();
+                    segments.removeCurrentSegment();
+                } else {
+                    return size;
+                }
+            } finally {
+                seg.close();
+            }
+            if ( timeout > 0 && System.currentTimeMillis() - time > timeout ) return size;
+            f = segments.nextReadFile(Direction.FORWARD);
+        }
+        return size;
+    }
 
     @Override
     public long append(Chunk c) throws IOException {
@@ -174,8 +208,7 @@ class NIOStreamImpl implements Stream {
             debugIn += writeHead.close();
         }
         return w;
-        
-        
+
     }
     //  fsync current segment.  old segments are fsyncd on close
 

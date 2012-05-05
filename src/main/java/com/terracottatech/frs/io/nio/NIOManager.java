@@ -17,6 +17,10 @@ import java.nio.channels.FileLock;
 import java.util.UUID;
 import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 /**
@@ -195,4 +199,38 @@ public class NIOManager implements IOManager {
     public boolean isClosed() {
         return (lock != null && lock.isValid());
     }    
+    
+    public Future<Void> clean(long timeout) throws IOException {
+        backend.seek(0);
+        backend.trimLogHead(timeout);
+        return new Future<Void>() {
+
+            @Override
+            public boolean cancel(boolean bln) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            @Override
+            public Void get() throws InterruptedException, ExecutionException {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            @Override
+            public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            @Override
+            public boolean isCancelled() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+
+            @Override
+            public boolean isDone() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            
+        };
+                
+    }
 }

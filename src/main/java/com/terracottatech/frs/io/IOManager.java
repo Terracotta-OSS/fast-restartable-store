@@ -6,6 +6,7 @@ package com.terracottatech.frs.io;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.Future;
 
 /**
  *
@@ -29,6 +30,8 @@ public interface IOManager extends Closeable {
   long seek(long marker) throws IOException;
   
   void sync() throws IOException;
+  
+  Future<Void> clean(long timeout) throws IOException;
   
   public enum Seek {
     BEGINNING (0),

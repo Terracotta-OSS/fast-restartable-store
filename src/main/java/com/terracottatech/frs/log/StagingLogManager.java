@@ -155,7 +155,7 @@ public class StagingLogManager implements LogManager {
             long mark = System.nanoTime();
             writing += (mark - last);
             
-            packer = queue.poll(100,TimeUnit.MILLISECONDS);
+            packer = queue.poll(1000,TimeUnit.MILLISECONDS);
             last = System.nanoTime();
             waiting += (last - mark);
 

@@ -7,10 +7,9 @@ package com.terracottatech.frs.io;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -21,18 +20,17 @@ public class RotatingBufferSource implements BufferSource {
 
     private final ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
-    private final TreeSet<ByteBuffer> freeList = new TreeSet<ByteBuffer>( new Comparator<ByteBuffer>() {
+    private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
         @Override
-        public int compare(ByteBuffer t, ByteBuffer t1) {
+        public int compare(Integer t, Integer t1) {
      // make sure nothing ever equals so everything fits in the set
-            if ( t.capacity() == t1.capacity() ) return -1;
-            return t.capacity() - t1.capacity();
+            return t.intValue() - t1.intValue();
         }
     });
     private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
     private int created = 0;
     private long totalCapacity = 0;
-    private static long MAX_CAPACITY = 10L * 1024 * 1024 * 1024;
+    private static long MAX_CAPACITY = 100L * 1024 * 1024 * 1024;
 
     @Override
     public ByteBuffer getBuffer(int size) {
@@ -46,6 +44,8 @@ public class RotatingBufferSource implements BufferSource {
         int spins = 0;
         while (factor == null) {
             if (totalCapacity > MAX_CAPACITY) {
+                freeList.pollLastEntry();
+                System.gc();
                 clearQueue(true);
                 factor = checkFree(size);
             } else {
@@ -54,10 +54,12 @@ public class RotatingBufferSource implements BufferSource {
                     int allocate = Math.round(size * 1.05f);
                     if ( allocate < 1024 * 1024 ) allocate = 1024 * 1024 + 8;
                     factor = ByteBuffer.allocateDirect(allocate);
-                     created += 1;
+                    created += 1;
                     totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
+                    freeList.pollLastEntry();
                     System.gc();
+                    System.out.format("WARNING: ran out of direct memory calling GC for a request of %d.\n",size);
                     clearQueue(true);
                 }
             }
@@ -67,7 +69,6 @@ public class RotatingBufferSource implements BufferSource {
             }
         }
         factor = addUsed(factor,size);
-        factor.clear().limit(size);
         return factor;
     }
 
@@ -83,7 +84,11 @@ public class RotatingBufferSource implements BufferSource {
                 if (used.remove(holder)) {
                     if ( freeList.size() < 100 ) {
                         holder.getBase().position(0);
-                        freeList.add(holder.getBase());
+                        ByteBuffer check = holder.getBase();
+                        while ( check != null ) {
+                            check.limit(check.limit()-1);
+                            check = freeList.put(check.limit(),check);
+                        }
                     } else {
                         totalCapacity -= holder.getBase().capacity();
                     }
@@ -97,7 +102,7 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     private ByteBuffer addUsed(ByteBuffer buffer, int size) {
-        buffer.position(buffer.capacity()-size);
+        buffer.clear().position(buffer.capacity()-size);
         ByteBuffer pass = buffer.slice();
         used.add(new BaseHolder(buffer, pass));
         buffer.putInt(buffer.getInt(0)+1,0);
@@ -108,21 +113,10 @@ public class RotatingBufferSource implements BufferSource {
         if (freeList.isEmpty()) {
             return null;
         }
-        Iterator<ByteBuffer> list = freeList.iterator();
-        while (list.hasNext()) {
-            ByteBuffer c = list.next();
-            if (c.capacity() - 8 > request) {
-                list.remove();
-                return c;
-            } else {
-                IntBuffer counts = c.asIntBuffer();
-                int hits = counts.get(0);
-                int misses = counts.get(1);
-                if ( misses > 100 ) list.remove();
-                else counts.put(misses+1,1);
-            }
-        }
-        return null;
+        Integer get = freeList.ceilingKey(request);
+        if ( get == null ) return null;
+        
+        return freeList.remove(get);
     }
 
     @Override

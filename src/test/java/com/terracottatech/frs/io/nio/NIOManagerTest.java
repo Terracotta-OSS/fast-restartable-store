@@ -184,6 +184,8 @@ public class NIOManagerTest {
 
        lm.shutdown();
        
+       lm.startup();
+       
        long lsn = -1;
        Iterator<LogRecord> logs = lm.reader();
        while ( logs.hasNext() ) {

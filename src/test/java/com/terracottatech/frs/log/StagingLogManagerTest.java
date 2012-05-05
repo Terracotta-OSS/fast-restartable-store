@@ -181,6 +181,13 @@ public class StagingLogManagerTest {
     public long getMinimumMarker() throws IOException {
         return 0;
     }
+
+        @Override
+        public Future<Void> clean(long timeout) throws IOException {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+    
+    
     
 
         @Override

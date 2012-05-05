@@ -60,17 +60,14 @@ class NIOSegmentImpl {
         if (fileSize < FILE_HEADER_SIZE) {
             throw new IOException("bad header");
         }
-
+        
+//        int bufferSize = 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
 
         ByteBuffer fbuf = reader.getBuffer(bufferSize);
-        while (fbuf == null) {
-            if (bufferSize < 1024 * 1024) {
-                System.out.println("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
-                fbuf = ByteBuffer.allocate(1024 * 1024);
-            } else {
-                fbuf = reader.getBuffer(bufferSize /= 2);
-            }
+        if (fbuf == null) {
+            System.out.println("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            fbuf = ByteBuffer.allocate(1024 * 1024);
         }
 
         buffer = new FileBuffer(segment, fbuf);
@@ -81,9 +78,9 @@ class NIOSegmentImpl {
         if (buffer.capacity() >= segment.size()) {
 //  the buffer is big enough for the whole file.  cheat by reading forward 
 //  then queueing backward.
-            strategy = new WholeFileReadbackStrategy(buffer);
+           strategy = new WholeFileReadbackStrategy(buffer);
         } else {
-            strategy = new ReverseReadbackStrategy(segment, new CascadingBufferSource(reader));
+            strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
         }
 
         return this;

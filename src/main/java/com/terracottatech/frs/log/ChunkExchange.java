@@ -67,6 +67,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
         };
         runner.setDaemon(true);
+        runner.setName("Recovery Exchange");
         runner.start();
     }
 
@@ -103,6 +104,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             exception = i;
         } catch (IOException ioe) {
             exception = ioe;
+            ioe.printStackTrace();
         } finally {
             ioDone = true;
         }

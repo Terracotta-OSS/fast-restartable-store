@@ -123,6 +123,12 @@ public class MockIOManager implements IOManager {
     }
 
     @Override
+    public Future<Void> clean(long timeout) throws IOException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+
+    @Override
     public long seek(long lsn) throws IOException {
         if ( lsn < 0 ) {
             store = storage.listIterator();

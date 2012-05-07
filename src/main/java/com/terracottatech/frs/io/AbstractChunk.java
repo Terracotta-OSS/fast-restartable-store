@@ -59,10 +59,11 @@ public abstract class AbstractChunk implements Chunk {
                 continue;
             }
             if ( list[x].remaining() >= length - count ) {
+                int restore = list[x].limit();
+                list[x].limit(list[x].position() + (int)(length-count));
                 ByteBuffer add = list[x].slice();
-                add.limit((int)(length-count));
                 copy.add(add.asReadOnlyBuffer());
-                list[x].position(list[x].position() + (int)(length-count));
+                list[x].position(list[x].limit()).limit(restore);
                 count = length;
             } else {
                 copy.add(list[x].asReadOnlyBuffer());

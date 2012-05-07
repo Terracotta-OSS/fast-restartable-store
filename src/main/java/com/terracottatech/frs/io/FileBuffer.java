@@ -98,8 +98,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             if (p > target.limit()) {
                 throw new BufferUnderflowException();
             } else {
-                sections.add((ByteBuffer) target.slice().limit(p - target.position()));
-                target.position(target.position() + p);
+                target.limit(p - target.position());
+                sections.add(target.slice());
+                target.clear().position(target.position() + p);
             }
         }
         sections.add(target.slice());
@@ -147,7 +148,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             lt += channel.write(buffer);
         }
         return lt;
-    }
+    }    
 
     private ByteBuffer coalesce(ByteBuffer scratch, ByteBuffer[] list, int start, int count) {
 //  use the remaining buffer space as scratch space for small buffer aggregation and
@@ -169,6 +170,42 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         scratch.flip();
 
         return scratch;
+    }
+    
+    private long copyingWrite(int usage, int count) throws IOException {
+        int smStart = -1;
+        long lt = 0;
+//  use the remaining buffer space as scratch space for small buffer aggregation and
+//  making sure the memory is direct memory
+        try {
+            ByteBuffer memcpy = ((ByteBuffer) base.position(usage)).slice();
+            int currentRun = 0;
+            for (int x = mark; x < mark + count; x++) {
+                if (currentRun + ref[x].remaining() > memcpy.capacity()) {
+                    // buffer is full
+                    if ( smStart < 0 ) {
+                        lt += writeFully(coalesce(memcpy, ref, x, 1));
+                    } else {
+                        lt += writeFully(coalesce(memcpy, ref, smStart, x - smStart));
+                        smStart = x;
+                        currentRun = ref[x].remaining();
+                    }
+                } else {
+                    if (smStart < 0) {
+                        smStart = x;
+                    }
+                    currentRun += ref[x].remaining();
+                }
+            }
+
+            if (smStart >= 0) {
+//  finish the writes
+                lt += writeFully(coalesce(memcpy, ref, smStart, (mark + count) - smStart));
+            }
+        } finally {
+            base.position(0);
+        }
+        return lt;
     }
 
     private long coalescingWrite(int usage, int count) throws IOException {
@@ -238,7 +275,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         if (count > 5 || !direct) {
             lt += coalescingWrite(usage, count);
         } else {
-            lt += channel.write(ref);
+            while ( ref[mark+count-1].hasRemaining() ) {
+                lt += channel.write(ref, mark, count);
+            }
         }
 
         offset = channel.position();
@@ -255,9 +294,11 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             ref[loc + x] = bufs[x].asReadOnlyBuffer();
         }
     }
-    
+
     public long writeDirect(ByteBuffer[] list) throws IOException {
-        return channel.write(list);
+        ref = list;
+        assert(!this.hasRemaining());
+        return coalescingWrite(base.capacity(), list.length);
     }
 
     @Override

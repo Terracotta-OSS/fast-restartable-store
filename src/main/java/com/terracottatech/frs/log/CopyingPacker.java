@@ -19,6 +19,7 @@ public class CopyingPacker extends LogRegionPacker {
     
 //    private ByteBuffer headers = ByteBuffer.allocate(1024 * 128);
     private final BufferSource pool;
+    private static final int FUTURE_SPACER = 64;
     
     public CopyingPacker(Signature sig, BufferSource copyInto) {
         super(sig);
@@ -35,7 +36,7 @@ public class CopyingPacker extends LogRegionPacker {
             size += LOG_RECORD_HEADER_SIZE;
         }
         size += LOG_REGION_HEADER_SIZE;
-        size *= 1.10;
+        size += 128;
         return size;
     }
 
@@ -44,11 +45,14 @@ public class CopyingPacker extends LogRegionPacker {
         long lowestLsn = 0;
         int count = 0;
 
-        ByteBuffer header = pool.getBuffer(sizeRegion(records));
+        ByteBuffer raw = pool.getBuffer(sizeRegion(records));
  //  no more direct memory, do it the slow way
-        if ( header == null ) {
+        if ( raw == null ) {
             return super.writeRecords(records);
         }
+        
+        raw.position(FUTURE_SPACER);
+        ByteBuffer header = raw.slice();
         
         header.position(LOG_REGION_HEADER_SIZE);
 
@@ -70,12 +74,14 @@ public class CopyingPacker extends LogRegionPacker {
 
             header.position(header.position() + copy.position());
             
-            copy.flip();            
+            copy.flip();
+            
             formRecordHeader(len,record.getLsn(),record.getLowestLsn(),copy);
         }
         
         header.flip();
         formRegionHeader(doChecksum() ? checksum(Collections.singletonList((ByteBuffer)header.duplicate().position(LOG_REGION_HEADER_SIZE))) : 0,(ByteBuffer)header.duplicate());
-        return new WrappingChunk(header);
+        raw.limit(FUTURE_SPACER + header.remaining());
+        return new WrappingChunk(raw);
     }
 }

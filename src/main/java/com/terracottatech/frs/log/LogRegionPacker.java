@@ -73,8 +73,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
         buffers.add(header);
         for (LogRecord record : records) {
+            headers.limit(headers.position() + LOG_RECORD_HEADER_SIZE);
             ByteBuffer rhead = headers.slice();
-            headers.position(headers.position() + LOG_RECORD_HEADER_SIZE);
+            headers.position(headers.limit()).limit(headers.position()+LOG_RECORD_HEADER_SIZE);
             
             buffers.add(rhead);
 

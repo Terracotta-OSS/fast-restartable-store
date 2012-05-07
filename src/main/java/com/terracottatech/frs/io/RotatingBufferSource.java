@@ -35,35 +35,42 @@ public class RotatingBufferSource implements BufferSource {
 
     @Override
     public ByteBuffer getBuffer(int size) {
-        //  super small, just allocate heap
-        if ( size < 512 * 1024 ) {
-            return ByteBuffer.allocate(size);
-        }
         
+        if ( size < 1024 ) return ByteBuffer.allocate(size);
+
         clearQueue(totalCapacity > MAX_CAPACITY);
         ByteBuffer factor = checkFree(size);
         int spins = 0;
         while (factor == null) {
             if (totalCapacity > MAX_CAPACITY) {
-                totalCapacity -= freeList.pollLastEntry().getValue().capacity();
-                released -= 1;
-                System.gc();
-                clearQueue(true);
-                factor = checkFree(size);
+                if ( !freeList.isEmpty() ) {
+                    totalCapacity -= freeList.pollLastEntry().getValue().capacity();
+                    released += 1;
+                    System.gc();
+                    clearQueue(true);
+                    factor = checkFree(size);
+                } else {
+                    return null;
+                }
             } else {
                 // pad some extra for later
                 try {
                     int allocate = Math.round(size * 1.05f);
-                    if ( allocate < 1024 * 1024 ) allocate = 1024 * 1024 + 8;
+                    if ( allocate < 512 * 1024 ) allocate = 512 * 1024 + 8;
                     factor = ByteBuffer.allocateDirect(allocate);
                     created += 1;
                     totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
-                    totalCapacity -= freeList.pollLastEntry().getValue().capacity();
-                    released -= 1;
-                    System.gc();
-                    System.out.format("WARNING: ran out of direct memory calling GC for a request of %d.\n",size);
-                    clearQueue(true);
+                    if ( !freeList.isEmpty() ) {
+                        totalCapacity -= freeList.pollLastEntry().getValue().capacity();
+                        released += 1;
+                        System.gc();
+                        System.out.format("WARNING: ran out of direct memory calling GC for a request of %d.\n",size);
+                        clearQueue(true);  
+                        factor = checkFree(size);
+                    } else {
+                        return null;
+                    }
                 }
             }
             if (spins++ > 100) {

@@ -70,7 +70,7 @@ public class StagingLogManagerTest {
         List<Callable<Void>> runnables = new ArrayList<Callable<Void>>();
         Random r = new Random();
         final AtomicInteger syncs = new AtomicInteger();
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 1000; i++) {
             if (r.nextInt(100) < 25) {
                 runnables.add(new Callable<Void>() {
 

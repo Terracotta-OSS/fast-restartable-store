@@ -79,6 +79,7 @@ public class StagingLogManager implements LogManager {
       
       RotatingBufferSource    buffers = new RotatingBufferSource();
       LogRegionFactory        regionFactory = new CopyingPacker(checksumStyle,buffers);
+//      LogRegionFactory        regionFactory = new LogRegionPacker(checksumStyle);
       
         
       WriteQueuer() {
@@ -127,7 +128,7 @@ public class StagingLogManager implements LogManager {
           } 
         }
         if ( turns == 0 ) turns = 1;
-        System.out.format("processing -- waiting: %d active: %d ave. queue: %d fill: %d\n",waiting,processing,size/(turns),fill/turns);
+        System.out.format("processing -- waiting: %.3f active: %.3f ave. queue: %d fill: %d\n",waiting*1e-6,processing*1e-6,size/(turns),fill/turns);
       }
     }
 
@@ -149,6 +150,8 @@ public class StagingLogManager implements LogManager {
         long lowestLsn = 0;
         
         long last = System.nanoTime();
+        int cleanCount = 0;
+        long lastClean = 0;
         while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
           WritingPackage packer = null;
           try {
@@ -160,6 +163,11 @@ public class StagingLogManager implements LogManager {
             waiting += (last - mark);
 
             if ( packer == null ) {
+                if ( cleanCount++ > 10 && io.getMinimumMarker() - lastClean > 10000 ) {
+                    io.clean(0);
+                    lastClean = io.getMinimumMarker();
+                    cleanCount = 0;
+                }
                 continue;
             }
            
@@ -194,7 +202,7 @@ public class StagingLogManager implements LogManager {
         }
         
         state = MachineState.IDLE;
-        System.out.format("write -- waiting: %d active: %d\n",waiting,writing);
+        System.out.format("write -- waiting: %.3f active: %.3f\n",waiting*1e-6,writing*1e-6);
 
       }
     }

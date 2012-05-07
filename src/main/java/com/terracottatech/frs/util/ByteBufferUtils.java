@@ -53,9 +53,11 @@ public abstract class ByteBufferUtils {
         if (length > buffer.remaining()) {
           throw new UnsupportedOperationException("Length is spanning buffers...");
         }
+        int restore = buffer.limit();
+        buffer.limit(buffer.position() + length);
         ByteBuffer buf = buffer.slice();
         buffer.position(length + buffer.position());
-        buf.limit(length);
+        buffer.limit(restore);
         return buf;
       }
     }

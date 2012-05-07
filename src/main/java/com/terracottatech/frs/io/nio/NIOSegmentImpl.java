@@ -118,8 +118,15 @@ class NIOSegmentImpl {
         if (lock == null) {
             throw new IOException(LOCKED_FILE_ACCESS);
         }
+        
+        int request = 512 * 1024;
+        ByteBuffer bb = null;
+        while ( bb == null ) {
+            if ( request < 512 * 1024 ) bb = ByteBuffer.allocate(request);
+            else bb = pool.getBuffer(request/=2);
+        }
 
-        buffer = new FileBuffer(segment, pool.getBuffer(1 * 1024 * 1024));
+        buffer = new FileBuffer(segment, bb);
 
         writeJumpList = new ArrayList<Long>();
 
@@ -142,24 +149,55 @@ class NIOSegmentImpl {
         buffer.write(1);
     }
 
-    // getBuffers does the bulk of the work defining header for LogRecord
     public long append(Chunk c, long maxMarker) throws IOException {
-
+        int writeCount = 0;
         buffer.clear();
-        buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
-        long amt = c.remaining();
-        assert (amt == c.length());
-        buffer.put(SegmentHeaders.CHUNK_START.getBytes());
-        buffer.putLong(amt);
-        buffer.insert(c.getBuffers(), 1);
-        buffer.putLong(amt);
         this.maxMarker = maxMarker;
-        buffer.putLong(maxMarker);
-        buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
-        try {
-            return buffer.write(c.getBuffers().length + 2);
-        } finally {
-            writeJumpList.add(buffer.offset());
+        if (
+//  very specfic optimization to write out buffers as quickly as possible by using extra space in 
+//    passed in buffer creating one large write rather than small header writes
+            c.getBuffers().length == 1 && !c.getBuffers()[0].isReadOnly() && c.getBuffers()[0].isDirect() &&
+            c.getBuffers()[0].position() > ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE &&
+            c.getBuffers()[0].capacity() - c.getBuffers()[0].limit() > (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE
+        ) {
+            ByteBuffer used = c.getBuffers()[0];
+            long amt = used.remaining();
+            int estart = used.limit();
+            int position = used.position() - (ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
+  //  expand buffer
+            used.position(position);
+            used.limit(estart + (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE);
+  //  place header            
+            used.putInt(position,SegmentHeaders.CHUNK_START.getIntValue());
+            used.putLong(position + ByteBufferUtils.INT_SIZE,amt);
+  //  place footer          
+            used.putLong(estart,amt);
+            used.putLong(estart + ByteBufferUtils.LONG_SIZE,maxMarker);
+            used.putInt(estart + (2*ByteBufferUtils.LONG_SIZE),SegmentHeaders.FILE_CHUNK.getIntValue());
+//   write it all out
+            amt = 0;
+            while ( used.hasRemaining() ) {
+                amt += segment.write(used);
+            }
+            writeJumpList.add(segment.position());
+            return amt;
+        } else {
+            buffer.clear();
+            buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
+            long amt = c.remaining();
+            assert (amt == c.length());
+            buffer.put(SegmentHeaders.CHUNK_START.getBytes());
+            buffer.putLong(amt);
+            buffer.insert(c.getBuffers(), 1);
+            buffer.putLong(amt);
+            buffer.putLong(maxMarker);
+            buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
+            writeCount = c.getBuffers().length + 2;
+            try {
+                return buffer.write(writeCount);
+            } finally {
+                writeJumpList.add(buffer.offset());
+            }
         }
 
     }

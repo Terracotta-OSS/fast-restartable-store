@@ -108,7 +108,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         } finally {
             ioDone = true;
         }
-        System.out.format("read -- waiting: %d active: %d ave queue: %d\n", waiting, reading, (count == 0) ? 0 : fill / count);
+        System.out.format("read -- waiting: %.3f active: %.3f ave queue: %d\n", waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count);
         return totalRead;
     }
 

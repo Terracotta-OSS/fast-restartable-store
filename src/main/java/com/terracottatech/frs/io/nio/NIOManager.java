@@ -47,6 +47,11 @@ public class NIOManager implements IOManager {
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     
     private NIOStreamImpl backend;
+    private long written = 1;
+    private long writeTime = 1;
+    private long parts = 1;
+    private long requests = 1;
+    
 
     public NIOManager(String home, long segmentSize) throws IOException {
         directory = new File(home);
@@ -62,7 +67,14 @@ public class NIOManager implements IOManager {
             open();
         }    
         
-        return backend.append(region);
+        long blit = System.nanoTime();
+        long w = backend.append(region);
+        blit = System.nanoTime() - blit;
+        written += w;
+        writeTime += blit;
+        parts += region.getBuffers().length;
+        requests += 1;
+        return w;
     }
 
     @Override
@@ -82,16 +94,19 @@ public class NIOManager implements IOManager {
 
     @Override
     public long getCurrentMarker() throws IOException {
+        if ( backend == null ) return 0;
         return backend.getMarker();
     }
 
     @Override
     public long getMaximumMarker() throws IOException {
+        if ( backend == null ) return 0;
         return backend.getMaximumMarker();
     }
 
     @Override
     public long getMinimumMarker() throws IOException {
+        if ( backend == null ) return 0;
         return backend.getMinimumMarker();
     }
     
@@ -135,6 +150,8 @@ public class NIOManager implements IOManager {
             lockFile.delete();
         }
         backend = null;
+        System.out.format("written: %.2f MB in %d parts over %d requests.\ntotal time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request\n",
+                written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests);
     }
     
     private final void open() throws IOException {        

@@ -26,7 +26,7 @@ public class CompactorImpl implements Compactor {
 
   private static final long RUN_INTERVAL_SECONDS = 60;
   private static final int START_THRESHOLD = 1000;
-  private static final double MINIMUM_LOAD = 0.60;
+  private static final double MINIMUM_LOAD = 0.40;
   private static final double MAXIMUM_LOAD = 0.85;
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;

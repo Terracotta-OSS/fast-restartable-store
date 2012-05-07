@@ -63,7 +63,7 @@ public class CompactorImplTest {
 
     doReturn(200L).when(logManager).currentLsn();
     doReturn(100L).when(objectManager).getLowestLsn();
-    doReturn(49L).when(objectManager).size();
+    doReturn(40L).when(objectManager).size();
 
     compactor.compactNow();
 

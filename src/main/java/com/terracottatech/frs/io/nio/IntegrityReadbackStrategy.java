@@ -25,6 +25,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     private boolean primed = false;
     private boolean done = false;
     private ArrayList<Long> jumpList = new ArrayList<Long>();
+    private int exitStatus;
     
 
     public IntegrityReadbackStrategy(FileBuffer src) {
@@ -40,7 +41,12 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
             return false;
         }
         prime();
-        return !SegmentHeaders.CLOSE_FILE.validate(buffer.peekInt());
+        int check = buffer.peekInt();
+        if ( SegmentHeaders.CLOSE_FILE.validate(check) ) {
+            exitStatus = check;
+            return false;
+        }
+        return true;
     }
 
     private void prime() throws IOException {
@@ -109,6 +115,6 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     boolean wasClosed() {
-        return !SegmentHeaders.CLOSE_FILE.validate(buffer.peekInt());
+        return SegmentHeaders.CLOSE_FILE.validate(exitStatus);
     }
 }

@@ -148,6 +148,29 @@ class NIOSegmentImpl {
 
         buffer.write(1);
     }
+    
+    private long piggybackBufferOptimization(ByteBuffer used) throws IOException {
+        long amt = used.remaining();
+        int estart = used.limit();
+        int position = used.position() - (ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
+//  expand buffer
+        used.position(position);
+        used.limit(estart + (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE);
+//  place header            
+        used.putInt(position,SegmentHeaders.CHUNK_START.getIntValue());
+        used.putLong(position + ByteBufferUtils.INT_SIZE,amt);
+//  place footer          
+        used.putLong(estart,amt);
+        used.putLong(estart + ByteBufferUtils.LONG_SIZE,maxMarker);
+        used.putInt(estart + (2*ByteBufferUtils.LONG_SIZE),SegmentHeaders.FILE_CHUNK.getIntValue());
+//   write it all out
+        amt = 0;
+        while ( used.hasRemaining() ) {
+            amt += segment.write(used);
+        }
+        writeJumpList.add(segment.position());
+        return amt;
+    }
 
     public long append(Chunk c, long maxMarker) throws IOException {
         int writeCount = 0;
@@ -160,27 +183,7 @@ class NIOSegmentImpl {
             c.getBuffers()[0].position() > ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE &&
             c.getBuffers()[0].capacity() - c.getBuffers()[0].limit() > (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE
         ) {
-            ByteBuffer used = c.getBuffers()[0];
-            long amt = used.remaining();
-            int estart = used.limit();
-            int position = used.position() - (ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
-  //  expand buffer
-            used.position(position);
-            used.limit(estart + (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE);
-  //  place header            
-            used.putInt(position,SegmentHeaders.CHUNK_START.getIntValue());
-            used.putLong(position + ByteBufferUtils.INT_SIZE,amt);
-  //  place footer          
-            used.putLong(estart,amt);
-            used.putLong(estart + ByteBufferUtils.LONG_SIZE,maxMarker);
-            used.putInt(estart + (2*ByteBufferUtils.LONG_SIZE),SegmentHeaders.FILE_CHUNK.getIntValue());
-//   write it all out
-            amt = 0;
-            while ( used.hasRemaining() ) {
-                amt += segment.write(used);
-            }
-            writeJumpList.add(segment.position());
-            return amt;
+            return piggybackBufferOptimization(c.getBuffers()[0]);
         } else {
             buffer.clear();
             buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
@@ -348,10 +351,12 @@ class NIOSegmentImpl {
 
     boolean last() throws IOException {
         IntegrityReadbackStrategy find = new IntegrityReadbackStrategy(buffer);
+        int count = 0;
         try {
             while (find.hasMore(Direction.FORWARD)) {
                 try {
                     find.iterate(Direction.FORWARD);
+                    count+=1;
                 } catch (IOException ioe) {
                     return false;
                 }

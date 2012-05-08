@@ -44,8 +44,13 @@ public class CopyingPacker extends LogRegionPacker {
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
         long lowestLsn = 0;
         int count = 0;
+        int size = sizeRegion(records);
+//  too small to try and optimize with copying        
+        if ( size < 1024 ) {
+            return super.writeRecords(records);
+        }
 
-        ByteBuffer raw = pool.getBuffer(sizeRegion(records));
+        ByteBuffer raw = pool.getBuffer(size);
  //  no more direct memory, do it the slow way
         if ( raw == null ) {
             return super.writeRecords(records);

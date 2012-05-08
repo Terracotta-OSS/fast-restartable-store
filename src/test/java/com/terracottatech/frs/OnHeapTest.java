@@ -78,7 +78,7 @@ public class OnHeapTest {
         String sv = r[(int)(Math.random()*r.length)%r.length];
 //        System.out.format("insert: %s=%s\n",sk,sv);
         ByteBuffer k = (ByteBuffer)ByteBuffer.allocate(1024).put(sk.getBytes()).position(1024).flip();
-        ByteBuffer v = (ByteBuffer)ByteBuffer.allocate(3000).put(sv.getBytes()).position(1024).flip();
+        ByteBuffer v = (ByteBuffer)ByteBuffer.allocate(1024).put(sv.getBytes()).position(1024).flip();
         int size = k.remaining() + v.remaining();
         transaction.put(i,k,v);
         transaction.commit();

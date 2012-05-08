@@ -36,7 +36,7 @@ public class StagingLogManager implements LogManager {
     private final IOManager io;
     private volatile MachineState   state = MachineState.IDLE;
     
-    private static final int MAX_QUEUE_SIZE = 1000;
+    private static final int MAX_QUEUE_SIZE = 512;
     
     private ChunkExchange           exchanger;
     private final ArrayBlockingQueue<WritingPackage> queue = new ArrayBlockingQueue<WritingPackage>(20);
@@ -163,7 +163,8 @@ public class StagingLogManager implements LogManager {
             waiting += (last - mark);
 
             if ( packer == null ) {
-                if ( cleanCount++ > 10 && io.getMinimumMarker() - lastClean > 10000 ) {
+                long min = io.getMinimumMarker();
+                if ( cleanCount++ > 5 && min - lastClean > 1000 ) {
                     io.clean(0);
                     lastClean = io.getMinimumMarker();
                     cleanCount = 0;
@@ -303,10 +304,10 @@ public class StagingLogManager implements LogManager {
 
             int spincount = 0;
             while ( !mine.append(record,sync) ) {
-    //            mine.close(record.getLsn(),false);   // this is not needed
-                if ( spincount++ > 10 ) {
+                if ( spincount++ > 1 ) {
                     try {
                         mine.get();
+                        spincount = 0;
                     } catch ( InterruptedException ie ) {
 
                     } catch ( ExecutionException ee ) {

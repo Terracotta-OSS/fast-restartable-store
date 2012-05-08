@@ -127,6 +127,7 @@ class NIOStreamImpl implements Stream {
                 }
             } finally {
                 this.highestMarker = seg.getMaximumMarker();
+                this.lowestMarker = seg.getMinimumMarker();
                 seg.close();
             }
         }

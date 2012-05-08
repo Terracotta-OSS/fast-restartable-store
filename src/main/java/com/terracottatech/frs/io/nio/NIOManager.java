@@ -154,7 +154,7 @@ public class NIOManager implements IOManager {
                 written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests);
     }
     
-    private final void open() throws IOException {        
+    private void open() throws IOException {        
         if (!directory.exists() || !directory.isDirectory()) {
             throw new IOException(BAD_HOME_DIRECTORY);
         }

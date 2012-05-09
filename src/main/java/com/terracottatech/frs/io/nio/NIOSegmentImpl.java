@@ -264,7 +264,7 @@ class NIOSegmentImpl {
         return streamId;
     }
 
-    long getBaseMaker() {
+    long getBaseMarker() {
         return minMarker;
     }
 

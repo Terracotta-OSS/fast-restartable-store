@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Wrap a file in a chunk for easy access.
@@ -26,7 +25,6 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     private int mark = 0;
     private long total = 0;
     private long offset = 0;
-    private final AtomicInteger outReferences = new AtomicInteger(1);
 
     public FileBuffer(FileChannel channel, ByteBuffer src) throws IOException {
         this.channel = channel;

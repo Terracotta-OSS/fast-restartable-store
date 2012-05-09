@@ -159,6 +159,26 @@ class NIOStreamImpl implements Stream {
         }
     }
     
+//  make sure this segment backets lowest marker
+    private boolean doubleCheck(File f) throws IOException {
+        NIOSegmentImpl segment = new NIOSegmentImpl(this, f);
+        segment.openForReading(pool);
+        
+        if ( segment.getBaseMarker() > this.lowestMarker ) {
+            return false;
+        }
+//   gotta scan it
+        if ( !segment.last() ) {
+//  not stable and closed, just exit
+            return false;
+        }
+        if ( segment.getMaximumMarker() > this.lowestMarker ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+        
     long trimLogHead(long timeout) throws IOException {
         segments.setReadPosition(0);
         File f = segments.nextReadFile(Direction.FORWARD);
@@ -172,18 +192,11 @@ class NIOStreamImpl implements Stream {
                 if ( !seg.getStreamId().equals(streamId) ) 
                     throw new IOException(BAD_STREAM_ID);
       //  if the base is greater short circuit out
-                if ( seg.getBaseMaker() > this.lowestMarker ) return size;
-      //   gotta scan it
-                if ( !seg.last() ) {
-      //  not stable and closed, just exit
-                    return size;
-                }
-                if ( seg.getMaximumMarker() < this.lowestMarker ) {
-                    size += f.length();
-                    segments.removeCurrentSegment();
-                } else {
-                    return size;
-                }
+                if ( seg.getBaseMarker() > this.lowestMarker ) {
+                    File last = segments.nextReadFile(Direction.REVERSE);
+                    assert(doubleCheck(last));
+                    return segments.removeFilesFromHead();
+                }            
             } finally {
                 seg.close();
             }

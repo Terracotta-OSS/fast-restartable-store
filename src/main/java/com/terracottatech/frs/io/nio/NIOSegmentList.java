@@ -31,7 +31,7 @@ class NIOSegmentList {
     private File                    directory;
     private File                    readHead;
     private File                    writeHead;
-    private ListIterator<File>     readPosition;
+    private int                     position;
 
     NIOSegmentList(File directory) throws IOException {
         this.directory = directory;
@@ -45,8 +45,8 @@ class NIOSegmentList {
         
         segments = new LinkedList<File>(segments);
         Collections.sort(segments);        
-                
-        readPosition = segments.listIterator(segments.size());
+        
+        position = -1;
     }   
     
     synchronized File appendFile() throws IOException {
@@ -68,41 +68,52 @@ class NIOSegmentList {
     }
     
     synchronized void setReadPosition(long pos) {
-        if ( segments.isEmpty() ) {
-            pos = 0;
+        if ( segments.isEmpty() || pos == 0 ) {
+            position = -1;
         } else if ( pos < 0 || pos > segments.size()-1) {
-            pos = segments.size();
+            position = segments.size();
+        } else {
+            position = (int)pos;
         }
-        readPosition = segments.listIterator((int)pos);
+        
     }
     
     synchronized File nextReadFile(Direction dir) throws IOException {
         readHead = null;
         if ( dir == Direction.REVERSE ) {
-            if ( !readPosition.hasPrevious() ) return null;
-            readHead = readPosition.previous();
-        } else {
-            if ( !readPosition.hasNext() ) return null;
-            readHead = readPosition.next();
+            position -= 1;
+        } else {  //  Direction.FORWARD
+            position += 1;
         }  
+        if ( position < 0 || position >= segments.size() ) {
+            readHead = null;
+        } else {
+            readHead = segments.get(position);
+        }
+        
         return readHead;
     }
     
+    synchronized long removeFilesFromHead() throws IOException {
+        int count = 0;
+        long size = 0;
+        while ( count < position ) {
+            File f = segments.remove(0);
+            size += f.length();
+            f.delete();
+            count++;
+        }
+        return size;
+    }
+
     synchronized void removeCurrentSegment() throws IOException {
         assert(!readHead.equals(writeHead));
-        readHead.delete();
-        readPosition.remove();
+        segments.remove(position).delete();
+        readHead = null;
     }
     
     synchronized File getEndFile() throws IOException {
         return segments.get(segments.size()-1);
-    }
-    
-    synchronized void removeSegment(int pos) throws IOException {
-        File f = segments.remove(pos);
-        assert(readHead == null || !readHead.equals(f));
-        assert(writeHead == null || !writeHead.equals(f));
-        f.delete();
     }
     
     static int convertSegmentNumber(File f) {

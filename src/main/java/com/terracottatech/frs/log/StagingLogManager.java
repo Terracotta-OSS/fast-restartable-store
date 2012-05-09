@@ -304,7 +304,7 @@ public class StagingLogManager implements LogManager {
 
             int spincount = 0;
             while ( !mine.append(record,sync) ) {
-                if ( spincount++ > 1 ) {
+                if ( spincount++ > 10 ) {
                     try {
                         mine.get();
                         spincount = 0;

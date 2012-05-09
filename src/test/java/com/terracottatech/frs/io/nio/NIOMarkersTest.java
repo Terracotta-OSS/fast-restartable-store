@@ -61,8 +61,15 @@ public class NIOMarkersTest {
         manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024);
         manager.seek(0);
         Chunk c = manager.read(Direction.FORWARD);
+        int count = 0;
+        while ( c != null ) {
+            count++;
+            c = manager.read(Direction.FORWARD);
+        }
         assert(manager.getMinimumMarker() == 10000);
         assert(manager.getMaximumMarker() == 20000);
+        System.out.println("chunks after clean " + count);
+        assert(count < 2000);
     }
     
     private void writeChunkWithMarkers(int size) throws Exception {

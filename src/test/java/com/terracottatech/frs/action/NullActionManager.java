@@ -13,6 +13,11 @@ import java.util.concurrent.Future;
  */
 public class NullActionManager implements ActionManager {
   @Override
+  public Future<Void> syncHappened(Action action) {
+    return null;
+  }
+
+  @Override
   public Future<Void> happened(Action action) {
     return null;
   }

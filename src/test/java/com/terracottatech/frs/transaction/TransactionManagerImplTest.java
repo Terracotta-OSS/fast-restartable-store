@@ -33,9 +33,10 @@ public class TransactionManagerImplTest {
     happenedFuture = mock(Future.class);
     action = mock(Action.class);
     actionManager = spy(new TxnManagerTestActionManager());
-    when(actionManager.happened(any(Action.class))).thenReturn(happenedFuture);
-    transactionManager = new TransactionManagerImpl(actionManager, true);
+    doReturn(happenedFuture).when(actionManager).syncHappened(any(Action.class));
+    doReturn(happenedFuture).when(actionManager).happened(any(Action.class));
     callback = mock(TransactionLSNCallback.class);
+    transactionManager = new TransactionManagerImpl(actionManager, true);
   }
 
   @Test
@@ -49,7 +50,8 @@ public class TransactionManagerImplTest {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
     transactionManager.commit(handle);
-    verify(actionManager).happened(new TransactionCommitAction(handle, false));
+    verify(actionManager).syncHappened(
+            new TransactionCommitAction(handle, false));
     try {
       transactionManager.commit(handle);
       fail("Committing a handle twice should fail.");
@@ -68,11 +70,11 @@ public class TransactionManagerImplTest {
 
   @Test
   public void testAsyncCommit() throws Exception {
-    TransactionManager asyncCommitManager =
-            new TransactionManagerImpl(actionManager, false);
+    TransactionManager asyncCommitManager = new TransactionManagerImpl(actionManager, false);
     TransactionHandle handle = asyncCommitManager.begin();
     asyncCommitManager.commit(handle);
-    verify(actionManager).asyncHappened(new TransactionCommitAction(handle, true));
+    verify(actionManager).asyncHappened(
+            new TransactionCommitAction(handle, true));
   }
 
   @Test
@@ -94,7 +96,7 @@ public class TransactionManagerImplTest {
   @Test
   public void testSynchronousAutoCommit() throws Exception {
     transactionManager.happened(action);
-    verify(actionManager).happened(action);
+    verify(actionManager).syncHappened(action);
     verify(happenedFuture).get();
   }
 

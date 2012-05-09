@@ -4,9 +4,7 @@
  */
 package com.terracottatech.frs.compaction;
 
-import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -17,6 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.Future;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -27,22 +26,24 @@ import static org.mockito.Mockito.*;
  */
 public class CompactorImplTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
-  private LogManager logManager;
   private TransactionManager transactionManager;
   private Compactor compactor;
+  private TestCompactionPolicy policy;
+  private Future<Void> future;
 
   @Before
   public void setUp() throws Exception {
+    future = mock(Future.class);
     objectManager = spy(new CompactionTestObjectManager());
-    logManager = mock(LogManager.class);
     transactionManager = spy(new CompactionTestTransactionManager());
-    compactor = new CompactorImpl(objectManager, transactionManager, logManager);
+    policy = spy(new TestCompactionPolicy());
+    compactor = new CompactorImpl(objectManager, transactionManager, policy);
   }
 
   @Test
   public void testBelowCompactionThreshold() throws Exception {
     compactor.startup();
-    for (int i = 0; i < 999; i++) {
+    for (int i = 0; i < 49999; i++) {
       compactor.generatedGarbage();
     }
     SECONDS.sleep(1);
@@ -52,6 +53,10 @@ public class CompactorImplTest {
 
     SECONDS.sleep(1);
 
+    verify(policy).shouldCompact();
+    verify(policy, never()).startedCompacting();
+    verify(policy, never()).stoppedCompacting();
+
     compactor.shutdown();
 
     verify(transactionManager, never()).happened(any(CompactionAction.class));
@@ -59,26 +64,35 @@ public class CompactorImplTest {
 
   @Test
   public void testCompactionThresholdTripped() throws Exception {
+    policy.compactCount = 1500;
     compactor.startup();
 
-    doReturn(200L).when(logManager).currentLsn();
-    doReturn(100L).when(objectManager).getLowestLsn();
-    doReturn(40L).when(objectManager).size();
+    doReturn(1100L).when(objectManager).size();
 
     compactor.compactNow();
 
     SECONDS.sleep(1);
 
-    compactor.shutdown();
+    policy.waitForCompactionComplete();
 
-    verify(transactionManager, atLeastOnce()).happened(any(CompactionAction.class));
+    verifyCompactedTimes(1100);
+    verify(policy).startedCompacting();
+    verify(policy).stoppedCompacting();
+    verify(future, atLeastOnce()).get();
+
+    compactor.shutdown();
+  }
+
+  private void verifyCompactedTimes(int times) {
+    verify(transactionManager, times(times)).asyncHappened(any(CompactionAction.class));
+    verify(policy, times(times)).compacted(any(ObjectManagerEntry.class));
   }
 
   private class CompactionTestTransactionManager extends NullTransactionManager {
     @Override
-    public void happened(Action action) throws InterruptedException,
-            TransactionException {
+    public Future<Void> asyncHappened(Action action) {
       action.record(1);
+      return future;
     }
   }
 
@@ -90,11 +104,12 @@ public class CompactorImplTest {
     @Override
     public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> acquireCompactionEntry(long ceilingLsn) {
       assert compactingEntry == null;
+      lsn++;
       if (lsn % 3 == 0) {
         return null;
       }
       compactingEntry = new SimpleObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>(
-              byteBufferWithInt(1), byteBufferWithInt(2), byteBufferWithInt(3), lsn++);
+              byteBufferWithInt(1), byteBufferWithInt(2), byteBufferWithInt(3), lsn);
       return compactingEntry;
     }
 
@@ -108,6 +123,42 @@ public class CompactorImplTest {
     @Override
     public void updateLsn(ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry, long newLsn) {
       assert entry == compactingEntry;
+    }
+  }
+
+  private class TestCompactionPolicy extends NoCompactionPolicy {
+    private int compactCount = 0;
+    private boolean isCompacting = false;
+
+    @Override
+    public boolean shouldCompact() {
+      assert !isCompacting;
+      return compactCount > 0;
+    }
+
+    @Override
+    public synchronized void startedCompacting() {
+      assert !isCompacting;
+      isCompacting = true;
+    }
+
+    @Override
+    public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
+      assert isCompacting;
+      return --compactCount > 0;
+    }
+
+    @Override
+    public synchronized void stoppedCompacting() {
+      assert isCompacting;
+      isCompacting = false;
+      notifyAll();
+    }
+
+    synchronized void waitForCompactionComplete() throws InterruptedException {
+      while(isCompacting) {
+        wait();
+      }
     }
   }
 }

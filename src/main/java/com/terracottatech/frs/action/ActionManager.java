@@ -14,6 +14,8 @@ import java.util.concurrent.Future;
  */
 public interface ActionManager {
 
+  Future<Void> syncHappened(Action action);
+
   Future<Void> happened(Action action);
   
   //Optimization

@@ -46,4 +46,9 @@ public class MockActionManager implements ActionManager {
       throw new AssertionError();
     }
   }
+
+  @Override
+  public Future<Void> syncHappened(Action action) {
+    throw new UnsupportedOperationException();
+  }
 }

@@ -15,7 +15,6 @@ public class TransactionActionFactory {
     public void setLsn(long lsn) {
     }
   };
-  public TransactionActionFactory() {}
 
   public TransactionHandle transactionHandle(long id) {
     return new TransactionHandleImpl(id);

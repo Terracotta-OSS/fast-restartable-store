@@ -14,12 +14,14 @@ import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
-import com.terracottatech.frs.transaction.TransactionLSNCallback;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.Future;
 
 import static org.mockito.Matchers.anyLong;

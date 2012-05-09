@@ -102,4 +102,9 @@ public class MockTransactionManager implements TransactionManager {
   public long getLowestOpenTransactionLsn() {
     return Long.MAX_VALUE;
   }
+
+  @Override
+  public Future<Void> asyncHappened(Action action) {
+    throw new UnsupportedOperationException();
+  }
 }

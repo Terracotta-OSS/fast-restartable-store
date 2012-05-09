@@ -7,6 +7,8 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 
+import java.util.concurrent.Future;
+
 /**
  *
  * @author cdennis
@@ -46,6 +48,14 @@ public interface TransactionManager {
    * @throws TransactionException thrown if the flush fails for some reason
    */
   void happened(Action action) throws InterruptedException, TransactionException;
+
+  /**
+   * Performs an {@link Action} asynchronously with no associated transaction.
+   *
+   * @param action action that happened
+   * @return {@link Future} representing when the action has been flushed to disk
+   */
+  Future<Void> asyncHappened(Action action);
 
   /**
    * Get the beginning LSN of the lowest open transaction in the system.

@@ -11,6 +11,7 @@ import com.terracottatech.frs.action.ActionManager;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -65,13 +66,18 @@ public class TransactionManagerImpl implements TransactionManager {
   public void happened(Action action) throws TransactionException, InterruptedException {
     if (synchronousCommit) {
       try {
-        actionManager.happened(action).get();
+        actionManager.syncHappened(action).get();
       } catch (ExecutionException e) {
         throw new TransactionException("Commit failed.", e);
       }
     } else {
       actionManager.asyncHappened(action);
     }
+  }
+
+  @Override
+  public Future<Void> asyncHappened(Action action) {
+    return actionManager.happened(action);
   }
 
   @Override

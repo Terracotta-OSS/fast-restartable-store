@@ -7,6 +7,7 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.compaction.CompactorImpl;
+import com.terracottatech.frs.compaction.LSNGapCompactionPolicy;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.RecoveryListener;
@@ -46,7 +47,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, ActionManager actionManager) {
-    this(objectManager, transactionManager, logManager, actionManager, new CompactorImpl(objectManager, transactionManager, logManager));
+    this(objectManager, transactionManager, logManager, actionManager, new CompactorImpl(objectManager, transactionManager, new LSNGapCompactionPolicy(objectManager, logManager)));
   }
 
   @Override

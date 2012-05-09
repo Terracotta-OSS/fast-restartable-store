@@ -36,8 +36,13 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public Future<Void> happened(Action action) {
+  public Future<Void> syncHappened(Action action) {
     return logManager.appendAndSync(wrapAction(action));
+  }
+
+  @Override
+  public Future<Void> happened(Action action) {
+    return logManager.append(wrapAction(action));
   }
 
   @Override

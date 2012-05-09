@@ -22,7 +22,7 @@ public interface Compactor {
   void shutdown() throws InterruptedException;
 
   /**
-   * Callback to notify the compactor that some piece of garbage was generated in the log.
+   * Callback to notify the compactor that some garbage was generated.
    */
   void generatedGarbage();
 

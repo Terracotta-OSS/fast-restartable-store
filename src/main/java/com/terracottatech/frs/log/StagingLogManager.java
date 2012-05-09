@@ -280,10 +280,12 @@ public class StagingLogManager implements LogManager {
             throw new RuntimeException("shutting down");
         }
         
-        try {
-            waitForNormalState();
-        } catch ( InterruptedException it ) {
-            throw new RuntimeException(it);
+        if ( state == MachineState.BOOTSTRAP ) {
+            try {
+                waitForNormalState();
+            } catch ( InterruptedException it ) {
+                throw new RuntimeException(it);
+            }
         }
         CommitList mine = currentRegion;
         long lsn = currentLsn.getAndIncrement();

@@ -32,6 +32,7 @@ public class StagingLogManager implements LogManager {
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong lowestLsn = new AtomicLong(0);
+    private long  lastClean = 0;
     private final AtomicLong highestOnDisk = new AtomicLong(99);
     private final Signature  checksumStyle;
     private final IOManager io;
@@ -60,7 +61,21 @@ public class StagingLogManager implements LogManager {
 
     @Override
     public void updateLowestLsn(long lsn) {
-        lowestLsn.set(lsn);
+        long cl = lowestLsn.get();
+        if ( lsn > cl ) {
+            try {
+                if ( lowestLsn.compareAndSet(cl, lsn) ) {
+                    io.setMinimumMarker(cl);
+                    if ( lsn - lastClean > 100000 ) {
+                        io.clean(0);
+                        lastClean = io.getMinimumMarker();
+                    }
+                }
+            } catch ( IOException ioe ) {
+                throw new RuntimeException(ioe);
+            }
+        }
+        
     }
  
     private synchronized void enterNormalState(long lastLsn) {
@@ -151,12 +166,9 @@ public class StagingLogManager implements LogManager {
       public void run() {
         WriteQueuer queuer = new WriteQueuer();
         queuer.start();  
-        
-        long lowestLsn = 0;
-        
+                
         long last = System.nanoTime();
         int cleanCount = 0;
-        long lastClean = 0;
         while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
           WritingPackage packer = null;
           try {
@@ -177,9 +189,8 @@ public class StagingLogManager implements LogManager {
                 continue;
             }
            
-            if ( packer.getLowestLsn() > lowestLsn ) {
-                io.setMinimumMarker(packer.getLowestLsn());
-                lowestLsn = packer.getLowestLsn();
+            if ( packer.getLowestLsn() > lowestLsn.get() ) {
+                updateLowestLsn(packer.getLowestLsn());
             }
             io.setCurrentMarker(packer.baseLsn());
             io.setMaximumMarker(packer.endLsn());

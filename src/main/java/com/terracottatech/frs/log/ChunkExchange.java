@@ -28,6 +28,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private Exception exception;
     Thread runner;
     private final RecordIterator master = new RecordIterator();
+    private long totalRead;
 
     ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;
@@ -74,7 +75,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private long readLoop() {
         long waiting = 0;
         long reading = 0;
-        long totalRead = 0;
         long fill = 0;
         try {
             io.seek(IOManager.Seek.END.getValue());
@@ -109,6 +109,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             ioDone = true;
         }
         System.out.format("read -- waiting: %.3f active: %.3f ave queue: %d\n", waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count);
+        return totalRead;
+    }
+    
+    long getTotalRead() {
         return totalRead;
     }
 

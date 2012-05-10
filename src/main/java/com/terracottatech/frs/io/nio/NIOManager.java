@@ -49,6 +49,7 @@ public class NIOManager implements IOManager {
     
     private NIOStreamImpl backend;
     private long written = 1;
+    private long read = 1;
     private long writeTime = 1;
     private long parts = 1;
     private long requests = 1;
@@ -137,7 +138,10 @@ public class NIOManager implements IOManager {
             open();
         }
                 
-        return backend.read(dir);
+        Chunk c = backend.read(dir);
+        read += c.remaining();
+        
+        return c;
     }
 
     @Override
@@ -221,7 +225,7 @@ public class NIOManager implements IOManager {
 
     @Override
     public synchronized IOStatistics getStatistics() throws IOException {
-        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, parts);
+        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, read);
     }
     
     @Override

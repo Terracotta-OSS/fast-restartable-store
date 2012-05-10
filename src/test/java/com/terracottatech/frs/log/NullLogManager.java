@@ -13,6 +13,10 @@ import java.util.concurrent.Future;
  */
 public class NullLogManager implements LogManager {
   @Override
+  public void updateLowestLsn(long lsn) {
+  }
+
+  @Override
   public long currentLsn() {
     return 0;
   }

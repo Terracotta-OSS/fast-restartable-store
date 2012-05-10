@@ -42,6 +42,10 @@ public class MockLogManager implements LogManager {
     }
 
   @Override
+  public void updateLowestLsn(long lsn) {
+  }
+
+  @Override
   public long currentLsn() {
     return currentLsn.get();
   }

@@ -139,7 +139,7 @@ public class NIOManager implements IOManager {
         }
                 
         Chunk c = backend.read(dir);
-        read += c.remaining();
+        if ( c!= null ) read += c.remaining();
         
         return c;
     }

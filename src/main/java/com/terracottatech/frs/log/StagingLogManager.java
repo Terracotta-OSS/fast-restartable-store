@@ -31,12 +31,13 @@ public class StagingLogManager implements LogManager {
     private StagingLogManager.IODaemon daemon;
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
+    private final AtomicLong lowestLsn = new AtomicLong(0);
     private final AtomicLong highestOnDisk = new AtomicLong(99);
     private final Signature  checksumStyle;
     private final IOManager io;
     private volatile MachineState   state = MachineState.IDLE;
     
-    private static final int MAX_QUEUE_SIZE = 512;
+    private static final int MAX_QUEUE_SIZE = 1024;
     
     private ChunkExchange           exchanger;
     private final ArrayBlockingQueue<WritingPackage> queue = new ArrayBlockingQueue<WritingPackage>(20);
@@ -53,10 +54,14 @@ public class StagingLogManager implements LogManager {
     }
 
     @Override
-    public long currentLsn() {
+    public long currentLsn() { 
       return currentLsn.get();
     }
-    
+
+    @Override
+    public void updateLowestLsn(long lsn) {
+        lowestLsn.set(lsn);
+    }
  
     private synchronized void enterNormalState(long lastLsn) {
         if ( state != MachineState.BOOTSTRAP ) return;
@@ -186,6 +191,7 @@ public class StagingLogManager implements LogManager {
             
             highestOnDisk.set(packer.endLsn());
             packer.written();
+            
           } catch (IOException ioe) {
             throw new AssertionError(ioe);
           } catch (InterruptedException ie) {
@@ -305,24 +311,22 @@ public class StagingLogManager implements LogManager {
             }
 
             int spincount = 0;
+  //  if we hit this, try and spread out
+            int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
             while ( !mine.append(record,sync) ) {
-                if ( spincount++ > 10 ) {
+                if ( spincount++ > waitspin ) {
                     try {
                         mine.get();
-                        spincount = 0;
+                        waitspin += (Math.round((float)(Math.random() * 512f)));
                     } catch ( InterruptedException ie ) {
 
                     } catch ( ExecutionException ee ) {
 
                     }
                 }
-                if ( mine.getEndLsn() >= mine.getBaseLsn() ) {
-
-                }
                 mine = mine.next();
-
             }
-
+            
         }
         return mine;
     }

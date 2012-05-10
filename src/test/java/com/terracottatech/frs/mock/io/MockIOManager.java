@@ -4,12 +4,9 @@
  */
 package com.terracottatech.frs.mock.io;
 
-import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRegionFactory;
-import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.ChecksumException;
 import com.terracottatech.frs.mock.MockFuture;
 
@@ -187,4 +184,11 @@ public class MockIOManager implements IOManager {
             }
         };
     }
+
+    @Override
+    public IOStatistics getStatistics() throws IOException {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    
 }

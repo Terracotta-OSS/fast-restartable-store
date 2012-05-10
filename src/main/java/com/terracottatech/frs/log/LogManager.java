@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.IOStatistics;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 

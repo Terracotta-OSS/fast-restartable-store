@@ -6,6 +6,7 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.RotatingBufferSource;
 import java.io.IOException;
 import java.util.Iterator;
@@ -62,11 +63,17 @@ public class StagingLogManager implements LogManager {
     @Override
     public void updateLowestLsn(long lsn) {
         long cl = lowestLsn.get();
+        long onDisk = highestOnDisk.get();
+        if ( lsn > onDisk ) {
+ //  highest on disk is lower than lowest, entire log on disk is old, set lowestLsn to the highest 
+ //  currently on disk.
+            lsn = onDisk;
+        }
         if ( lsn > cl ) {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
                     io.setMinimumMarker(cl);
-                    if ( lsn - lastClean > 100000 ) {
+                    if ( lsn - lastClean > 1000 ) {
                         io.clean(0);
                         lastClean = io.getMinimumMarker();
                     }
@@ -75,7 +82,6 @@ public class StagingLogManager implements LogManager {
                 throw new RuntimeException(ioe);
             }
         }
-        
     }
  
     private synchronized void enterNormalState(long lastLsn) {
@@ -189,9 +195,7 @@ public class StagingLogManager implements LogManager {
                 continue;
             }
            
-            if ( packer.getLowestLsn() > lowestLsn.get() ) {
-                updateLowestLsn(packer.getLowestLsn());
-            }
+            io.setMinimumMarker(lowestLsn.get());
             io.setCurrentMarker(packer.baseLsn());
             io.setMaximumMarker(packer.endLsn());
             long out = io.write(packer.take());
@@ -316,10 +320,10 @@ public class StagingLogManager implements LogManager {
    // our entire log stream on disk is old.  We also don't know if ObjectManager 
    // has all lsn's committed back to it from logmanager so set record lowest lsn 
    // to the value we know is confirmed back to ObjectManager
-            long highOnDisk = highestOnDisk.get();
-            if ( record.getLowestLsn() > highOnDisk ) {
-                record.setLowestLsn(highOnDisk);
-            }
+//            long highOnDisk = highestOnDisk.get();
+//            if ( record.getLowestLsn() > highOnDisk ) {
+//                record.setLowestLsn(highOnDisk);
+//            }
 
             int spincount = 0;
   //  if we hit this, try and spread out
@@ -376,10 +380,10 @@ public class StagingLogManager implements LogManager {
             this.list= list;
             this.data = data;
         }
-        
-        public long getLowestLsn() {
-            return list.getLowestLsn();
-        }
+//        
+//        public long getLowestLsn() {
+//            return list.getLowestLsn();
+//        }
     
         public long endLsn() {
             return list.getEndLsn();

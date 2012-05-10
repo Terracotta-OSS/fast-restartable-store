@@ -64,7 +64,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
-        long lowestLsn = 0;
+//        long lowestLsn = 0;
         int count = 0;
                 
         ByteBuffer headers = ByteBuffer.allocate(100 * 1024);
@@ -87,11 +87,11 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 count++;
             }
 
-            if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
-                lowestLsn = record.getLowestLsn();
-            }
+//            if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
+//                lowestLsn = record.getLowestLsn();
+//            }
 
-            formRecordHeader(len,record.getLsn(),record.getLowestLsn(),rhead);
+            formRecordHeader(len,record.getLsn(),/*record.getLowestLsn(),*/rhead);
             rhead.flip();
         }
         
@@ -132,7 +132,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return header.remaining();
     }
     
-    protected int formRecordHeader(long length, long lsn, long lowestLsn, ByteBuffer header) {
+    protected int formRecordHeader(long length, long lsn, /*long lowestLsn,*/ ByteBuffer header) {
             header.putShort(LR_FORMAT);
             header.putLong(lsn);
 //            header.putLong(lowestLsn);

@@ -7,6 +7,7 @@ package com.terracottatech.frs.log;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -176,11 +177,18 @@ public class StagingLogManagerTest {
     public long getMaximumMarker() throws IOException {
         return max;
     }
+    
+    
 
     @Override
     public long getMinimumMarker() throws IOException {
         return 0;
     }
+
+        @Override
+        public IOStatistics getStatistics() throws IOException {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
 
         @Override
         public Future<Void> clean(long timeout) throws IOException {

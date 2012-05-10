@@ -80,8 +80,6 @@ public class MockLogManager implements LogManager {
             }
         };
     }
-  
-  
 
   @Override
   public void startup() {

@@ -19,7 +19,7 @@ public interface CommitList extends Iterable<LogRecord>,Future<Void> {
     boolean isEmpty();
     long getEndLsn();
     long getBaseLsn();
-    long getLowestLsn();
+//    long getLowestLsn();
     void written();
     CommitList create(long baseLsn);
 }

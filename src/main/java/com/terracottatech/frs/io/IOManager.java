@@ -33,6 +33,8 @@ public interface IOManager extends Closeable {
   
   Future<Void> clean(long timeout) throws IOException;
   
+  IOStatistics getStatistics() throws IOException;
+  
   public enum Seek {
     BEGINNING (0),
     END (-1);

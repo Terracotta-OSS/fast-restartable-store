@@ -49,6 +49,14 @@ class NIOSegmentList {
         position = -1;
     }   
     
+    synchronized long getTotalSize() {
+        long total = 0;
+        for ( File f : segments ) {
+            total += f.length();
+        }
+        return total;
+    }
+    
     synchronized File appendFile() throws IOException {
         int seg = (segments.isEmpty() ) ? 0 : convertSegmentNumber(segments.get(segments.size()-1)) + 1;
 
@@ -103,6 +111,7 @@ class NIOSegmentList {
             f.delete();
             count++;
         }
+        assert(segments.get(0).equals(readHead));
         return size;
     }
 
@@ -110,6 +119,10 @@ class NIOSegmentList {
         assert(!readHead.equals(writeHead));
         segments.remove(position).delete();
         readHead = null;
+    }
+    
+    synchronized File getCurrentReadFile() {
+        return readHead;
     }
     
     synchronized File getEndFile() throws IOException {

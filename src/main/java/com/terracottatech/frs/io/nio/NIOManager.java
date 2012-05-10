@@ -7,6 +7,7 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -215,9 +216,15 @@ public class NIOManager implements IOManager {
     
     public boolean isClosed() {
         return (lock != null && lock.isValid());
-    }    
+    }
+
+    @Override
+    public synchronized IOStatistics getStatistics() throws IOException {
+        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, parts);
+    }
     
-    public Future<Void> clean(long timeout) throws IOException {
+    @Override
+    public synchronized Future<Void> clean(long timeout) throws IOException {
         backend.seek(0);
         backend.trimLogHead(timeout);
         return new Future<Void>() {

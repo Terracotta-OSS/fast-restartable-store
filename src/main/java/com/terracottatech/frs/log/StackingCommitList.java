@@ -24,7 +24,7 @@ public class StackingCommitList implements CommitList {
     private volatile boolean syncing = false;
 //  these are synchronized     
     private long endLsn;
-    private long lowestLsn;
+//    private long lowestLsn;
     private boolean closed = false;
     private boolean written = false;
     private int count = 0;
@@ -47,7 +47,7 @@ public class StackingCommitList implements CommitList {
         }
 
         regions[(int) (record.getLsn() - baseLsn)] = record;
-        if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
+//        if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
 
         if (!countRecord(record.getLsn(),sync)) {
             regions[(int) (record.getLsn() - baseLsn)] = null; //  just to be clean;
@@ -56,14 +56,12 @@ public class StackingCommitList implements CommitList {
         
         return true;
     }
-
-    @Override
-    public long getLowestLsn() {
-        return lowestLsn;
-    }
-     
-     
-
+//
+//    @Override
+//    public long getLowestLsn() {
+//        return lowestLsn;
+//    }
+//          
     @Override
     public CommitList next() {
         if (next == null) {

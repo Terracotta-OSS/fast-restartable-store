@@ -42,7 +42,7 @@ public class CopyingPacker extends LogRegionPacker {
 
     @Override
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
-        long lowestLsn = 0;
+//        long lowestLsn = 0;
         int count = 0;
         int size = sizeRegion(records);
 //  too small to try and optimize with copying        
@@ -73,15 +73,15 @@ public class CopyingPacker extends LogRegionPacker {
                 count++;
             }
 
-            if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
-                lowestLsn = record.getLowestLsn();
-            }
+//            if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
+//                lowestLsn = record.getLowestLsn();
+//            }
 
             header.position(header.position() + copy.position());
             
             copy.flip();
             
-            formRecordHeader(len,record.getLsn(),record.getLowestLsn(),copy);
+            formRecordHeader(len,record.getLsn(),/*record.getLowestLsn(),*/copy);
         }
         
         header.flip();

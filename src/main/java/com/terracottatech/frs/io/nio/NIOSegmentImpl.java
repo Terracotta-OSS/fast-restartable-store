@@ -204,17 +204,23 @@ class NIOSegmentImpl {
         }
 
     }
-
-    public long close() throws IOException {
-        if (segment == null || !segment.isOpen()) {
-            return 0;
-        }
-
+    
+    void prepareForClose() throws IOException {
         if (lock != null) {
             buffer.clear();
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
             writeJumpList(buffer);
             buffer.write(1);
+            buffer = null;
+        }
+    }
+
+    long close() throws IOException {
+        if (segment == null || !segment.isOpen()) {
+            return 0;
+        }
+
+        if (lock != null) {
             //  TODO: is this force neccessary?  not sure, research
             segment.force(false);
             lock.release();
@@ -277,7 +283,7 @@ class NIOSegmentImpl {
     }
 
     public boolean isClosed() {
-        return (segment == null);
+        return (buffer == null);
     }
 
     public boolean wasProperlyClosed() throws IOException {

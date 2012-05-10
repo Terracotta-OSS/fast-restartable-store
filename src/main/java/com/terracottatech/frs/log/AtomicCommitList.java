@@ -23,7 +23,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private final CountDownLatch goLatch;
 
     private final long baseLsn;
-    private volatile long lowestLsn;
+//    private volatile long lowestLsn;
     private final AtomicLong syncRequest = new AtomicLong();
     private boolean written = false;
     private volatile CommitList next;
@@ -58,7 +58,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         }
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
-            if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
+//            if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
             goLatch.countDown();
         } else {
             return false;
@@ -67,12 +67,12 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
         return true;
     }
-
-    @Override
-    public long getLowestLsn() {
-        return lowestLsn;
-    }
-    
+//
+//    @Override
+//    public long getLowestLsn() {
+//        return lowestLsn;
+//    }
+//    
     
     private void setSyncRequest(long newRequest) {
         long csync = syncRequest.get();

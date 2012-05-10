@@ -216,6 +216,7 @@ class NIOStreamImpl implements Stream {
     long trimLogHead(long timeout) throws IOException {
         if ( findLogHead() != 0 ) { // position the read had over the last dead segment
             File last = segments.getCurrentReadFile();
+            assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
                 return segments.removeFilesFromHead();
             }

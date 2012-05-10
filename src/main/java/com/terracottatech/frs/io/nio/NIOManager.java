@@ -127,6 +127,8 @@ public class NIOManager implements IOManager {
     
     @Override
     public long seek(long marker) throws IOException {
+        assert(readOpsAllowed);
+
         if (backend == null) {
             open();
         }    

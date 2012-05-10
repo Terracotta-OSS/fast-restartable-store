@@ -28,8 +28,8 @@ class NIOStreamImpl implements Stream {
     private NIOSegmentImpl readHead;
     private final RotatingBufferSource pool = new RotatingBufferSource();
     private FSyncer syncer;
-    private long debugIn;
-    private long debugOut;
+//    private long debugIn;
+//    private long debugOut;
 
     public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
         directory = filePath;
@@ -331,7 +331,7 @@ class NIOStreamImpl implements Stream {
 
         while (readHead == null || !readHead.hasMore(dir)) {
             if (readHead != null) {
-                debugOut += readHead.close();
+                readHead.close();
             }
             pool.reclaim();
 

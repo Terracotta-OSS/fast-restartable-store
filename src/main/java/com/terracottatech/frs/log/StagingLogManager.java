@@ -79,12 +79,9 @@ public class StagingLogManager implements LogManager {
         if ( lsn > cl ) {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
-                    System.out.format("LOG: setting lowest lsn to: %d\n",lsn);
-                    io.setMinimumMarker(cl);
+                    io.setMinimumMarker(lsn);
                     if ( lsn - lastClean > 1000 ) {
-                        System.out.println("LOG: cleaning before " + io.getStatistics());
                         io.clean(0);
-                        System.out.println("LOG: cleaning after " + io.getStatistics());
                         lastClean = io.getMinimumMarker();
                     }
                 }

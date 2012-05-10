@@ -47,7 +47,9 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, ActionManager actionManager) {
-    this(objectManager, transactionManager, logManager, actionManager, new CompactorImpl(objectManager, transactionManager, new LSNGapCompactionPolicy(objectManager, logManager)));
+    this(objectManager, transactionManager, logManager, actionManager, new CompactorImpl(objectManager, transactionManager,
+                                                                                         logManager,
+                                                                                         new LSNGapCompactionPolicy(objectManager, logManager)));
   }
 
   @Override

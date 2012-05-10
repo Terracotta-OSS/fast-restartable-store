@@ -5,6 +5,7 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.TransactionException;
+import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
@@ -31,15 +32,17 @@ public class CompactorImpl implements Compactor {
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
+  private final LogManager logManager;
   private final Semaphore compactionCondition = new Semaphore(0);
   private final AtomicBoolean alive = new AtomicBoolean();
   private final CompactionPolicy policy;
 
   private CompactorThread compactorThread;
 
-  public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, CompactionPolicy policy) {
+  public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, CompactionPolicy policy) {
     this.objectManager = objectManager;
     this.transactionManager = transactionManager;
+    this.logManager = logManager;
     this.policy = policy;
   }
 
@@ -80,6 +83,8 @@ public class CompactorImpl implements Compactor {
           if (policy.shouldCompact()) {
             compact();
           }
+
+          logManager.updateLowestLsn(objectManager.getLowestLsn());
         } catch (Exception e) {
           LOGGER.error("Error performing compaction.", e);
           throw new RuntimeException(e);
@@ -90,7 +95,6 @@ public class CompactorImpl implements Compactor {
 
   private void compact() throws TransactionException,
           InterruptedException, ExecutionException {
-    LOGGER.info("Compacting, lowestLsn " + objectManager.getLowestLsn());
     compactionCondition.drainPermits();
     policy.startedCompacting();
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
@@ -128,7 +132,6 @@ public class CompactorImpl implements Compactor {
     }
     objectManager.updateLowestLsn();
     policy.stoppedCompacting();
-    LOGGER.info("Finished compacting, lowestLsn " + objectManager.getLowestLsn());
   }
 
   @Override

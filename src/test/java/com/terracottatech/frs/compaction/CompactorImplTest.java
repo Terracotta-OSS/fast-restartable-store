@@ -5,6 +5,7 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.*;
 public class CompactorImplTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private TransactionManager transactionManager;
+  private LogManager logManager;
   private Compactor compactor;
   private TestCompactionPolicy policy;
   private Future<Void> future;
@@ -37,7 +39,8 @@ public class CompactorImplTest {
     objectManager = spy(new CompactionTestObjectManager());
     transactionManager = spy(new CompactionTestTransactionManager());
     policy = spy(new TestCompactionPolicy());
-    compactor = new CompactorImpl(objectManager, transactionManager, policy);
+    logManager = mock(LogManager.class);
+    compactor = new CompactorImpl(objectManager, transactionManager, logManager, policy);
   }
 
   @Test
@@ -56,6 +59,7 @@ public class CompactorImplTest {
     verify(policy).shouldCompact();
     verify(policy, never()).startedCompacting();
     verify(policy, never()).stoppedCompacting();
+    verify(logManager).updateLowestLsn(anyLong());
 
     compactor.shutdown();
 
@@ -79,7 +83,7 @@ public class CompactorImplTest {
     verify(policy).startedCompacting();
     verify(policy).stoppedCompacting();
     verify(future, atLeastOnce()).get();
-
+    verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 

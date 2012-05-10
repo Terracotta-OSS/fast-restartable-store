@@ -54,6 +54,8 @@ public class NIOManager implements IOManager {
     private long parts = 1;
     private long requests = 1;
     
+    private volatile boolean readOpsAllowed = true;
+    
 
     public NIOManager(String home, long segmentSize) throws IOException {
         directory = new File(home);
@@ -134,6 +136,8 @@ public class NIOManager implements IOManager {
     }
     
     public Chunk read(Direction dir) throws IOException { 
+        assert(readOpsAllowed);
+        
         if (backend == null) {
             open();
         }
@@ -225,37 +229,53 @@ public class NIOManager implements IOManager {
 
     @Override
     public synchronized IOStatistics getStatistics() throws IOException {
-        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, read);
+        readOpsAllowed = false;
+        try {
+            return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, read);
+        } finally {
+            readOpsAllowed = true;
+        }
     }
     
     @Override
     public synchronized Future<Void> clean(long timeout) throws IOException {
-        backend.trimLogHead(timeout);
+        readOpsAllowed = false;
+        try {
+            backend.trimLogHead(timeout);
+        } finally {
+            readOpsAllowed = true;
+        }
+        
         return new Future<Void>() {
 
             @Override
             public boolean cancel(boolean bln) {
-                throw new UnsupportedOperationException("Not supported yet.");
+// NOOP
+                return false;
             }
 
             @Override
             public Void get() throws InterruptedException, ExecutionException {
-                throw new UnsupportedOperationException("Not supported yet.");
+// NOOP
+                return null;
             }
 
             @Override
             public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-                throw new UnsupportedOperationException("Not supported yet.");
+// NOOP
+                return null;
             }
 
             @Override
             public boolean isCancelled() {
-                throw new UnsupportedOperationException("Not supported yet.");
+// NOOP
+                return false;
             }
 
             @Override
             public boolean isDone() {
-                throw new UnsupportedOperationException("Not supported yet.");
+// NOOP
+                return true;
             }
             
         };

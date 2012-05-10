@@ -126,7 +126,8 @@ public class NIOManager implements IOManager {
     public long seek(long marker) throws IOException {
         if (backend == null) {
             open();
-        }        
+        }    
+        
         backend.seek(marker);
         return marker;
     }
@@ -225,7 +226,6 @@ public class NIOManager implements IOManager {
     
     @Override
     public synchronized Future<Void> clean(long timeout) throws IOException {
-        backend.seek(0);
         backend.trimLogHead(timeout);
         return new Future<Void>() {
 

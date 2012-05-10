@@ -64,6 +64,11 @@ public class StagingLogManager implements LogManager {
     public void updateLowestLsn(long lsn) {
         long cl = lowestLsn.get();
         long onDisk = highestOnDisk.get();
+//  recovery not completed.  can't do reading from two places
+        if ( !exchanger.isDone() ) return;
+        
+        if ( state != MachineState.NORMAL ) return;
+        
         if ( lsn > onDisk ) {
  //  highest on disk is lower than lowest, entire log on disk is old, set lowestLsn to the highest 
  //  currently on disk.
@@ -187,7 +192,7 @@ public class StagingLogManager implements LogManager {
 
             if ( packer == null ) {
                 long min = io.getMinimumMarker();
-                if ( cleanCount++ > 5 && min - lastClean > 1000 ) {
+                if ( cleanCount++ > 5 && min - lastClean > 1000 && exchanger.isDone() && state == MachineState.NORMAL) {
                     io.clean(0);
                     lastClean = io.getMinimumMarker();
                     cleanCount = 0;

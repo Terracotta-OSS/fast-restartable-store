@@ -200,7 +200,7 @@ class NIOStreamImpl implements Stream {
                 //  if the base is greater short circuit out
                 if (seg.getBaseMarker() > this.lowestMarker) {
                     File last = segments.nextReadFile(Direction.REVERSE);
-                    size -= last.length();
+                    if ( last != null ) size -= last.length();
                     return size;
                 }
                 size += seg.length();

@@ -95,9 +95,10 @@ class NIOStreamImpl implements Stream {
     }
 
     boolean open() throws IOException {
+/* disable fsyncer for now
         syncer = new FSyncer();
         syncer.start();
-
+*/
         if (segments.isEmpty()) {
             return false;
         }
@@ -213,10 +214,11 @@ class NIOStreamImpl implements Stream {
     }
 
     long trimLogHead(long timeout) throws IOException {
-        findLogHead(); // position the read had over the last dead segment
-        File last = segments.getCurrentReadFile();
-        if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
-            return segments.removeFilesFromHead();
+        if ( findLogHead() != 0 ) { // position the read had over the last dead segment
+            File last = segments.getCurrentReadFile();
+            if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
+                return segments.removeFilesFromHead();
+            }
         }
         return 0;
     }

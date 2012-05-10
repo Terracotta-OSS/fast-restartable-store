@@ -135,6 +135,7 @@ public class NIOManager implements IOManager {
         return marker;
     }
     
+    @Override
     public Chunk read(Direction dir) throws IOException { 
         assert(readOpsAllowed);
         

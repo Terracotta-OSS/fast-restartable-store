@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.*;
 import static org.junit.Assert.fail;
+import org.junit.Ignore;
 
 /**
  * @author mscott
@@ -67,13 +68,13 @@ public class StagingLogManagerTest {
         verify(ioManager, atLeastOnce()).write(any(Chunk.class));
     }
     
-    @Test
+    @Test @Ignore
     public void testAppendException() {
         logManager.startup();
         startThrowing = true;
 
         try {
-            for (long i = 100; i < 200; i++) {
+            for (long i = 100; i < 10000; i++) {
                 LogRecord record = spy(newRecord(-1));
                 logManager.append(record);
                 verify(record).updateLsn(i);

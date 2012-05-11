@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Iterator;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -71,14 +72,17 @@ public class RecoveryManagerImpl implements RecoveryManager {
   }
 
   private static class ReplayFilter implements Filter<Action>, ThreadFactory {
-    private final AtomicInteger threadId = new AtomicInteger();
-    private final ExecutorService executorService = new ThreadPoolExecutor(MIN_REPLAY_THREAD_COUNT,
-                                                                           MAX_REPLAY_THREAD_COUNT, 60,
-                                                                           SECONDS,
-                                                                           new ArrayBlockingQueue<Runnable>(MAX_REPLAY_QUEUE_LENGTH),
-                                                                           this,
-                                                                           new ThreadPoolExecutor.CallerRunsPolicy());
-    private volatile boolean error = false;
+    private final AtomicInteger              threadId        = new AtomicInteger();
+    private final ExecutorService            executorService =
+            new ThreadPoolExecutor(MIN_REPLAY_THREAD_COUNT,
+                                   MAX_REPLAY_THREAD_COUNT, 60,
+                                   SECONDS,
+                                   new ArrayBlockingQueue<Runnable>(
+                                           MAX_REPLAY_QUEUE_LENGTH),
+                                   this,
+                                   new ThreadPoolExecutor.CallerRunsPolicy());
+    private final AtomicReference<Throwable> firstError      =
+            new AtomicReference<Throwable>();
 
     @Override
     public boolean filter(final Action element, final long lsn) {
@@ -88,8 +92,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
           try {
             element.replay(lsn);
           } catch (Throwable t) {
-            error = true;
-            LOGGER.error("Error replaying record.", t);
+            firstError.compareAndSet(null, t);
+            LOGGER.error("Error replaying record: " + t.getMessage());
           }
         }
       });
@@ -97,8 +101,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     void checkError() throws RecoveryException {
-      if (error) {
-        throw new RecoveryException("Caught an error during recovery!");
+      Throwable t = firstError.get();
+      if (t != null) {
+        throw new RecoveryException("Caught an error during recovery!", t);
       }
     }
 

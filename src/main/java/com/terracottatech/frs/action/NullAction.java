@@ -4,12 +4,25 @@
  */
 package com.terracottatech.frs.action;
 
+import com.terracottatech.frs.object.ObjectManager;
+
 import java.nio.ByteBuffer;
 
 /**
  * @author tim
  */
 public class NullAction implements Action {
+  public static final Action INSTANCE = new NullAction();
+
+  public static <I, K, V> ActionFactory<I, K, V> factory() {
+    return new ActionFactory<I, K, V>() {
+      @Override
+      public Action create(ObjectManager<I, K, V> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+        return INSTANCE;
+      }
+    };
+  }
+
   @Override
   public void record(long lsn) {
   }

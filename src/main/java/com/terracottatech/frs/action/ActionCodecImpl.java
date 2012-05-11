@@ -29,6 +29,7 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
 
   public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
     this.objectManager = objectManager;
+    registerAction(-1, -1, NullAction.class, NullAction.<I, K, V>factory());
   }
 
   @Override

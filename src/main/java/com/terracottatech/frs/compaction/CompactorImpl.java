@@ -5,6 +5,7 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.TransactionException;
+import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -85,6 +86,9 @@ public class CompactorImpl implements Compactor {
           }
 
           logManager.updateLowestLsn(objectManager.getLowestLsn());
+
+          // Flush the new lowest LSN with a dummy record
+          transactionManager.asyncHappened(new NullAction()).get();
         } catch (Exception e) {
           LOGGER.error("Error performing compaction.", e);
           throw new RuntimeException(e);

@@ -88,7 +88,7 @@ public class CompactorImplTest {
   }
 
   private void verifyCompactedTimes(int times) {
-    verify(transactionManager, times(times)).asyncHappened(any(CompactionAction.class));
+    verify(transactionManager, times(times)).asyncHappened(isA(CompactionAction.class));
     verify(policy, times(times)).compacted(any(ObjectManagerEntry.class));
   }
 

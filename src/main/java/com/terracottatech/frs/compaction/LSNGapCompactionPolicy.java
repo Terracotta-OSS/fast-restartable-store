@@ -8,8 +8,8 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
  * @author tim
  */
 public class LSNGapCompactionPolicy implements CompactionPolicy {
-  private static final double MINIMUM_LOAD = 0.25;
-  private static final double MAXIMUM_LOAD = 0.70;
+  private static final double MINIMUM_LOAD = 0.30;
+  private static final double MAXIMUM_LOAD = 0.60;
 
   private final ObjectManager<?, ?, ?> objectManager;
   private final LogManager logManager;
@@ -51,7 +51,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
     // of the LSN span against the live object count. As entries are compacted over, the
     // window shrinks in length until it equals the live object count.
     double ratio = calculateRatio(compactingLiveSize, compactingCurrentLsn + compactedCount - entry.getLsn());
-    return ratio >= MAXIMUM_LOAD;
+    return ratio <= MAXIMUM_LOAD;
   }
 
   @Override

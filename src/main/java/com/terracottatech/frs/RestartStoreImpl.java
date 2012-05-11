@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.CompactionPolicy;
 import com.terracottatech.frs.compaction.Compactor;
@@ -35,8 +36,6 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final Compactor compactor;
   private final LogManager logManager;
   private final ActionManager actionManager;
-  private final Transaction<ByteBuffer, ByteBuffer, ByteBuffer> autoCommitTransaction =
-          new AutoCommitTransaction();
 
   private volatile State state = State.INIT;
 
@@ -88,15 +87,15 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginTransaction() {
+  public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginTransaction(boolean synchronous) {
     checkReadyState();
-    return new TransactionImpl();
+    return new TransactionImpl(synchronous);
   }
 
   @Override
-  public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginAutoCommitTransaction() {
+  public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginAutoCommitTransaction(boolean synchronous) {
     checkReadyState();
-    return autoCommitTransaction;
+    return new AutoCommitTransaction(synchronous);
   }
 
   private void checkReadyState() {
@@ -111,11 +110,26 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   private class AutoCommitTransaction implements
           Transaction<ByteBuffer, ByteBuffer, ByteBuffer> {
+    private final boolean synchronous;
+
+    private AutoCommitTransaction(boolean synchronous) {
+      this.synchronous = synchronous;
+    }
+
+    private void happened(Action action) throws TransactionException,
+            InterruptedException {
+      if (synchronous) {
+        transactionManager.happened(action);
+      } else {
+        transactionManager.asyncHappened(action);
+      }
+    }
+
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      transactionManager.happened(new PutAction(objectManager, compactor, id, key, value, isRecoverying()));
+      happened(new PutAction(objectManager, compactor, id, key, value, isRecoverying()));
       return this;
   }
 
@@ -123,7 +137,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      transactionManager.happened(new DeleteAction(objectManager, compactor, id, isRecoverying()));
+      happened(new DeleteAction(objectManager, compactor, id, isRecoverying()));
       return this;
     }
 
@@ -131,7 +145,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      transactionManager.happened(new RemoveAction(objectManager, compactor, id, key, isRecoverying()));
+      happened(new RemoveAction(objectManager, compactor, id, key, isRecoverying()));
       return this;
     }
 
@@ -142,11 +156,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   private class TransactionImpl implements
           Transaction<ByteBuffer, ByteBuffer, ByteBuffer> {
+    private final boolean synchronous;
     private final TransactionHandle handle;
     private boolean committed = false;
 
-    TransactionImpl() {
+    TransactionImpl(boolean synchronous) {
       this.handle = transactionManager.begin();
+      this.synchronous = synchronous;
     }
 
     @Override
@@ -177,7 +193,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public synchronized void commit() throws InterruptedException, TransactionException {
       checkReadyState();
       checkCommitted();
-      transactionManager.commit(handle);
+      transactionManager.commit(handle, synchronous);
       committed = true;
     }
 

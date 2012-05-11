@@ -64,7 +64,7 @@ public class OnHeapTest {
         MapActions.registerActions(1, codec);
         CompactionActions.registerActions(2, codec);
         actionMgr = new ActionManagerImpl(logMgr, objectMgr, codec, new MasterLogRecordFactory());
-        TransactionManager transactionMgr = new TransactionManagerImpl(actionMgr, true);
+        TransactionManager transactionMgr = new TransactionManagerImpl(actionMgr);
         store = new RestartStoreImpl(objectMgr, transactionMgr, logMgr, actionMgr);
     }
 
@@ -72,7 +72,7 @@ public class OnHeapTest {
     
     private int addTransaction(int count, RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> store) throws Exception {
         String[] r = {"foo","bar","baz","boo","tim","sar","myr","chr"};
-        Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction = store.beginTransaction();
+        Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction = store.beginTransaction(true);
         ByteBuffer i = (ByteBuffer)ByteBuffer.allocate(4).putInt(1).flip();
         String sk = df.format(count);
         String sv = r[(int)(Math.random()*r.length)%r.length];

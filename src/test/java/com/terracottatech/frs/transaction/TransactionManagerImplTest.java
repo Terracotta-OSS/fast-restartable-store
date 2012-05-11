@@ -34,26 +34,25 @@ public class TransactionManagerImplTest {
     action = mock(Action.class);
     actionManager = spy(new TxnManagerTestActionManager());
     doReturn(happenedFuture).when(actionManager).syncHappened(any(Action.class));
-    doReturn(happenedFuture).when(actionManager).happened(any(Action.class));
     callback = mock(TransactionLSNCallback.class);
-    transactionManager = new TransactionManagerImpl(actionManager, true);
+    transactionManager = new TransactionManagerImpl(actionManager);
   }
 
   @Test
   public void testBegin() throws Exception {
     transactionManager.begin();
-    verify(actionManager, never()).asyncHappened(any(Action.class));
+    verify(actionManager, never()).happened(any(Action.class));
   }
 
   @Test
   public void testCommit() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    transactionManager.commit(handle);
+    transactionManager.commit(handle, true);
     verify(actionManager).syncHappened(
             new TransactionCommitAction(handle, false));
     try {
-      transactionManager.commit(handle);
+      transactionManager.commit(handle, true);
       fail("Committing a handle twice should fail.");
     } catch (IllegalArgumentException e) {
       // Expected
@@ -61,7 +60,7 @@ public class TransactionManagerImplTest {
     handle = transactionManager.begin();
     when(happenedFuture.get()).thenThrow(new ExecutionException(new Exception()));
     try {
-      transactionManager.commit(handle);
+      transactionManager.commit(handle, true);
       fail("Commit should have failed.");
     } catch (TransactionException e) {
       // Expected
@@ -70,10 +69,9 @@ public class TransactionManagerImplTest {
 
   @Test
   public void testAsyncCommit() throws Exception {
-    TransactionManager asyncCommitManager = new TransactionManagerImpl(actionManager, false);
-    TransactionHandle handle = asyncCommitManager.begin();
-    asyncCommitManager.commit(handle);
-    verify(actionManager).asyncHappened(
+    TransactionHandle handle = transactionManager.begin();
+    transactionManager.commit(handle, false);
+    verify(actionManager).happened(
             new TransactionCommitAction(handle, true));
   }
 
@@ -81,10 +79,10 @@ public class TransactionManagerImplTest {
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    verify(actionManager).asyncHappened(new TransactionalAction(handle, true, false, action, callback));
+    verify(actionManager).happened(new TransactionalAction(handle, true, false, action, callback));
     transactionManager.happened(handle, action);
-    verify(actionManager).asyncHappened(new TransactionalAction(handle, false, false, action, callback));
-    transactionManager.commit(handle);
+    verify(actionManager).happened(new TransactionalAction(handle, false, false, action, callback));
+    transactionManager.commit(handle, true);
     try {
       transactionManager.happened(handle, action);
       fail("Using a committed transaction handle should throw.");
@@ -101,11 +99,10 @@ public class TransactionManagerImplTest {
   }
 
   @Test
-  public void testAsyncAutocommit() throws Exception {
-    TransactionManager asyncTransactionManager =
-            new TransactionManagerImpl(actionManager, false);
-    asyncTransactionManager.happened(action);
-    verify(actionManager).asyncHappened(action);
+  public void testAsyncAutoCommit() throws Exception {
+    transactionManager.asyncHappened(action);
+    verify(actionManager).happened(action);
+    verify(happenedFuture, never()).get();
   }
 
   @Test
@@ -120,11 +117,11 @@ public class TransactionManagerImplTest {
 
     assertThat(transactionManager.getLowestOpenTransactionLsn(), is(0L));
 
-    transactionManager.commit(txn1);
+    transactionManager.commit(txn1, true);
 
     assertThat(transactionManager.getLowestOpenTransactionLsn(), is(1L));
 
-    transactionManager.commit(txn2);
+    transactionManager.commit(txn2, true);
 
     assertThat(transactionManager.getLowestOpenTransactionLsn(), is(Long.MAX_VALUE));
   }
@@ -132,8 +129,9 @@ public class TransactionManagerImplTest {
   private class TxnManagerTestActionManager extends NullActionManager {
     long lsn = 0;
     @Override
-    public void asyncHappened(Action action) {
+    public Future<Void> happened(Action action) {
       action.record(lsn++);
+      return happenedFuture;
     }
   }
 }

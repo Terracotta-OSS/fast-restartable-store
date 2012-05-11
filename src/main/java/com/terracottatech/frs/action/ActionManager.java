@@ -18,8 +18,5 @@ public interface ActionManager {
 
   Future<Void> happened(Action action);
   
-  //Optimization
-  void asyncHappened(Action action);
-  
   Action extract(LogRecord record);
 }

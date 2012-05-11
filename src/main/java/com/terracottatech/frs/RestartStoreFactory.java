@@ -43,14 +43,14 @@ public abstract class RestartStoreFactory {
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(
           ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, File dbHome,
-          boolean synchronousWrites, long fileSize) throws
+          long fileSize) throws
           IOException {
     IOManager ioManager = new NIOManager(dbHome.getAbsolutePath(), fileSize);
     LogManager logManager = new StagingLogManager(ioManager);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager) ,
                                                         new MasterLogRecordFactory());
-    TransactionManager transactionManager = new TransactionManagerImpl(actionManager, synchronousWrites);
+    TransactionManager transactionManager = new TransactionManagerImpl(actionManager);
     CompactionPolicy policy = new LSNGapCompactionPolicy(objectManager, logManager);
     return new RestartStoreImpl(objectManager, transactionManager, logManager, actionManager, policy);
   }

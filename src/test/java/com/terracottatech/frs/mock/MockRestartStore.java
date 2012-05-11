@@ -52,12 +52,12 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
     this.compactor = compactor;
   }
   
-  public Transaction<Long, String, String> beginTransaction() {
+  public Transaction<Long, String, String> beginTransaction(boolean synchronous) {
     return new MockTransaction(txnManager, objManager);
   }
 
   @Override
-  public Transaction<Long, String, String> beginAutoCommitTransaction() {
+  public Transaction<Long, String, String> beginAutoCommitTransaction(boolean synchronous) {
     throw new UnsupportedOperationException("Mock doesn't support auto-commit transactions");
   }
 

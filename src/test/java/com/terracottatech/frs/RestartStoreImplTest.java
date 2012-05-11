@@ -63,11 +63,11 @@ public class RestartStoreImplTest {
 
   private void checkFailBeginTransaction() throws Exception {
     try {
-      restartStore.beginTransaction();
+      restartStore.beginTransaction(true);
       fail();
     } catch (IllegalStateException e) {}
     try {
-      restartStore.beginAutoCommitTransaction();
+      restartStore.beginAutoCommitTransaction(true);
       fail();
     } catch (IllegalStateException e) {}
   }
@@ -75,7 +75,7 @@ public class RestartStoreImplTest {
   @Test
   public void testBegin() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginTransaction();
+            restartStore.beginTransaction(true);
     assertNotNull(transaction);
     verify(transactionManager).begin();
   }
@@ -83,9 +83,9 @@ public class RestartStoreImplTest {
   @Test
   public void testCommit() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginTransaction();
+            restartStore.beginTransaction(true);
     transaction.commit();
-    verify(transactionManager).commit(handle);
+    verify(transactionManager).commit(handle, true);
     try {
       transaction.commit();
       fail("Second commit should have thrown.");
@@ -97,7 +97,7 @@ public class RestartStoreImplTest {
   @Test
   public void testPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginTransaction();
+            restartStore.beginTransaction(true);
     transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
                     byteBufferWithInt(3));
     verify(transactionManager).happened(handle, mapActionFactory.put(1, 2, 3));
@@ -114,7 +114,7 @@ public class RestartStoreImplTest {
   @Test
   public void testDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginTransaction();
+            restartStore.beginTransaction(true);
     transaction.delete(byteBufferWithInt(1));
     verify(transactionManager).happened(handle, mapActionFactory.delete(1));
     transaction.commit();
@@ -129,7 +129,7 @@ public class RestartStoreImplTest {
   @Test
   public void testRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginTransaction();
+            restartStore.beginTransaction(true);
     transaction.remove(byteBufferWithInt(1), byteBufferWithInt(2));
     verify(transactionManager).happened(handle, mapActionFactory.remove(1, 2));
     transaction.commit();
@@ -144,7 +144,7 @@ public class RestartStoreImplTest {
   @Test
   public void testAutoCommitPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
-            restartStore.beginAutoCommitTransaction();
+            restartStore.beginAutoCommitTransaction(true);
     transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
                     byteBufferWithInt(3));
     verify(transactionManager).happened(mapActionFactory.put(1, 2, 3));
@@ -153,7 +153,7 @@ public class RestartStoreImplTest {
   @Test
   public void testAutoCommitRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
-            transaction = restartStore.beginAutoCommitTransaction();
+            transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.remove(byteBufferWithInt(1), byteBufferWithInt(15));
     verify(transactionManager).happened(mapActionFactory.remove(1, 15));
   }
@@ -161,15 +161,15 @@ public class RestartStoreImplTest {
   @Test
   public void testAutoCommitDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
-            transaction = restartStore.beginAutoCommitTransaction();
+            transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.delete(byteBufferWithInt(99));
     verify(transactionManager).happened(mapActionFactory.delete(99));
   }
 
   @Test
   public void testAutoCommitCommit() throws Exception {
-    Transaction transaction = restartStore.beginAutoCommitTransaction();
+    Transaction transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.commit();
-    verify(transactionManager, never()).commit(handle);
+    verify(transactionManager, never()).commit(handle, true);
   }
 }

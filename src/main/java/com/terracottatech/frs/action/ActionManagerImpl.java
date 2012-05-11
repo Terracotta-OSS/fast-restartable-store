@@ -46,11 +46,6 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public void asyncHappened(Action action) {
-    logManager.append(wrapAction(action));
-  }
-
-  @Override
   public Action extract(LogRecord record) {
     return actionCodec.decode(record.getPayload());
   }

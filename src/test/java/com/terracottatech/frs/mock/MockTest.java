@@ -30,38 +30,38 @@ public class MockTest {
     Map<Long, Map<String, String>> outsideWorld = new HashMap<Long, Map<String, String>>();
     MockRestartStore mock = MockRestartStore.create(new MockObjectManager<Long, String, String>(outsideWorld), ioManager);
     
-    Transaction<Long, String, String> transaction = mock.beginTransaction();
+    Transaction<Long, String, String> transaction = mock.beginTransaction(true);
     transaction.put(1L, "far", "bar");
     outsideWorld.put(1L, new HashMap<String, String>());
     outsideWorld.get(1L).put("far", "bar");
     transaction.commit();
     
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.put(1L, "foo", "baz");
     outsideWorld.get(1L).put("foo", "baz");
     transaction.commit();
     
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.remove(1L, "foo");
     outsideWorld.get(1L).remove("foo");
     mock.compact();
     transaction.commit();
 
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.put(1L, "bar", "baz");
     outsideWorld.get(1L).put("bar", "baz");
     mock.compact();
     transaction.commit();
     
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.put(1L, "foo", "bazzab");
 //    outsideWorld.get(1L).put("foo", "baz");
 
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.remove(1L, "bar");
 //    outsideWorld.get(1L).remove("bar");
 
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.put(2L, "foo", "bar");
     transaction.put(2L, "baz", "boo");
 //    outsideWorld.put(2L, new HashMap<String, String>());
@@ -69,12 +69,12 @@ public class MockTest {
 //    outsideWorld.get(2L).put("baz", "boo");
     transaction.commit();
 
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.put(2L, "foo", "baz");
 //    outsideWorld.get(2L).put("foo", "baz");
     transaction.commit();
 
-    transaction = mock.beginTransaction();
+    transaction = mock.beginTransaction(true);
     transaction.delete(2L);
     outsideWorld.remove(2L);
     transaction.commit();

@@ -24,6 +24,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * @author tim
  */
 public class RecoveryManagerImpl implements RecoveryManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(RecoveryManager.class);
   private static final int MAX_REPLAY_QUEUE_LENGTH = 1000;
   private static final int MIN_REPLAY_THREAD_COUNT = 1;
   private static final int MAX_REPLAY_THREAD_COUNT =
@@ -81,19 +82,17 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     @Override
     public boolean filter(final Action element, final long lsn) {
-      // TODO: Enable this once the unit test issues are figured out
-//      executorService.submit(new Runnable() {
-//        @Override
-//        public void run() {
-//          try {
-//            element.replay(lsn);
-//          } catch (Throwable t) {
-//            error = true;
-//            LOGGER.error("Error replaying record.", t);
-//          }
-//        }
-//      });
-      element.replay(lsn);
+      executorService.submit(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            element.replay(lsn);
+          } catch (Throwable t) {
+            error = true;
+            LOGGER.error("Error replaying record.", t);
+          }
+        }
+      });
       return true;
     }
 

@@ -24,11 +24,9 @@ public class TransactionManagerImpl implements TransactionManager {
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
 
   private final ActionManager           actionManager;
-  private final boolean                 synchronousCommit;
 
-  public TransactionManagerImpl(ActionManager actionManager, boolean synchronousCommit) {
+  public TransactionManagerImpl(ActionManager actionManager) {
     this.actionManager = actionManager;
-    this.synchronousCommit = synchronousCommit;
   }
 
   @Override
@@ -41,14 +39,19 @@ public class TransactionManagerImpl implements TransactionManager {
   }
 
   @Override
-  public void commit(TransactionHandle handle) throws InterruptedException,
+  public void commit(TransactionHandle handle, boolean synchronous) throws InterruptedException,
           TransactionException {
     TransactionAccount account = liveTransactions.remove(handle);
     if (account == null) {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    happened(new TransactionCommitAction(handle, account.begin()));
+    TransactionCommitAction action = new TransactionCommitAction(handle, account.begin());
+    if (synchronous) {
+      happened(action);
+    } else {
+      asyncHappened(action);
+    }
   }
 
   @Override
@@ -59,19 +62,15 @@ public class TransactionManagerImpl implements TransactionManager {
               handle + " does not belong to a live transaction.");
     }
     Action transactionalAction = new TransactionalAction(handle, account.begin(), false, action, account);
-    actionManager.asyncHappened(transactionalAction);
+    actionManager.happened(transactionalAction);
   }
 
   @Override
   public void happened(Action action) throws TransactionException, InterruptedException {
-    if (synchronousCommit) {
-      try {
-        actionManager.syncHappened(action).get();
-      } catch (ExecutionException e) {
-        throw new TransactionException("Commit failed.", e);
-      }
-    } else {
-      actionManager.asyncHappened(action);
+    try {
+      actionManager.syncHappened(action).get();
+    } catch (ExecutionException e) {
+      throw new TransactionException("Commit failed.", e);
     }
   }
 

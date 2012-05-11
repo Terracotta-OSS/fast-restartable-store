@@ -35,15 +35,17 @@ public class MockTransactionManager implements TransactionManager {
     this.rcdManager = rcdManager;
   }
 
+  @Override
   public TransactionHandle begin() {
     long id = txnId.getAndIncrement();
-    rcdManager.asyncHappened(new MockTransactionBeginAction(id));
+    rcdManager.happened(new MockTransactionBeginAction(id));
     TransactionHandle handle = new MockTransactionHandle(id);
     heldLocks.put(handle, new ArrayList<Lock>());
     return handle;
   }
 
-  public void commit(TransactionHandle handle) {
+  @Override
+  public void commit(TransactionHandle handle, boolean synchronous) {
     Future<Void> f = rcdManager.happened(new MockTransactionCommitAction(getIdAndValidateHandle(handle)));
     try {
       f.get();
@@ -58,6 +60,7 @@ public class MockTransactionManager implements TransactionManager {
     }
   }
 
+  @Override
   public void happened(TransactionHandle handle, Action action) {
     rcdManager.happened(new MockTransactionalAction(getIdAndValidateHandle(handle), action));
   }

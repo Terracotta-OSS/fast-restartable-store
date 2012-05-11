@@ -23,10 +23,6 @@ public class NullActionManager implements ActionManager {
   }
 
   @Override
-  public void asyncHappened(Action action) {
-  }
-
-  @Override
   public Action extract(LogRecord record) {
     return null;
   }

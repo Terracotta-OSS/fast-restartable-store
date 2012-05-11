@@ -36,12 +36,12 @@ public interface RestartStore<I, K, V> {
    *
    * @return a transaction context
    */
-  Transaction<I, K, V> beginTransaction();
+  Transaction<I, K, V> beginTransaction(boolean synchronous);
 
   /**
    * Open an auto-commit transaction.
    *
    * @return an auto-commit transaction context.
    */
-  Transaction<I, K, V> beginAutoCommitTransaction();
+  Transaction<I, K, V> beginAutoCommitTransaction(boolean synchronous);
 }

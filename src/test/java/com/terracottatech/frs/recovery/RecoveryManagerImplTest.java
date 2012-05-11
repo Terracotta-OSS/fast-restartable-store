@@ -15,6 +15,7 @@ import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -115,7 +116,9 @@ public class RecoveryManagerImplTest {
     verify(checkedPut).replay(19);
   }
 
+  // TODO: Disabled until multi-threaded recovery is turned on.
   @Test
+  @Ignore
   public void testRecoveryError() throws Exception {
     Action errorAction = mock(Action.class);
     doThrow(new AssertionError()).when(errorAction).replay(anyLong());

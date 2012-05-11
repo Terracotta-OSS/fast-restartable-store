@@ -6,15 +6,17 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.RotatingBufferSource;
 import java.io.IOException;
+import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -24,6 +26,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author mscott
  */
 public class StagingLogManager implements LogManager {
+    
+    private final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
+
         
     static enum MachineState {
         BOOTSTRAP,NORMAL,SHUTDOWN,ERROR,IDLE
@@ -41,8 +46,9 @@ public class StagingLogManager implements LogManager {
     
     private static final int MAX_QUEUE_SIZE = 1024;
     
-    private ChunkExchange           exchanger;
-    private final ArrayBlockingQueue<WritingPackage> queue = new ArrayBlockingQueue<WritingPackage>(20);
+    private ChunkExchange                               exchanger;
+    private final ArrayBlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(20);
+    private IOException                                 blockingException;
     
     public StagingLogManager(IOManager io) {
         this(Signature.NONE,new AtomicCommitList( 100l, MAX_QUEUE_SIZE),io);
@@ -82,7 +88,7 @@ public class StagingLogManager implements LogManager {
                     io.setMinimumMarker(lsn);
                     if ( lsn - lastClean > 1000 ) {
                         io.clean(0);
-                        lastClean = io.getMinimumMarker();
+                        lastClean = lsn;
                     }
                 }
             } catch ( IOException ioe ) {
@@ -161,7 +167,10 @@ public class StagingLogManager implements LogManager {
           } 
         }
         if ( turns == 0 ) turns = 1;
-        System.out.format("processing -- waiting: %.3f active: %.3f ave. queue: %d fill: %d\n",waiting*1e-6,processing*1e-6,size/(turns),fill/turns);
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug(new Formatter(new StringBuilder()).format("processing -- waiting: %.3f active: %.3f ave. queue: %d fill: %d",
+                    waiting*1e-6,processing*1e-6,size/(turns),fill/turns).out().toString());
+        }
       }
     }
 
@@ -181,8 +190,7 @@ public class StagingLogManager implements LogManager {
         queuer.start();  
                 
         long last = System.nanoTime();
-        int cleanCount = 0;
-        while ((state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
+        while ((state == MachineState.ERROR || state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
           WritingPackage packer = null;
           try {
             long mark = System.nanoTime();
@@ -209,7 +217,9 @@ public class StagingLogManager implements LogManager {
             packer.written();
             
           } catch (IOException ioe) {
-            throw new AssertionError(ioe);
+            state = MachineState.ERROR;
+            blockingException = ioe;
+            packer.list.exceptionThrown(ioe);
           } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
           } finally {
@@ -225,11 +235,13 @@ public class StagingLogManager implements LogManager {
         }
         
         state = MachineState.IDLE;
-        System.out.format("write -- waiting: %.3f active: %.3f\n",waiting*1e-6,writing*1e-6);
-
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug(new Formatter(new StringBuilder()).format("write -- waiting: %.3f active: %.3f",waiting*1e-6,writing*1e-6).out().toString());
+        }
       }
     }
     
+    @Override
     public Future<Void> recover() {
         if ( exchanger != null ) return exchanger;
         
@@ -309,6 +321,13 @@ public class StagingLogManager implements LogManager {
                 throw new RuntimeException(it);
             }
         }
+        
+        if ( state == MachineState.ERROR ) {
+            if ( blockingException instanceof IOException ) {
+                throw new LogWriteError(blockingException);
+            }
+        }
+        
         CommitList mine = currentRegion;
         long lsn = currentLsn.getAndIncrement();
         try {
@@ -316,16 +335,7 @@ public class StagingLogManager implements LogManager {
         } catch ( Error e ) {
             throw e;
         } finally {
-        
-   // if highest lsn on disk is < the lowest lsn transmitted by record, then 
-   // our entire log stream on disk is old.  We also don't know if ObjectManager 
-   // has all lsn's committed back to it from logmanager so set record lowest lsn 
-   // to the value we know is confirmed back to ObjectManager
-//            long highOnDisk = highestOnDisk.get();
-//            if ( record.getLowestLsn() > highOnDisk ) {
-//                record.setLowestLsn(highOnDisk);
-//            }
-
+       
             int spincount = 0;
   //  if we hit this, try and spread out
             int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
@@ -381,10 +391,6 @@ public class StagingLogManager implements LogManager {
             this.list= list;
             this.data = data;
         }
-//        
-//        public long getLowestLsn() {
-//            return list.getLowestLsn();
-//        }
     
         public long endLsn() {
             return list.getEndLsn();

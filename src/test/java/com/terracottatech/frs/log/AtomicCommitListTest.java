@@ -4,10 +4,12 @@
  */
 package com.terracottatech.frs.log;
 
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,6 +21,8 @@ import org.hamcrest.Matchers;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.junit.Assert.fail;
+
 
 /**
  * @author tim
@@ -143,6 +147,26 @@ public class AtomicCommitListTest {
     }
     assertThat(errors,Matchers.<Throwable>empty());
   }
+  
+  @Test
+  public void testThrowingException() throws Exception {
+      new Thread() {
+          public void run() {
+              commitList.exceptionThrown(new IOException());
+          }
+      }.start();
+      
+      try {
+          commitList.get();
+          fail();
+      } catch ( ExecutionException ex ) {
+          System.out.println("caught exception");
+      } catch ( InterruptedException ie ) {
+          
+      }
+  }
+  
+  
   
   private LogRecord record(long lsn) {
     LogRecord record = mock(LogRecord.class);

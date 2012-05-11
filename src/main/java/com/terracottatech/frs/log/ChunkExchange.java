@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -29,6 +31,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     Thread runner;
     private final RecordIterator master = new RecordIterator();
     private long totalRead;
+    private final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
     ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;
@@ -108,7 +111,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         } finally {
             ioDone = true;
         }
-        System.out.format("read -- waiting: %.3f active: %.3f ave queue: %d\n", waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count);
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug(new Formatter(new StringBuilder()).format("read -- waiting: %.3f active: %.3f ave queue: %d", 
+                    waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count).out().toString());
+        }
         return totalRead;
     }
     

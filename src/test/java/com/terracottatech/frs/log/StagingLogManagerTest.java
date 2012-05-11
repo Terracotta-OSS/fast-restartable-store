@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.*;
+import static org.junit.Assert.fail;
 
 /**
  * @author mscott
@@ -30,6 +31,8 @@ public class StagingLogManagerTest {
     private static final long LOG_REGION_WRITE_TIMEOUT = 10;
     private DummyIOManager ioManager;
     private LogManager logManager;
+    private boolean startThrowing = false;
+    
 
     @Before
     public void setUp() throws Exception {
@@ -62,6 +65,24 @@ public class StagingLogManagerTest {
         }
         logManager.shutdown();
         verify(ioManager, atLeastOnce()).write(any(Chunk.class));
+    }
+    
+    @Test
+    public void testAppendException() {
+        logManager.startup();
+        startThrowing = true;
+
+        try {
+            for (long i = 100; i < 200; i++) {
+                LogRecord record = spy(newRecord(-1));
+                logManager.append(record);
+                verify(record).updateLsn(i);
+            }
+            fail();
+        } catch ( LogWriteError err ) {
+            System.out.println("caught log write error");
+        }
+        logManager.shutdown();
     }
 
     @Test
@@ -152,9 +173,11 @@ public class StagingLogManagerTest {
 
         @Override
         public long write(Chunk region) throws IOException {
+            if ( startThrowing ) throw new IOException();
             chunks.push(region);
             return 0;
         }
+        
     @Override
     public void setCurrentMarker(long lsn) throws IOException {
     }
@@ -177,8 +200,6 @@ public class StagingLogManagerTest {
     public long getMaximumMarker() throws IOException {
         return max;
     }
-    
-    
 
     @Override
     public long getMinimumMarker() throws IOException {

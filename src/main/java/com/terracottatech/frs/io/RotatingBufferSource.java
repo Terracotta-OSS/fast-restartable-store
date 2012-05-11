@@ -11,12 +11,15 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author mscott
  */
 public class RotatingBufferSource implements BufferSource {
+    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     private final ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
@@ -65,7 +68,7 @@ public class RotatingBufferSource implements BufferSource {
                         totalCapacity -= freeList.pollLastEntry().getValue().capacity();
                         released += 1;
                         System.gc();
-                        System.out.format("WARNING: ran out of direct memory calling GC for a request of %d.\n",size);
+                        LOGGER.info("WARNING: ran out of direct memory calling GC");
                         clearQueue(true);  
                         factor = checkFree(size);
                     } else {
@@ -74,7 +77,7 @@ public class RotatingBufferSource implements BufferSource {
                 }
             }
             if (spins++ > 100) {
-                System.out.format("WARNING: ran out of direct memory for a request of %d.\n",size);
+                LOGGER.info("WARNING: ran out of direct memory");
                 return null;
             }
         }

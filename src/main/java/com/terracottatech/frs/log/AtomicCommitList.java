@@ -23,9 +23,9 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private final CountDownLatch goLatch;
 
     private final long baseLsn;
-//    private volatile long lowestLsn;
     private final AtomicLong syncRequest = new AtomicLong();
     private boolean written = false;
+    private Exception error;
     private volatile CommitList next;
 
     public AtomicCommitList( long startLsn, int maxSize) {
@@ -58,7 +58,6 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         }
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
-//            if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
             goLatch.countDown();
         } else {
             return false;
@@ -67,12 +66,6 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
         return true;
     }
-//
-//    @Override
-//    public long getLowestLsn() {
-//        return lowestLsn;
-//    }
-//    
     
     private void setSyncRequest(long newRequest) {
         long csync = syncRequest.get();
@@ -163,19 +156,16 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         return syncRequest.get() > 0;
     }
 
-    private void waitForWrite() throws InterruptedException {
-        synchronized (guard) {
-            while (!this.written) {
-                guard.wait();
-            }
-        }
+    private void waitForWrite() throws InterruptedException,ExecutionException {
+        waitForWrite(0);
     }
 
-    private void waitForWrite(long millis) throws InterruptedException {
+    private void waitForWrite(long millis) throws InterruptedException,ExecutionException {
         long span = System.currentTimeMillis();
         synchronized (guard) {
             while (!this.written) {
-                if (System.currentTimeMillis() - span > millis) {
+                if ( error != null ) throw new ExecutionException(error);
+                if (millis != 0 && System.currentTimeMillis() - span > millis) {
                     return;
                 }
                 guard.wait(millis);
@@ -244,6 +234,14 @@ public class AtomicCommitList implements CommitList, Future<Void> {
             } else {
                 this.close(record.getLsn());
             }
+        }
+    }
+
+    @Override
+    public void exceptionThrown(Exception exp) {
+        synchronized (guard) {
+            error = exp;
+            guard.notifyAll();
         }
     }
 

@@ -8,6 +8,7 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.log.LogManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -18,10 +19,13 @@ import java.nio.channels.FileLock;
 import java.util.UUID;
 import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
+import java.util.Formatter;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -55,7 +59,7 @@ public class NIOManager implements IOManager {
     private long requests = 1;
     
     private volatile boolean readOpsAllowed = true;
-    
+    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
         directory = new File(home);
@@ -163,8 +167,10 @@ public class NIOManager implements IOManager {
             lockFile.delete();
         }
         backend = null;
-        System.out.format("written: %.2f MB in %d parts over %d requests.\ntotal time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request\n",
-                written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests);
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug(new Formatter(new StringBuilder()).format("written: %.2f MB in %d parts over %d requests.\ntotal time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request",
+                    written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests).out().toString());
+        }
     }
     
     private void open() throws IOException {        

@@ -27,6 +27,7 @@ public class StackingCommitList implements CommitList {
 //    private long lowestLsn;
     private boolean closed = false;
     private boolean written = false;
+    private Exception error;
     private int count = 0;
     
     private final Object guard = new Object();
@@ -47,7 +48,6 @@ public class StackingCommitList implements CommitList {
         }
 
         regions[(int) (record.getLsn() - baseLsn)] = record;
-//        if ( record.getLowestLsn() > lowestLsn ) lowestLsn = record.getLowestLsn();
 
         if (!countRecord(record.getLsn(),sync)) {
             regions[(int) (record.getLsn() - baseLsn)] = null; //  just to be clean;
@@ -56,12 +56,7 @@ public class StackingCommitList implements CommitList {
         
         return true;
     }
-//
-//    @Override
-//    public long getLowestLsn() {
-//        return lowestLsn;
-//    }
-//          
+ 
     @Override
     public CommitList next() {
         if (next == null) {
@@ -127,19 +122,16 @@ public class StackingCommitList implements CommitList {
         return syncing;
     }
 
-    private void waitForWrite() throws InterruptedException {
-        synchronized (guard) {
-            while (!this.written) {
-                guard.wait();
-            }
-        }
+    private void waitForWrite() throws InterruptedException, ExecutionException {
+        waitForWrite(0);
     }
 
-    private void waitForWrite(long millis) throws InterruptedException {
+    private void waitForWrite(long millis) throws InterruptedException, ExecutionException {
         long span = System.currentTimeMillis();
         synchronized (guard) {
             while (!this.written) {
-                if (System.currentTimeMillis() - span > millis) {
+                if ( error != null ) throw new ExecutionException(error);
+                if (millis != 0 && System.currentTimeMillis() - span > millis) {
                     return;
                 }
                 guard.wait(millis);
@@ -157,6 +149,15 @@ public class StackingCommitList implements CommitList {
     public void written() {
         synchronized (guard) {
             written = true;
+            guard.notifyAll();
+        }
+    }
+    
+    
+    @Override
+    public void exceptionThrown(Exception exp) {
+        synchronized (guard) {
+            error = exp;
             guard.notifyAll();
         }
     }

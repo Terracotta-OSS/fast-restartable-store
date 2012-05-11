@@ -8,6 +8,8 @@ import com.terracottatech.frs.io.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.Exchanger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * NIO implementation of Log Stream.
@@ -28,6 +30,7 @@ class NIOStreamImpl implements Stream {
     private NIOSegmentImpl readHead;
     private final RotatingBufferSource pool = new RotatingBufferSource();
     private FSyncer syncer;
+    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 //    private long debugIn;
 //    private long debugOut;
 
@@ -120,17 +123,18 @@ class NIOStreamImpl implements Stream {
                 if (!seg.last()) {
                     //  segment did not close cleanly, mark for truncation at last good chunk
                     if (seg.isEmpty()) {
-                        segments.removeCurrentSegment();
                         continue;
                     } else {
-//   truncate and exit
+//   truncate and exit            
+                        segments.removeFilesFromTail();
                         seg.limit(seg.position());
-                        seg.close();
                         return true;
                     }
                 } else {
                     return false;
                 }
+            } catch (IOException ioe) {
+            //  something is wrong with this file move on.
             } finally {
                 this.highestMarker = seg.getMaximumMarker();
                 this.lowestMarker = seg.getMinimumMarker();
@@ -144,6 +148,7 @@ class NIOStreamImpl implements Stream {
     void limit(UUID streamId, int segment, long position) throws IOException {
         segments.setReadPosition(-1);
         File f = segments.nextReadFile(Direction.REVERSE);
+        
         while (f != null) {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
@@ -152,13 +157,13 @@ class NIOStreamImpl implements Stream {
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
-                if (seg.getSegmentId() > segment) {
-                    segments.removeCurrentSegment();
-                }
                 if (seg.getSegmentId() == segment) {
+                    segments.removeFilesFromTail();
                     seg.limit(position);
                     return;
                 }
+            } catch ( IOException ioe ) {
+            //  something is wrong with this file move on.
             } finally {
                 seg.close();
             }
@@ -323,7 +328,9 @@ class NIOStreamImpl implements Stream {
                 throw new IOException(ie);
             }
         } 
-        System.out.println("buffer pool created: " + pool.getCount() + " released: " + pool.getReleased() + " capacity: " + pool.getCapacity());
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug("buffer pool created: " + pool.getCount() + " released: " + pool.getReleased() + " capacity: " + pool.getCapacity());
+        }
     }
 
     @Override

@@ -114,7 +114,20 @@ class NIOSegmentList {
         assert(segments.get(0).equals(readHead));
         return size;
     }
-
+    
+    synchronized long removeFilesFromTail() throws IOException {
+        int count = 0;
+        long size = 0;
+        while ( position+1 < segments.size()) {
+            File f = segments.remove(position+1);
+            size += f.length();
+            f.delete();
+            count++;
+        }
+        assert(segments.get(position).equals(readHead));
+        return size;
+    }
+    
     synchronized void removeCurrentSegment() throws IOException {
         assert(!readHead.equals(writeHead));
         segments.remove(position).delete();

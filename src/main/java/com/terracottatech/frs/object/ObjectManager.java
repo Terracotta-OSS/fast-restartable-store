@@ -40,7 +40,6 @@ public interface ObjectManager<I, K, V> {
    * @param key key
    * @param value value
    * @param lsn lsn
-   * @return list of LSNs of entries that have been evicted.
    */
   void replayPut(I id, K key, V value, long lsn);
 
@@ -67,6 +66,13 @@ public interface ObjectManager<I, K, V> {
    * @return number of live objects
    */
   long size();
+
+  /**
+   * Get the occupied byte size of this object manager.
+   *
+   * @return size in bytes
+   */
+  long sizeInBytes();
 
   void updateLowestLsn();
 }

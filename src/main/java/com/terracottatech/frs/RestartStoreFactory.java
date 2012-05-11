@@ -9,6 +9,8 @@ import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
+import com.terracottatech.frs.compaction.CompactionPolicy;
+import com.terracottatech.frs.compaction.LSNGapCompactionPolicy;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.LogManager;
@@ -49,6 +51,7 @@ public abstract class RestartStoreFactory {
                                                         createCodec(objectManager) ,
                                                         new MasterLogRecordFactory());
     TransactionManager transactionManager = new TransactionManagerImpl(actionManager, synchronousWrites);
-    return new RestartStoreImpl(objectManager, transactionManager, logManager, actionManager);
+    CompactionPolicy policy = new LSNGapCompactionPolicy(objectManager, logManager);
+    return new RestartStoreImpl(objectManager, transactionManager, logManager, actionManager, policy);
   }
 }

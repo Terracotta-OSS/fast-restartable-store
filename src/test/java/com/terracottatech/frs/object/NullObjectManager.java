@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Set;
-
 /**
  * @author tim
  */
@@ -56,5 +54,10 @@ public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
 
   @Override
   public void updateLowestLsn() {
+  }
+
+  @Override
+  public long sizeInBytes() {
+    return 0;
   }
 }

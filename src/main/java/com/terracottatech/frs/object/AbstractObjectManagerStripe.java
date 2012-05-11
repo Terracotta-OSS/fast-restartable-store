@@ -63,7 +63,16 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
     }
     return total;
   }
-  
+
+  @Override
+  public long sizeInBytes() {
+    long size = 0;
+    for (ObjectManagerSegment<I, K, V> segment : getSegments()) {
+      size += segment.sizeInBytes();
+    }
+    return size;
+  }
+
   protected abstract ObjectManagerSegment<I, K, V> getSegmentFor(int hash, K key);
   
   protected abstract int extractHashCode(K key);

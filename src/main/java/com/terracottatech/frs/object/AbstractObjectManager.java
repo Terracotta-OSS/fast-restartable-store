@@ -112,7 +112,16 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     }
     return size;
   }
-  
+
+  @Override
+  public long sizeInBytes() {
+    long size = 0;
+    for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
+      size += stripe.sizeInBytes();
+    }
+    return size;
+  }
+
   /**
    * Returns the stripes of a segmented sorted map.
    * <p>

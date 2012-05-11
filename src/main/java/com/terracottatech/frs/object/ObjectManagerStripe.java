@@ -1,7 +1,6 @@
 package com.terracottatech.frs.object;
 
 import java.util.Collection;
-import java.util.Set;
 
 public interface ObjectManagerStripe<I, K, V> {
 
@@ -24,4 +23,6 @@ public interface ObjectManagerStripe<I, K, V> {
   void releaseCompactionEntry(ObjectManagerEntry<I, K, V> entry);
 
   long size();
+
+  long sizeInBytes();
 }

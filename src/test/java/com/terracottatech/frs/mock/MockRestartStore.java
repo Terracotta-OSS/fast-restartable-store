@@ -13,6 +13,7 @@ import com.terracottatech.frs.mock.log.MockLogManager;
 import com.terracottatech.frs.mock.object.MockObjectManager;
 import com.terracottatech.frs.mock.recovery.MockRecoveryManager;
 import com.terracottatech.frs.mock.transaction.MockTransactionManager;
+import com.terracottatech.frs.recovery.RecoveryException;
 import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.Transaction;
@@ -60,7 +61,8 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
     throw new UnsupportedOperationException("Mock doesn't support auto-commit transactions");
   }
 
-  public static MockRestartStore create(MockObjectManager<Long, String, String> objManager, IOManager ioManager) {
+  public static MockRestartStore create(MockObjectManager<Long, String, String> objManager, IOManager ioManager) throws
+          InterruptedException, RecoveryException {
     LogManager logManager = new MockLogManager(ioManager);
     ActionManager actionManager = new MockActionManager(objManager, logManager);
     TransactionManager txnManager = new MockTransactionManager(actionManager);

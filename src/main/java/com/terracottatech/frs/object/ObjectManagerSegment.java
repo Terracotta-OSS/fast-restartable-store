@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Set;
-
 /**
  *
  * @author Chris Dennis
@@ -31,4 +29,6 @@ public interface ObjectManagerSegment<I, K, V> {
   void remove(int hash, K key);
 
   long size();
+
+  long sizeInBytes();
 }

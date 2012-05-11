@@ -234,5 +234,10 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       assert dataMap.size() == lsnMap.size();
       return dataMap.size();
     }
+
+    @Override
+    public long sizeInBytes() {
+      throw new UnsupportedOperationException("Size in bytes not supported.");
+    }
   }
 }

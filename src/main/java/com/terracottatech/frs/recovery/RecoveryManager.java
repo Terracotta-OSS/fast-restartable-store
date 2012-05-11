@@ -12,6 +12,7 @@ import java.util.concurrent.Future;
  */
 public interface RecoveryManager {
 
-  public Future<Void> recover(RecoveryListener ... listeners);
+  public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
+          InterruptedException;
   
 }

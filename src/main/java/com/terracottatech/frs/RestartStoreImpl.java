@@ -11,6 +11,7 @@ import com.terracottatech.frs.compaction.CompactorImpl;
 import com.terracottatech.frs.compaction.LSNGapCompactionPolicy;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.recovery.RecoveryException;
 import com.terracottatech.frs.recovery.RecoveryListener;
 import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.recovery.RecoveryManagerImpl;
@@ -59,7 +60,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized Future<Void> startup() throws InterruptedException {
+  public synchronized Future<Void> startup() throws InterruptedException,
+          RecoveryException {
     if (state != State.INIT && state != State.SHUTDOWN) {
       throw new IllegalStateException("Can't startup from state " + state);
     }

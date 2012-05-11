@@ -24,6 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Future;
 
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
 
@@ -112,6 +113,20 @@ public class RecoveryManagerImplTest {
     verify(skipper).replay(9);
     verify(validTransactional).replay(12);
     verify(checkedPut).replay(19);
+  }
+
+  @Test
+  public void testRecoveryError() throws Exception {
+    Action errorAction = mock(Action.class);
+    doThrow(new AssertionError()).when(errorAction).replay(anyLong());
+    logManager.append(record(100, errorAction));
+
+    try {
+      recoveryManager.recover();
+      fail();
+    } catch (RecoveryException e) {
+      // Expected
+    }
   }
 
   private Action skipped(Action action) {

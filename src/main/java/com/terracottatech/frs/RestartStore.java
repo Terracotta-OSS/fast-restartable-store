@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.recovery.RecoveryException;
+
 import java.util.concurrent.Future;
 
 /**
@@ -19,7 +21,7 @@ public interface RestartStore<I, K, V> {
    * @return {@link Future} that completes when recovery is completed.
    * @throws InterruptedException
    */
-  Future<Void> startup() throws InterruptedException;
+  Future<Void> startup() throws InterruptedException, RecoveryException;
 
   /**
    * Cleanly shut down the {@link RestartStore}. All in flight operations will be allowed

@@ -11,14 +11,24 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.transaction.TransactionFilter;
 import com.terracottatech.frs.util.NullFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * @author tim
  */
 public class RecoveryManagerImpl implements RecoveryManager {
+  private static final int MAX_REPLAY_QUEUE_LENGTH = 1000;
+  private static final int MIN_REPLAY_THREAD_COUNT = 1;
+  private static final int MAX_REPLAY_THREAD_COUNT =
+          Math.min(Runtime.getRuntime().availableProcessors() * 2, 64);
+
   private final LogManager logManager;
   private final ActionManager actionManager;
   private final ReplayFilter replayFilter = new ReplayFilter();
@@ -29,7 +39,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
   }
 
   @Override
-  public Future<Void> recover(RecoveryListener ... listeners) {
+  public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
+          InterruptedException {
     logManager.startup();
 
     Iterator<LogRecord> i = logManager.reader();
@@ -39,10 +50,16 @@ public class RecoveryManagerImpl implements RecoveryManager {
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter);
 
     // For now we're not spinning off another thread for recovery.
-    while (i.hasNext()) {
-      LogRecord logRecord = i.next();
-      Action action = actionManager.extract(logRecord);
-      skipsFilter.filter(action, logRecord.getLsn());
+    try {
+      while (i.hasNext()) {
+        LogRecord logRecord = i.next();
+        Action action = actionManager.extract(logRecord);
+        skipsFilter.filter(action, logRecord.getLsn());
+        replayFilter.checkError();
+      }
+    } finally {
+      replayFilter.finish();
+      replayFilter.checkError();
     }
 
     for (RecoveryListener listener : listeners) {
@@ -52,12 +69,51 @@ public class RecoveryManagerImpl implements RecoveryManager {
     return new NullFuture();
   }
 
-  private static class ReplayFilter implements Filter<Action> {
+  private static class ReplayFilter implements Filter<Action>, ThreadFactory {
+    private final AtomicInteger threadId = new AtomicInteger();
+    private final ExecutorService executorService = new ThreadPoolExecutor(MIN_REPLAY_THREAD_COUNT,
+                                                                           MAX_REPLAY_THREAD_COUNT, 60,
+                                                                           SECONDS,
+                                                                           new ArrayBlockingQueue<Runnable>(MAX_REPLAY_QUEUE_LENGTH),
+                                                                           this,
+                                                                           new ThreadPoolExecutor.CallerRunsPolicy());
+    private volatile boolean error = false;
 
     @Override
-    public boolean filter(Action element, long lsn) {
+    public boolean filter(final Action element, final long lsn) {
+      // TODO: Enable this once the unit test issues are figured out
+//      executorService.submit(new Runnable() {
+//        @Override
+//        public void run() {
+//          try {
+//            element.replay(lsn);
+//          } catch (Throwable t) {
+//            error = true;
+//            LOGGER.error("Error replaying record.", t);
+//          }
+//        }
+//      });
       element.replay(lsn);
       return true;
+    }
+
+    void checkError() throws RecoveryException {
+      if (error) {
+        throw new RecoveryException("Caught an error during recovery!");
+      }
+    }
+
+    void finish() throws InterruptedException {
+      executorService.shutdown();
+      executorService.awaitTermination(Long.MAX_VALUE, SECONDS);
+    }
+
+    @Override
+    public Thread newThread(Runnable r) {
+      Thread t = new Thread(r);
+      t.setName("Replay Thread - " + threadId.getAndIncrement());
+      t.setDaemon(true);
+      return t;
     }
   }
 }

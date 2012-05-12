@@ -68,7 +68,7 @@ public class StagingLogManagerTest {
         verify(ioManager, atLeastOnce()).write(any(Chunk.class));
     }
     
-    @Test @Ignore
+    @Test
     public void testAppendException() {
         logManager.startup();
         startThrowing = true;

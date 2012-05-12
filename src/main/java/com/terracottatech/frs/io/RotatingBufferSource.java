@@ -84,6 +84,10 @@ public class RotatingBufferSource implements BufferSource {
         factor = addUsed(factor,size);
         return factor;
     }
+    
+    public void clear() {
+        freeList.clear();
+    }
 
     private void clearQueue(boolean wait) {
         try {

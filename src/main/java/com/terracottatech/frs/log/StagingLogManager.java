@@ -162,7 +162,7 @@ public class StagingLogManager implements LogManager {
             size += queue.size();
             fill += (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
             turns+=1;
-         } catch (InterruptedException ie) {
+          } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
           } 
         }
@@ -190,7 +190,7 @@ public class StagingLogManager implements LogManager {
         queuer.start();  
                 
         long last = System.nanoTime();
-        while ((state == MachineState.ERROR || state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get())) {
+        while ( state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get()) {
           WritingPackage packer = null;
           try {
             long mark = System.nanoTime();
@@ -217,9 +217,10 @@ public class StagingLogManager implements LogManager {
             packer.written();
             
           } catch (IOException ioe) {
-            state = MachineState.ERROR;
             blockingException = ioe;
+            state = MachineState.ERROR;
             packer.list.exceptionThrown(ioe);
+            break;
           } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
           } finally {
@@ -228,6 +229,13 @@ public class StagingLogManager implements LogManager {
         }
         
         try {
+            if ( state == MachineState.ERROR ) {
+                while ( !queue.isEmpty() ) {
+                    queue.poll().list.exceptionThrown(blockingException);
+                }
+            } else if ( !queue.isEmpty() ) {
+                throw new AssertionError("non-empty queue");
+            }
             queuer.done();
             queuer.join();
         } catch ( InterruptedException ie ) {
@@ -275,6 +283,8 @@ public class StagingLogManager implements LogManager {
     //  TODO:  re-examine when more runtime context is available.
     @Override
     public void shutdown() {
+        boolean normalShutdown = ( state == MachineState.NORMAL );
+        
         state = MachineState.SHUTDOWN;
         
         CommitList  current = currentRegion;
@@ -289,7 +299,7 @@ public class StagingLogManager implements LogManager {
         if (daemon.isAlive()) {
             throw new AssertionError();
         }
-        if (currentLsn.get()-1 != highestOnDisk.get()) {
+        if (normalShutdown && currentLsn.get()-1 != highestOnDisk.get()) {
             throw new AssertionError();
         }
         try {

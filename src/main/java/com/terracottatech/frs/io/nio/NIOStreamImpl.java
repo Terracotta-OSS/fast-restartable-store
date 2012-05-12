@@ -98,7 +98,7 @@ class NIOStreamImpl implements Stream {
     }
 
     boolean open() throws IOException {
-/* disable fsyncer for now
+/* TODO:   disable fsyncer for now.  validate for speed and accuracy
         syncer = new FSyncer();
         syncer.start();
 */
@@ -331,6 +331,7 @@ class NIOStreamImpl implements Stream {
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug("buffer pool created: " + pool.getCount() + " released: " + pool.getReleased() + " capacity: " + pool.getCapacity());
         }
+        pool.clear();
     }
 
     @Override

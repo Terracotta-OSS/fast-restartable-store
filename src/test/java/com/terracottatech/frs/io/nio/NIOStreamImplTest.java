@@ -40,6 +40,8 @@ public class NIOStreamImplTest {
   @After
   public void tearDown() throws Exception {
     stream.close();
+    stream = null;
+    System.gc();
   }
 
   /**

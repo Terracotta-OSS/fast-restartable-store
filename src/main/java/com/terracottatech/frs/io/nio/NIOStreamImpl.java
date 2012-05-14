@@ -30,7 +30,7 @@ class NIOStreamImpl implements Stream {
     private NIOSegmentImpl readHead;
     private final RotatingBufferSource pool = new RotatingBufferSource();
     private FSyncer syncer;
-    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 //    private long debugIn;
 //    private long debugOut;
 
@@ -44,10 +44,14 @@ class NIOStreamImpl implements Stream {
         if (segments.isEmpty()) {
             streamId = UUID.randomUUID();
         } else {
-            NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getEndFile());
-            seg.openForReading(pool);
-            streamId = seg.getStreamId();
-            seg.close();
+            try {
+                NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getBeginningFile());
+                seg.openForReading(pool);
+                streamId = seg.getStreamId();
+                seg.close();
+            } catch ( IOException ioe ) {
+                streamId = UUID.randomUUID();
+            }
         }
     }
 
@@ -126,7 +130,7 @@ class NIOStreamImpl implements Stream {
                         continue;
                     } else {
 //   truncate and exit            
-                        segments.removeFilesFromTail();
+                        segments.removeFilesFromHead();
                         seg.limit(seg.position());
                         return true;
                     }
@@ -158,7 +162,7 @@ class NIOStreamImpl implements Stream {
                     throw new IOException(BAD_STREAM_ID);
                 }
                 if (seg.getSegmentId() == segment) {
-                    segments.removeFilesFromTail();
+                    segments.removeFilesFromHead();
                     seg.limit(position);
                     return;
                 }
@@ -218,12 +222,14 @@ class NIOStreamImpl implements Stream {
         return size;
     }
 
-    long trimLogHead(long timeout) throws IOException {
+    long trimLogTail(long timeout) throws IOException {
         if ( findLogHead() != 0 ) { // position the read had over the last dead segment
             File last = segments.getCurrentReadFile();
             assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
-                return segments.removeFilesFromHead();
+                return segments.removeFilesFromTail();
+            } else {
+                
             }
         }
         return 0;
@@ -346,9 +352,14 @@ class NIOStreamImpl implements Stream {
             try {
                 File f = segments.nextReadFile(dir);
                 if (f == null) {
+                    readHead = null;
                     return null;
                 }
-                readHead = new NIOSegmentImpl(this, f).openForReading(pool);
+                NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(pool);
+                if ( readHead != null ) {
+                    assert(nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) == 0);
+                }
+                readHead = nextHead;
             } catch (IOException ioe) {
                 if (readHead == null && dir == Direction.REVERSE) {
 //  something bad happened.  Can't even open the header.  but this is the end of the log so move on to the next and see if it will open

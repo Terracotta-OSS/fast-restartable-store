@@ -41,7 +41,7 @@ class NIOSegmentImpl {
     private long minMarker;
     private long maxMarker;
     private UUID streamId;
-    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     NIOSegmentImpl(NIOStreamImpl p, File file) {
         this.parent = p;
@@ -69,7 +69,7 @@ class NIOSegmentImpl {
 
         ByteBuffer fbuf = reader.getBuffer(bufferSize);
         if (fbuf == null) {
-            LOGGER.info("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            LOGGER.warn("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
             fbuf = ByteBuffer.allocate(1024 * 1024);
         }
 

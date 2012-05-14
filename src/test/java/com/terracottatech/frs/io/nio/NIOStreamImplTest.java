@@ -2,9 +2,6 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.BufferListWrapper;
-import com.terracottatech.frs.log.LogRecord;
-import com.terracottatech.frs.log.LogRegionPacker;
-import com.terracottatech.frs.log.Signature;
 import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 
@@ -111,5 +108,29 @@ public class NIOStreamImplTest {
     System.out.format("uuid: %s segment: %d position: %d",
                       new UUID(chunk.getLong(), chunk.getLong()).toString(),
                       chunk.getInt(), chunk.getLong());
+  }
+  
+  @Test
+  public void testOpen() throws Exception {
+    long size = 30 * 1024 * 1024;
+    int numChunks = 0;
+    while (size > 0) {
+      int s = r.nextInt((int) (size + 1));
+      stream.append(newChunk(s));
+      size -= s;
+      numChunks++;
+    }
+    stream.close();
+    BufferSource bufs = new RotatingBufferSource();
+    NIOSegmentList list = new NIOSegmentList(workArea);
+    list.setReadPosition(-1);
+    new NIOSegmentImpl(stream,list.appendFile()).openForWriting(bufs);
+    new NIOSegmentImpl(stream,list.appendFile()).openForWriting(bufs);
+    new NIOSegmentImpl(stream,list.appendFile()).openForWriting(bufs);
+    stream = new NIOStreamImpl(workArea, 10*1024*1024);
+    stream.open();
+    stream.seek(IOManager.Seek.END.getValue());
+    Chunk c = stream.read(Direction.REVERSE);
+    
   }
 }

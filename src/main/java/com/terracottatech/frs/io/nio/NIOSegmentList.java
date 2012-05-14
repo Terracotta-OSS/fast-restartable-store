@@ -102,7 +102,7 @@ class NIOSegmentList {
         return readHead;
     }
     
-    synchronized long removeFilesFromHead() throws IOException {
+    synchronized long removeFilesFromTail() throws IOException {
         int count = 0;
         long size = 0;
         while ( count < position ) {
@@ -115,7 +115,7 @@ class NIOSegmentList {
         return size;
     }
     
-    synchronized long removeFilesFromTail() throws IOException {
+    synchronized long removeFilesFromHead() throws IOException {
         int count = 0;
         long size = 0;
         while ( position+1 < segments.size()) {
@@ -140,6 +140,10 @@ class NIOSegmentList {
     
     synchronized File getEndFile() throws IOException {
         return segments.get(segments.size()-1);
+    }
+    
+    synchronized File getBeginningFile() throws IOException {
+        return segments.get(0);
     }
     
     static int convertSegmentNumber(File f) {

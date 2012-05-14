@@ -32,11 +32,13 @@ public class StackingCommitList implements CommitList {
     
     private final Object guard = new Object();
     private volatile CommitList next;
+    private int wait;
     
-    public StackingCommitList(long startLsn, int maxSize) {
+    public StackingCommitList(long startLsn, int maxSize, int wait) {
         baseLsn = startLsn;
         endLsn = startLsn-1;
         regions = new LogRecord[maxSize];
+        this.wait = wait;
     }
 
      @Override
@@ -73,7 +75,7 @@ public class StackingCommitList implements CommitList {
     }
     
     public CommitList create(long nextLsn) {
-        return new StackingCommitList( nextLsn, regions.length);
+        return new StackingCommitList( nextLsn, regions.length, wait);
     }
 
     @Override
@@ -170,7 +172,7 @@ public class StackingCommitList implements CommitList {
         }
         
         while ((!closed && count != regions.length) || (closed && count != endLsn - baseLsn + 1)) {
-            this.wait(10);
+            this.wait(wait);
             if ( timedout ) {
                 if ( count > 0 ) {
                     this.close(baseLsn + count - 1);

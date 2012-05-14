@@ -4,11 +4,11 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
-import com.terracottatech.frs.log.LogManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -59,7 +59,7 @@ public class NIOManager implements IOManager {
     private long requests = 1;
     
     private volatile boolean readOpsAllowed = true;
-    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
         directory = new File(home);
@@ -67,6 +67,10 @@ public class NIOManager implements IOManager {
         this.segmentSize = segmentSize;
         
         open();
+    }
+    
+    public NIOManager(Configuration config) throws IOException {
+        this(config.getString("dbhome"),config.getLong("io.nio.segmentSize",16 * 1024 * 1024));
     }
 
     @Override
@@ -250,7 +254,7 @@ public class NIOManager implements IOManager {
     public synchronized Future<Void> clean(long timeout) throws IOException {
         readOpsAllowed = false;
         try {
-            backend.trimLogHead(timeout);
+            backend.trimLogTail(timeout);
         } finally {
             readOpsAllowed = true;
         }

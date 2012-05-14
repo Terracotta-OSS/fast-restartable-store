@@ -8,6 +8,8 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -147,7 +149,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             if (buf.hasArray()) {
                 checksum.update(buf.array(),buf.arrayOffset() + buf.position(),(buf.limit()-buf.position()));
             } else {
-                if ( temp == null ) temp = new byte[4096];
+                if ( temp == null ) temp = new byte[8192];
                 buf.mark();
                 while (buf.hasRemaining()) {
                     int fetch = ( buf.remaining() > temp.length ) ? temp.length : buf.remaining();
@@ -160,6 +162,26 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
         return checksum.getValue();
     }
+    
+    protected static byte[] md5(Iterable<ByteBuffer> bufs) {
+        try {
+        MessageDigest md5 = MessageDigest.getInstance("MD5");
+        for (ByteBuffer buf : bufs) {
+            if (buf.hasArray()) {
+                md5.update(buf.array(),buf.arrayOffset() + buf.position(),(buf.limit()-buf.position()));
+            } else {
+                buf.mark();
+                md5.update(buf);
+                buf.reset();
+            }
+        }
+
+        return md5.digest();
+        } catch ( NoSuchAlgorithmException no ) {
+            
+        }
+        return null;
+    }    
     
     private static LogRecord readRecord(long lowestLsn, Chunk buffer) {
 

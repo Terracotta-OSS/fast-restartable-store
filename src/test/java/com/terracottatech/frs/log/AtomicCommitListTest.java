@@ -32,7 +32,7 @@ public class AtomicCommitListTest {
 
   @Before
   public void setUp() throws Exception {
-    commitList = new AtomicCommitList(10, 10);
+    commitList = new AtomicCommitList(10, 10, 20);
   }
 
   @Test

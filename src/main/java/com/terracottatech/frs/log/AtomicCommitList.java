@@ -27,13 +27,15 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private boolean written = false;
     private Exception error;
     private volatile CommitList next;
+    private final int      wait;
 
-    public AtomicCommitList( long startLsn, int maxSize) {
+    public AtomicCommitList(long startLsn, int maxSize,int waitTime) {
         baseLsn = startLsn;
         endLsn = new AtomicLong();
         regions = new AtomicReferenceArray<LogRecord>(maxSize);
 //        this.doChecksum = useChecksum;
         goLatch = new CountDownLatch(maxSize);
+        wait = waitTime;
     }
     
     @Override
@@ -95,7 +97,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     }
     
     public CommitList create(long nextLsn) {
-        return new AtomicCommitList( nextLsn, regions.length());
+        return new AtomicCommitList( nextLsn, regions.length(), wait);
     }
 
     @Override
@@ -204,7 +206,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         } else {
         }
         
-        while ( !goLatch.await(20, TimeUnit.MILLISECONDS) ) {
+        while ( !goLatch.await(wait, TimeUnit.MILLISECONDS) ) {
             if ( goLatch.getCount() != regions.length() ) {
                 checkForClosed();
             }

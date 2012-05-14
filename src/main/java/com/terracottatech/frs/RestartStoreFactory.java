@@ -47,7 +47,7 @@ public abstract class RestartStoreFactory {
           IOException, RestartStoreException {
     Configuration configuration = Configuration.getConfiguration(dbHome);
     IOManager ioManager = new NIOManager(dbHome.getAbsolutePath(), fileSize);
-    LogManager logManager = new StagingLogManager(ioManager);
+    LogManager logManager = new StagingLogManager(ioManager,configuration);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager),
                                                         new MasterLogRecordFactory());

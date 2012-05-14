@@ -90,21 +90,21 @@ public class NIOManagerTest {
     @Test 
     public void testAtomicMT() {
         System.out.println("Atomic MT append");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( lsn, 100, 20),manager);
         testMTAppend(lm);
     }
 
     @Test
     public void testStackingMT() {
         System.out.println("Stacking MT append");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 10),manager);
         testMTAppend(lm);
     }
     
      @Test
     public void testWriteSuspend() throws Exception {
         System.out.println("write then suspend");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 20),manager);
         lm.startup();
         lm.shutdown();
     }     
@@ -175,7 +175,7 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100), manager);
+       final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
             DummyLogRecord lr1 = new DummyLogRecord(100,1024);

@@ -68,13 +68,13 @@ public class StagingLogManagerTest {
         verify(ioManager, atLeastOnce()).write(any(Chunk.class));
     }
     
-    @Test
+    @Test 
     public void testAppendException() {
         logManager.startup();
         startThrowing = true;
 
         try {
-            for (long i = 100; i < 10000; i++) {
+            for (long i = 100; i < 100000000; i++) {
                 LogRecord record = spy(newRecord(-1));
                 logManager.append(record);
                 verify(record).updateLsn(i);

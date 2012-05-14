@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.RotatingBufferSource;
@@ -27,7 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 public class StagingLogManager implements LogManager {
     
-    private final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
         
     static enum MachineState {
@@ -40,18 +41,34 @@ public class StagingLogManager implements LogManager {
     private final AtomicLong lowestLsn = new AtomicLong(0);
     private long  lastClean = 0;
     private final AtomicLong highestOnDisk = new AtomicLong(99);
-    private final Signature  checksumStyle;
+    private Signature  checksumStyle;
     private final IOManager io;
     private volatile MachineState   state = MachineState.IDLE;
     
-    private static final int MAX_QUEUE_SIZE = 1024;
+    private int MAX_QUEUE_SIZE;
+    private int RECOVERY_QUEUE_SIZE = 1024;
     
     private ChunkExchange                               exchanger;
     private final ArrayBlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(20);
     private IOException                                 blockingException;
     
     public StagingLogManager(IOManager io) {
-        this(Signature.NONE,new AtomicCommitList( 100l, MAX_QUEUE_SIZE),io);
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
+    }
+        
+    public StagingLogManager(IOManager io,Configuration config) {
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
+        String checksum = config.getString("io.checksum", "ADLER32");
+        this.checksumStyle = Signature.valueOf(checksum);
+        if ( this.checksumStyle == null ) this.checksumStyle = Signature.ADLER32;
+        String commitList = config.getString("io.commitList", "ATOMIC");
+        this.MAX_QUEUE_SIZE = config.getInt("io.commitQueueSize",1024);
+        this.RECOVERY_QUEUE_SIZE = config.getInt("io.recoveryQueueSize",1024);
+        if ( commitList.equals("ATOMIC") ) {
+            this.currentRegion = new AtomicCommitList(100, MAX_QUEUE_SIZE, config.getInt("io.wait",20));
+        } else if ( commitList.equals("STACKING") ) {
+            this.currentRegion = new StackingCommitList(100, MAX_QUEUE_SIZE, config.getInt("io.wait",20));
+        }
     }
 
     public StagingLogManager(Signature check, CommitList list, IOManager io) {
@@ -59,6 +76,7 @@ public class StagingLogManager implements LogManager {
         this.io = io;
         currentLsn.set(list.getBaseLsn());
         this.checksumStyle = check;
+        this.MAX_QUEUE_SIZE = 1024;
     }
 
     @Override
@@ -253,7 +271,7 @@ public class StagingLogManager implements LogManager {
     public Future<Void> recover() {
         if ( exchanger != null ) return exchanger;
         
-        exchanger = new ChunkExchange(io, checksumStyle,MAX_QUEUE_SIZE);
+        exchanger = new ChunkExchange(io, checksumStyle,RECOVERY_QUEUE_SIZE);
         
         exchanger.recover();
         
@@ -333,9 +351,11 @@ public class StagingLogManager implements LogManager {
         }
         
         if ( state == MachineState.ERROR ) {
-            if ( blockingException instanceof IOException ) {
-                throw new LogWriteError(blockingException);
-            }
+            throw new LogWriteError(blockingException);
+        }
+        
+        if ( state == MachineState.IDLE ) {
+            throw new LogWriteError("idle");
         }
         
         CommitList mine = currentRegion;

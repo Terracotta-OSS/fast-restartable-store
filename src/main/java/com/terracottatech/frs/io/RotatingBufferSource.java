@@ -4,13 +4,13 @@
  */
 package com.terracottatech.frs.io;
 
+import com.terracottatech.frs.config.Configuration;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * @author mscott
  */
 public class RotatingBufferSource implements BufferSource {
-    private final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     private final ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
@@ -59,7 +59,7 @@ public class RotatingBufferSource implements BufferSource {
                 // pad some extra for later
                 try {
                     int allocate = Math.round(size * 1.05f);
-                    if ( allocate < 512 * 1024 ) allocate = 512 * 1024 + 8;
+                    if ( allocate < 512 * 1024 ) allocate = (512 * 1024) + 8;
                     factor = ByteBuffer.allocateDirect(allocate);
                     created += 1;
                     totalCapacity += factor.capacity();                
@@ -68,7 +68,7 @@ public class RotatingBufferSource implements BufferSource {
                         totalCapacity -= freeList.pollLastEntry().getValue().capacity();
                         released += 1;
                         System.gc();
-                        LOGGER.info("WARNING: ran out of direct memory calling GC");
+                        LOGGER.warn("WARNING: ran out of direct memory calling GC");
                         clearQueue(true);  
                         factor = checkFree(size);
                     } else {
@@ -77,7 +77,7 @@ public class RotatingBufferSource implements BufferSource {
                 }
             }
             if (spins++ > 100) {
-                LOGGER.info("WARNING: ran out of direct memory");
+                LOGGER.warn("WARNING: ran out of direct memory");
                 return null;
             }
         }

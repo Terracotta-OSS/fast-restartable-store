@@ -31,7 +31,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     Thread runner;
     private final RecordIterator master = new RecordIterator();
     private long totalRead;
-    private final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
     ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;

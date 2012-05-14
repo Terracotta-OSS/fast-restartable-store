@@ -114,13 +114,19 @@ public class StagingLogManager implements LogManager {
             }
         }
     }
- 
-    private synchronized void enterNormalState(long lastLsn) {
+
+    @Override
+    public long lowestLsn() {
+        return lowestLsn.get();
+    }
+
+    private synchronized void enterNormalState(long lastLsn, long lowest) {
         if ( state != MachineState.BOOTSTRAP ) return;
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
         currentRegion = currentRegion.create(lastLsn + 1);
-        if ( state == MachineState.BOOTSTRAP ) state = MachineState.NORMAL;  
+        if ( state == MachineState.BOOTSTRAP ) state = MachineState.NORMAL;
+        updateLowestLsn(lowest);
         this.notifyAll();
     }   
     
@@ -288,7 +294,7 @@ public class StagingLogManager implements LogManager {
         if ( exchanger == null ) recover();
         
         try {
-            enterNormalState(exchanger.getLastLsn());
+            enterNormalState(exchanger.getLastLsn(), exchanger.getLowestLsn());
         } catch ( InterruptedException ioe ) {
           throw new AssertionError(ioe);
         }  

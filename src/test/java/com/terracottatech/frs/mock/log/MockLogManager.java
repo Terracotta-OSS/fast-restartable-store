@@ -46,6 +46,11 @@ public class MockLogManager implements LogManager {
   }
 
   @Override
+  public long lowestLsn() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public long currentLsn() {
     return currentLsn.get();
   }

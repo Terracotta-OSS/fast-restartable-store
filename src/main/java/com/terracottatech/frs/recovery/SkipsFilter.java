@@ -14,10 +14,12 @@ import java.util.Set;
  * @author tim
  */
 public class SkipsFilter extends AbstractFilter<Action> {
+  private final long lowestLsn;
   private final Set<Long> skips = new HashSet<Long>();
 
-  public SkipsFilter(Filter<Action> nextFilter) {
+  public SkipsFilter(Filter<Action> nextFilter, long lowestLsn) {
     super(nextFilter);
+    this.lowestLsn = lowestLsn;
   }
 
   @Override
@@ -35,7 +37,11 @@ public class SkipsFilter extends AbstractFilter<Action> {
 
   private void updateSkips(Action action) {
     if (action instanceof InvalidatingAction) {
-      skips.addAll(((InvalidatingAction) action).getInvalidatedLsns());
+      for (long invalid : ((InvalidatingAction) action).getInvalidatedLsns()) {
+        if (invalid >= lowestLsn) {
+          skips.add(invalid);
+        }
+      }
     }
   }
 }

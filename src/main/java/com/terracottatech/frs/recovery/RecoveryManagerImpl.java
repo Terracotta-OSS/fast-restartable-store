@@ -49,7 +49,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
-    Filter<Action> skipsFilter = new SkipsFilter(transactionFilter);
+    Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn());
 
     // For now we're not spinning off another thread for recovery.
     try {

@@ -5,19 +5,18 @@
 package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.InvalidatingAction;
-import com.terracottatech.frs.log.LogRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -32,27 +31,38 @@ public class SkipsFilterTest {
   public void setUp() throws Exception {
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
-    filter = new SkipsFilter(delegate);
+    filter = new SkipsFilter(delegate, 5L);
+  }
+
+  @Test
+  public void testFilterBelowLowest() throws Exception {
+    Action action4 = createAction(true);
+    Action action5 = createAction(4L, true);
+    assertThat(filter.filter(action5, 5), is(true));
+    // This is weird in that 4 should be skipped, but since it's below the lowestLsn,
+    // the skips filter won't track it. To test that, set 4 to be skipped, and try to
+    // replay it.
+    assertThat(filter.filter(action4, 4), is(true));
   }
 
   @Test
   public void testSkipping() throws Exception {
-    Action action1 = createAction(false);
-    Action action2 = createAction(true);
-    Action action3 = createAction(Arrays.asList(1L, 2L), false);
-    Action action4 = createAction(3, true);
-    assertThat(filter.filter(action4, 4), is(true));
-    assertThat(filter.filter(action3, 3), is(false));
-    assertThat(filter.filter(action2, 2), is(false));
-    assertThat(filter.filter(action1, 1), is(false));
+    Action action6 = createAction(false);
+    Action action7 = createAction(true);
+    Action action8 = createAction(Arrays.asList(6L, 7L), false);
+    Action action9 = createAction(8, true);
+    assertThat(filter.filter(action9, 9), is(true));
+    assertThat(filter.filter(action8, 8), is(false));
+    assertThat(filter.filter(action7, 7), is(false));
+    assertThat(filter.filter(action6, 6), is(false));
   }
 
   @Test
   public void testDelegateReturnsFalse() throws Exception {
-    Action action1 = createAction(-1, true);
-    Action action2 = createAction(1, false);
-    assertThat(filter.filter(action2, 2), is(false));
-    assertThat(filter.filter(action1, 1), is(true));
+    Action action5 = createAction(-1, true);
+    Action action6 = createAction(5, false);
+    assertThat(filter.filter(action6, 6), is(false));
+    assertThat(filter.filter(action5, 5), is(true));
   }
 
   private Action createAction(boolean replayReturn) {

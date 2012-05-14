@@ -53,6 +53,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         return lastLsn;
     }
 
+    public synchronized long getLowestLsn() throws InterruptedException {
+        // Lowest LSN does have a possibility of being -1, so just check lastLsn for the
+        // loop condition.
+        while (lastLsn < 0) {
+          this.wait();
+        }
+        return lowestLsn;
+    }
+
     public synchronized void offerLsns(long lowest, long last) {
         if (lastLsn > 0) {
             return;

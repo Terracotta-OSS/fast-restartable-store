@@ -17,6 +17,11 @@ public class NullLogManager implements LogManager {
   }
 
   @Override
+  public long lowestLsn() {
+    return 0;
+  }
+
+  @Override
   public long currentLsn() {
     return 0;
   }

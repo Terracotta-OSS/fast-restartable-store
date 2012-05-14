@@ -119,5 +119,13 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
       result = 31 * result + action;
       return result;
     }
+
+    @Override
+    public String toString() {
+      return "ActionID{" +
+              "collection=" + collection +
+              ", action=" + action +
+              '}';
+    }
   }
 }

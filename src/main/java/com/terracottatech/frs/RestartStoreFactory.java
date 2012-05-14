@@ -9,8 +9,7 @@ import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
-import com.terracottatech.frs.compaction.CompactionPolicy;
-import com.terracottatech.frs.compaction.LSNGapCompactionPolicy;
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.LogManager;
@@ -29,6 +28,7 @@ import java.nio.ByteBuffer;
  * @author tim
  */
 public abstract class RestartStoreFactory {
+
   private RestartStoreFactory() {
   }
 
@@ -44,14 +44,15 @@ public abstract class RestartStoreFactory {
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(
           ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, File dbHome,
           long fileSize) throws
-          IOException {
+          IOException, RestartStoreException {
+    Configuration configuration = Configuration.getConfiguration(dbHome);
     IOManager ioManager = new NIOManager(dbHome.getAbsolutePath(), fileSize);
     LogManager logManager = new StagingLogManager(ioManager);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
-                                                        createCodec(objectManager) ,
+                                                        createCodec(objectManager),
                                                         new MasterLogRecordFactory());
     TransactionManager transactionManager = new TransactionManagerImpl(actionManager);
-    CompactionPolicy policy = new LSNGapCompactionPolicy(objectManager, logManager);
-    return new RestartStoreImpl(objectManager, transactionManager, logManager, actionManager, policy);
+    return new RestartStoreImpl(objectManager, transactionManager, logManager,
+                                actionManager, ioManager, configuration);
   }
 }

@@ -6,10 +6,10 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
-import com.terracottatech.frs.compaction.CompactionPolicy;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.compaction.CompactorImpl;
-import com.terracottatech.frs.compaction.LSNGapCompactionPolicy;
+import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.RecoveryException;
@@ -47,15 +47,12 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     this.compactor = compactor;
   }
 
-  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, ActionManager actionManager, CompactionPolicy policy) {
+  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                          TransactionManager transactionManager, LogManager logManager,
+                          ActionManager actionManager, IOManager ioManager,
+                          Configuration configuration) throws RestartStoreException {
     this(objectManager, transactionManager, logManager, actionManager,
-         new CompactorImpl(objectManager, transactionManager, logManager, policy));
-  }
-
-  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, ActionManager actionManager) {
-    this(objectManager, transactionManager, logManager, actionManager, new CompactorImpl(objectManager, transactionManager,
-                                                                                         logManager,
-                                                                                         new LSNGapCompactionPolicy(objectManager, logManager)));
+         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration));
   }
 
   @Override

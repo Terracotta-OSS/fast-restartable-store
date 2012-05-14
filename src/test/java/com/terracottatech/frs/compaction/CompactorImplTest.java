@@ -40,13 +40,14 @@ public class CompactorImplTest {
     transactionManager = spy(new CompactionTestTransactionManager());
     policy = spy(new TestCompactionPolicy());
     logManager = mock(LogManager.class);
-    compactor = new CompactorImpl(objectManager, transactionManager, logManager, policy);
+    compactor = new CompactorImpl(objectManager, transactionManager, logManager, policy,
+                                  60, 1000, 2000);
   }
 
   @Test
   public void testBelowCompactionThreshold() throws Exception {
     compactor.startup();
-    for (int i = 0; i < 49999; i++) {
+    for (int i = 0; i < 1999; i++) {
       compactor.generatedGarbage();
     }
     SECONDS.sleep(1);

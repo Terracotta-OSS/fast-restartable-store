@@ -9,6 +9,7 @@ import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.MasterLogRecordFactory;
@@ -65,7 +66,8 @@ public class OnHeapTest {
         CompactionActions.registerActions(2, codec);
         actionMgr = new ActionManagerImpl(logMgr, objectMgr, codec, new MasterLogRecordFactory());
         TransactionManager transactionMgr = new TransactionManagerImpl(actionMgr);
-        store = new RestartStoreImpl(objectMgr, transactionMgr, logMgr, actionMgr);
+        Configuration configuration = Configuration.getConfiguration(folder.getRoot());
+        store = new RestartStoreImpl(objectMgr, transactionMgr, logMgr, actionMgr, ioMgr, configuration);
     }
 
     DecimalFormat df = new DecimalFormat("0000000000");

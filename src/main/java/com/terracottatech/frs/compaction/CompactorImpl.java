@@ -4,8 +4,11 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.NullAction;
+import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -27,9 +30,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class CompactorImpl implements Compactor {
   private static final Logger LOGGER = LoggerFactory.getLogger(Compactor.class);
 
-  private static final long RUN_INTERVAL_SECONDS = 300;
-  private static final long COMPACT_ACTION_THROTTLE = 1000;
-  private static final int START_THRESHOLD = 50000;
+  private static final String RUN_INTERVERAL_KEY = "compactor.runInterval";
+  private static final String THROTTLE_KEY = "compactor.throttleAmount";
+  private static final String START_THRESHOLD_KEY = "compactor.startThreshold";
+  private static final String POLICY_KEY = "compactor.policy";
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
@@ -37,14 +41,44 @@ public class CompactorImpl implements Compactor {
   private final Semaphore compactionCondition = new Semaphore(0);
   private final AtomicBoolean alive = new AtomicBoolean();
   private final CompactionPolicy policy;
+  private final long runIntervalSeconds;
+  private final long compactActionThrottle;
+  private final int startThreshold;
 
   private CompactorThread compactorThread;
 
-  public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, CompactionPolicy policy) {
+  CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                TransactionManager transactionManager, LogManager logManager,
+                CompactionPolicy policy, long runIntervalSeconds,
+                long compactActionThrottle, int startThreshold) {
     this.objectManager = objectManager;
     this.transactionManager = transactionManager;
     this.logManager = logManager;
     this.policy = policy;
+    this.runIntervalSeconds = runIntervalSeconds;
+    this.compactActionThrottle = compactActionThrottle;
+    this.startThreshold = startThreshold;
+  }
+
+  public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                       TransactionManager transactionManager, LogManager logManager,
+                       IOManager ioManager, Configuration configuration) throws RestartStoreException {
+    this(objectManager, transactionManager, logManager,
+         getPolicy(configuration, objectManager, logManager, ioManager),
+         configuration.getLong(RUN_INTERVERAL_KEY), configuration.getLong(THROTTLE_KEY),
+         configuration.getInt(START_THRESHOLD_KEY));
+  }
+
+  private static CompactionPolicy getPolicy(Configuration configuration,
+                                            ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                            LogManager logManager, IOManager ioManager) throws RestartStoreException{
+    String policy = configuration.getString(POLICY_KEY);
+    if ("LSNGapCompactionPolicy".equals(policy)) {
+      return new LSNGapCompactionPolicy(objectManager, logManager, configuration);
+    } else if ("SizeBasedCompactionPolicy".equals(policy)) {
+      return new SizeBasedCompactionPolicy(ioManager, objectManager, configuration);
+    }
+    throw new RestartStoreException("Unknown compaction policy " + policy);
   }
 
   @Override
@@ -58,7 +92,7 @@ public class CompactorImpl implements Compactor {
   @Override
   public void shutdown() throws InterruptedException {
     if (alive.compareAndSet(true, false)) {
-      compactionCondition.release(START_THRESHOLD); // Force the compactor thread to wake up
+      compactionCondition.release(startThreshold); // Force the compactor thread to wake up
       compactorThread.join();
     }
   }
@@ -73,7 +107,7 @@ public class CompactorImpl implements Compactor {
     public void run() {
       while (alive.get()) {
         try {
-          compactionCondition.tryAcquire(START_THRESHOLD, RUN_INTERVAL_SECONDS, SECONDS);
+          compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
 
           if (!alive.get()) {
             return;
@@ -121,7 +155,7 @@ public class CompactorImpl implements Compactor {
           // To prevent filling up the write queue with compaction junk, risking crowding
           // out actual actions, we throttle a bit after some set number of compaction
           // actions by just waiting until the latest compaction action is written to disk.
-          if (compactedCount % COMPACT_ACTION_THROTTLE == 0) {
+          if (compactedCount % compactActionThrottle == 0) {
             written.get();
           }
 
@@ -145,6 +179,6 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public void compactNow() {
-    compactionCondition.release(START_THRESHOLD);
+    compactionCondition.release(startThreshold);
   }
 }

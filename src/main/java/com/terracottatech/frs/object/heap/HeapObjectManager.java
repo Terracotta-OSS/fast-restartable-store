@@ -56,12 +56,10 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
   
   static class InHeapObjectManagerStripe<I, K, V> extends AbstractObjectManagerStripe<I, K, V> {
     
-    private final I identifier;
     private final ObjectManagerSegment<I, K, V>[] segments;
 
     @SuppressWarnings("unchecked")
     public InHeapObjectManagerStripe(I identifier, int stripes) {
-      this.identifier = identifier;
       this.segments = new ObjectManagerSegment[stripes];
       for (int i = 0; i < segments.length; i++) {
         segments[i] = new InHeapObjectManagerSegment<I, K, V>(identifier);
@@ -82,11 +80,6 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
       return key.hashCode();
     }
     
-    @Override
-    public I identifier() {
-      return identifier;
-    }
-
     @Override
     public long size() {
       long size = 0;
@@ -121,11 +114,6 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
     }
     
     @Override
-    public I identifier() {
-      return identifier;
-    }
-
-    @Override
     public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
       Lock l = lock.writeLock();
       l.lock();
@@ -139,7 +127,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
           }
           long lsn = lsnMap.get(firstKey);
           V value = dataMap.get(firstKey);
-          compactingEntry = new SimpleObjectManagerEntry<I, K, V>(identifier(), firstKey, value, lsn);
+          compactingEntry = new SimpleObjectManagerEntry<I, K, V>(identifier, firstKey, value, lsn);
           return compactingEntry;
         }
       } catch (Exception e) {

@@ -108,7 +108,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
   }
 
-  private boolean isRecoverying() {
+  private boolean isRecovering() {
     return state == State.RECOVERING;
   }
 
@@ -133,7 +133,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      happened(new PutAction(objectManager, compactor, id, key, value, isRecoverying()));
+      happened(new PutAction(objectManager, compactor, id, key, value, isRecovering()));
       return this;
   }
 
@@ -141,7 +141,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      happened(new DeleteAction(objectManager, compactor, id, isRecoverying()));
+      happened(new DeleteAction(objectManager, compactor, id, isRecovering()));
       return this;
     }
 
@@ -149,7 +149,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) throws
             TransactionException, InterruptedException {
       checkReadyState();
-      happened(new RemoveAction(objectManager, compactor, id, key, isRecoverying()));
+      happened(new RemoveAction(objectManager, compactor, id, key, isRecovering()));
       return this;
     }
 
@@ -173,7 +173,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) {
       checkReadyState();
       checkCommitted();
-      transactionManager.happened(handle, new PutAction(objectManager, compactor, id, key, value, isRecoverying()));
+      transactionManager.happened(handle, new PutAction(objectManager, compactor, id, key, value, isRecovering()));
       return this;
     }
 
@@ -181,7 +181,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) {
       checkReadyState();
       checkCommitted();
-      transactionManager.happened(handle, new DeleteAction(objectManager, compactor, id, isRecoverying()));
+      transactionManager.happened(handle, new DeleteAction(objectManager, compactor, id, isRecovering()));
       return this;
     }
 
@@ -189,7 +189,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) {
       checkReadyState();
       checkCommitted();
-      transactionManager.happened(handle, new RemoveAction(objectManager, compactor, id, key, isRecoverying()));
+      transactionManager.happened(handle, new RemoveAction(objectManager, compactor, id, key, isRecovering()));
       return this;
     }
 

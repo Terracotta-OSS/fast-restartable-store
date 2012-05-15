@@ -12,6 +12,8 @@ public interface ObjectManagerStripe<I, K, V> {
 
   void remove(K key);
 
+  void delete();
+  
   void replayPut(K key, V value, long lsn);
 
   Collection<ObjectManagerSegment<I, K, V>> getSegments();

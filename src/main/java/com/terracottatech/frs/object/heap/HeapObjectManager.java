@@ -41,7 +41,7 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
   }
 
   @Override
-  protected void deleteStripeFor(I id) {
+  public void delete(I id) {
     maps.remove(id);
   }
 
@@ -87,6 +87,11 @@ public class HeapObjectManager<I, K, V> extends AbstractObjectManager<I, K, V> {
         size += segment.size();
       }
       return size;
+    }
+
+    @Override
+    public void delete() {
+    //no-op
     }
   }
   

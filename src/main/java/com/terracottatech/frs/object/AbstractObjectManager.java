@@ -36,7 +36,7 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
 
   @Override
   public void delete(I id) {
-    deleteStripeFor(id);
+    getStripeFor(id).delete();
   }
 
   @Override
@@ -132,7 +132,5 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
    */
   protected abstract ObjectManagerStripe<I, K, V> getStripeFor(I id);
 
-  protected abstract void deleteStripeFor(I id);
-  
   protected abstract Collection<ObjectManagerStripe<I, K, V>> getStripes();
 }

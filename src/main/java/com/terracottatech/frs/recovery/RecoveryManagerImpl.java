@@ -7,6 +7,7 @@ package com.terracottatech.frs.recovery;
 import com.terracottatech.frs.DeleteFilter;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.transaction.TransactionFilter;
@@ -25,19 +26,25 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * @author tim
  */
 public class RecoveryManagerImpl implements RecoveryManager {
+  private static final String COMPRESSED_SKIP_SET_KEY = "recovery.compressedSkipSet";
+  private static final String MAX_REPLAY_QUEUE_LENGTH_KEY = "recovery.maxQueueLength";
+  private static final String MIN_REPLAY_THREAD_COUNT_KEY = "recovery.minThreadCount";
+  private static final String MAX_REPLAY_THREAD_COUNT_KEY = "recovery.maxThreadCount";
+
   private static final Logger LOGGER = LoggerFactory.getLogger(RecoveryManager.class);
-  private static final int MAX_REPLAY_QUEUE_LENGTH = 1000;
-  private static final int MIN_REPLAY_THREAD_COUNT = 1;
-  private static final int MAX_REPLAY_THREAD_COUNT =
-          Math.min(Runtime.getRuntime().availableProcessors() * 2, 64);
 
   private final LogManager logManager;
   private final ActionManager actionManager;
-  private final ReplayFilter replayFilter = new ReplayFilter();
+  private final boolean compressedSkipSet;
+  private final ReplayFilter replayFilter;
 
-  public RecoveryManagerImpl(LogManager logManager, ActionManager actionManager) {
+  public RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration) {
     this.logManager = logManager;
     this.actionManager = actionManager;
+    this.compressedSkipSet = configuration.getBoolean(COMPRESSED_SKIP_SET_KEY);
+    this.replayFilter = new ReplayFilter(configuration.getInt(MIN_REPLAY_THREAD_COUNT_KEY),
+                                         configuration.getInt(MAX_REPLAY_THREAD_COUNT_KEY),
+                                         configuration.getInt(MAX_REPLAY_QUEUE_LENGTH_KEY));
   }
 
   @Override
@@ -49,7 +56,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
-    Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn());
+    Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
+                                                 compressedSkipSet);
 
     // For now we're not spinning off another thread for recovery.
     try {
@@ -73,16 +81,20 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
   private static class ReplayFilter implements Filter<Action>, ThreadFactory {
     private final AtomicInteger              threadId        = new AtomicInteger();
-    private final ExecutorService            executorService =
-            new ThreadPoolExecutor(MIN_REPLAY_THREAD_COUNT,
-                                   MAX_REPLAY_THREAD_COUNT, 60,
-                                   SECONDS,
-                                   new ArrayBlockingQueue<Runnable>(
-                                           MAX_REPLAY_QUEUE_LENGTH),
-                                   this,
-                                   new ThreadPoolExecutor.CallerRunsPolicy());
     private final AtomicReference<Throwable> firstError      =
             new AtomicReference<Throwable>();
+
+    private final ExecutorService            executorService;
+
+    ReplayFilter(int minThreadCount, int maxThreadCount, int maxQueueLength) {
+      executorService = new ThreadPoolExecutor(minThreadCount,
+                                               maxThreadCount, 60,
+                                               SECONDS,
+                                               new ArrayBlockingQueue<Runnable>(
+                                                       maxQueueLength),
+                                               this,
+                                               new ThreadPoolExecutor.CallerRunsPolicy());
+    }
 
     @Override
     public boolean filter(final Action element, final long lsn) {

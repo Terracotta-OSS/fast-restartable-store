@@ -36,15 +36,20 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final Compactor compactor;
   private final LogManager logManager;
   private final ActionManager actionManager;
+  private final Configuration configuration;
 
   private volatile State state = State.INIT;
 
-  RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, TransactionManager transactionManager, LogManager logManager, ActionManager actionManager, Compactor compactor) {
+  RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                   TransactionManager transactionManager, LogManager logManager,
+                   ActionManager actionManager, Compactor compactor,
+                   Configuration configuration) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
     this.logManager = logManager;
     this.actionManager = actionManager;
     this.compactor = compactor;
+    this.configuration = configuration;
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -52,7 +57,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
                           ActionManager actionManager, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
     this(objectManager, transactionManager, logManager, actionManager,
-         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration));
+         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration),
+         configuration);
   }
 
   @Override
@@ -62,7 +68,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       throw new IllegalStateException("Can't startup from state " + state);
     }
     state = State.RECOVERING;
-    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, actionManager);
+    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, actionManager,
+                                                              configuration);
     return recoveryManager.recover(this);
   }
 

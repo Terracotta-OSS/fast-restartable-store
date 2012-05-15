@@ -31,7 +31,7 @@ public class SkipsFilterTest {
   public void setUp() throws Exception {
     delegate = mock(Filter.class);
     doReturn(true).when(delegate).filter(any(Action.class), anyLong());
-    filter = new SkipsFilter(delegate, 5L);
+    filter = new SkipsFilter(delegate, 5L, true);
   }
 
   @Test

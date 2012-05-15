@@ -9,6 +9,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.NullLogManager;
@@ -17,6 +18,7 @@ import com.terracottatech.frs.transaction.TransactionActionFactory;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Iterator;
@@ -46,7 +48,7 @@ public class RecoveryManagerImplTest {
     mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
     logManager = newLogManager();
     actionManager = newActionManager();
-    recoveryManager = new RecoveryManagerImpl(logManager, actionManager);
+    recoveryManager = new RecoveryManagerImpl(logManager, actionManager, Configuration.getConfiguration(new File("foo")));
   }
 
   private LogManager newLogManager() {

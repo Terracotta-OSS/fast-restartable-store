@@ -6,6 +6,7 @@ package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.util.CompressedLongSet;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -15,11 +16,16 @@ import java.util.Set;
  */
 public class SkipsFilter extends AbstractFilter<Action> {
   private final long lowestLsn;
-  private final Set<Long> skips = new HashSet<Long>();
+  private final Set<Long> skips;
 
-  public SkipsFilter(Filter<Action> nextFilter, long lowestLsn) {
+  public SkipsFilter(Filter<Action> nextFilter, long lowestLsn, boolean compressed) {
     super(nextFilter);
-    this.lowestLsn = lowestLsn;
+    this.lowestLsn  = lowestLsn;
+    if (compressed) {
+      skips = new CompressedLongSet();
+    } else {
+      skips = new HashSet<Long>();
+    }
   }
 
   @Override

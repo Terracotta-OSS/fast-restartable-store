@@ -6,6 +6,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
@@ -14,6 +15,7 @@ import com.terracottatech.frs.transaction.TransactionManager;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
@@ -32,9 +34,11 @@ public class RestartStoreImplTest {
   private TransactionHandle                                 handle;
   private LogManager logManager;
   private MapActionFactory mapActionFactory;
+  private Configuration configuration;
 
   @Before
   public void setUp() throws Exception {
+    configuration = Configuration.getConfiguration(new File("foo"));
     handle = mock(TransactionHandle.class);
     transactionManager = mock(TransactionManager.class);
     doReturn(handle).when(transactionManager).begin();
@@ -47,7 +51,8 @@ public class RestartStoreImplTest {
   }
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
-    return new RestartStoreImpl(objectManager, transactionManager, logManager, mock(ActionManager.class), compactor);
+    return new RestartStoreImpl(objectManager, transactionManager, logManager,
+                                mock(ActionManager.class), compactor, configuration);
   }
 
   @Test

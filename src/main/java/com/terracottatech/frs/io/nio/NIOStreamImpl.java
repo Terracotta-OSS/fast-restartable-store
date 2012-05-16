@@ -31,6 +31,7 @@ class NIOStreamImpl implements Stream {
     private final RotatingBufferSource pool = new RotatingBufferSource();
     private FSyncer syncer;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private BufferBuilder createBuffer;
 //    private long debugIn;
 //    private long debugOut;
 
@@ -46,13 +47,23 @@ class NIOStreamImpl implements Stream {
         } else {
             try {
                 NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getBeginningFile());
-                seg.openForReading(pool);
+                seg.openForHeader(pool);
                 streamId = seg.getStreamId();
                 seg.close();
+            } catch ( HeaderException header ) {
+                streamId = UUID.randomUUID();
             } catch ( IOException ioe ) {
                 streamId = UUID.randomUUID();
             }
         }
+    }
+    
+    public void setBufferBuilder(BufferBuilder builder) {
+        createBuffer = builder;
+    }
+    
+    BufferBuilder getBufferBuilder() {
+        return createBuffer;
     }
 
     @Override
@@ -91,7 +102,11 @@ class NIOStreamImpl implements Stream {
         NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getEndFile());
         try {
             pool.reclaim();
-            seg.openForReading(pool);
+            try {
+                seg.openForHeader(pool);
+            } catch ( HeaderException header ) {
+                return false;
+            }
             if (!seg.getStreamId().equals(streamId)) {
                 throw new IOException(BAD_STREAM_ID);
             }
@@ -114,6 +129,7 @@ class NIOStreamImpl implements Stream {
         while (!goodClose) {
             File f = segments.nextReadFile(Direction.REVERSE);
             if (f == null) {
+                segments.removeFilesFromHead();
                 return false;
             }
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
@@ -135,10 +151,11 @@ class NIOStreamImpl implements Stream {
                         return true;
                     }
                 } else {
+                    segments.removeFilesFromHead();
                     return false;
                 }
-            } catch (IOException ioe) {
-            //  something is wrong with this file move on.
+            } catch (HeaderException ioe) {
+            //  bad header info in this file, move on.
             } finally {
                 this.highestMarker = seg.getMaximumMarker();
                 this.lowestMarker = seg.getMinimumMarker();
@@ -157,7 +174,7 @@ class NIOStreamImpl implements Stream {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
                 pool.reclaim();
-                seg.openForReading(pool);
+                seg.openForHeader(pool);
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
@@ -166,7 +183,7 @@ class NIOStreamImpl implements Stream {
                     seg.limit(position);
                     return;
                 }
-            } catch ( IOException ioe ) {
+            } catch ( HeaderException ioe ) {
             //  something is wrong with this file move on.
             } finally {
                 seg.close();
@@ -178,7 +195,12 @@ class NIOStreamImpl implements Stream {
 //  make sure this segment backets lowest marker
     private boolean doubleCheck(File f) throws IOException {
         NIOSegmentImpl segment = new NIOSegmentImpl(this, f);
-        segment.openForReading(pool);
+        try {
+            segment.openForHeader(pool);
+        } catch ( HeaderException header ) {
+//  this should not happen here
+            throw new IOException(header);
+        }
 
         if (segment.getBaseMarker() > this.lowestMarker) {
             return false;
@@ -195,22 +217,33 @@ class NIOStreamImpl implements Stream {
         }
     }  
     
-    long findLogHead() throws IOException {
+    long findLogTail() throws IOException {
         segments.setReadPosition(0);
         File f = segments.nextReadFile(Direction.FORWARD);
         long size = 0;
         while (f != null) {
+
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
                 pool.reclaim();
-                seg.openForReading(pool);
+                try {
+                    seg.openForHeader(pool);
+                } catch ( HeaderException header ) {
+// this should not happen here, rethrow as a IOException
+                    throw new IOException(header);
+                }
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
+                
                 //  if the base is greater short circuit out
                 if (seg.getBaseMarker() > this.lowestMarker) {
                     File last = segments.nextReadFile(Direction.REVERSE);
                     if ( last != null ) size -= last.length();
+                    else size = 0;
+                    return size;
+                }
+                if ( f.equals(segments.getEndFile()) ) {
                     return size;
                 }
                 size += seg.length();
@@ -223,7 +256,7 @@ class NIOStreamImpl implements Stream {
     }
 
     long trimLogTail(long timeout) throws IOException {
-        if ( findLogHead() != 0 ) { // position the read had over the last dead segment
+        if ( findLogTail() != 0 ) { // position the read had over the last dead segment
             File last = segments.getCurrentReadFile();
             assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
@@ -360,12 +393,11 @@ class NIOStreamImpl implements Stream {
                     assert(nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) == 0);
                 }
                 readHead = nextHead;
+//  files should be clean, any error needs to be thrown
+            } catch (HeaderException header) {
+                throw new IOException(header);
             } catch (IOException ioe) {
-                if (readHead == null && dir == Direction.REVERSE) {
-//  something bad happened.  Can't even open the header.  but this is the end of the log so move on to the next and see if it will open
-                } else {
-                    throw ioe;
-                }
+                throw ioe;
             }
 
             checkStreamId(readHead);

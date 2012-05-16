@@ -52,8 +52,8 @@ class NIOSegmentImpl {
     File getFile() {
         return src;
     }
-
-    NIOSegmentImpl openForReading(BufferSource reader) throws IOException {
+    
+    NIOSegmentImpl openForHeader(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
         segment = new FileInputStream(src).getChannel();
@@ -61,7 +61,34 @@ class NIOSegmentImpl {
         fileSize = segment.size();
 
         if (fileSize < FILE_HEADER_SIZE) {
-            throw new IOException("bad header");
+            throw new HeaderException("bad header");
+        }
+
+        ByteBuffer fbuf = reader.getBuffer(FILE_HEADER_SIZE);
+        if (fbuf == null) {
+            LOGGER.warn("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            fbuf = ByteBuffer.allocate(1024 * 1024);
+        }
+
+        buffer = ( parent.getBufferBuilder() != null ) 
+                ? parent.getBufferBuilder().createBuffer(segment, fbuf) 
+                : new FileBuffer(segment, fbuf);
+
+        buffer.partition(FILE_HEADER_SIZE).read(1);
+        readFileHeader(buffer);
+
+        return this;
+    }    
+
+    NIOSegmentImpl openForReading(BufferSource reader) throws IOException, HeaderException {
+        long fileSize = 0;
+
+        segment = new FileInputStream(src).getChannel();
+
+        fileSize = segment.size();
+
+        if (fileSize < FILE_HEADER_SIZE) {
+            throw new HeaderException("bad header");
         }
         
 //        int bufferSize = 1024;
@@ -73,7 +100,9 @@ class NIOSegmentImpl {
             fbuf = ByteBuffer.allocate(1024 * 1024);
         }
 
-        buffer = new FileBuffer(segment, fbuf);
+        buffer = ( parent.getBufferBuilder() != null ) 
+                ? parent.getBufferBuilder().createBuffer(segment, fbuf) 
+                : new FileBuffer(segment, fbuf);
 
         buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
@@ -89,20 +118,20 @@ class NIOSegmentImpl {
         return this;
     }
 
-    private void readFileHeader(Chunk readBuffer) throws IOException {
+    private void readFileHeader(Chunk readBuffer) throws IOException, HeaderException {
         byte[] code = new byte[4];
         readBuffer.get(code);
         if (!SegmentHeaders.LOG_FILE.validate(code)) {
-            throw new IOException("file header is corrupted " + new String(code));
+            throw new HeaderException("file header is corrupted " + new String(code));
         }
         short impl = readBuffer.getShort();
         int checkSeg = readBuffer.getInt();
         if (segNum != checkSeg) {
-            throw new IOException("the filename does not match the internal file structure");
+            throw new HeaderException("the filename does not match the internal file structure");
         }
 
         if (impl != IMPL_NUMBER) {
-            throw new IOException("unknown implementation number");
+            throw new HeaderException("unknown implementation number");
         }
 
         streamId = new UUID(readBuffer.getLong(), readBuffer.getLong());
@@ -128,8 +157,10 @@ class NIOSegmentImpl {
             if ( request < 512 * 1024 ) bb = ByteBuffer.allocate(request);
             else bb = pool.getBuffer(request/=2);
         }
-
-        buffer = new FileBuffer(segment, bb);
+        
+        buffer = ( parent.getBufferBuilder() != null ) 
+                ? parent.getBufferBuilder().createBuffer(segment, bb) 
+                : new FileBuffer(segment, bb);
 
         writeJumpList = new ArrayList<Long>();
 
@@ -167,10 +198,8 @@ class NIOSegmentImpl {
         used.putLong(estart + ByteBufferUtils.LONG_SIZE,maxMarker);
         used.putInt(estart + (2*ByteBufferUtils.LONG_SIZE),SegmentHeaders.FILE_CHUNK.getIntValue());
 //   write it all out
-        amt = 0;
-        while ( used.hasRemaining() ) {
-            amt += segment.write(used);
-        }
+        amt = buffer.writeFully(used);
+        
         writeJumpList.add(segment.position());
         return amt;
     }
@@ -350,7 +379,9 @@ class NIOSegmentImpl {
         fc.truncate(pos);
         fc.position(pos);
         ByteBuffer close = ByteBuffer.allocate(4096);
-        FileBuffer target = new FileBuffer(fc,close);
+        FileBuffer target = ( parent.getBufferBuilder() != null ) 
+                ? parent.getBufferBuilder().createBuffer(fc, close) 
+                : new FileBuffer(fc, close);
         target.put(SegmentHeaders.CLOSE_FILE.getBytes());
         writeJumpList(target);
         target.write(1);

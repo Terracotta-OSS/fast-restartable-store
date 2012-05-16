@@ -124,7 +124,7 @@ class NIOSegmentList {
             f.delete();
             count++;
         }
-        assert(segments.get(position).equals(readHead));
+        assert(readHead == null || segments.get(position).equals(readHead));
         return size;
     }
     

@@ -5,10 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.config.Configuration;
-import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.io.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -70,7 +67,21 @@ public class NIOManager implements IOManager {
     }
     
     public NIOManager(Configuration config) throws IOException {
-        this(config.getString("dbhome"),config.getLong("io.nio.segmentSize",16 * 1024 * 1024));
+        this(config.getDBHome().getAbsolutePath(),config.getLong("io.nio.segmentSize",16 * 1024 * 1024));
+        String bufferBuilder = config.getString("io.nio.bufferBuilder");
+        if ( bufferBuilder != null ) {
+            try {
+                backend.setBufferBuilder((BufferBuilder)Class.forName(bufferBuilder).newInstance());
+            } catch ( ClassNotFoundException cnf ) {
+                LOGGER.warn("custom builder", cnf);
+            } catch ( IllegalAccessException iae ) {
+                LOGGER.warn("custom builder", iae);
+            } catch ( InstantiationException ie ) {
+                LOGGER.warn("custom builder", ie);
+            } catch ( ClassCastException cce ) {
+                LOGGER.warn("custom builder", cce);
+            }
+        }
     }
 
     @Override
@@ -244,7 +255,7 @@ public class NIOManager implements IOManager {
     public synchronized IOStatistics getStatistics() throws IOException {
         readOpsAllowed = false;
         try {
-            return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogHead(), written, read);
+            return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogTail(), written, read);
         } finally {
             readOpsAllowed = true;
         }

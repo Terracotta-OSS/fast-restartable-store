@@ -14,8 +14,8 @@ public abstract class AbstractAdaptingFilter<T, U> implements Filter<T> {
     this.nextFilter = nextFilter;
   }
 
-  protected boolean delegate(T element, long lsn) {
-    return nextFilter.filter(convert(element), lsn);
+  protected boolean delegate(T element, long lsn, boolean filtered) {
+    return nextFilter.filter(convert(element), lsn, filtered);
   }
 
   protected abstract U convert(T element);

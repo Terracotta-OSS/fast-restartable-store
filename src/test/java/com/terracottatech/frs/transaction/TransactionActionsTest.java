@@ -55,5 +55,14 @@ public class TransactionActionsTest {
 
     ByteBuffer[] encoded = actionCodec.encode(txn);
     assertThat(actionCodec.decode(encoded), is(txn));
+
+    txn = new TransactionalAction(new TransactionHandleImpl(3L),true, false, mapActionFactory.put(1, 2, 3), callback);
+
+    encoded = actionCodec.encode(txn);
+
+    TransactionAction decoded = (TransactionAction) actionCodec.decode(encoded);
+    assertThat(decoded, is(txn));
+    assertThat(decoded.getHandle(), is((TransactionHandle) new TransactionHandleImpl(3L)));
+    assertThat(decoded.isBegin(), is(true));
   }
 }

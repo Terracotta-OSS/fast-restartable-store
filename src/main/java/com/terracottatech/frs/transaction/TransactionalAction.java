@@ -129,6 +129,7 @@ class TransactionalAction implements InvalidatingAction, TransactionAction {
     return "TransactionalAction{" +
             "handle=" + handle +
             ", action=" + action +
+            ", mode=" + mode +
             '}';
   }
 }

@@ -19,6 +19,7 @@ import static org.hamcrest.core.Is.is;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -30,19 +31,30 @@ public class SkipsFilterTest {
   @Before
   public void setUp() throws Exception {
     delegate = mock(Filter.class);
-    doReturn(true).when(delegate).filter(any(Action.class), anyLong());
+    doReturn(true).when(delegate).filter(any(Action.class), anyLong(), eq(false));
+    doReturn(false).when(delegate).filter(any(Action.class), anyLong(), eq(true));
     filter = new SkipsFilter(delegate, 5L, true);
+  }
+
+  @Test
+  public void testDelegateSkipped() throws Exception {
+    Action action6 = createAction(true);
+    Action action7 = createAction(6L, true);
+    assertThat(filter.filter(action7, 7L, false), is(true));
+    verify(delegate).filter(action7, 7L, false);
+    assertThat(filter.filter(action6, 6L, false), is(false));
+    verify(delegate).filter(action6, 6L, true);
   }
 
   @Test
   public void testFilterBelowLowest() throws Exception {
     Action action4 = createAction(true);
     Action action5 = createAction(4L, true);
-    assertThat(filter.filter(action5, 5), is(true));
+    assertThat(filter.filter(action5, 5, false), is(true));
     // This is weird in that 4 should be skipped, but since it's below the lowestLsn,
     // the skips filter won't track it. To test that, set 4 to be skipped, and try to
     // replay it.
-    assertThat(filter.filter(action4, 4), is(true));
+    assertThat(filter.filter(action4, 4, false), is(true));
   }
 
   @Test
@@ -51,23 +63,24 @@ public class SkipsFilterTest {
     Action action7 = createAction(true);
     Action action8 = createAction(Arrays.asList(6L, 7L), false);
     Action action9 = createAction(8, true);
-    assertThat(filter.filter(action9, 9), is(true));
-    assertThat(filter.filter(action8, 8), is(false));
-    assertThat(filter.filter(action7, 7), is(false));
-    assertThat(filter.filter(action6, 6), is(false));
+    assertThat(filter.filter(action9, 9, false), is(true));
+    assertThat(filter.filter(action8, 8, false), is(false));
+    assertThat(filter.filter(action7, 7, false), is(false));
+    assertThat(filter.filter(action6, 6, false), is(false));
   }
 
   @Test
   public void testDelegateReturnsFalse() throws Exception {
     Action action5 = createAction(-1, true);
     Action action6 = createAction(5, false);
-    assertThat(filter.filter(action6, 6), is(false));
-    assertThat(filter.filter(action5, 5), is(true));
+    assertThat(filter.filter(action6, 6, false), is(false));
+    assertThat(filter.filter(action5, 5, false), is(true));
   }
 
   private Action createAction(boolean replayReturn) {
     Action action = mock(Action.class);
-    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong());
+    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong(), eq(false));
+    doReturn(false).when(delegate).filter(eq(action), anyLong(), eq(true));
     return action;
   }
 
@@ -77,7 +90,7 @@ public class SkipsFilterTest {
 
   private Action createAction(final Collection<Long> previousLsns, boolean replayReturn) {
     InvalidatingAction action = mock(InvalidatingAction.class);
-    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong());
+    doReturn(replayReturn).when(delegate).filter(eq(action), anyLong(), anyBoolean());
     doReturn(new HashSet<Long>(previousLsns)).when(action).getInvalidatedLsns();
     return action;
   }

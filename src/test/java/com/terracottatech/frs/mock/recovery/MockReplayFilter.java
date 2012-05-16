@@ -14,9 +14,13 @@ import com.terracottatech.frs.action.Action;
 class MockReplayFilter implements Filter<Action> {
 
   @Override
-  public boolean filter(Action element, long lsn) {
-    element.replay(lsn);
-    return true;
+  public boolean filter(Action element, long lsn, boolean filtered) {
+    if (filtered) {
+      return false;
+    } else {
+      element.replay(lsn);
+      return true;
+    }
   }
   
 }

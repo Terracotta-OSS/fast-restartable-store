@@ -18,8 +18,8 @@ public abstract class MockAbstractFilter<T, U> implements Filter<T> {
     this.next = next;
   }
 
-  protected final boolean delegate(T element, long lsn) {
-    return next.filter(convert(element), lsn);
+  protected final boolean delegate(T element, long lsn, boolean filtered) {
+    return next.filter(convert(element), lsn, filtered);
   }
   
   protected abstract U convert(T element);

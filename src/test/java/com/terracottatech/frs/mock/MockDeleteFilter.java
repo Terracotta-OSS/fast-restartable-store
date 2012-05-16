@@ -4,11 +4,9 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.mock.recovery.MockAbstractFilter;
 import com.terracottatech.frs.recovery.Filter;
-import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.mock.MockCompleteKeyAction;
-import com.terracottatech.frs.mock.MockDeleteAction;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,14 +24,14 @@ public class MockDeleteFilter<I> extends MockAbstractFilter<Action, Action> {
   }
   
   @Override
-  public boolean filter(Action element, long lsn) {
+  public boolean filter(Action element, long lsn, boolean filtered) {
     if (element instanceof MockDeleteAction<?>) {
       deletedIds.add(((MockDeleteAction<I>) element).getId());
       return true;
     } else if (element instanceof MockCompleteKeyAction<?, ?> && deletedIds.contains(((MockCompleteKeyAction<I, ?>) element).getId())) {
-      return true;
+      return delegate(element, lsn, true);
     } else {
-      return delegate(element, lsn);
+      return delegate(element, lsn, filtered);
     }
   }
 

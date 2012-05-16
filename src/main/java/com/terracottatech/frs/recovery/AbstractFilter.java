@@ -14,7 +14,7 @@ public abstract class AbstractFilter<T> implements Filter<T> {
     this.nextFilter = nextFilter;
   }
 
-  protected boolean delegate(T element, long lsn) {
-    return nextFilter.filter(element, lsn);
+  protected boolean delegate(T element, long lsn, boolean filtered) {
+    return nextFilter.filter(element, lsn, filtered);
   }
 }

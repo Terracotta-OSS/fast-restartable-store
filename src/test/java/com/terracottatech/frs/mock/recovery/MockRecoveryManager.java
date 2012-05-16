@@ -44,7 +44,7 @@ public class MockRecoveryManager implements RecoveryManager {
     while (it.hasNext()) {
       LogRecord record = it.next();
       Action action = actionManager.extract(record);
-      skipsFilter.filter(action, record.getLsn());
+      skipsFilter.filter(action, record.getLsn(), false);
     }
 
     return new NullFuture();

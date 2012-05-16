@@ -23,7 +23,7 @@ public class MockTransactionFilter extends MockAbstractFilter<Action, Action> {
   }
   
   @Override
-  public boolean filter(Action element, long lsn) {
+  public boolean filter(Action element, long lsn, boolean filtered) {
     if (element instanceof MockTransactionCommitAction) {
       validTransactions.add(((MockTransactionCommitAction) element).getId());
       return true;
@@ -31,9 +31,9 @@ public class MockTransactionFilter extends MockAbstractFilter<Action, Action> {
       validTransactions.remove(((MockTransactionBeginAction) element).getId());
       return true;
     } else if (element instanceof MockTransactionalAction && !validTransactions.contains(((MockTransactionalAction) element).getId())) {
-      return false;
+      return delegate(element, lsn, true);
     } else {
-      return delegate(element, lsn);
+      return delegate(element, lsn, filtered);
     }
   }
 

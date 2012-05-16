@@ -24,12 +24,12 @@ class MockSkipsFilter extends MockAbstractFilter<Action, Action> {
   }
   
   @Override
-  public boolean filter(Action action, long lsn) {
+  public boolean filter(Action action, long lsn, boolean filtered) {
     if (skips.remove(lsn)) {
       updateSkips(action);
-      return false;
+      return delegate(action, lsn, true);
     } else {
-      if (delegate(action, lsn)) {
+      if (delegate(action, lsn, filtered)) {
         updateSkips(action);
         return true;
       } else {

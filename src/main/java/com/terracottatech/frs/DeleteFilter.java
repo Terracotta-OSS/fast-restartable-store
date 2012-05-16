@@ -23,17 +23,14 @@ public class DeleteFilter extends AbstractFilter<Action> {
   }
 
   @Override
-  public boolean filter(Action element, long lsn) {
+  public boolean filter(Action element, long lsn, boolean filtered) {
     if (element instanceof DeleteAction) {
       deleted.add(((DeleteAction) element).getId());
       return true;
-    } else if (element instanceof PutAction) {
-      if (!deleted.contains(((PutAction) element).getId())) {
-        return delegate(element, lsn);
-      } else {
-        return true;
-      }
+    } else if (element instanceof PutAction && deleted.contains(((PutAction) element).getId())) {
+      return delegate(element, lsn, true);
+    } else {
+      return delegate(element, lsn, filtered);
     }
-    return delegate(element, lsn);
   }
 }

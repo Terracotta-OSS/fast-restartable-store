@@ -37,7 +37,7 @@ public class DeleteFilterTest {
   public void setUp() throws Exception {
     compactor = mock(Compactor.class);
     delegate = mock(Filter.class);
-    doReturn(true).when(delegate).filter(any(Action.class), anyLong());
+    doReturn(true).when(delegate).filter(any(Action.class), anyLong(), anyBoolean());
     objectManager = mock(ObjectManager.class);
     filter = new DeleteFilter(delegate);
     mapActionFactory = new MapActionFactory(objectManager, compactor);
@@ -45,19 +45,19 @@ public class DeleteFilterTest {
 
   @Test
   public void testFilterDeleteAction() throws Exception {
-    assertThat(filter.filter(mapActionFactory.delete(1), 2), is(true));
-    assertThat(filter.filter(mapActionFactory.put(1, 2, 3), 1), is(true));
-    verify(delegate, never()).filter(any(Action.class), anyLong());
-    assertThat(filter.filter(mapActionFactory.put(2, 3, 3), 0), is(true));
-    verify(delegate).filter(any(PutAction.class), anyLong());
+    assertThat(filter.filter(mapActionFactory.delete(1), 2, false), is(true));
+    assertThat(filter.filter(mapActionFactory.put(1, 2, 3), 1, false), is(true));
+    verify(delegate).filter(any(Action.class), eq(1L), eq(true));
+    assertThat(filter.filter(mapActionFactory.put(2, 3, 3), 0, false), is(true));
+    verify(delegate).filter(any(PutAction.class), eq(0L), eq(false));
   }
 
   @Test
   public void testPassthrough() throws Exception {
     Action bogusAction = mock(Action.class);
-    assertThat(filter.filter(mapActionFactory.delete(1), 2), is(true));
-    assertThat(filter.filter(bogusAction, 1), is(true));
-    verify(delegate).filter(eq(bogusAction), anyLong());
+    assertThat(filter.filter(mapActionFactory.delete(1), 2, false), is(true));
+    assertThat(filter.filter(bogusAction, 1, false), is(true));
+    verify(delegate).filter(eq(bogusAction), anyLong(), anyBoolean());
   }
 
   @Test

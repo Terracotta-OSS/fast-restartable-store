@@ -64,7 +64,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
         Action action = actionManager.extract(logRecord);
-        skipsFilter.filter(action, logRecord.getLsn());
+        skipsFilter.filter(action, logRecord.getLsn(), false);
         replayFilter.checkError();
       }
     } finally {
@@ -97,19 +97,23 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     @Override
-    public boolean filter(final Action element, final long lsn) {
-      executorService.submit(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            element.replay(lsn);
-          } catch (Throwable t) {
-            firstError.compareAndSet(null, t);
-            LOGGER.error("Error replaying record: " + t.getMessage());
+    public boolean filter(final Action element, final long lsn, boolean filtered) {
+      if (filtered) {
+        return false;
+      } else {
+        executorService.submit(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              element.replay(lsn);
+            } catch (Throwable t) {
+              firstError.compareAndSet(null, t);
+              LOGGER.error("Error replaying record: " + t.getMessage());
+            }
           }
-        }
-      });
-      return true;
+        });
+        return true;
+      }
     }
 
     void checkError() throws RecoveryException {

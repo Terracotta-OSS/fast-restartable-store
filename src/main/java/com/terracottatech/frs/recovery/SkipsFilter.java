@@ -29,16 +29,18 @@ public class SkipsFilter extends AbstractFilter<Action> {
   }
 
   @Override
-  public boolean filter(Action element, long lsn) {
+  public boolean filter(Action element, long lsn, boolean filtered) {
     if (skips.remove(lsn)) {
       updateSkips(element);
+      return delegate(element, lsn, true);
     } else {
-      if (delegate(element, lsn)) {
+      if (delegate(element, lsn, filtered)) {
         updateSkips(element);
         return true;
+      } else {
+        return false;
       }
     }
-    return false;
   }
 
   private void updateSkips(Action action) {

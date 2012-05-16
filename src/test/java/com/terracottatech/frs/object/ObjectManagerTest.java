@@ -292,6 +292,7 @@ public abstract class ObjectManagerTest {
   @Test 
   public void lowestLsnTest() {
       ObjectManager<Integer,String,String> testlow = createObjectManager();
+      assertThat(testlow.getLowestLsn(),is(-1L));
       testlow.put(1, "test", "low", 2L);
       testlow.updateLowestLsn();
       assertThat(testlow.getLowestLsn(),is(2L));

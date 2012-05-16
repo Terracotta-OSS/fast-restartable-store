@@ -14,9 +14,11 @@ public class Configuration {
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 
   private final Properties properties;
+  private final File       dbhome;
 
-  private Configuration(Properties properties) {
+  private Configuration(File home, Properties properties) {
     this.properties = properties;
+    dbhome = home;
   }
 
   public static Configuration getConfiguration(File directory) {
@@ -41,7 +43,7 @@ public class Configuration {
         throw new RuntimeException("Failed to read user frs configuration.", e);
       }
     }
-    return new Configuration(properties);
+    return new Configuration(directory, properties);
   }
 
   private static String prefixKey(String key) {
@@ -99,6 +101,10 @@ public class Configuration {
   public Boolean getBoolean(String key) {
     String val = getString(key);
     return val == null ? null : Boolean.parseBoolean(val);
+  }
+  
+  public File getDBHome() {
+      return dbhome;
   }
 
   @Override

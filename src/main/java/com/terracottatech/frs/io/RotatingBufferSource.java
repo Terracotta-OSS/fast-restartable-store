@@ -4,13 +4,10 @@
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.config.Configuration;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,15 +18,10 @@ import org.slf4j.LoggerFactory;
 public class RotatingBufferSource implements BufferSource {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
-    private final ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
+    private ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
-    private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
-        @Override
-        public int compare(Integer t, Integer t1) {
-     // make sure nothing ever equals so everything fits in the set
-            return t.intValue() - t1.intValue();
-        }
-    });
+    GlobalBufferSource parent = GlobalBufferSource.getInstance(this);
+
     private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
     private int created = 0;
     private int released = 0;
@@ -46,15 +38,8 @@ public class RotatingBufferSource implements BufferSource {
         int spins = 0;
         while (factor == null) {
             if (totalCapacity > MAX_CAPACITY) {
-                if ( !freeList.isEmpty() ) {
-                    totalCapacity -= freeList.pollLastEntry().getValue().capacity();
-                    released += 1;
-                    System.gc();
-                    clearQueue(true);
-                    factor = checkFree(size);
-                } else {
-                    return null;
-                }
+                parent.reclaim();
+                factor = checkFree(size);
             } else {
                 // pad some extra for later
                 try {
@@ -64,16 +49,8 @@ public class RotatingBufferSource implements BufferSource {
                     created += 1;
                     totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
-                    if ( !freeList.isEmpty() ) {
-                        totalCapacity -= freeList.pollLastEntry().getValue().capacity();
-                        released += 1;
-                        System.gc();
-                        LOGGER.warn("WARNING: ran out of direct memory calling GC");
-                        clearQueue(true);  
-                        factor = checkFree(size);
-                    } else {
-                        return null;
-                    }
+                    parent.reclaim();
+                    LOGGER.warn("WARNING: ran out of direct memory calling GC");
                 }
             }
             if (spins++ > 100) {
@@ -86,7 +63,14 @@ public class RotatingBufferSource implements BufferSource {
     }
     
     public void clear() {
-        freeList.clear();
+        clearQueue(false);
+        parent.release(this);
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        clear();
     }
 
     private void clearQueue(boolean wait) {
@@ -101,10 +85,7 @@ public class RotatingBufferSource implements BufferSource {
                 if (used.remove(holder)) {
                     holder.getBase().position(0);
                     ByteBuffer check = holder.getBase();
-                    while ( check != null ) {
-                        check.limit(check.limit()-1);
-                        check = freeList.put(check.limit(),check);
-                    }
+                    parent.returnBuffer(check);
                 }
                 holder = (BaseHolder) queue.poll();
 
@@ -123,13 +104,7 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     private ByteBuffer checkFree(int request) {
-        if (freeList.isEmpty()) {
-            return null;
-        }
-        Integer get = freeList.ceilingKey(request);
-        if ( get == null ) return null;
-        
-        return freeList.remove(get);
+        return parent.getBuffer(request);
     }
 
     @Override

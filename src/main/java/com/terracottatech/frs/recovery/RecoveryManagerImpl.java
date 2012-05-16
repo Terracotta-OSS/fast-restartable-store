@@ -54,7 +54,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     Iterator<LogRecord> i = logManager.reader();
 
-    Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
+    Filter<Action> deleteFilter = new DeleteFilter(new ProgressLoggingFilter(replayFilter,
+                                                                             logManager.lowestLsn()));
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
                                                  compressedSkipSet);
@@ -77,6 +78,35 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     return new NullFuture();
+  }
+
+  private static class ProgressLoggingFilter extends AbstractFilter<Action> {
+    private final long lowestLsn;
+    private Long totalLsns;
+    private double lastLoggedProgress;
+
+    ProgressLoggingFilter(Filter<Action> delegate, long lowestLsn) {
+      super(delegate);
+      this.lowestLsn = lowestLsn;
+    }
+
+    @Override
+    public boolean filter(Action element, long lsn, boolean filtered) {
+      if (totalLsns == null) {
+        // grab the first lsn off the stream
+        totalLsns = lsn - lowestLsn;
+      }
+      double currentProgress = progress(lsn);
+      if (currentProgress - lastLoggedProgress >= 0.1) {
+        lastLoggedProgress = currentProgress;
+        LOGGER.info("Recovery progress " + String.format("%.2f", currentProgress * 100) + "%");
+      }
+      return delegate(element, lsn, filtered);
+    }
+
+    private double progress(long current) {
+      return (1.0 - ((double) current) / totalLsns);
+    }
   }
 
   private static class ReplayFilter implements Filter<Action>, ThreadFactory {

@@ -29,8 +29,7 @@ public class ConfigurationTest {
 
     System.setProperty("com.tc.frs.compactor.lsnGap.minLoad", "1.00");
 
-    File overrides = new File(directory, "frs.properties");
-    FileOutputStream fos = new FileOutputStream(overrides);
+    FileOutputStream fos = new FileOutputStream(new File(directory, "frs.properties"));
     try {
       properties.store(fos, null);
     } finally {
@@ -43,5 +42,17 @@ public class ConfigurationTest {
     assertThat(configuration.getString("compactor.policy"), is("bogus123"));
     assertThat(configuration.getInt("abc"), is(123));
     assertThat(configuration.getDouble("compactor.lsnGap.minLoad"), is(1.00));
+
+    Properties overrides = new Properties();
+    overrides.setProperty("foo", "bar");
+    overrides.setProperty("gel", "banana");
+
+    configuration = Configuration.getConfiguration(directory, overrides);
+
+    assertThat(configuration.getString("foo"), is("bar"));
+    assertThat(configuration.getString("compactor.policy"), is("bogus123"));
+    assertThat(configuration.getInt("abc"), is(123));
+    assertThat(configuration.getDouble("compactor.lsnGap.minLoad"), is(1.00));
+    assertThat(configuration.getString("gel"), is("banana"));
   }
 }

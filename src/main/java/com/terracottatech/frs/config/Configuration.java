@@ -21,7 +21,7 @@ public class Configuration {
     dbhome = home;
   }
 
-  public static Configuration getConfiguration(File directory) {
+  public static Configuration getConfiguration(File directory, Properties overrides) {
     Properties properties = new Properties();
     try {
       properties.load(Configuration.class.getResourceAsStream(DEFAULT_PROPERTIES_FILE));
@@ -43,7 +43,12 @@ public class Configuration {
         throw new RuntimeException("Failed to read user frs configuration.", e);
       }
     }
+    properties.putAll(overrides);
     return new Configuration(directory, properties);
+  }
+
+  public static Configuration getConfiguration(File directory) {
+    return getConfiguration(directory, new Properties());
   }
 
   private static String prefixKey(String key) {

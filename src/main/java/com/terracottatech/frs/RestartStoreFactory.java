@@ -23,6 +23,7 @@ import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Properties;
 
 /**
  * @author tim
@@ -42,11 +43,10 @@ public abstract class RestartStoreFactory {
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(
-          ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, File dbHome,
-          long fileSize) throws
-          IOException, RestartStoreException {
-    Configuration configuration = Configuration.getConfiguration(dbHome);
-    IOManager ioManager = new NIOManager(dbHome.getAbsolutePath(), fileSize);
+          ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+          File dbHome, Properties properties) throws IOException, RestartStoreException {
+    Configuration configuration = Configuration.getConfiguration(dbHome, properties);
+    IOManager ioManager = new NIOManager(configuration);
     LogManager logManager = new StagingLogManager(ioManager,configuration);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager),
@@ -54,5 +54,14 @@ public abstract class RestartStoreFactory {
     TransactionManager transactionManager = new TransactionManagerImpl(actionManager);
     return new RestartStoreImpl(objectManager, transactionManager, logManager,
                                 actionManager, ioManager, configuration);
+  }
+
+  public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(
+          ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, File dbHome,
+          long fileSize) throws
+          IOException, RestartStoreException {
+    Properties properties = new Properties();
+    properties.setProperty("io.nio.segmentSize", Long.toString(fileSize));
+    return createStore(objectManager, dbHome, properties);
   }
 }

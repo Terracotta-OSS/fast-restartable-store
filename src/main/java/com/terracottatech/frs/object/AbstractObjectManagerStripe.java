@@ -8,11 +8,11 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
   
   @Override
   public Long getLowestLsn() {
-    long lowest = -1;
+    Long lowest = null;
     for (ObjectManagerSegment<I, K, V> segment : getSegments()) {
       Long firstLsn = segment.getLowestLsn();
       if (firstLsn != null) {
-        if (lowest < 0 || firstLsn < lowest) {
+        if (lowest == null || firstLsn < lowest) {
           lowest = firstLsn;
         }
       }

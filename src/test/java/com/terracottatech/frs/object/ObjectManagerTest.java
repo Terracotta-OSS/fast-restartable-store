@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.object;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -287,4 +288,13 @@ public abstract class ObjectManagerTest {
 
     }
   }
+  
+  @Test 
+  public void lowestLsnTest() {
+      ObjectManager<Integer,String,String> testlow = createObjectManager();
+      testlow.put(1, "test", "low", 2L);
+      testlow.updateLowestLsn();
+      assertThat(testlow.getLowestLsn(),is(2L));
+        
+  } 
 }

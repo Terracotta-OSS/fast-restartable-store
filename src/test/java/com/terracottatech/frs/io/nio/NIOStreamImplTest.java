@@ -6,6 +6,7 @@ import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -104,7 +105,7 @@ public class NIOStreamImplTest {
     stream.sync();
     File lock = new File(workArea.getAbsolutePath() + "/FRS.lck");
     assertTrue(lock.exists());
-    FileBuffer chunk = new FileBuffer(new File(workArea.getAbsolutePath() + "/FRS.lck"));
+    FileBuffer chunk = new FileBuffer(new FileInputStream(lock).getChannel(),ByteBuffer.allocate((int)lock.length()));
     System.out.format("uuid: %s segment: %d position: %d",
                       new UUID(chunk.getLong(), chunk.getLong()).toString(),
                       chunk.getInt(), chunk.getLong());

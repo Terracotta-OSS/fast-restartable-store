@@ -32,20 +32,15 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
     }
-
-    public FileBuffer(FileChannel channel, BufferSource src) throws IOException {
-        this(channel, src.getBuffer((int) channel.size()));
-        this.src = src;
-    }
-
-    public FileBuffer(File src) throws IOException {
-        this.channel = new FileInputStream(src).getChannel();
-        if (channel.size() > Integer.MAX_VALUE) {
-            throw new RuntimeException("integer overflow error");
-        }
-        this.base = ByteBuffer.allocate((int) channel.size());
-        this.ref = new ByteBuffer[]{base.duplicate()};
-    }
+//
+//    public FileBuffer(File src) throws IOException {
+//        this.channel = new FileInputStream(src).getChannel();
+//        if (channel.size() > Integer.MAX_VALUE) {
+//            throw new RuntimeException("integer overflow error");
+//        }
+//        this.base = ByteBuffer.allocate((int) channel.size());
+//        this.ref = new ByteBuffer[]{base.duplicate()};
+//    }
 
     public long getTotal() {
         return total;
@@ -140,7 +135,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return lt;
     }
 
-    private long writeFully(ByteBuffer buffer) throws IOException {
+    public long writeFully(ByteBuffer buffer) throws IOException {
         long lt = 0;
         while (buffer.hasRemaining()) {
             lt += channel.write(buffer);
@@ -273,8 +268,8 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         if (count > 5 || !direct) {
             lt += coalescingWrite(usage, count);
         } else {
-            while ( ref[mark+count-1].hasRemaining() ) {
-                lt += channel.write(ref, mark, count);
+            for(int x=mark;x<count;x++) {
+                lt += writeFully(ref[x]);
             }
         }
 
@@ -294,10 +289,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     }
 
     public long writeDirect(ByteBuffer[] list) throws IOException {
+        mark = 0;
         ref = list;
-        assert(!this.hasRemaining());
         return coalescingWrite(base.capacity(), list.length);
-    }
+    }   
 
     @Override
     public void close() throws IOException {

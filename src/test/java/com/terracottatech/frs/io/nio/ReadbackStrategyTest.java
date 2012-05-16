@@ -23,7 +23,7 @@ import static org.hamcrest.core.Is.is;
  *
  * @author mscott
  */
-public class ReadbackStrategyTests {
+public class ReadbackStrategyTest {
     
     FileBuffer  buffer;
     File        src;
@@ -31,7 +31,7 @@ public class ReadbackStrategyTests {
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();    
     
-    public ReadbackStrategyTests() {
+    public ReadbackStrategyTest() {
     }
 
     @BeforeClass
@@ -105,7 +105,7 @@ public class ReadbackStrategyTests {
     }
     
     
-    @Test
+    @Test @Ignore
     public void testIntegrityReadbackOnAbort() throws Exception {
 //  testing abort close
         buffer.sync();

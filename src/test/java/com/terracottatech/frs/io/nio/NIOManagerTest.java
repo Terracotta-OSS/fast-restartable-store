@@ -4,7 +4,11 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.GlobalFilters;
+import com.terracottatech.frs.io.TimebombFilter;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.*;
 import org.junit.After;
@@ -14,12 +18,16 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -31,6 +39,7 @@ public class NIOManagerTest {
     private NIOManager manager;
     private long lsn = 100;
     private File workArea;
+    private Configuration config;
     
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
@@ -39,7 +48,16 @@ public class NIOManagerTest {
     public void setUp() throws IOException {
             workArea = folder.newFolder();
             System.out.println(workArea.getAbsolutePath());
-            manager = new NIOManager(workArea.getAbsolutePath(), 10 * 1024 * 1024);
+            Properties props = new Properties();
+            props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.SimulatingBufferBuilder");
+            props.setProperty("io.nio.segmentSize", Integer.toString(1024 * 1024));
+            try {
+                props.store(new FileWriter(new File(workArea,"frs.properties")), null);
+            } catch ( IOException io ) {
+                
+            }
+            config = Configuration.getConfiguration(workArea);
+            manager = new NIOManager(config);
     }
     
     @After
@@ -194,5 +212,41 @@ public class NIOManagerTest {
            if ( lsn > 0 ) assert(lsn-1 == record.getLsn());
            lsn = record.getLsn();
        }
+    }
+    
+    @Test
+    public void testTimeBomb() throws Exception {
+        GlobalFilters.addFilter(new TimebombFilter(1, TimeUnit.SECONDS));
+        int count =0;
+        DecimalFormat df = new DecimalFormat("0000000000");
+        try {
+            while ( true ) {
+                manager.write(new WrappingChunk(ByteBuffer.wrap(df.format(count++).getBytes())));
+                if ( count % 10000 == 0 ) manager.sync();
+            }
+        } catch ( IOException ioe ) {
+            ioe.printStackTrace();
+        }
+        System.out.println(Integer.toString(count));
+        
+        manager.seek(0);
+        manager.close();
+        
+        while ( Thread.interrupted() ) {};
+        
+        manager = new NIOManager(config);
+        manager.seek(-1);
+        Chunk c = manager.read(Direction.REVERSE);
+        int check = 0;
+        byte[] buf = new byte[10];
+        while ( c != null ) {
+            check += 1;
+            c = manager.read(Direction.REVERSE);
+            if ( c != null ) {
+                c.get(buf);
+                System.out.println(new String(buf));
+            }
+        }
+        System.out.println("count: " + count + " check: " + check);
     }
 }

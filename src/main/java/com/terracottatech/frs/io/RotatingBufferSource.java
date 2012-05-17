@@ -7,6 +7,7 @@ package com.terracottatech.frs.io;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
+import java.util.Formatter;
 import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,25 +21,37 @@ public class RotatingBufferSource implements BufferSource {
 
     private ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
-    GlobalBufferSource parent = GlobalBufferSource.getInstance(this);
+    GlobalBufferSource parent;
 
     private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
     private int created = 0;
     private int released = 0;
     private long totalCapacity = 0;
-    private static long MAX_CAPACITY = 100L * 1024 * 1024 * 1024;
+    private long maxCapacity = 100L * 1024 * 1024;
+    
+    public RotatingBufferSource(long max) {
+        maxCapacity = max;
+        parent = GlobalBufferSource.getInstance(this);
+    }
 
     @Override
     public ByteBuffer getBuffer(int size) {
         
         if ( size < 1024 ) return ByteBuffer.allocate(size);
+        if ( size > maxCapacity ) {
+            if ( LOGGER.isWarnEnabled() ) {
+                LOGGER.warn(new Formatter(new StringBuilder()).format("Very large memory size requested. Allocating on heap. size: %d",size).out().toString());
+            }
+            return ByteBuffer.allocate(size);
+        }
 
-        clearQueue(totalCapacity > MAX_CAPACITY);
+        clearQueue(totalCapacity > maxCapacity);
         ByteBuffer factor = checkFree(size);
         int spins = 0;
         while (factor == null) {
-            if (totalCapacity > MAX_CAPACITY) {
+            if (totalCapacity > maxCapacity) {
                 parent.reclaim();
+                clearQueue(totalCapacity > maxCapacity);
                 factor = checkFree(size);
             } else {
                 // pad some extra for later
@@ -50,6 +63,8 @@ public class RotatingBufferSource implements BufferSource {
                     totalCapacity += factor.capacity();                
                 } catch (OutOfMemoryError err) {
                     parent.reclaim();
+                    clearQueue(totalCapacity > maxCapacity);
+                    factor = checkFree(size);
                     LOGGER.warn("WARNING: ran out of direct memory calling GC");
                 }
             }
@@ -63,7 +78,7 @@ public class RotatingBufferSource implements BufferSource {
     }
     
     public void clear() {
-        clearQueue(false);
+        while ( totalCapacity > 0 ) clearQueue(true);
         parent.release(this);
     }
 
@@ -85,6 +100,7 @@ public class RotatingBufferSource implements BufferSource {
                 if (used.remove(holder)) {
                     holder.getBase().position(0);
                     ByteBuffer check = holder.getBase();
+                    totalCapacity -= check.capacity();
                     parent.returnBuffer(check);
                 }
                 holder = (BaseHolder) queue.poll();
@@ -109,7 +125,7 @@ public class RotatingBufferSource implements BufferSource {
 
     @Override
     public void reclaim() {
-        //  noop
+        clearQueue(false);
     }
 
     @Override

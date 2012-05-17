@@ -16,6 +16,8 @@ class GlobalBufferSource implements BufferSource {
     private static GlobalBufferSource GLOBAL = new GlobalBufferSource();
     private long   totalSize;
     
+    private long maxCapacity = 250 * 1024 * 1024;
+    
     private static Set<BufferSource> clients = Collections.synchronizedSet(new HashSet<BufferSource>());
     
     private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
@@ -27,6 +29,7 @@ class GlobalBufferSource implements BufferSource {
     });
         
     static GlobalBufferSource getInstance(BufferSource client) {
+        GLOBAL.reclaim();
         clients.add(client);
         return GLOBAL;
     }
@@ -51,12 +54,25 @@ class GlobalBufferSource implements BufferSource {
 
     @Override
     public synchronized void reclaim() {
-        totalSize -= freeList.pollLastEntry().getValue().capacity();
         System.gc();
+        for ( BufferSource bs : clients ) {
+            bs.reclaim();
+        }
     }
 
     @Override
     public synchronized void returnBuffer(ByteBuffer buffer) {
+        if ( totalSize + buffer.capacity() > maxCapacity ) {
+            Map.Entry<Integer,ByteBuffer> small = freeList.pollFirstEntry();
+            while ( small != null ) {
+                totalSize -= small.getValue().capacity();
+                if ( small.getKey() < buffer.capacity() && totalSize + buffer.capacity() > maxCapacity ) {
+                    small = freeList.pollFirstEntry();
+                } else {
+                    break;
+                }
+            }
+        }
         totalSize += buffer.capacity();
         while ( buffer != null ) {
             buffer.limit(buffer.limit()-1);

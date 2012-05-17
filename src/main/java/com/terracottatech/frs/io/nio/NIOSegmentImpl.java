@@ -66,7 +66,7 @@ class NIOSegmentImpl {
 
         ByteBuffer fbuf = reader.getBuffer(FILE_HEADER_SIZE);
         if (fbuf == null) {
-            LOGGER.warn("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
             fbuf = ByteBuffer.allocate(1024 * 1024);
         }
 
@@ -96,7 +96,7 @@ class NIOSegmentImpl {
 
         ByteBuffer fbuf = reader.getBuffer(bufferSize);
         if (fbuf == null) {
-            LOGGER.warn("WARNING: direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
             fbuf = ByteBuffer.allocate(1024 * 1024);
         }
 

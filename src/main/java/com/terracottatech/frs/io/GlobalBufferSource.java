@@ -16,9 +16,10 @@ class GlobalBufferSource implements BufferSource {
     private static GlobalBufferSource GLOBAL = new GlobalBufferSource();
     private long   totalSize;
     
-    private long maxCapacity = 250 * 1024 * 1024;
+    private long maxCapacity = 0;
     
-    private static Set<BufferSource> clients = Collections.synchronizedSet(new HashSet<BufferSource>());
+//    private static Set<BufferSource> clients = Collections.synchronizedSet(new HashSet<BufferSource>());
+    private static Map<BufferSource,Long> clients = Collections.synchronizedMap(new HashMap<BufferSource,Long>());
     
     private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
         @Override
@@ -28,16 +29,27 @@ class GlobalBufferSource implements BufferSource {
         }
     });
         
-    static GlobalBufferSource getInstance(BufferSource client) {
+    static GlobalBufferSource getInstance(BufferSource client, long capacity) {
         GLOBAL.reclaim();
-        clients.add(client);
+        clients.put(client, capacity);
+        GLOBAL.addCapacity(capacity);
         return GLOBAL;
     }
     
     static void release(BufferSource client) {
-        if ( clients.remove(client) && clients.isEmpty() ) {
-            GLOBAL = new GlobalBufferSource();
+        Long cap = clients.remove(client);
+        if ( cap != null ) {
+            GLOBAL.releaseCapacity(cap);
+            if ( clients.isEmpty() ) GLOBAL = new GlobalBufferSource();
         }
+    }
+    
+    public synchronized void addCapacity(long max) {
+        maxCapacity += max;
+    }
+    
+    public synchronized void releaseCapacity(long max) {
+        maxCapacity -= max;
     }
 
     @Override
@@ -54,24 +66,30 @@ class GlobalBufferSource implements BufferSource {
 
     @Override
     public synchronized void reclaim() {
-        System.gc();
-        for ( BufferSource bs : clients ) {
+        for ( BufferSource bs : clients.keySet() ) {
             bs.reclaim();
         }
+    }
+    
+    public synchronized ByteBuffer clear(int size) {
+        int listSize = freeList.size();
+        reclaim();
+        if ( freeList.size() == listSize ) {
+            System.gc();
+            reclaim();
+        }  
+        
+        ByteBuffer buf = getBuffer(size);
+        if ( buf != null ) return buf;
+        else freeList.clear();
+
+        return null;
     }
 
     @Override
     public synchronized void returnBuffer(ByteBuffer buffer) {
         if ( totalSize + buffer.capacity() > maxCapacity ) {
-            Map.Entry<Integer,ByteBuffer> small = freeList.pollFirstEntry();
-            while ( small != null ) {
-                totalSize -= small.getValue().capacity();
-                if ( small.getKey() < buffer.capacity() && totalSize + buffer.capacity() > maxCapacity ) {
-                    small = freeList.pollFirstEntry();
-                } else {
-                    break;
-                }
-            }
+            return;
         }
         totalSize += buffer.capacity();
         while ( buffer != null ) {

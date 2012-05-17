@@ -42,7 +42,7 @@ public class NIOMarkersTest {
     public void setUp() throws Exception {
             workArea = folder.newFolder();
             System.out.println(workArea.getAbsolutePath());
-            manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024);
+            manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
    //  create a 10k lsn window
             for(int x=0;x<1000;x++) {
                 writeChunkWithMarkers(10);
@@ -58,7 +58,7 @@ public class NIOMarkersTest {
     public void testClean() throws Exception {
         manager.clean(0);
         manager.close();
-        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024);
+        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
         manager.seek(0);
         Chunk c = manager.read(Direction.FORWARD);
         int count = 0;
@@ -80,7 +80,10 @@ public class NIOMarkersTest {
     }
     
     @After
-    public void tearDown() {
+    public void tearDown() throws Exception {
+        manager.close();
+        manager = null;
+        System.gc();
     }
     // TODO add test methods here.
     // The methods must be annotated with annotation @Test. For example:

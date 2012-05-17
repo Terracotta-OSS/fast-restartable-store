@@ -5,10 +5,12 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.RotatingBufferSource;
+import com.terracottatech.frs.io.ManualBufferSource;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -51,6 +53,8 @@ public class StagingLogManager implements LogManager {
     private ChunkExchange                               exchanger;
     private final ArrayBlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(20);
     private IOException                                 blockingException;
+    
+    private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
     
     public StagingLogManager(IOManager io) {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
@@ -140,7 +144,6 @@ public class StagingLogManager implements LogManager {
       long waiting;
       long processing;
       
-      RotatingBufferSource    buffers = new RotatingBufferSource(100 * 1024 * 1024);
       LogRegionFactory        regionFactory = new CopyingPacker(checksumStyle,buffers);
 //      LogRegionFactory        regionFactory = new LogRegionPacker(checksumStyle);
       
@@ -231,7 +234,11 @@ public class StagingLogManager implements LogManager {
             io.setMinimumMarker(lowestLsn.get());
             io.setCurrentMarker(packer.baseLsn());
             io.setMaximumMarker(packer.endLsn());
-            long out = io.write(packer.take());
+            Chunk c = packer.take();
+            long out = io.write(c);
+            for ( ByteBuffer giveBack : c.getBuffers() ) {
+                buffers.returnBuffer(giveBack);
+            }
 
             if ( packer.doSync() ) {
               io.sync();

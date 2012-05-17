@@ -70,21 +70,6 @@ class GlobalBufferSource implements BufferSource {
             bs.reclaim();
         }
     }
-    
-    public synchronized ByteBuffer clear(int size) {
-        int listSize = freeList.size();
-        reclaim();
-        if ( freeList.size() == listSize ) {
-            System.gc();
-            reclaim();
-        }  
-        
-        ByteBuffer buf = getBuffer(size);
-        if ( buf != null ) return buf;
-        else freeList.clear();
-
-        return null;
-    }
 
     @Override
     public synchronized void returnBuffer(ByteBuffer buffer) {

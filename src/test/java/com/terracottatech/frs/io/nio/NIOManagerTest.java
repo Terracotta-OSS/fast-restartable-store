@@ -51,6 +51,7 @@ public class NIOManagerTest {
             Properties props = new Properties();
             props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.SimulatingBufferBuilder");
             props.setProperty("io.nio.segmentSize", Integer.toString(1024 * 1024));
+            props.setProperty("io.nio.memorySize", Integer.toString(10 * 1024 * 1024));
             try {
                 props.store(new FileWriter(new File(workArea,"frs.properties")), null);
             } catch ( IOException io ) {
@@ -63,6 +64,8 @@ public class NIOManagerTest {
     @After
     public void tearDown() throws IOException {
         manager.close();
+        manager = null;
+        System.gc();
     }
 
   /**

@@ -21,60 +21,50 @@ public class RotatingBufferSource implements BufferSource {
 
     private ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
-    GlobalBufferSource parent;
+    BufferSource parent;
 
     private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
     private int created = 0;
     private int released = 0;
     private long totalCapacity = 0;
-    private long maxCapacity = 100L * 1024 * 1024;
+    private boolean noFail = false;
     
-    public RotatingBufferSource(long max) {
-        maxCapacity = max;
-        parent = GlobalBufferSource.getInstance(this,max);
-    }
+    public RotatingBufferSource(BufferSource parent) {
+        this.parent = parent;
+    }  
 
     @Override
     public ByteBuffer getBuffer(int size) {
+        clearQueue(false);
+        ByteBuffer factor = null;
         
-        if ( size < 1024 ) return ByteBuffer.allocate(size);
-
-        clearQueue(totalCapacity > maxCapacity);
-        ByteBuffer factor = checkFree(size);
-        if ( factor != null && factor.capacity() * .80 > size ) {
-            factor = null;
-        }
-        int spins = 0;
+        int spins = 1;
         while (factor == null) {
-//            if (totalCapacity > maxCapacity) {
-//                parent.reclaim();
-//                factor = checkFree(size);
-//            } else {
-                // pad some extra for later
-                try {
-                    int allocate = Math.round(size * 1.10f);
-                    factor = ByteBuffer.allocateDirect(allocate);
-                    created += 1;
-                } catch (OutOfMemoryError err) {
-                    factor = parent.clear(size);
-                    if ( factor != null && factor.capacity() * .80 > size ) {
-                        factor = null;
-                    }
-//                    LOGGER.warn("ran out of direct memory calling GC");
+            clearQueue(false);
+            factor = checkFree(size + 8);
+            // pad some extra for later
+
+            if (spins++ % 10 == 0 ) {
+                clearQueue(true);
+                factor = checkFree(size + 8);
+                if ( factor == null ) {
+                    System.gc();
+                    LOGGER.info("increase io memory size calling GC");
+                    LOGGER.info(parent.toString());
                 }
-//            }
-            if (spins++ > 100) {
-                LOGGER.warn("ran out of direct memory");
-                return null;
             }
+            if ( !noFail && spins > 20 ) return null;
         }
         factor = addUsed(factor,size);
         return factor;
     }
     
+    public void setNoFail() {
+        noFail = true;
+    }
+    
     public void clear() {
         clearQueue(false);
-        parent.release(this);
     }
 
     @Override
@@ -87,10 +77,7 @@ public class RotatingBufferSource implements BufferSource {
         try {
             BaseHolder holder = null;
             if (wait) {
-                while ( holder == null ) {
-                    holder = (BaseHolder) queue.remove(1000);
-                    if ( holder == null ) System.gc();
-                }
+                holder = (BaseHolder) queue.remove(1000);
             } else {
                 holder = (BaseHolder) queue.poll();
             }
@@ -110,10 +97,14 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     private ByteBuffer addUsed(ByteBuffer buffer, int size) {
+        if ( buffer.capacity() < size + 8 ) {
+            throw new AssertionError();
+            
+        }
         buffer.clear().position(buffer.capacity()-size);
         ByteBuffer pass = buffer.slice();
         used.add(new BaseHolder(buffer, pass));
-        buffer.putInt(buffer.getInt(0)+1,0);
+        buffer.putInt(0,buffer.getInt(0)+1);
         totalCapacity += buffer.capacity();
         return pass;
     }

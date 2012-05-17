@@ -60,19 +60,24 @@ public class NIOManager implements IOManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
+        this(home,segmentSize,segmentSize * 4);
+    }    
+    
+    public NIOManager(String home, long segmentSize, long memorySize) throws IOException {
         directory = new File(home);
                 
         this.segmentSize = segmentSize;
         
-        this.memorySize = segmentSize * 3;
+        this.memorySize = memorySize;
         
         open();
     }
     
     public NIOManager(Configuration config) throws IOException {
-        this(config.getDBHome().getAbsolutePath(),config.getLong("io.nio.segmentSize",16 * 1024 * 1024));
+        this(config.getDBHome().getAbsolutePath(),config.getLong("io.nio.segmentSize",16 * 1024 * 1024),
+                config.getLong("io.nio.memorySize",config.getLong("io.nio.segmentSize",16 * 1024 * 1024) * 4));
+
         String bufferBuilder = config.getString("io.nio.bufferBuilder");
-        memorySize = config.getLong("io.nio.memorySize", segmentSize * 3);
         if ( bufferBuilder != null ) {
             try {
                 backend.setBufferBuilder((BufferBuilder)Class.forName(bufferBuilder).newInstance());

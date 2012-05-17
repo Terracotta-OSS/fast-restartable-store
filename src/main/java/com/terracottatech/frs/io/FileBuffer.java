@@ -152,9 +152,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         }
         scratch.clear();
         for (int x = start; x < start + count; x++) {
-            if (list[x].remaining() < scratch.remaining()) {
+            if (list[x].remaining() <= scratch.remaining()) {
                 scratch.put(list[x]);
             } else {
+                if ( count == 1 ) return list[x];
                 //  no more scratch space, write the remaining the hard way
                 throw new AssertionError("no space");
             }

@@ -33,7 +33,7 @@ public class LogManagerThroughputTest {
 
     @Before
     public void setUp() throws Exception {
-        stream = new NIOManager(folder.getRoot().getAbsolutePath(), MAX_SEGMENT_SIZE);
+        stream = new NIOManager(folder.getRoot().getAbsolutePath(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
         mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( 100l, 64, 20),stream);
         mgr.startup();
     }

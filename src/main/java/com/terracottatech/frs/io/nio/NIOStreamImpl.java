@@ -29,7 +29,8 @@ class NIOStreamImpl implements Stream {
     private long currentMarker = 0;
     private NIOSegmentImpl writeHead;
     private NIOSegmentImpl readHead;
-    private RotatingBufferSource pool;
+    private ManualBufferSource manualPool;
+    private RotatingBufferSource gcPool;
     private FSyncer syncer;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private BufferBuilder createBuffer;
@@ -47,7 +48,9 @@ class NIOStreamImpl implements Stream {
             memorySize = segmentSize * 2;
         }
         
-        pool = new RotatingBufferSource(memorySize);
+        manualPool = new ManualBufferSource(memorySize);
+        gcPool = new RotatingBufferSource(manualPool);
+//        gcPool.setNoFail();
         segments = new NIOSegmentList(directory);
 
         if (segments.isEmpty()) {
@@ -55,7 +58,7 @@ class NIOStreamImpl implements Stream {
         } else {
             try {
                 NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getBeginningFile());
-                seg.openForHeader(pool);
+                seg.openForHeader(manualPool);
                 streamId = seg.getStreamId();
                 seg.close();
             } catch ( HeaderException header ) {
@@ -109,9 +112,8 @@ class NIOStreamImpl implements Stream {
         }
         NIOSegmentImpl seg = new NIOSegmentImpl(this, segments.getEndFile());
         try {
-            pool.reclaim();
             try {
-                seg.openForHeader(pool);
+                seg.openForHeader(manualPool);
             } catch ( HeaderException header ) {
                 return false;
             }
@@ -142,8 +144,7 @@ class NIOStreamImpl implements Stream {
             }
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
-                pool.reclaim();
-                seg.openForHeader(pool);
+                seg.openForHeader(manualPool);
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
@@ -182,8 +183,7 @@ class NIOStreamImpl implements Stream {
         while (f != null) {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
-                pool.reclaim();
-                seg.openForHeader(pool);
+                seg.openForHeader(manualPool);
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
@@ -205,7 +205,7 @@ class NIOStreamImpl implements Stream {
     private boolean doubleCheck(File f) throws IOException {
         NIOSegmentImpl segment = new NIOSegmentImpl(this, f);
         try {
-            segment.openForHeader(pool);
+            segment.openForHeader(manualPool);
         } catch ( HeaderException header ) {
 //  this should not happen here
             throw new IOException(header);
@@ -234,9 +234,8 @@ class NIOStreamImpl implements Stream {
 
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
-                pool.reclaim();
                 try {
-                    seg.openForHeader(pool);
+                    seg.openForHeader(manualPool);
                 } catch ( HeaderException header ) {
 // this should not happen here, rethrow as a IOException
                     throw new IOException(header);
@@ -284,9 +283,9 @@ class NIOStreamImpl implements Stream {
 
         if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
-
-            pool.reclaim();
-            writeHead = new NIOSegmentImpl(this, f).openForWriting(pool);
+            
+            if ( gcPool != null ) gcPool.reclaim();
+            writeHead = new NIOSegmentImpl(this, f).openForWriting(manualPool);
             writeHead.insertFileHeader(lowestMarker, currentMarker);
             lowestMarkerOnDisk = lowestMarker;
         }
@@ -380,9 +379,12 @@ class NIOStreamImpl implements Stream {
             }
         } 
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug("buffer pool created: " + pool.getCount() + " released: " + pool.getReleased() + " capacity: " + pool.getCapacity());
+            LOGGER.debug(manualPool.toString());
         }
-        pool.clear();
+        
+        gcPool.reclaim();
+        manualPool.reclaim();
+        
     }
 
     @Override
@@ -392,7 +394,6 @@ class NIOStreamImpl implements Stream {
             if (readHead != null) {
                 readHead.close();
             }
-            pool.reclaim();
 
             try {
                 File f = segments.nextReadFile(dir);
@@ -400,7 +401,7 @@ class NIOStreamImpl implements Stream {
                     readHead = null;
                     return null;
                 }
-                NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(pool);
+                NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(gcPool);
                 if ( readHead != null ) {
                     assert(nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) == 0);
                 }
@@ -454,6 +455,9 @@ class NIOStreamImpl implements Stream {
                         return true;
                     }
                     next = read(Direction.getDefault());
+                    if ( next == null ) {
+                        gcPool.reclaim();
+                    }
                     return (next != null);
                 } catch (IOException ioe) {
                     throw new RuntimeException(ioe);
@@ -467,7 +471,7 @@ class NIOStreamImpl implements Stream {
                 }
                 return next;
             }
-
+            
             @Override
             public void remove() {
                 throw new UnsupportedOperationException("Not supported yet.");

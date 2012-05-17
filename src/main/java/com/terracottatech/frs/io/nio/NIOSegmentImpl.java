@@ -32,6 +32,8 @@ class NIOSegmentImpl {
     private FileChannel segment;
 //  for reading and writing
     private FileBuffer buffer;
+    private ByteBuffer memoryBuffer;
+    private BufferSource bufferSource;
 //  for reading 
     private ReadbackStrategy strategy;
 //  for writing
@@ -53,6 +55,23 @@ class NIOSegmentImpl {
         return src;
     }
     
+    private FileBuffer createFileBuffer(int bufferSize, BufferSource source) throws IOException {
+        assert(memoryBuffer == null);
+        
+        bufferSource = source;
+        memoryBuffer = source.getBuffer(bufferSize);
+        if (memoryBuffer == null) {
+            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            memoryBuffer = ByteBuffer.allocate(1024 * 1024);
+        }
+        
+        FileBuffer created = ( parent.getBufferBuilder() != null ) 
+                ? parent.getBufferBuilder().createBuffer(segment, memoryBuffer) 
+                : new FileBuffer(segment, memoryBuffer);
+        
+        return created;
+    }
+    
     NIOSegmentImpl openForHeader(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
@@ -64,15 +83,7 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header");
         }
 
-        ByteBuffer fbuf = reader.getBuffer(FILE_HEADER_SIZE);
-        if (fbuf == null) {
-            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
-            fbuf = ByteBuffer.allocate(1024 * 1024);
-        }
-
-        buffer = ( parent.getBufferBuilder() != null ) 
-                ? parent.getBufferBuilder().createBuffer(segment, fbuf) 
-                : new FileBuffer(segment, fbuf);
+        buffer = createFileBuffer(FILE_HEADER_SIZE, reader);
 
         buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
@@ -94,15 +105,7 @@ class NIOSegmentImpl {
 //        int bufferSize = 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
 
-        ByteBuffer fbuf = reader.getBuffer(bufferSize);
-        if (fbuf == null) {
-            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
-            fbuf = ByteBuffer.allocate(1024 * 1024);
-        }
-
-        buffer = ( parent.getBufferBuilder() != null ) 
-                ? parent.getBufferBuilder().createBuffer(segment, fbuf) 
-                : new FileBuffer(segment, fbuf);
+        buffer = createFileBuffer(bufferSize, reader);
 
         buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
@@ -151,16 +154,7 @@ class NIOSegmentImpl {
             throw new IOException(LOCKED_FILE_ACCESS);
         }
         
-        int request = 512 * 1024;
-        ByteBuffer bb = null;
-        while ( bb == null ) {
-            if ( request < 512 * 1024 ) bb = ByteBuffer.allocate(request);
-            else bb = pool.getBuffer(request/=2);
-        }
-        
-        buffer = ( parent.getBufferBuilder() != null ) 
-                ? parent.getBufferBuilder().createBuffer(segment, bb) 
-                : new FileBuffer(segment, bb);
+        buffer = createFileBuffer(512 * 1024, pool);
 
         writeJumpList = new ArrayList<Long>();
 
@@ -220,7 +214,6 @@ class NIOSegmentImpl {
             buffer.clear();
             buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
             long amt = c.remaining();
-            assert (amt == c.length());
             buffer.put(SegmentHeaders.CHUNK_START.getBytes());
             buffer.putLong(amt);
             buffer.insert(c.getBuffers(), 1);
@@ -248,6 +241,12 @@ class NIOSegmentImpl {
     }
 
     long close() throws IOException {
+        if ( bufferSource != null ) {
+            bufferSource.returnBuffer(memoryBuffer);
+            bufferSource = null;
+            memoryBuffer = null;
+        }
+        
         if (segment == null || !segment.isOpen()) {
             return 0;
         }
@@ -256,12 +255,12 @@ class NIOSegmentImpl {
             //  TODO: is this force neccessary?  not sure, research
             segment.force(false);
             lock.release();
-            segment.close();
             buffer = null;
             lock = null;
         } else {
         }
-
+        
+        segment.close();
         segment = null;
 
         return (buffer != null) ? buffer.getTotal() : 0;

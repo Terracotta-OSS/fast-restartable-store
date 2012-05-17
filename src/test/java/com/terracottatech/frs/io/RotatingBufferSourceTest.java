@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
  */
 public class RotatingBufferSourceTest {
     
-    RotatingBufferSource rotate = new RotatingBufferSource(1024 * 1024);
+    RotatingBufferSource rotate = new RotatingBufferSource(new ManualBufferSource(20 * 1024 * 1024));
     
     public RotatingBufferSourceTest() {
     }
@@ -41,6 +41,7 @@ public class RotatingBufferSourceTest {
     @Test
     public void testGetBuffer() throws Exception {
         int size = 1024;
+        rotate.setNoFail();
         while ( size < 10 *1024 *1024 ) {
             rotate.getBuffer(size*=2);
         }

@@ -92,7 +92,7 @@ public class CompactorImpl implements Compactor {
   @Override
   public void shutdown() throws InterruptedException {
     if (alive.compareAndSet(true, false)) {
-      compactionCondition.release(startThreshold); // Force the compactor thread to wake up
+      compactorThread.interrupt();
       compactorThread.join();
     }
   }
@@ -123,6 +123,9 @@ public class CompactorImpl implements Compactor {
 
           // Flush the new lowest LSN with a dummy record
           transactionManager.asyncHappened(new NullAction()).get();
+        } catch (InterruptedException e) {
+          LOGGER.info("Compactor thread interrupted, shutting down.");
+          return;
         } catch (Exception e) {
           LOGGER.error("Error performing compaction.", e);
           throw new RuntimeException(e);

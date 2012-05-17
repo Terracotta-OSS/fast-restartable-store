@@ -78,7 +78,7 @@ public class RotatingBufferSource implements BufferSource {
     }
     
     public void clear() {
-        while ( totalCapacity > 0 ) clearQueue(true);
+        clearQueue(false);
         parent.release(this);
     }
 

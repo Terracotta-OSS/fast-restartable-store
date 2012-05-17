@@ -24,22 +24,30 @@ class NIOStreamImpl implements Stream {
     private NIOSegmentList segments;
     private UUID streamId;
     private long lowestMarker = 0;
+    private long lowestMarkerOnDisk = 0;
     private long highestMarker = 0;
     private long currentMarker = 0;
     private NIOSegmentImpl writeHead;
     private NIOSegmentImpl readHead;
-    private final RotatingBufferSource pool = new RotatingBufferSource();
+    private RotatingBufferSource pool;
     private FSyncer syncer;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private BufferBuilder createBuffer;
 //    private long debugIn;
 //    private long debugOut;
-
     public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
+        this(filePath,recommendedSize, recommendedSize);
+    }
+    
+    public NIOStreamImpl(File filePath, long recommendedSize, long memorySize) throws IOException {
         directory = filePath;
 
         segmentSize = recommendedSize;
-
+        if ( memorySize < segmentSize * 2 ) {
+            memorySize = segmentSize * 2;
+        }
+        
+        pool = new RotatingBufferSource(memorySize);
         segments = new NIOSegmentList(directory);
 
         if (segments.isEmpty()) {
@@ -135,7 +143,7 @@ class NIOStreamImpl implements Stream {
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
                 pool.reclaim();
-                seg.openForReading(pool);
+                seg.openForHeader(pool);
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }
@@ -159,6 +167,7 @@ class NIOStreamImpl implements Stream {
             } finally {
                 this.highestMarker = seg.getMaximumMarker();
                 this.lowestMarker = seg.getMinimumMarker();
+                this.lowestMarkerOnDisk = seg.getMinimumMarker();
                 seg.close();
             }
         }
@@ -237,12 +246,14 @@ class NIOStreamImpl implements Stream {
                 }
                 
                 //  if the base is greater short circuit out
-                if (seg.getBaseMarker() > this.lowestMarker) {
+                if (seg.getBaseMarker() > this.lowestMarkerOnDisk) {
                     File last = segments.nextReadFile(Direction.REVERSE);
                     if ( last != null ) size -= last.length();
                     else size = 0;
                     return size;
                 }
+                
+                // ran into the head.  we are done.
                 if ( f.equals(segments.getEndFile()) ) {
                     return size;
                 }
@@ -277,6 +288,7 @@ class NIOStreamImpl implements Stream {
             pool.reclaim();
             writeHead = new NIOSegmentImpl(this, f).openForWriting(pool);
             writeHead.insertFileHeader(lowestMarker, currentMarker);
+            lowestMarkerOnDisk = lowestMarker;
         }
 
         long w = writeHead.append(c, this.highestMarker);

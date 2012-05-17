@@ -39,6 +39,7 @@ public class NIOManager implements IOManager {
     private FileLock            lock;
     private FileChannel         lastSync;
     private final long          segmentSize;
+    private long                memorySize;
     private UUID                streamid;
     private int                 lastGoodSegment;
     private long                lastGoodPosition;
@@ -63,12 +64,15 @@ public class NIOManager implements IOManager {
                 
         this.segmentSize = segmentSize;
         
+        this.memorySize = segmentSize * 3;
+        
         open();
     }
     
     public NIOManager(Configuration config) throws IOException {
         this(config.getDBHome().getAbsolutePath(),config.getLong("io.nio.segmentSize",16 * 1024 * 1024));
         String bufferBuilder = config.getString("io.nio.bufferBuilder");
+        memorySize = config.getLong("io.nio.memorySize", segmentSize * 3);
         if ( bufferBuilder != null ) {
             try {
                 backend.setBufferBuilder((BufferBuilder)Class.forName(bufferBuilder).newInstance());
@@ -193,7 +197,7 @@ public class NIOManager implements IOManager {
             throw new IOException(BAD_HOME_DIRECTORY);
         }
         
-        backend = new NIOStreamImpl(directory, segmentSize);
+        backend = new NIOStreamImpl(directory, segmentSize, memorySize);
 
         lockFile = new File(directory, "FRS.lck");
         boolean crashed = !lockFile.createNewFile();

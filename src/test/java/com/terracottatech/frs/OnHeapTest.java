@@ -28,6 +28,7 @@ import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
 
 /**
  *
@@ -48,7 +49,10 @@ public class OnHeapTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-    }
+        Logger log = org.slf4j.LoggerFactory.getLogger(IOManager.class);
+       
+        
+          }
 
     @AfterClass
     public static void tearDownClass() throws Exception {

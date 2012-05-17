@@ -103,11 +103,11 @@ public class StagingLogManager implements LogManager {
         if ( lsn > cl ) {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
-                    io.setMinimumMarker(lsn);
                     if ( lsn - lastClean > 1000 ) {
                         io.clean(0);
                         lastClean = lsn;
                     }
+                    io.setMinimumMarker(lsn);
                 }
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);
@@ -140,7 +140,7 @@ public class StagingLogManager implements LogManager {
       long waiting;
       long processing;
       
-      RotatingBufferSource    buffers = new RotatingBufferSource();
+      RotatingBufferSource    buffers = new RotatingBufferSource(100 * 1024 * 1024);
       LogRegionFactory        regionFactory = new CopyingPacker(checksumStyle,buffers);
 //      LogRegionFactory        regionFactory = new LogRegionPacker(checksumStyle);
       

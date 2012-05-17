@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
  */
 public class RotatingBufferSourceTest {
     
-    RotatingBufferSource rotate = new RotatingBufferSource();
+    RotatingBufferSource rotate = new RotatingBufferSource(1024 * 1024);
     
     public RotatingBufferSourceTest() {
     }
@@ -47,7 +47,7 @@ public class RotatingBufferSourceTest {
         System.gc();
         while ( size > 1024 ) {
             assert(rotate.getBuffer(size/=2) != null);
-            Thread.sleep(1000);
+            Thread.sleep(100);
         }
     }
 

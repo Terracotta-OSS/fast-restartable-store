@@ -88,11 +88,13 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long waiting = 0;
         long reading = 0;
         long fill = 0;
+        long time = 0;
         try {
             io.seek(IOManager.Seek.END.getValue());
             Chunk chunk = io.read(Direction.REVERSE);
             long last = System.nanoTime();
             boolean first = true;
+            long tick = System.currentTimeMillis();
             while (chunk != null && !master.isDone() ) {
                 totalRead += chunk.length();
                 reading += (System.nanoTime() - last);
@@ -106,6 +108,14 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 if ( first ) {
                     offerLsns(io.getMinimumMarker(),io.getMaximumMarker());
                     first = false;
+                } else {
+                    if ( System.currentTimeMillis() - tick > 15 * 1000) {
+                        time += tick;
+                        tick += System.currentTimeMillis();
+//                        if ( LOGGER.isDebugEnabled() ) {
+//                            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
+//                        }
+                    }
                 }
             }
             if ( first ) {
@@ -123,7 +133,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("read -- waiting: %.3f active: %.3f ave queue: %d", 
                     waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count).out().toString());
-        }
+//            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
+       }
         return totalRead;
     }
     

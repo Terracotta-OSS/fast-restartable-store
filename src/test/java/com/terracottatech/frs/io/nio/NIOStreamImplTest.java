@@ -122,7 +122,7 @@ public class NIOStreamImplTest {
       numChunks++;
     }
     stream.close();
-    BufferSource bufs = new RotatingBufferSource();
+    BufferSource bufs = new RotatingBufferSource(1024 * 1024);
     NIOSegmentList list = new NIOSegmentList(workArea);
     list.setReadPosition(-1);
     new NIOSegmentImpl(stream,list.appendFile()).openForWriting(bufs);

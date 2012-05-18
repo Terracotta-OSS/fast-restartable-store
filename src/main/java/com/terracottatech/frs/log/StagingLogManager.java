@@ -5,7 +5,6 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.config.Configuration;
-import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
@@ -63,16 +62,16 @@ public class StagingLogManager implements LogManager {
         
     public StagingLogManager(IOManager io,Configuration config) {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
-        String checksum = config.getString(FrsProperty.IO_CHECKSUM);
+        String checksum = config.getString("io.checksum", "ADLER32");
         this.checksumStyle = Signature.valueOf(checksum);
         if ( this.checksumStyle == null ) this.checksumStyle = Signature.ADLER32;
-        String commitList = config.getString(FrsProperty.IO_COMMITLIST);
-        this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
-        this.RECOVERY_QUEUE_SIZE = config.getInt(FrsProperty.IO_RECOVERY_QUEUE_SIZE);
+        String commitList = config.getString("io.commitList", "ATOMIC");
+        this.MAX_QUEUE_SIZE = config.getInt("io.commitQueueSize",1024);
+        this.RECOVERY_QUEUE_SIZE = config.getInt("io.recoveryQueueSize",1024);
         if ( commitList.equals("ATOMIC") ) {
-            this.currentRegion = new AtomicCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
+            this.currentRegion = new AtomicCommitList(100, MAX_QUEUE_SIZE, config.getInt("io.wait",20));
         } else if ( commitList.equals("STACKING") ) {
-            this.currentRegion = new StackingCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
+            this.currentRegion = new StackingCommitList(100, MAX_QUEUE_SIZE, config.getInt("io.wait",20));
         }
     }
 

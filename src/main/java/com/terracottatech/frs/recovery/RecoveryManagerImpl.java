@@ -8,7 +8,6 @@ import com.terracottatech.frs.DeleteFilter;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.config.Configuration;
-import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.transaction.TransactionFilter;
@@ -27,6 +26,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * @author tim
  */
 public class RecoveryManagerImpl implements RecoveryManager {
+  private static final String COMPRESSED_SKIP_SET_KEY = "recovery.compressedSkipSet";
+  private static final String MAX_REPLAY_QUEUE_LENGTH_KEY = "recovery.maxQueueLength";
+  private static final String MIN_REPLAY_THREAD_COUNT_KEY = "recovery.minThreadCount";
+  private static final String MAX_REPLAY_THREAD_COUNT_KEY = "recovery.maxThreadCount";
+
   private static final Logger LOGGER = LoggerFactory.getLogger(RecoveryManager.class);
 
   private final LogManager logManager;
@@ -37,10 +41,10 @@ public class RecoveryManagerImpl implements RecoveryManager {
   public RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration) {
     this.logManager = logManager;
     this.actionManager = actionManager;
-    this.compressedSkipSet = configuration.getBoolean(FrsProperty.RECOVERY_COMPRESSED_SKIP_SET);
-    this.replayFilter = new ReplayFilter(configuration.getInt(FrsProperty.RECOVERY_MIN_THREAD_COUNT),
-                                         configuration.getInt(FrsProperty.RECOVERY_MAX_THREAD_COUNT),
-                                         configuration.getInt(FrsProperty.RECOVERY_MAX_QUEUE_LENGTH));
+    this.compressedSkipSet = configuration.getBoolean(COMPRESSED_SKIP_SET_KEY);
+    this.replayFilter = new ReplayFilter(configuration.getInt(MIN_REPLAY_THREAD_COUNT_KEY),
+                                         configuration.getInt(MAX_REPLAY_THREAD_COUNT_KEY),
+                                         configuration.getInt(MAX_REPLAY_QUEUE_LENGTH_KEY));
   }
 
   @Override

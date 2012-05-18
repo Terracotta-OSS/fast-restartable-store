@@ -91,19 +91,22 @@ class NIOStreamImpl implements Stream {
     }
 
     public long getMarker() {
+        gcPool.reclaim();
         return currentMarker;
     }
 
     public long getMinimumMarker() {
+        gcPool.reclaim();
         return lowestMarker;
+    }
+
+    public long getMaximumMarker() {
+        gcPool.reclaim();
+        return highestMarker;
     }
 
     public void setMaximumMarker(long marker) {
         this.highestMarker = marker;
-    }
-
-    public long getMaximumMarker() {
-        return highestMarker;
     }
 
     boolean checkForCleanExit() throws IOException {
@@ -172,6 +175,7 @@ class NIOStreamImpl implements Stream {
                 seg.close();
             }
         }
+        
 
         return true;
     }
@@ -284,7 +288,7 @@ class NIOStreamImpl implements Stream {
         if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
             
-            if ( gcPool != null ) gcPool.reclaim();
+            gcPool.reclaim();
             writeHead = new NIOSegmentImpl(this, f).openForWriting(manualPool);
             writeHead.insertFileHeader(lowestMarker, currentMarker);
             lowestMarkerOnDisk = lowestMarker;

@@ -228,6 +228,9 @@ public class StagingLogManager implements LogManager {
             waiting += (last - mark);
 
             if ( packer == null ) {
+    //  trigger a queue cleaning in io memory, lame way to signal but ok for now.
+    //  might be a good time to cache IO stats
+                io.getCurrentMarker();
                 continue;
             }
            

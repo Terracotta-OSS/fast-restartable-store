@@ -60,7 +60,7 @@ public class ManualBufferSource implements BufferSource {
 
     @Override
     public void reclaim() {
-        
+
     }
     
     private long calculateUsage() {

@@ -259,6 +259,8 @@ public class NIOManager implements IOManager {
     public boolean isClosed() {
         return (lock != null && lock.isValid());
     }
+    
+    
 
     @Override
     public synchronized IOStatistics getStatistics() throws IOException {

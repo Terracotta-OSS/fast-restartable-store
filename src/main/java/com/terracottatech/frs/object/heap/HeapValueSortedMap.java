@@ -50,6 +50,11 @@ public class HeapValueSortedMap<K, V extends Comparable<V>> implements ValueSort
     sorted.remove(map.remove(key));
   }
 
+  public void clear() {
+    sorted.clear();
+    map.clear();
+  }
+  
   @Override
   public V get(K key) {
     Node<K, V> node = map.get(key);

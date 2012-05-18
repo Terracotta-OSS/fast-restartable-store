@@ -55,57 +55,46 @@ public class Configuration {
     return SYSTEM_PROPERTY_PREFIX + key;
   }
 
-  public String getString(String key, String defaultValue) {
-    return System.getProperty(prefixKey(key), properties.getProperty(key, defaultValue));
-  }
-
-  public int getInt(String key, int defaultValue) {
-    return Integer.parseInt(getString(key, Integer.toString(defaultValue)));
-  }
-
-  public long getLong(String key, long defaultValue) {
-    return Long.parseLong(getString(key, Long.toString(defaultValue)));
-  }
-
-  public double getDouble(String key, double defaultValue) {
-    return Double.parseDouble(getString(key, Double.toString(defaultValue)));
-  }
-
-  public float getFloat(String key, float defaultValue) {
-    return Float.parseFloat(getString(key, Float.toString(defaultValue)));
-  }
-
-  public boolean getBoolean(String key, boolean defaultValue) {
-    return Boolean.parseBoolean(getString(key, Boolean.toString(defaultValue)));
-  }
-
-  public String getString(String key) {
+  public String getString(FrsProperty property) {
+    String key = property.name();
     return System.getProperty(prefixKey(key), properties.getProperty(key));
   }
 
-  public Integer getInt(String key) {
-    String val = getString(key);
-    return val == null ? null : Integer.parseInt(val);
+  public Integer getInt(FrsProperty property) {
+    String val = getString(property);
+    return val == null ? (Integer) property.defaultValue() : Integer.parseInt(val);
   }
 
-  public Long getLong(String key) {
-    String val = getString(key);
-    return val == null ? null : Long.parseLong(val);
+  public Long getLong(FrsProperty property) {
+    String val = getString(property);
+    return val == null ? (Long) property.defaultValue() : Long.parseLong(val);
   }
 
-  public Double getDouble(String key) {
-    String val = getString(key);
-    return val == null ? null : Double.parseDouble(val);
+  public Double getDouble(FrsProperty property) {
+	if (property.type() == Double.class) {
+	  String val = getString(property);
+	  return val == null ?  (Double) property.defaultValue() : Double.parseDouble(val);
+	} else {
+	  throw new IllegalArgumentException();
+	}
   }
 
-  public Float getFloat(String key) {
-    String val = getString(key);
-    return val == null ? null : Float.parseFloat(val);
+  public Float getFloat(FrsProperty property) {
+    if (property.type() == Float.class) {
+      String val = getString(property);
+      return val == null ?  (Float) property.defaultValue() : Float.parseFloat(val);
+    } else {
+      throw new IllegalArgumentException();
+    }
   }
 
-  public Boolean getBoolean(String key) {
-    String val = getString(key);
-    return val == null ? null : Boolean.parseBoolean(val);
+  public Boolean getBoolean(FrsProperty property) {
+    if (property.type() == Boolean.class) {
+      String val = getString(property);
+      return val == null ?  (Boolean) property.defaultValue() : Boolean.parseBoolean(val);
+    } else {
+      throw new IllegalArgumentException();
+    }
   }
   
   public File getDBHome() {

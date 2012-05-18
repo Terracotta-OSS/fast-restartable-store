@@ -129,6 +129,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             ioe.printStackTrace();
         } finally {
             ioDone = true;
+            if ( master.isDone() ) {
+                queue.clear();
+            }
         }
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("read -- waiting: %.3f active: %.3f ave queue: %d", 
@@ -174,7 +177,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     @Override
     public synchronized boolean isDone() {
-        return ioDone && master.isDone;
+        return ioDone && master.isDone();
     }
 
     @Override
@@ -216,7 +219,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                     throw new RuntimeException(ie);
                 } catch (RuntimeException ioe) {
                     setDone();
-                    queue.clear();
                     throw new RuntimeException(ioe);
                 }
             }
@@ -225,7 +227,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
                 if (list.peek().getLsn() < lowestLsn) {
                     setDone();
-                    queue.clear();
                     // TODO: This is a total hack to work around the race between finishing
                     // the iteration and the reader thread blocking on the queue.
                     return false;
@@ -277,6 +278,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         synchronized void setDone() {
             isDone = true;
             this.notifyAll();
+            queue.clear();
+            list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
         }
     }
 }

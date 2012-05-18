@@ -35,24 +35,20 @@ public class RotatingBufferSource implements BufferSource {
 
     @Override
     public ByteBuffer getBuffer(int size) {
-        clearQueue(false);
         ByteBuffer factor = null;
         
         int spins = 1;
         while (factor == null) {
-            clearQueue(false);
+            clearQueue(spins++ % 3 == 0);
             factor = checkFree(size + 8);
             // pad some extra for later
 
-            if (spins++ % 10 == 0 ) {
-                clearQueue(true);
-                factor = checkFree(size + 8);
-                if ( factor == null ) {
-                    System.gc();
-                    LOGGER.info("increase io memory size calling GC");
-                    LOGGER.info(parent.toString());
-                }
+            if ( factor == null && spins++ % 3 == 0) {
+                System.gc();
+                LOGGER.debug("increase io memory size calling GC");
+                LOGGER.debug(parent.toString());
             }
+
             if ( !noFail && spins > 20 ) return null;
         }
         factor = addUsed(factor,size);
@@ -77,7 +73,7 @@ public class RotatingBufferSource implements BufferSource {
         try {
             BaseHolder holder = null;
             if (wait) {
-                holder = (BaseHolder) queue.remove(1000);
+                holder = (BaseHolder) queue.remove(250);
             } else {
                 holder = (BaseHolder) queue.poll();
             }

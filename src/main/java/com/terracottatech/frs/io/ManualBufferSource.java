@@ -36,21 +36,29 @@ public class ManualBufferSource implements BufferSource {
         
         if ( size + usage > maxCapacity ) {
             return null;
-        }
-        
-        ByteBuffer base = parent.getBuffer(size);
-        if ( base == null ) {
-            try {
-                int allocate = Math.round(size * 1.10f);
-                base = ByteBuffer.allocateDirect(allocate);
-                created += 1;
-            } catch (OutOfMemoryError err) {
-                parent.reclaim();
-//                    LOGGER.warn("ran out of direct memory calling GC");
+        }  
+            
+        ByteBuffer base = null;
+        while ( base == null ) {
+            base = parent.getBuffer(size);
+ 
+            if ( base == null ) {
+                try {
+                    int allocate = Math.round(size * 1.05f);
+                    base = ByteBuffer.allocateDirect(allocate);
+                    created += 1;
+                } catch (OutOfMemoryError err) {
+                    parent.reclaim();
+                    return null;
+    //                    LOGGER.warn("ran out of direct memory calling GC");
+                }
             }
         } 
         if ( base != null ) {
-            ByteBuffer rsrc = ((ByteBuffer)base.clear().position(base.capacity() - size)).slice();
+            ByteBuffer rsrc = base;
+            if ( size != rsrc.capacity() ) {
+                rsrc = ((ByteBuffer)rsrc.clear().position(base.capacity() - size)).slice();
+            }
             usage += base.capacity();
             pool.put(System.identityHashCode(rsrc),base);
             return rsrc;
@@ -83,9 +91,7 @@ public class ManualBufferSource implements BufferSource {
             usage -= base.capacity();
             assert(usage == calculateUsage());
             parent.returnBuffer(base);
-        } else {
-            throw new AssertionError();
-        }
+        } 
     }
    
     public String toString() {

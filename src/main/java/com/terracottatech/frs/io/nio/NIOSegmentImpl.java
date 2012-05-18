@@ -61,7 +61,7 @@ class NIOSegmentImpl {
         bufferSource = source;
         memoryBuffer = source.getBuffer(bufferSize);
         if (memoryBuffer == null) {
-            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+//            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
             memoryBuffer = ByteBuffer.allocate(1024 * 1024);
         }
         

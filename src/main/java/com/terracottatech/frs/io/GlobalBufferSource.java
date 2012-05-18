@@ -30,7 +30,6 @@ class GlobalBufferSource implements BufferSource {
     });
         
     static GlobalBufferSource getInstance(BufferSource client, long capacity) {
-        GLOBAL.reclaim();
         clients.put(client, capacity);
         GLOBAL.addCapacity(capacity);
         return GLOBAL;
@@ -45,11 +44,11 @@ class GlobalBufferSource implements BufferSource {
     }
     
     public synchronized void addCapacity(long max) {
-        maxCapacity += max;
+        if ( maxCapacity < max ) maxCapacity = max;
     }
     
     public synchronized void releaseCapacity(long max) {
-        maxCapacity -= max;
+//        maxCapacity -= max;
     }
 
     @Override
@@ -58,16 +57,24 @@ class GlobalBufferSource implements BufferSource {
             return null;
         }
         Integer get = freeList.ceilingKey(size);
-        if ( get == null ) return null;
+        if ( get == null ) {
+            return null;
+        }
         ByteBuffer buffer = freeList.remove(get);
         totalSize -= buffer.capacity();
+        if ( buffer.capacity() > size * 2 ) {
+            ByteBuffer slice = ((ByteBuffer)buffer.clear().position(buffer.capacity()-size)).slice();
+            findSlot(((ByteBuffer)buffer.flip()).slice());
+            buffer = slice;
+        }
         return buffer;
     }
 
     @Override
     public synchronized void reclaim() {
-        for ( BufferSource bs : clients.keySet() ) {
-            bs.reclaim();
+        Map.Entry<Integer,ByteBuffer> poll = freeList.pollFirstEntry();
+        if ( poll != null ) {
+            totalSize -= poll.getValue().capacity();
         }
     }
 
@@ -76,10 +83,18 @@ class GlobalBufferSource implements BufferSource {
         if ( totalSize + buffer.capacity() > maxCapacity ) {
             return;
         }
+        findSlot(buffer);
+    }
+    
+    private void findSlot(ByteBuffer buffer) {
         totalSize += buffer.capacity();
         while ( buffer != null ) {
-            buffer.limit(buffer.limit()-1);
+            if ( buffer.limit() == 0 ) {
+                totalSize -= buffer.capacity();
+                return;
+            }
             buffer = freeList.put(buffer.limit(),buffer);
+            if ( buffer != null ) buffer.limit(buffer.limit()-1);
         }
     }
     

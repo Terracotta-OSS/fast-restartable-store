@@ -27,6 +27,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     private long offset = 0;
 
     public FileBuffer(FileChannel channel, ByteBuffer src) throws IOException {
+        if ( src.position() != 0 ) {
+            throw new AssertionError();
+        }
         this.channel = channel;
         this.base = src;
         this.ref = new ByteBuffer[]{base.duplicate()};

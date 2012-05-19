@@ -13,11 +13,13 @@ import java.util.HashMap;
  */
 public class ManualBufferSource implements BufferSource {
     
-    BufferSource parent;
-    long maxCapacity;
-    long usage = 0;
-    int created = 0;
-    HashMap<Integer,ByteBuffer> pool = new HashMap<Integer,ByteBuffer>();
+    private BufferSource parent;
+    private long maxCapacity;
+    private long usage = 0;
+    private int created = 0;
+    private int min = Integer.MAX_VALUE;
+    private int max = 0;
+    private HashMap<Integer,ByteBuffer> pool = new HashMap<Integer,ByteBuffer>();
 
     public ManualBufferSource(long maxCapacity) {
         this.parent = GlobalBufferSource.getInstance(this, maxCapacity);
@@ -32,6 +34,9 @@ public class ManualBufferSource implements BufferSource {
 
     @Override
     public synchronized ByteBuffer getBuffer(int size) {
+        if ( min > size ) min = size;
+        if ( max < size ) max = size;
+        
         if ( size < 1024 ) return ByteBuffer.allocate(size);
         
         if ( size + usage > maxCapacity ) {
@@ -45,6 +50,7 @@ public class ManualBufferSource implements BufferSource {
             if ( base == null ) {
                 try {
                     int allocate = Math.round(size * 1.05f);
+                    if ( allocate < 64 * 1024 ) allocate = 64 * 1024;
                     base = ByteBuffer.allocateDirect(allocate);
                     created += 1;
                 } catch (OutOfMemoryError err) {
@@ -55,10 +61,10 @@ public class ManualBufferSource implements BufferSource {
             }
         } 
         if ( base != null ) {
-            ByteBuffer rsrc = base;
+            ByteBuffer rsrc = base.duplicate();
             if ( size != rsrc.capacity() ) {
-                rsrc = ((ByteBuffer)rsrc.clear().position(base.capacity() - size)).slice();
-            }
+                rsrc = ((ByteBuffer)rsrc.position(rsrc.limit() - size)).slice();
+            } 
             usage += base.capacity();
             pool.put(System.identityHashCode(rsrc),base);
             return rsrc;
@@ -95,7 +101,8 @@ public class ManualBufferSource implements BufferSource {
     }
    
     public String toString() {
-        return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity;
+        return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity +
+                "min: " + min + " max:" + max;
 
     }
     

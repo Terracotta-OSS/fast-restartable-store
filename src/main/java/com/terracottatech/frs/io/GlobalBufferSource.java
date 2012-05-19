@@ -60,6 +60,7 @@ class GlobalBufferSource implements BufferSource {
         if ( get == null ) {
             get = freeList.floorKey(size);
         }
+//  don't need to check for null again, already check that the map is not empty
         ByteBuffer buffer = freeList.remove(get);
         if ( buffer.capacity() < size ) {
             findSlot(buffer);
@@ -67,8 +68,9 @@ class GlobalBufferSource implements BufferSource {
         }
         
         totalSize -= buffer.capacity();
+        buffer.clear();
         if ( buffer.capacity() > size * 2 ) {
-            ByteBuffer slice = ((ByteBuffer)buffer.clear().position(buffer.capacity()-size)).slice();
+            ByteBuffer slice = ((ByteBuffer)buffer.clear().position(buffer.limit()-size)).slice();
             findSlot(((ByteBuffer)buffer.flip()).slice());
             buffer = slice;
         }

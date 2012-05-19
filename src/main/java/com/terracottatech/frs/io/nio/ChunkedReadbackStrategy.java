@@ -76,9 +76,24 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
         ArrayList<ByteBuffer> readIn = new ArrayList<ByteBuffer>(jumps.size()-1);
         
         long last = NIOSegmentImpl.FILE_HEADER_SIZE;
+        int clength = 0;
         for ( Long jump : jumps ) {
-            readIn.add(source.getBuffer((int)(jump-last)));
+            int span = (int)(jump - last);
+            if ( span + clength < 1024 * 1024 ) {
+                clength += span;
+            } else {
+                if ( span > 1024 * 1024 && clength > 0 ) {
+                    readIn.add(source.getBuffer(clength));
+                    readIn.add(source.getBuffer(span));
+                } else {
+                    readIn.add(source.getBuffer(clength + span));
+                }
+                clength = 0;
+            }
             last = jump;
+        }
+        if ( clength > 0 ) {
+            readIn.add(source.getBuffer(clength));
         }
         
         buffer.position(0);
@@ -89,12 +104,12 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
         buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
         chunkList = new ArrayList<Chunk>(jumps.size()-1);
         for ( ByteBuffer c : readIn ) {
-            SegmentHeaders.CHUNK_START.validate(c.getInt());
-            long amt = c.getLong();
-            long check = c.getLong((int)amt);
-            SegmentHeaders.FILE_CHUNK.validate(c.getInt((int)(amt + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE)));
-            c.limit(c.limit() - (ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE));
-            chunkList.add(new WrappingChunk(c));
+            Chunk src = new WrappingChunk(c);
+            ByteBuffer[] add = readChunk(src);
+            while ( add != null ) {
+                chunkList.add(new WrappingChunk(add));
+                add = readChunk(src);
+            }
         }
     }
     

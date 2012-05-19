@@ -390,9 +390,10 @@ class NIOStreamImpl implements Stream {
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(manualPool.toString());
         }
-        
+       
         gcPool.reclaim();
         manualPool.reclaim();
+        
         
     }
 

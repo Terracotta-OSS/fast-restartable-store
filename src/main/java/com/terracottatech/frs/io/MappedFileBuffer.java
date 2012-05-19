@@ -25,7 +25,7 @@ public class MappedFileBuffer extends FileBuffer {
     }
 
     @Override
-    public void insert(ByteBuffer[] bufs, int loc) throws IOException {
+    public void insert(ByteBuffer[] bufs, int loc, boolean writable) throws IOException {
 //  yikes, this should not happen, but let's try anyways
         ByteBuffer[] mapped = this.getBuffers();
         if ( mapped.length < loc ) throw new IndexOutOfBoundsException();
@@ -45,7 +45,7 @@ public class MappedFileBuffer extends FileBuffer {
         bc.flip();
         this.channel.position(fc.length()).write(ic.getBuffers());
         ic.flip();
-        super.insert(bufs, loc);
+        super.insert(bufs, loc, writable);
     }
 
     @Override

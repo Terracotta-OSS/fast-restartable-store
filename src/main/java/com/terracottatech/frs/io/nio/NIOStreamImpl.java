@@ -366,6 +366,11 @@ class NIOStreamImpl implements Stream {
     @Override
     public void close() throws IOException {
         if (writeHead != null && !writeHead.isClosed()) {
+            try {
+                writeHead.prepareForClose();
+            } catch ( IOException ioe ) {
+                //  silently fail, closing anyways
+            }
             writeHead.close();
         }
         writeHead = null;

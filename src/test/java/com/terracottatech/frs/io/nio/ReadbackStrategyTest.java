@@ -56,8 +56,7 @@ public class ReadbackStrategyTest {
         }
 
    }
-    
-    
+
     //  from nio segment code  
     public void append(Chunk c, long max) throws Exception {
         buffer.clear();

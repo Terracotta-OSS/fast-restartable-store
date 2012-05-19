@@ -219,7 +219,7 @@ public class FileBufferTest {
         ByteBuffer[] bufs = null;
         int loc = 0;
         FileBuffer instance = null;
-        instance.insert(bufs, loc);
+        instance.insert(bufs, loc, false);
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
     }

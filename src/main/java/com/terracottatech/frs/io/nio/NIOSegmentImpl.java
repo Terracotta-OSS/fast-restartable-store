@@ -102,21 +102,19 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header");
         }
         
-//        int bufferSize = 1024;
-        int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
+        int bufferSize = 1024 * 1024;
+//        int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
 
         buffer = createFileBuffer(bufferSize, reader);
 
         buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
 
-        if (buffer.capacity() >= segment.size()) {
-//  the buffer is big enough for the whole file.  cheat by reading forward 
-//  then queueing backward.
-           strategy = new WholeFileReadbackStrategy(buffer);
-        } else {
-            strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
-        }
+          try {
+              strategy = new ChunkedReadbackStrategy(buffer,reader);
+          } catch ( IOException ioe ) {
+              strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
+          }
 
         return this;
     }
@@ -141,6 +139,8 @@ class NIOSegmentImpl {
         lowestMarker = readBuffer.getLong();
         minMarker = readBuffer.getLong();
     }
+    
+    
 
     //  open and write the header.
     NIOSegmentImpl openForWriting(BufferSource pool) throws IOException {
@@ -216,7 +216,7 @@ class NIOSegmentImpl {
             long amt = c.remaining();
             buffer.put(SegmentHeaders.CHUNK_START.getBytes());
             buffer.putLong(amt);
-            buffer.insert(c.getBuffers(), 1);
+            buffer.insert(c.getBuffers(), 1, false);
             buffer.putLong(amt);
             buffer.putLong(maxMarker);
             buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());

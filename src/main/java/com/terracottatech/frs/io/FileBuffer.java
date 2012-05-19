@@ -32,15 +32,6 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
     }
-//
-//    public FileBuffer(File src) throws IOException {
-//        this.channel = new FileInputStream(src).getChannel();
-//        if (channel.size() > Integer.MAX_VALUE) {
-//            throw new RuntimeException("integer overflow error");
-//        }
-//        this.base = ByteBuffer.allocate((int) channel.size());
-//        this.ref = new ByteBuffer[]{base.duplicate()};
-//    }
 
     public long getTotal() {
         return total;
@@ -132,6 +123,14 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         }
         mark += count;
         total += lt;
+        return lt;
+    }
+    
+    public long truncate() {
+        long lt = 0;
+        for (int x = mark; x < ref.length; x++) {
+            lt += ref[x].limit(ref[x].position()).position();
+        }
         return lt;
     }
 
@@ -280,12 +279,12 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return lt;
     }
 
-    public void insert(ByteBuffer[] bufs, int loc) throws IOException {
+    public void insert(ByteBuffer[] bufs, int loc, boolean writable) throws IOException {
         int len = ref.length;
         ref = Arrays.copyOf(ref, ref.length + bufs.length);
         System.arraycopy(ref, loc, ref, loc + bufs.length, len - loc);
         for (int x = 0; x < bufs.length; x++) {
-            ref[loc + x] = bufs[x].asReadOnlyBuffer();
+            ref[loc + x] = ( writable ) ? bufs[x] : bufs[x].asReadOnlyBuffer();
         }
     }
 

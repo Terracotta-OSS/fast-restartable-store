@@ -29,7 +29,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private long lowestLsn = -1;
     private Exception exception;
     Thread runner;
-    private final RecordIterator master = new RecordIterator();
+    private RecordIterator master = new RecordIterator();
     private long totalRead;
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
@@ -121,7 +121,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if ( first ) {
                 offerLsns(99, 99);
             }
-            
+            cleanup();
         } catch (InterruptedException i) {
             exception = i;
         } catch (IOException ioe) {
@@ -129,9 +129,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             ioe.printStackTrace();
         } finally {
             ioDone = true;
-            if ( master.isDone() ) {
-                queue.clear();
-            }
         }
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("read -- waiting: %.3f active: %.3f ave queue: %d", 
@@ -139,6 +136,13 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 //            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
        }
         return totalRead;
+    }
+    
+    private void cleanup() throws IOException {
+        io.seek(IOManager.Seek.BEGINNING.getValue());
+        if ( master.isDone() ) {
+            queue.clear();
+        }
     }
     
     long getTotalRead() {

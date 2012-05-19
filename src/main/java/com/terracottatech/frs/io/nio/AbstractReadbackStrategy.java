@@ -70,7 +70,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         }
         int start = buffer.getInt();
         long length = buffer.getLong();
-        if ( buffer.remaining() < length + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
+        if ( buffer.remaining() < length + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
             return null;
         }
         ByteBuffer[] targets = buffer.getBuffers(length);

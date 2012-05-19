@@ -23,7 +23,7 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
     private Direction             queueDirection;
     
     
-    public WholeFileReadbackStrategy(FileBuffer buffer) {
+    public WholeFileReadbackStrategy(FileBuffer buffer) throws IOException {
         super();
         this.buffer = buffer;
     }
@@ -45,9 +45,22 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
         if ( dir != queueDirection && chunks.hasPrevious() ) return true;
         return false;
     }
-
-    public void queue(Direction dir) throws IOException {
+    
+ 
+    @Override
+    public Chunk iterate(Direction dir) throws IOException {
+        if ( chunks == null ) queue(dir);
+        if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
+        if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
+        return null;
+    }   
+    
+    protected void prepare() throws IOException {
         buffer.read(1);
+    }
+
+    protected void queue(Direction dir) throws IOException {  
+        prepare();
         
         List<Chunk> list = new ArrayList<Chunk>();
         ByteBuffer[] chunk = readChunk(buffer);
@@ -61,14 +74,6 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
         
         this.chunks = list.listIterator();
         this.queueDirection = dir;
-    }
-
-    @Override
-    public Chunk iterate(Direction dir) throws IOException {
-        if ( chunks == null ) queue(dir);
-        if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
-        if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
-        return null;
     }
     
     

@@ -58,9 +58,14 @@ class GlobalBufferSource implements BufferSource {
         }
         Integer get = freeList.ceilingKey(size);
         if ( get == null ) {
-            return null;
+            get = freeList.floorKey(size);
         }
         ByteBuffer buffer = freeList.remove(get);
+        if ( buffer.capacity() < size ) {
+            findSlot(buffer);
+            return null;
+        }
+        
         totalSize -= buffer.capacity();
         if ( buffer.capacity() > size * 2 ) {
             ByteBuffer slice = ((ByteBuffer)buffer.clear().position(buffer.capacity()-size)).slice();

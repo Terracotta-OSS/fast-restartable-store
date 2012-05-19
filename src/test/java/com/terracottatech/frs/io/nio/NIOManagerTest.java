@@ -63,7 +63,11 @@ public class NIOManagerTest {
     
     @After
     public void tearDown() throws IOException {
-        manager.close();
+        try {
+            manager.close();
+        } catch ( IOException ioe ) {
+        
+        }
         manager = null;
         System.gc();
     }
@@ -229,7 +233,7 @@ public class NIOManagerTest {
             }
         } catch ( IOException ioe ) {
             ioe.printStackTrace();
-        }
+        } 
         System.out.println(Integer.toString(count));
         
         manager.seek(0);

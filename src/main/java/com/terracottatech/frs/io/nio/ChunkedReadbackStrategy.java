@@ -65,6 +65,12 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
         if ( dir != direction && chunks.hasPrevious() ) return chunks.previous();
         return null;
     }     
+    
+    private ByteBuffer allocateBuffer(int clength) throws IOException {
+        ByteBuffer buf = source.getBuffer(clength);
+        if ( buf == null ) throw new IOException("no direct memory space");
+        return buf;
+    }
 
     private void prepare() throws IOException {
         List<Long> jumps = readJumpList();
@@ -79,21 +85,21 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
         int clength = 0;
         for ( Long jump : jumps ) {
             int span = (int)(jump - last);
-            if ( span + clength < 1024 * 1024 ) {
+            if ( span + clength < 64 * 1024 ) {
                 clength += span;
             } else {
                 if ( span > 1024 * 1024 && clength > 0 ) {
-                    readIn.add(source.getBuffer(clength));
-                    readIn.add(source.getBuffer(span));
+                    readIn.add(allocateBuffer(clength));
+                    readIn.add(allocateBuffer(span));
                 } else {
-                    readIn.add(source.getBuffer(clength + span));
+                    readIn.add(allocateBuffer(clength + span));
                 }
                 clength = 0;
             }
             last = jump;
         }
         if ( clength > 0 ) {
-            readIn.add(source.getBuffer(clength));
+            readIn.add(allocateBuffer(clength));
         }
         
         buffer.position(0);

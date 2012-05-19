@@ -102,8 +102,8 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header");
         }
         
-        int bufferSize = 1024 * 1024;
-//        int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
+//        int bufferSize = 1024 * 1024;
+        int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
 
         buffer = createFileBuffer(bufferSize, reader);
 
@@ -111,7 +111,8 @@ class NIOSegmentImpl {
         readFileHeader(buffer);
 
           try {
-              strategy = new ChunkedReadbackStrategy(buffer,reader);
+              if ( bufferSize >= fileSize ) strategy = new ChunkedReadbackStrategy(buffer,reader);
+              else strategy = new ChunkedReadbackStrategy(buffer,reader);
           } catch ( IOException ioe ) {
               strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
           }
@@ -154,7 +155,7 @@ class NIOSegmentImpl {
             throw new IOException(LOCKED_FILE_ACCESS);
         }
         
-        buffer = createFileBuffer(512 * 1024, pool);
+        buffer = createFileBuffer(1024 * 1024, pool);
 
         writeJumpList = new ArrayList<Long>();
 

@@ -56,7 +56,7 @@ class WholeFileReadbackStrategy extends AbstractReadbackStrategy {
     }   
     
     protected void prepare() throws IOException {
-        buffer.partition((int)buffer.size());
+        buffer.partition((int)buffer.size() - NIOSegmentImpl.FILE_HEADER_SIZE);
         buffer.read(1);
     }
 

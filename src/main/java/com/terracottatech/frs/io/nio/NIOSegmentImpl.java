@@ -61,7 +61,7 @@ class NIOSegmentImpl {
         bufferSource = source;
         memoryBuffer = source.getBuffer(bufferSize);
         if (memoryBuffer == null) {
-//            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
             memoryBuffer = ByteBuffer.allocate(1024 * 1024);
         }
         
@@ -104,6 +104,7 @@ class NIOSegmentImpl {
         
 //        int bufferSize = 1024 * 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
+        if ( bufferSize > 10 * 1024 * 1024 ) bufferSize *= .10;
 
         buffer = createFileBuffer(bufferSize, reader);
 
@@ -111,9 +112,10 @@ class NIOSegmentImpl {
         readFileHeader(buffer);
 
           try {
-              if ( bufferSize >= fileSize ) strategy = new ChunkedReadbackStrategy(buffer,reader);
+              if ( bufferSize >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
               else strategy = new ChunkedReadbackStrategy(buffer,reader);
           } catch ( IOException ioe ) {
+              LOGGER.warn("using mapped strategy", ioe);
               strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
           }
 

@@ -7,6 +7,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -134,4 +135,44 @@ public class NIOStreamImplTest {
     Chunk c = stream.read(Direction.REVERSE);
     
   }
+  
+    
+  @Test
+  public void testMiniBuffers() throws Exception {
+    stream.append(newChunk(40));
+
+    stream.close();
+    BufferSource bufs = new ManualBufferSource(1024 * 1024);
+    NIOSegmentList list = new NIOSegmentList(workArea);
+    list.setReadPosition(0);
+    System.out.println("file length: " + list.getBeginningFile().length());
+    new NIOSegmentImpl(stream,list.getBeginningFile()).openForReading(bufs).close();
+    stream = new NIOStreamImpl(workArea, 10*1024*1024);
+    stream.open();
+    stream.seek(IOManager.Seek.END.getValue());
+    Chunk c = stream.read(Direction.REVERSE);
+    assertThat((int)c.remaining(),is(40));
+  }
+  
+  @Test
+  public void testMegaBuffers() throws Exception {
+    stream.append(newChunk(10 * 1024 * 1024));
+
+    stream.close();
+    BufferSource bufs = new ManualBufferSource(1024 * 1024);
+    NIOSegmentList list = new NIOSegmentList(workArea);
+    list.setReadPosition(0);
+    System.out.println("file length: " + list.getBeginningFile().length());
+    try {
+    new NIOSegmentImpl(stream,list.getBeginningFile()).openForReading(bufs).close();
+    stream = new NIOStreamImpl(workArea, 10*1024*1024);
+    stream.open();
+    stream.seek(IOManager.Seek.END.getValue());
+    Chunk c = stream.read(Direction.REVERSE);
+    assertThat((int)c.remaining(),is(10 * 1024 * 1024));
+    } catch ( IOException ioe ) {
+        // likely to happen, check for no direct memory
+        assertThat(ioe.getMessage(),is("no direct memory space"));
+    }
+  }  
 }

@@ -113,7 +113,7 @@ class NIOSegmentImpl {
               if ( bufferSize >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
               else strategy = new ChunkedReadbackStrategy(buffer,reader);
           } catch ( IOException ioe ) {
-              LOGGER.warn("using mapped strategy", ioe);
+              LOGGER.info("using mapped strategy", ioe);
               strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
           }
 

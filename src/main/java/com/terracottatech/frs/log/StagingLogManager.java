@@ -112,8 +112,10 @@ public class StagingLogManager implements LogManager {
                         try {
                             exchanger.get();
                         } catch ( InterruptedException ie ) {
+                            LOGGER.debug("cleaning stream interrupted",ie);
                             return;
                         } catch ( ExecutionException ee ) {
+                            LOGGER.warn("cleaning stream failed",ee);
                             return;
                         }
                         io.clean(0);

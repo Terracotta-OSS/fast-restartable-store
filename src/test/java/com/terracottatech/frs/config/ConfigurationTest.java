@@ -32,19 +32,20 @@ public class ConfigurationTest {
       fos.close();
     }
 
-    System.setProperty("com.tc.frs." + FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.property(), "1.00");
-    
-    Configuration configuration = Configuration.getConfiguration(directory);
-
-    assertThat(configuration.getString(FrsProperty.COMPACTOR_POLICY), is("bogus123"));
-    assertThat(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD), is(1.00));
 
     Properties overrides = new Properties();
     overrides.setProperty(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.property(), "2.00");
 
-    configuration = Configuration.getConfiguration(directory, overrides);
-
+    Configuration configuration = Configuration.getConfiguration(directory, overrides);
+    
     assertThat(configuration.getString(FrsProperty.COMPACTOR_POLICY), is("bogus123"));
     assertThat(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD), is(2.00));
+
+    System.setProperty("com.tc.frs." + FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.property(), "1.00");
+    
+    configuration = Configuration.getConfiguration(directory);
+
+    assertThat(configuration.getString(FrsProperty.COMPACTOR_POLICY), is("bogus123"));
+    assertThat(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD), is(1.00));
   }
 }

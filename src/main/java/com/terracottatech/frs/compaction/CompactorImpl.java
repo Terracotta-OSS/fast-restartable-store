@@ -77,6 +77,9 @@ public class CompactorImpl implements Compactor {
       return new LSNGapCompactionPolicy(objectManager, logManager, configuration);
     } else if ("SizeBasedCompactionPolicy".equals(policy)) {
       return new SizeBasedCompactionPolicy(ioManager, objectManager, configuration);
+    } else if ("NoCompactionPolicy".equals(policy)) {
+      LOGGER.warn("Compactor policy is set to 'NoCompactionPolicy'. No compaction will be done.");
+      return new NoCompactionPolicy();
     }
     throw new RestartStoreException("Unknown compaction policy " + policy);
   }

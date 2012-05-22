@@ -24,7 +24,7 @@ public class ConfigurationTest {
     Assert.assertTrue(directory.mkdirs());
 
     Properties properties = new Properties();
-    properties.setProperty(FrsProperty.COMPACTOR_POLICY.property(), "bogus123");
+    properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(), "bogus123");
     FileOutputStream fos = new FileOutputStream(new File(directory, "frs.properties"));
     try {
       properties.store(fos, null);
@@ -34,14 +34,14 @@ public class ConfigurationTest {
 
 
     Properties overrides = new Properties();
-    overrides.setProperty(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.property(), "2.00");
+    overrides.setProperty(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.shortName(), "2.00");
 
     Configuration configuration = Configuration.getConfiguration(directory, overrides);
     
     assertThat(configuration.getString(FrsProperty.COMPACTOR_POLICY), is("bogus123"));
     assertThat(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD), is(2.00));
 
-    System.setProperty("com.tc.frs." + FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.property(), "1.00");
+    System.setProperty("com.tc.frs." + FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.shortName(), "1.00");
     
     configuration = Configuration.getConfiguration(directory);
 

@@ -1,7 +1,6 @@
 package com.terracottatech.frs.config;
 
 public enum FrsProperty {
-	
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
   IO_COMMIT_QUEUE_SIZE("io.commitQueueSize", Type.INTEGER, 1024),
   IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 1024),
@@ -27,7 +26,9 @@ public enum FrsProperty {
 
   COMPACTOR_SIZEBASED_THRESHOLD("compactor.sizeBased.threshold", Type.DOUBLE, 0.50),
   COMPACTOR_SIZEBASED_AMOUNT("compactor.sizeBased.amount", Type.DOUBLE, 0.05);
-  
+
+  private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
+
   private final String property;
   private final Type type;
   private final Object defaultValue;
@@ -38,8 +39,12 @@ public enum FrsProperty {
     this.defaultValue = defaultValue;
   }
 
-  public String property() {
+  public String shortName() {
     return property;
+  }
+
+  public String property() {
+    return SYSTEM_PROPERTY_PREFIX + shortName();
   }
 
   public Object convert(String string) {

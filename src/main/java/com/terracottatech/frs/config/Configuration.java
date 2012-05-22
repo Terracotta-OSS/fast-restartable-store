@@ -13,14 +13,13 @@ import java.util.Properties;
  */
 public class Configuration {
   private static final String USER_PROPERITES_FILE = "frs.properties";
-  private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 
   private final EnumMap<FrsProperty, Object> configuration;
-  private final File       dbhome;
+  private final File dbHome;
 
   private Configuration(File home, Map<FrsProperty, Object> properties) {
     this.configuration = new EnumMap<FrsProperty, Object>(properties);
-    this.dbhome = home;
+    this.dbHome = home;
   }
 
   public static Configuration getConfiguration(File directory, Properties overrides) {
@@ -65,7 +64,7 @@ public class Configuration {
   }
   
   public File getDBHome() {
-    return dbhome;
+    return dbHome;
   }
 
   @Override
@@ -96,7 +95,7 @@ public class Configuration {
     Map<FrsProperty, Object> configuration = new EnumMap<FrsProperty, Object>(FrsProperty.class);
     if (tolerateMismatches) {
       for (FrsProperty property : FrsProperty.values()) {
-        String propertyName = shortNames ? property.property() : prefixKey(property.property());
+        String propertyName = shortNames ? property.shortName() : property.property();
         String value = (String) properties.get(propertyName);
         if (value != null) {
           configuration.put(property, property.convert(value));
@@ -105,7 +104,7 @@ public class Configuration {
     } else {
       Map<Object, Object> map = new HashMap<Object, Object>(properties);
       for (FrsProperty property : FrsProperty.values()) {
-        String propertyName = shortNames ? property.property() : prefixKey(property.property());
+        String propertyName = shortNames ? property.shortName() : property.property();
         String value = (String) map.remove(propertyName);
         if (value != null) {
           configuration.put(property, property.convert(value));
@@ -116,9 +115,5 @@ public class Configuration {
       }
     }
     return configuration;
-  }
-
-  private static String prefixKey(String key) {
-    return SYSTEM_PROPERTY_PREFIX + key;
   }
 }

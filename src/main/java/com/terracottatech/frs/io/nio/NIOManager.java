@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.*;
 import java.io.File;
 import java.io.FileInputStream;
@@ -74,10 +75,11 @@ public class NIOManager implements IOManager {
     }
     
     public NIOManager(Configuration config) throws IOException {
-        this(config.getDBHome().getAbsolutePath(),config.getLong("io.nio.segmentSize",16 * 1024 * 1024),
-                config.getLong("io.nio.memorySize",config.getLong("io.nio.segmentSize",16 * 1024 * 1024) * 4));
+        this(config.getDBHome().getAbsolutePath(),
+            config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
+            config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE));
 
-        String bufferBuilder = config.getString("io.nio.bufferBuilder");
+        String bufferBuilder = config.getString(FrsProperty.IO_NIO_BUFFER_BUILDER);
         if ( bufferBuilder != null ) {
             try {
                 backend.setBufferBuilder((BufferBuilder)Class.forName(bufferBuilder).newInstance());

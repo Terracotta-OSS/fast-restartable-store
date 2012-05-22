@@ -23,17 +23,16 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RUN_INTERVAL;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_START_THRESHOLD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_THROTTLE_AMOUNT;
 
 /**
  * @author tim
  */
 public class CompactorImpl implements Compactor {
   private static final Logger LOGGER = LoggerFactory.getLogger(Compactor.class);
-
-  private static final String RUN_INTERVERAL_KEY = "compactor.runInterval";
-  private static final String THROTTLE_KEY = "compactor.throttleAmount";
-  private static final String START_THRESHOLD_KEY = "compactor.startThreshold";
-  private static final String POLICY_KEY = "compactor.policy";
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
@@ -65,14 +64,15 @@ public class CompactorImpl implements Compactor {
                        IOManager ioManager, Configuration configuration) throws RestartStoreException {
     this(objectManager, transactionManager, logManager,
          getPolicy(configuration, objectManager, logManager, ioManager),
-         configuration.getLong(RUN_INTERVERAL_KEY), configuration.getLong(THROTTLE_KEY),
-         configuration.getInt(START_THRESHOLD_KEY));
+         configuration.getLong(COMPACTOR_RUN_INTERVAL),
+         configuration.getLong(COMPACTOR_THROTTLE_AMOUNT),
+         configuration.getInt(COMPACTOR_START_THRESHOLD));
   }
 
   private static CompactionPolicy getPolicy(Configuration configuration,
                                             ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                             LogManager logManager, IOManager ioManager) throws RestartStoreException{
-    String policy = configuration.getString(POLICY_KEY);
+    String policy = configuration.getString(COMPACTOR_POLICY);
     if ("LSNGapCompactionPolicy".equals(policy)) {
       return new LSNGapCompactionPolicy(objectManager, logManager, configuration);
     } else if ("SizeBasedCompactionPolicy".equals(policy)) {

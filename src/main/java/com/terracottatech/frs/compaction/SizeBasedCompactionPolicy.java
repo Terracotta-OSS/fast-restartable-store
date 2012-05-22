@@ -5,12 +5,13 @@ import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_AMOUNT;
+
 /**
  * @author tim
  */
 public class SizeBasedCompactionPolicy implements CompactionPolicy {
-  private static final String SIZE_THRESHOLD_KEY = "compactor.sizeBased.threshold";
-  private static final String COMPACTION_PERCENTAGE_KEY = "compactor.sizeBased.amount";
 
   private final IOManager ioManager;
   private final ObjectManager<?, ?, ?> objectManager;
@@ -24,8 +25,8 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
                                    Configuration configuration) {
     this.ioManager = ioManager;
     this.objectManager = objectManager;
-    this.sizeThreshold = configuration.getDouble(SIZE_THRESHOLD_KEY);
-    this.compactionPercentage = configuration.getDouble(COMPACTION_PERCENTAGE_KEY);
+    this.sizeThreshold = configuration.getDouble(COMPACTOR_SIZEBASED_THRESHOLD);
+    this.compactionPercentage = configuration.getDouble(COMPACTOR_SIZEBASED_AMOUNT);
   }
 
   @Override

@@ -3,32 +3,78 @@ package com.terracottatech.frs.config;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
  * @author tim
  */
 public class Configuration {
-  private static final String DEFAULT_PROPERTIES_FILE = "/frsDefaults.properties";
   private static final String USER_PROPERITES_FILE = "frs.properties";
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 
-  private final Properties properties;
+  private final EnumMap<FrsProperty, Object> configuration;
   private final File       dbhome;
 
-  private Configuration(File home, Properties properties) {
-    this.properties = properties;
-    dbhome = home;
+  private Configuration(File home, Map<FrsProperty, Object> properties) {
+    this.configuration = new EnumMap<FrsProperty, Object>(properties);
+    this.dbhome = home;
   }
 
   public static Configuration getConfiguration(File directory, Properties overrides) {
-    Properties properties = new Properties();
-    try {
-      properties.load(Configuration.class.getResourceAsStream(DEFAULT_PROPERTIES_FILE));
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to read default properties.", e);
-    }
+    Map<FrsProperty, Object> configuration = new EnumMap<FrsProperty, Object>(FrsProperty.class);
+    configuration.putAll(extractConfiguration(getUserProperties(directory), true, false));
+    configuration.putAll(extractConfiguration(overrides, true, false));
+    configuration.putAll(extractConfiguration(System.getProperties(), false, true));
+    return new Configuration(directory, configuration);
+  }
 
+  public static Configuration getConfiguration(File directory) {
+    return getConfiguration(directory, new Properties());
+  }
+
+  public Object getConfigurationValue(FrsProperty property) {
+    Object value = configuration.get(property);
+    return value == null ? property.defaultValue() : value;
+  }
+  
+  public String getString(FrsProperty property) {
+    return (String) getConfigurationValue(property);
+  }
+
+  public Integer getInt(FrsProperty property) {
+    return (Integer) getConfigurationValue(property);
+  }
+
+  public Long getLong(FrsProperty property) {
+    return (Long) getConfigurationValue(property);
+  }
+
+  public Double getDouble(FrsProperty property) {
+    return (Double) getConfigurationValue(property);
+  }
+
+  public Float getFloat(FrsProperty property) {
+    return (Float) getConfigurationValue(property);
+  }
+
+  public Boolean getBoolean(FrsProperty property) {
+    return (Boolean) getConfigurationValue(property);
+  }
+  
+  public File getDBHome() {
+    return dbhome;
+  }
+
+  @Override
+  public String toString() {
+    return configuration.toString();
+  }
+
+  private static Properties getUserProperties(File directory) {
+    Properties properties = new Properties();
     File useFile = new File(directory, USER_PROPERITES_FILE);
     if (useFile.exists()) {
       FileInputStream fis;
@@ -43,77 +89,36 @@ public class Configuration {
         throw new RuntimeException("Failed to read user frs configuration.", e);
       }
     }
-    properties.putAll(overrides);
-    return new Configuration(directory, properties);
+    return properties;
   }
-
-  public static Configuration getConfiguration(File directory) {
-    return getConfiguration(directory, new Properties());
+  
+  private static Map<FrsProperty, Object> extractConfiguration(Properties properties, boolean shortNames, boolean tolerateMismatches) {
+    Map<FrsProperty, Object> configuration = new EnumMap<FrsProperty, Object>(FrsProperty.class);
+    if (tolerateMismatches) {
+      for (FrsProperty property : FrsProperty.values()) {
+        String propertyName = shortNames ? property.property() : prefixKey(property.property());
+        String value = (String) properties.get(propertyName);
+        if (value != null) {
+          configuration.put(property, property.convert(value));
+        }
+      }
+    } else {
+      Map<Object, Object> map = new HashMap<Object, Object>(properties);
+      for (FrsProperty property : FrsProperty.values()) {
+        String propertyName = shortNames ? property.property() : prefixKey(property.property());
+        String value = (String) map.remove(propertyName);
+        if (value != null) {
+          configuration.put(property, property.convert(value));
+        }
+      }
+      if (!map.isEmpty()) {
+        throw new IllegalArgumentException("Unrecognized properties: " + map);
+      }
+    }
+    return configuration;
   }
 
   private static String prefixKey(String key) {
     return SYSTEM_PROPERTY_PREFIX + key;
-  }
-
-  public String getString(String key, String defaultValue) {
-    return System.getProperty(prefixKey(key), properties.getProperty(key, defaultValue));
-  }
-
-  public int getInt(String key, int defaultValue) {
-    return Integer.parseInt(getString(key, Integer.toString(defaultValue)));
-  }
-
-  public long getLong(String key, long defaultValue) {
-    return Long.parseLong(getString(key, Long.toString(defaultValue)));
-  }
-
-  public double getDouble(String key, double defaultValue) {
-    return Double.parseDouble(getString(key, Double.toString(defaultValue)));
-  }
-
-  public float getFloat(String key, float defaultValue) {
-    return Float.parseFloat(getString(key, Float.toString(defaultValue)));
-  }
-
-  public boolean getBoolean(String key, boolean defaultValue) {
-    return Boolean.parseBoolean(getString(key, Boolean.toString(defaultValue)));
-  }
-
-  public String getString(String key) {
-    return System.getProperty(prefixKey(key), properties.getProperty(key));
-  }
-
-  public Integer getInt(String key) {
-    String val = getString(key);
-    return val == null ? null : Integer.parseInt(val);
-  }
-
-  public Long getLong(String key) {
-    String val = getString(key);
-    return val == null ? null : Long.parseLong(val);
-  }
-
-  public Double getDouble(String key) {
-    String val = getString(key);
-    return val == null ? null : Double.parseDouble(val);
-  }
-
-  public Float getFloat(String key) {
-    String val = getString(key);
-    return val == null ? null : Float.parseFloat(val);
-  }
-
-  public Boolean getBoolean(String key) {
-    String val = getString(key);
-    return val == null ? null : Boolean.parseBoolean(val);
-  }
-  
-  public File getDBHome() {
-      return dbhome;
-  }
-
-  @Override
-  public String toString() {
-    return properties.toString();
   }
 }

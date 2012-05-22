@@ -5,13 +5,13 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MAX_LOAD;
+
 /**
  * @author tim
  */
 public class LSNGapCompactionPolicy implements CompactionPolicy {
-  private static final String MIN_LOAD_KEY = "compactor.lsnGap.minLoad";
-  private static final String MAX_LOAD_KEY = "compactor.lsnGap.maxLoad";
-
   private final ObjectManager<?, ?, ?> objectManager;
   private final LogManager logManager;
   private final double minLoad;
@@ -26,8 +26,8 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
                                 Configuration configuration) {
     this.objectManager = objectManager;
     this.logManager = logManager;
-    this.minLoad = configuration.getDouble(MIN_LOAD_KEY);
-    this.maxLoad = configuration.getDouble(MAX_LOAD_KEY);
+    this.minLoad = configuration.getDouble(COMPACTOR_LSNGAP_MIN_LOAD);
+    this.maxLoad = configuration.getDouble(COMPACTOR_LSNGAP_MAX_LOAD);
   }
 
   protected double calculateRatio(long liveEntries, long totalEntries) {

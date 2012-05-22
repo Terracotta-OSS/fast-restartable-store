@@ -109,6 +109,13 @@ public class StagingLogManager implements LogManager {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
                     if ( lsn - lastClean > 1000 ) {
+                        try {
+                            exchanger.get();
+                        } catch ( InterruptedException ie ) {
+                            return;
+                        } catch ( ExecutionException ee ) {
+                            return;
+                        }
                         io.clean(0);
                         lastClean = lsn;
                     }

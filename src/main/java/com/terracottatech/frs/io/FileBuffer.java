@@ -30,6 +30,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         if ( src.position() != 0 ) {
             throw new AssertionError();
         }
+        if ( src.capacity() < 512 ) {
+            
+        }
         this.channel = channel;
         this.base = src;
         this.ref = new ByteBuffer[]{base.duplicate()};
@@ -73,6 +76,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         } else {
             channel.position(pos);
         }
+        offset = channel.position();
         return this;
 
     }
@@ -301,6 +305,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public void close() throws IOException {
         channel.close();
         ref = null;
+    }
+    
+    public boolean isOpen() {
+        return channel.isOpen();
     }
     
     public void sync() throws IOException {

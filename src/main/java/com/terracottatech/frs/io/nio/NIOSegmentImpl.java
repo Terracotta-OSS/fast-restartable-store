@@ -29,8 +29,8 @@ class NIOSegmentImpl {
     private final NIOStreamImpl parent;
     private final int segNum;
     private final File src;
-    private FileChannel segment;
-//  for reading and writing
+
+ //  for reading and writing
     private FileBuffer buffer;
     private ByteBuffer memoryBuffer;
     private BufferSource bufferSource;
@@ -55,13 +55,13 @@ class NIOSegmentImpl {
         return src;
     }
     
-    private FileBuffer createFileBuffer(int bufferSize, BufferSource source) throws IOException {
+    private FileBuffer createFileBuffer(FileChannel segment, int bufferSize, BufferSource source) throws IOException {
         assert(memoryBuffer == null);
         
         bufferSource = source;
         memoryBuffer = source.getBuffer(bufferSize);
         if (memoryBuffer == null) {
-            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory.");
+            LOGGER.warn("direct memory unavailable. Allocating on heap.  Fix configuration for more direct memory. request: " + bufferSize);
             memoryBuffer = ByteBuffer.allocate(1024 * 1024);
         }
         
@@ -75,17 +75,16 @@ class NIOSegmentImpl {
     NIOSegmentImpl openForHeader(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
-        segment = new FileInputStream(src).getChannel();
+        FileChannel segment = new FileInputStream(src).getChannel();
 
         fileSize = segment.size();
 
         if (fileSize < FILE_HEADER_SIZE) {
-            throw new HeaderException("bad header");
+            throw new HeaderException("bad header", this);
         }
 
-        buffer = createFileBuffer(FILE_HEADER_SIZE, reader);
+        buffer = createFileBuffer(segment, FILE_HEADER_SIZE, reader);
 
-        buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
 
         return this;
@@ -94,21 +93,20 @@ class NIOSegmentImpl {
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
-        segment = new FileInputStream(src).getChannel();
+        FileChannel segment = new FileInputStream(src).getChannel();
 
         fileSize = segment.size();
 
         if (fileSize < FILE_HEADER_SIZE) {
-            throw new HeaderException("bad header");
+            throw new HeaderException("bad header", this);
         }
         
 //        int bufferSize = 1024 * 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
         if ( bufferSize > 10 * 1024 * 1024 ) bufferSize *= .10;
 
-        buffer = createFileBuffer(bufferSize, reader);
+        buffer = createFileBuffer(segment, bufferSize, reader);
 
-        buffer.partition(FILE_HEADER_SIZE).read(1);
         readFileHeader(buffer);
 
           try {
@@ -123,19 +121,27 @@ class NIOSegmentImpl {
     }
 
     private void readFileHeader(Chunk readBuffer) throws IOException, HeaderException {
+        if ( buffer.capacity() < FILE_HEADER_SIZE ) {
+            throw new IOException("file buffering size too small");
+        }
+        
+        buffer.partition(FILE_HEADER_SIZE).read(1);
+        
         byte[] code = new byte[4];
-        readBuffer.get(code);
+        if ( readBuffer.get(code) != 4 ) {
+            throw new HeaderException("empty file", this);
+        }
         if (!SegmentHeaders.LOG_FILE.validate(code)) {
-            throw new HeaderException("file header is corrupted " + new String(code));
+            throw new HeaderException("file header is corrupted " + new String(code), this);
         }
         short impl = readBuffer.getShort();
         int checkSeg = readBuffer.getInt();
         if (segNum != checkSeg) {
-            throw new HeaderException("the filename does not match the internal file structure");
+            throw new HeaderException("the filename does not match the internal file structure", this);
         }
 
         if (impl != IMPL_NUMBER) {
-            throw new HeaderException("unknown implementation number");
+            throw new HeaderException("unknown implementation number", this);
         }
 
         streamId = new UUID(readBuffer.getLong(), readBuffer.getLong());
@@ -151,13 +157,13 @@ class NIOSegmentImpl {
             throw new IOException("bad access");
         }
 
-        segment = new FileOutputStream(src).getChannel();
+        FileChannel segment = new FileOutputStream(src).getChannel();
         lock = segment.tryLock();
         if (lock == null) {
             throw new IOException(LOCKED_FILE_ACCESS);
         }
         
-        buffer = createFileBuffer(1024 * 1024, pool);
+        buffer = createFileBuffer(segment, 1024 * 1024, pool);
 
         writeJumpList = new ArrayList<Long>();
 
@@ -197,7 +203,7 @@ class NIOSegmentImpl {
 //   write it all out
         amt = buffer.writeFully(used);
         
-        writeJumpList.add(segment.position());
+        writeJumpList.add(buffer.offset());
         return amt;
     }
 
@@ -250,23 +256,26 @@ class NIOSegmentImpl {
             memoryBuffer = null;
         }
         
-        if (segment == null || !segment.isOpen()) {
+        long totalWrite = 0;
+        
+        if (buffer == null || !buffer.isOpen()) {
             return 0;
+        } else {
+            totalWrite = buffer.getTotal();
         }
 
         if (lock != null) {
             //  TODO: is this force neccessary?  not sure, research
-            segment.force(false);
+            buffer.sync();
             lock.release();
-            buffer = null;
             lock = null;
         } else {
         }
         
-        segment.close();
-        segment = null;
+        buffer.close();
+        buffer = null;
 
-        return (buffer != null) ? buffer.getTotal() : 0;
+        return totalWrite;
     }
     
     private void writeJumpList(FileBuffer target) throws IOException {
@@ -291,8 +300,8 @@ class NIOSegmentImpl {
 //  assume single threaded
 
     public long fsync() throws IOException {
-        long pos = segment.position();
-        segment.force(false);
+        long pos = buffer.offset();
+        buffer.sync();
         return pos;
     }
 
@@ -326,11 +335,11 @@ class NIOSegmentImpl {
             return true;
         } else {
 // do it the hard way
-            if (segment.size() < FILE_HEADER_SIZE + ByteBufferUtils.INT_SIZE) {
+            if (buffer.size() < FILE_HEADER_SIZE + ByteBufferUtils.INT_SIZE) {
                 return false;
             }
             buffer.clear();
-            buffer.position(segment.size() - buffer.capacity()).read(1);
+            buffer.position(buffer.size() - buffer.capacity()).read(1);
             int fileEnd = buffer.getInt(buffer.remaining() - ByteBufferUtils.INT_SIZE);
             if (SegmentHeaders.CLOSE_FILE.validate(fileEnd)) {
                 return true;
@@ -355,11 +364,11 @@ class NIOSegmentImpl {
     }
 
     public long length() throws IOException {
-        return segment.size();
+        return buffer.size();
     }
 
     public long position() throws IOException {
-        return segment.position();
+        return buffer.position();
     }
     
     public boolean isEmpty() {

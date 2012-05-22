@@ -276,6 +276,7 @@ public class NIOManager implements IOManager {
     
     @Override
     public synchronized Future<Void> clean(long timeout) throws IOException {
+        
         readOpsAllowed = false;
         try {
             backend.trimLogTail(timeout);

@@ -110,14 +110,19 @@ class NIOSegmentImpl {
         readFileHeader(buffer);
 
           try {
-              if ( bufferSize >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
+              if ( buffer.capacity() >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
               else strategy = new ChunkedReadbackStrategy(buffer,reader);
-          } catch ( IOException ioe ) {
+          } catch ( OutOfDirectMemoryError ioe ) {
               LOGGER.info("using mapped strategy", ioe);
               strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
           }
 
         return this;
+    }
+    
+    String getStrategyDebug() {
+        if ( strategy == null ) return "";
+        return strategy.getClass().getName();
     }
 
     private void readFileHeader(Chunk readBuffer) throws IOException, HeaderException {

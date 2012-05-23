@@ -71,7 +71,7 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
     private ByteBuffer allocateBuffer(int clength) throws IOException {
         ByteBuffer buf = source.getBuffer(clength);
         if ( buf == null ) {
-            throw new IOException("no direct memory space");
+            throw new OutOfDirectMemoryError("no direct memory space");
         }
         return buf;
     }

@@ -8,7 +8,7 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,7 +28,7 @@ public class NIOSpeedTest {
   NIOStreamImpl stream;
     
   @Rule
-  public TestFolder folder = new TestFolder();
+  public JUnitTestFolder folder = new JUnitTestFolder();
 
   @Before
   public void setUp() throws Exception {

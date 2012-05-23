@@ -11,7 +11,7 @@ import com.terracottatech.frs.io.GlobalFilters;
 import com.terracottatech.frs.io.TimebombFilter;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.*;
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import org.junit.After;
 import org.junit.Before;
@@ -43,7 +43,7 @@ public class NIOManagerTest {
     private Configuration config;
     
     @Rule
-    public TestFolder folder = new TestFolder();
+    public JUnitTestFolder folder = new JUnitTestFolder();
     
     @Before
     public void setUp() throws IOException {

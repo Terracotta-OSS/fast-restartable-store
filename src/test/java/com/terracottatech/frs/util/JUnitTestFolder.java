@@ -11,14 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The TestFolder Rule allows creation of files and folders that are
+ * The JUnitTestFolder Rule allows creation of files and folders that are
  * only guaranteed to be deleted if the test method passes.  On failure
  * they are left in place for post-mortem debugging.
  * 
  * <pre>
- * public static class HasTestFolder {
+ * public static class HasJUnitTestFolder {
  *  &#064;Rule
- *  public TestFolder folder= new TestFolder();
+ *  public JUnitTestFolder folder= new JUnitTestFolder();
  * 
  *  &#064;Test
  *  public void testUsingTestFolder() throws IOException {
@@ -29,9 +29,9 @@ import org.slf4j.LoggerFactory;
  * }
  * </pre>
  */
-public class TestFolder extends TestWatcher {
+public class JUnitTestFolder extends TestWatcher {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(TestFolder.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(JUnitTestFolder.class);
   
   private File folder;
   

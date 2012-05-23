@@ -9,7 +9,7 @@ import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,7 +30,7 @@ public class ReadbackStrategyTest {
     File        src;
     
     @Rule
-    public TestFolder folder = new TestFolder();    
+    public JUnitTestFolder folder = new JUnitTestFolder();    
     
     public ReadbackStrategyTest() {
     }

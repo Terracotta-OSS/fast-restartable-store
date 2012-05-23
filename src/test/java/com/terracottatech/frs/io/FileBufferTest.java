@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import org.junit.*;
 import static org.junit.Assert.*;
 
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import static org.mockito.Mockito.mock;
 
@@ -23,7 +23,7 @@ public class FileBufferTest {
     
     
     @Rule
-    public TestFolder folder = new TestFolder();
+    public JUnitTestFolder folder = new JUnitTestFolder();
     
     public FileBufferTest() {
     }

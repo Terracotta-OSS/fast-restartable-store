@@ -5,7 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,7 +25,7 @@ public class ChunkedReadbackStrategyTest {
     NIOSegmentList  list;
     
     @Rule
-    public TestFolder folder = new TestFolder();    
+    public JUnitTestFolder folder = new JUnitTestFolder();    
     
     public ChunkedReadbackStrategyTest() {
     }

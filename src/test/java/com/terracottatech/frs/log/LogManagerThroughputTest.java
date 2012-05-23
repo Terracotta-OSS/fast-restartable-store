@@ -5,7 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.nio.NIOManager;
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import org.junit.*;
 
@@ -19,7 +19,7 @@ public class LogManagerThroughputTest {
     NIOManager stream;
     LogManager mgr;
     @Rule
-    public TestFolder folder = new TestFolder();
+    public JUnitTestFolder folder = new JUnitTestFolder();
 
     public LogManagerThroughputTest() {
     }

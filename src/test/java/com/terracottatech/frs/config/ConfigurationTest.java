@@ -3,7 +3,7 @@ package com.terracottatech.frs.config;
 import org.junit.Rule;
 import org.junit.Test;
 
-import com.terracottatech.frs.util.TestFolder;
+import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -18,7 +18,7 @@ import static org.hamcrest.core.Is.is;
 public class ConfigurationTest {
   
   @Rule
-  public final TestFolder testFolder = new TestFolder();
+  public final JUnitTestFolder testFolder = new JUnitTestFolder();
   
   @Test
   public void testOverrides() throws Exception {

@@ -9,6 +9,8 @@ import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import com.terracottatech.frs.util.TestFolder;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -16,7 +18,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 /**
@@ -29,7 +30,7 @@ public class ReadbackStrategyTest {
     File        src;
     
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();    
+    public TestFolder folder = new TestFolder();    
     
     public ReadbackStrategyTest() {
     }

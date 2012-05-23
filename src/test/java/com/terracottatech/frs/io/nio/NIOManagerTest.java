@@ -11,11 +11,12 @@ import com.terracottatech.frs.io.GlobalFilters;
 import com.terracottatech.frs.io.TimebombFilter;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.*;
+import com.terracottatech.frs.util.TestFolder;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -42,7 +43,7 @@ public class NIOManagerTest {
     private Configuration config;
     
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+    public TestFolder folder = new TestFolder();
     
     @Before
     public void setUp() throws IOException {

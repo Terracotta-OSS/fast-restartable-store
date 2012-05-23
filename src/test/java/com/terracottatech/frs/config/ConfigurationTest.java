@@ -1,8 +1,9 @@
 package com.terracottatech.frs.config;
 
-import org.apache.commons.io.FileUtils;
-import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+
+import com.terracottatech.frs.util.TestFolder;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -15,13 +16,13 @@ import static org.hamcrest.core.Is.is;
  * @author tim
  */
 public class ConfigurationTest {
+  
+  @Rule
+  public final TestFolder testFolder = new TestFolder();
+  
   @Test
   public void testOverrides() throws Exception {
-    File directory = new File("testFileOverrides");
-    if (directory.exists()) {
-      FileUtils.deleteDirectory(directory);
-    }
-    Assert.assertTrue(directory.mkdirs());
+    File directory = testFolder.getRoot();
 
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(), "bogus123");

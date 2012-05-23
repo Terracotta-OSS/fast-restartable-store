@@ -8,13 +8,14 @@ import com.terracottatech.frs.io.AbstractChunk;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.nio.NIOSegmentImpl;
 import com.terracottatech.frs.io.nio.NIOStreamImpl;
+import com.terracottatech.frs.util.TestFolder;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.junit.*;
 
 import static org.junit.Assert.assertEquals;
-import org.junit.rules.TemporaryFolder;
 
 /**
  *
@@ -27,7 +28,7 @@ public class NIOSegmentImplTest {
     
     
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+    public TestFolder folder = new TestFolder();
 
     public NIOSegmentImplTest() {
     }

@@ -8,6 +8,8 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
+import com.terracottatech.frs.util.TestFolder;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -16,7 +18,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 
 /**
  *
@@ -27,7 +28,7 @@ public class NIOSpeedTest {
   NIOStreamImpl stream;
     
   @Rule
-  public TemporaryFolder folder = new TemporaryFolder();
+  public TestFolder folder = new TestFolder();
 
   @Before
   public void setUp() throws Exception {

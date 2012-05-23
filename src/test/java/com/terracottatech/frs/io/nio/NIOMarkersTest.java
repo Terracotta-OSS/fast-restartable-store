@@ -7,10 +7,11 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.WrappingChunk;
+import com.terracottatech.frs.util.TestFolder;
+
 import java.io.File;
 import java.nio.ByteBuffer;
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 
 /**
  *
@@ -25,7 +26,7 @@ public class NIOMarkersTest {
     long max;
     
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();    
+    public TestFolder folder = new TestFolder();    
     
     public NIOMarkersTest() {
     }

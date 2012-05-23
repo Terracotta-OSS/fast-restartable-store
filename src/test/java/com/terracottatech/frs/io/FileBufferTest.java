@@ -10,7 +10,9 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import org.junit.*;
 import static org.junit.Assert.*;
-import org.junit.rules.TemporaryFolder;
+
+import com.terracottatech.frs.util.TestFolder;
+
 import static org.mockito.Mockito.mock;
 
 /**
@@ -21,7 +23,7 @@ public class FileBufferTest {
     
     
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+    public TestFolder folder = new TestFolder();
     
     public FileBufferTest() {
     }

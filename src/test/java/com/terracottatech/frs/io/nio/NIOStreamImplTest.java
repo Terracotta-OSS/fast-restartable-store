@@ -2,8 +2,9 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.BufferListWrapper;
+import com.terracottatech.frs.util.TestFolder;
+
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,7 +27,7 @@ public class NIOStreamImplTest {
   Random        r;
 
   @Rule
-  public TemporaryFolder folder = new TemporaryFolder();
+  public TestFolder folder = new TestFolder();
 
   @Before
   public void setUp() throws Exception {

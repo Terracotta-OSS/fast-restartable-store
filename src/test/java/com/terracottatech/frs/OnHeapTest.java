@@ -19,8 +19,9 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActions;
 import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.transaction.TransactionManagerImpl;
+import com.terracottatech.frs.util.TestFolder;
+
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -42,7 +43,7 @@ public class OnHeapTest {
     Map<ByteBuffer, Map<ByteBuffer, ByteBuffer>> external;
         
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+    public TestFolder folder = new TestFolder();
 
     public OnHeapTest() {
     }

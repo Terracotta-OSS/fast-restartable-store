@@ -5,8 +5,9 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.nio.NIOManager;
+import com.terracottatech.frs.util.TestFolder;
+
 import org.junit.*;
-import org.junit.rules.TemporaryFolder;
 
 /**
  *
@@ -18,7 +19,7 @@ public class LogManagerThroughputTest {
     NIOManager stream;
     LogManager mgr;
     @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+    public TestFolder folder = new TestFolder();
 
     public LogManagerThroughputTest() {
     }

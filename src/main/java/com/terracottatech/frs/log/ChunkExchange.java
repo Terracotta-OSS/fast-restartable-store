@@ -131,7 +131,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             ioDone = true;
         }
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("read -- waiting: %.3f active: %.3f ave queue: %d", 
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logread)== waiting: %.3f active: %.3f queue: %d", 
                     waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count).out().toString());
 //            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
        }

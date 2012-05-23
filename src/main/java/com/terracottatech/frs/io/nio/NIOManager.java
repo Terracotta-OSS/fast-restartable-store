@@ -79,6 +79,8 @@ public class NIOManager implements IOManager {
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
             config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE));
 
+        backend.memorySpinsToFail(config.getInt(FrsProperty.IO_NIO_MEMORY_SPINS));
+        backend.memoryTimeToWait(config.getLong(FrsProperty.IO_NIO_MEMORY_TIMEOUT));
         String bufferBuilder = config.getString(FrsProperty.IO_NIO_BUFFER_BUILDER);
         if ( bufferBuilder != null ) {
             try {
@@ -183,6 +185,10 @@ public class NIOManager implements IOManager {
 
     @Override
     public void close() throws IOException {
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug("==PERFORMANCE(iostats)== " + getStatistics());
+        }
+
         if ( backend != null ) {
             backend.close();
         }
@@ -194,7 +200,7 @@ public class NIOManager implements IOManager {
         }
         backend = null;
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("written: %.2f MB in %d parts over %d requests.\ntotal time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request",
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(iowrite)==  written: %.2f MB in %d parts over %d requests.\ntotal time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request",
                     written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests).out().toString());
         }
     }

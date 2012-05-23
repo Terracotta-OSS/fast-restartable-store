@@ -27,11 +27,20 @@ public class RotatingBufferSource implements BufferSource {
     private int created = 0;
     private int released = 0;
     private long totalCapacity = 0;
-    private boolean noFail = false;
+    private int spinsToFail = 6;
+    private long millisToWait = 250;
     
     public RotatingBufferSource(BufferSource parent) {
         this.parent = parent;
     }  
+    
+    public void spinsToFail(int spins) {
+        spinsToFail = spins;
+    }
+    
+    public void millisToWait(long millis) {
+        millisToWait = millis;
+    }
 
     @Override
     public ByteBuffer getBuffer(int size) {
@@ -39,24 +48,14 @@ public class RotatingBufferSource implements BufferSource {
         
         int spins = 1;
         while (factor == null) {
-            clearQueue(spins++ % 3 == 0);
+            clearQueue(spins > 1);
             factor = checkFree(size + 8);
             // pad some extra for later
 
-            if ( factor == null && spins++ % 3 == 0) {
-                System.gc();
-                LOGGER.debug("increase io memory size calling GC");
-                LOGGER.debug(parent.toString());
-            }
-
-            if ( !noFail && spins > 20 ) return null;
+            if (factor == null && !(spinsToFail < 0) && spins++ > spinsToFail ) return null;
         }
         factor = addUsed(factor,size);
         return factor;
-    }
-    
-    public void setNoFail() {
-        noFail = true;
     }
     
     public void clear() {
@@ -73,7 +72,7 @@ public class RotatingBufferSource implements BufferSource {
         try {
             BaseHolder holder = null;
             if (wait) {
-                holder = (BaseHolder) queue.remove(250);
+                holder = (BaseHolder) queue.remove(millisToWait);
             } else {
                 holder = (BaseHolder) queue.poll();
             }

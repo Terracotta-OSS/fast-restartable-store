@@ -146,6 +146,10 @@ class NIOSegmentList {
         return segments.get(0);
     }
     
+    synchronized int getCount() {
+        return segments.size();
+    }
+    
     static int convertSegmentNumber(File f) {
         try {
             return new DecimalFormat(SEG_NUM_FORMAT).parse(f.getName().substring(3, f.getName().length() - 4)).intValue();

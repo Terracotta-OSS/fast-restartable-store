@@ -57,7 +57,7 @@ public class NIOStatistics implements IOStatistics {
 
     @Override
     public String toString() {
-        return "NIOStatistics{" + "available=" + available + ", totalUsed=" + totalUsed + ", totalWrites=" + totalWrites + ", totalReads=" + totalReads + ", dead=" + dead + '}';
+        return " available: " + available + " totalUsed:" + totalUsed + " totalWrites:" + totalWrites + " totalReads:" + totalReads + " dead:" + dead;
     }
      
      

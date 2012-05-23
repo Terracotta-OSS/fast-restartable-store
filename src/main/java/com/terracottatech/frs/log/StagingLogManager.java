@@ -288,7 +288,7 @@ public class StagingLogManager implements LogManager {
         
         state = MachineState.IDLE;
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("write -- waiting: %.3f active: %.3f",waiting*1e-6,writing*1e-6).out().toString());
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logwrite)== waiting: %.3f active: %.3f",waiting*1e-6,writing*1e-6).out().toString());
         }
       }
     }

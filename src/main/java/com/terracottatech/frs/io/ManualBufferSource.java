@@ -19,6 +19,8 @@ public class ManualBufferSource implements BufferSource {
     private int created = 0;
     private int min = Integer.MAX_VALUE;
     private int max = 0;
+    private int fails = 0;
+    private int failedAllocation = 0;
     private HashMap<Integer,ByteBuffer> pool = new HashMap<Integer,ByteBuffer>();
 
     public ManualBufferSource(long maxCapacity) {
@@ -40,6 +42,7 @@ public class ManualBufferSource implements BufferSource {
         if ( size < 1024 ) return ByteBuffer.allocate(size);
         
         if ( size + usage > maxCapacity ) {
+            fails += 1;
             return null;
         }  
             
@@ -55,6 +58,7 @@ public class ManualBufferSource implements BufferSource {
                     created += 1;
                 } catch (OutOfMemoryError err) {
                     parent.reclaim();
+                    failedAllocation += 1;
                     return null;
     //                    LOGGER.warn("ran out of direct memory calling GC");
                 }
@@ -102,8 +106,7 @@ public class ManualBufferSource implements BufferSource {
    
     public String toString() {
         return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity +
-                "min: " + min + " max:" + max;
-
+                "min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation;
     }
     
 }

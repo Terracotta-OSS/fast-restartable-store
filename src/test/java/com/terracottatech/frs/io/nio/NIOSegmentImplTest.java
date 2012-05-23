@@ -44,7 +44,7 @@ public class NIOSegmentImplTest {
     @Before
     public void setUp() throws IOException {
             workarea = folder.newFolder();
-            stream = new NIOStreamImpl(workarea, (10 * 1024 * 1024));
+            stream = new NIOStreamImpl(workarea, (1 * 1024 * 1024));
     }
 
     @After
@@ -125,7 +125,7 @@ public class NIOSegmentImplTest {
     @Test
     public void testRemains() throws Exception {
         System.out.println("remains");
-        long expResult = (10L*1024*1024) - 26L;  //  test append new file minus header
+        long expResult = (1L*1024*1024) - 26L;  //  test append new file minus header
     }
 
     /**

@@ -41,7 +41,6 @@ public class RotatingBufferSourceTest {
     @Test
     public void testGetBuffer() throws Exception {
         int size = 1024;
-        rotate.setNoFail();
         while ( size < 10 *1024 *1024 ) {
             rotate.getBuffer(size*=2);
         }

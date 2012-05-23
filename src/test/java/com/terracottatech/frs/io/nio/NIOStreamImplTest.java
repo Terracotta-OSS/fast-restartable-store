@@ -80,6 +80,28 @@ public class NIOStreamImplTest {
     }
     assertThat(foundChunks, is(numChunks));
   }
+  
+
+  @Test
+  public void testConstrainedMemoryRead() throws Exception {
+    long size = 30 * 1024 * 1024;
+    int numChunks = 0;
+    while (size > 0) {
+      int s = r.nextInt((int) (size + 1));
+      stream.append(newChunk(s));
+      size -= s;
+      numChunks++;
+    }
+    stream.close();
+
+    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE / 2);
+    nioStream.seek(-1);
+    int foundChunks = 0;
+    while (nioStream.read(Direction.REVERSE) != null) {
+      foundChunks++;
+    }
+    assertThat(foundChunks, is(numChunks));
+  }  
 
   private File[] listFiles() {
     return workArea.listFiles(NIOSegmentList.SEGMENT_FILENAME_FILTER);

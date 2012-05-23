@@ -8,6 +8,7 @@ import com.terracottatech.frs.io.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.Exchanger;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +35,7 @@ class NIOStreamImpl implements Stream {
     private FSyncer syncer;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private BufferBuilder createBuffer;
+    private HashMap<String, Integer> strategies;
 //    private long debugIn;
 //    private long debugOut;
     public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
@@ -43,6 +45,9 @@ class NIOStreamImpl implements Stream {
     public NIOStreamImpl(File filePath, long recommendedSize, long memorySize) throws IOException {
         directory = filePath;
 
+        if ( LOGGER.isDebugEnabled() ) {
+            strategies = new HashMap<String, Integer>();
+        }
         segmentSize = recommendedSize;
         if ( memorySize < segmentSize * 2 ) {
             memorySize = segmentSize * 2;
@@ -50,7 +55,7 @@ class NIOStreamImpl implements Stream {
         
         manualPool = new ManualBufferSource(memorySize);
         gcPool = new RotatingBufferSource(manualPool);
-//        gcPool.setNoFail();
+
         segments = new NIOSegmentList(directory);
 
         if (segments.isEmpty()) {
@@ -67,6 +72,14 @@ class NIOStreamImpl implements Stream {
                 streamId = UUID.randomUUID();
             }
         }
+    }
+    
+    void memorySpinsToFail(int spins) {
+        gcPool.spinsToFail(spins);
+    }
+    
+    void memoryTimeToWait(long t) {
+        gcPool.millisToWait(t);
     }
     
     public void setBufferBuilder(BufferBuilder builder) {
@@ -388,7 +401,15 @@ class NIOStreamImpl implements Stream {
             }
         } 
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(manualPool.toString());
+            LOGGER.debug("==PERFORMANCE(memory)==" + manualPool.toString());
+            StringBuilder slist = new StringBuilder();
+            for ( Map.Entry<String,Integer> e : strategies.entrySet() ) {
+                slist.append(" ");
+                slist.append(e.getKey());
+                slist.append(":");
+                slist.append(e.getValue());
+            }
+            LOGGER.debug("==PERFORMANCE(strategies)==" + slist.toString());
         }
        
         gcPool.reclaim();
@@ -413,7 +434,18 @@ class NIOStreamImpl implements Stream {
                 }
                 NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(gcPool);
                 if ( readHead != null ) {
-                    assert(nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) == 0);
+                    if (nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) != 0) {
+                        throw new IOException("broken stream during readback");
+                    }
+                }
+                if ( LOGGER.isDebugEnabled() ) {
+                    String strat = nextHead.getStrategyDebug();
+                    Integer count = strategies.get(strat);
+                    if ( count == 0 ) {
+                        strategies.put(strat,1);
+                    } else {
+                        strategies.put(strat,count+1);
+                    }
                 }
                 readHead = nextHead;
 //  files should be clean, any error needs to be thrown
@@ -450,6 +482,10 @@ class NIOStreamImpl implements Stream {
     
     long getTotalSize() {
         return segments.getTotalSize();
+    }
+    
+    int getSegmentCount() {
+        return segments.getCount();
     }
 
     @Override

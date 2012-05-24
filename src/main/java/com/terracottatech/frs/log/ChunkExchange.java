@@ -282,7 +282,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         } 
 
         synchronized void setDone() {
-            assert (lsn <= lowestLsn );
+            assert (lowestLsn < 100 || lsn <= lowestLsn );
             isDone = true;
             this.notifyAll();
             queue.clear();

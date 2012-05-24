@@ -62,15 +62,14 @@ class TransactionCommitAction implements TransactionAction {
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer handleBuffer = handle.toByteBuffer();
-    ByteBuffer header = ByteBuffer.allocate(handleBuffer.capacity() + 1);
-    header.put(handleBuffer);
+    ByteBuffer header = ByteBuffer.allocate(1);
     if (emptyTransaction) {
       header.put((byte) 1);
     } else {
       header.put((byte) 0);
     }
     header.flip();
-    return new ByteBuffer[]{header};
+    return new ByteBuffer[]{handleBuffer, header};
   }
 
   @Override

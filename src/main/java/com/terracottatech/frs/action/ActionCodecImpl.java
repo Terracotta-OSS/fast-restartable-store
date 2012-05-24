@@ -8,10 +8,8 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
 import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
@@ -19,12 +17,11 @@ import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
 /**
  * @author tim
  */
-public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
+public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
   private final Map<Class<? extends Action>, ActionID> classToId =
-          new HashMap<Class<? extends Action>, ActionID>();
+          new ConcurrentHashMap<Class<? extends Action>, ActionID>();
   private final Map<ActionID, ActionFactory<I, K, V>> idToFactory =
-          new HashMap<ActionID, ActionFactory<I, K, V>>();
-  private final ReadWriteLock lock = new ReentrantReadWriteLock();
+          new ConcurrentHashMap<ActionID, ActionFactory<I, K, V>>();
   private final ObjectManager<I, K, V> objectManager;
 
   public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
@@ -33,39 +30,29 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
   }
 
   @Override
-  public void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
+  public synchronized void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
                              ActionFactory<I, K, V> actionFactory) {
-    lock.writeLock().lock();
-    try {
-      ActionID id = new ActionID(collectionId, actionId);
-      if (classToId.containsKey(actionClass)) {
-        throw new IllegalArgumentException(
-                "Action class " + actionClass + " already registered to id " + classToId.get(
-                        actionClass));
-      }
-      if (idToFactory.containsKey(id)) {
-        throw new IllegalArgumentException(
-                "Id " + id + " already registered to action class " + idToFactory.get(id));
-      }
-      classToId.put(actionClass, id);
-      idToFactory.put(id, actionFactory);
-    } finally {
-      lock.writeLock().unlock();
+    ActionID id = new ActionID(collectionId, actionId);
+    if (classToId.containsKey(actionClass)) {
+      throw new IllegalArgumentException(
+              "Action class " + actionClass + " already registered to id " + classToId.get(
+                      actionClass));
     }
+    if (idToFactory.containsKey(id)) {
+      throw new IllegalArgumentException(
+              "Id " + id + " already registered to action class " + idToFactory.get(id));
+    }
+    classToId.put(actionClass, id);
+    idToFactory.put(id, actionFactory);
   }
 
   @Override
   public Action decode(ByteBuffer[] buffers) {
-    lock.readLock().lock();
-    try {
-      ActionID id = ActionID.withByteBuffers(buffers);
-      ActionFactory<I, K, V> factory = idToFactory.get(id);
-      if (factory == null)
-        throw new IllegalArgumentException("Unknown Action type id= " + id);
-      return factory.create(objectManager, this, buffers);
-    } finally {
-      lock.readLock().unlock();
-    }
+    ActionID id = ActionID.withByteBuffers(buffers);
+    ActionFactory<I, K, V> factory = idToFactory.get(id);
+    if (factory == null)
+      throw new IllegalArgumentException("Unknown Action type id= " + id);
+    return factory.create(objectManager, this, buffers);
   }
 
   @Override
@@ -74,14 +61,9 @@ public class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
   }
 
   private ByteBuffer headerBuffer(Action action) {
-    lock.readLock().lock();
-    try {
-      if (!classToId.containsKey(action.getClass()))
-        throw new IllegalArgumentException("Unknown action class " + action.getClass());
-      return classToId.get(action.getClass()).toByteBuffer();
-    } finally {
-      lock.readLock().unlock();
-    }
+    if (!classToId.containsKey(action.getClass()))
+      throw new IllegalArgumentException("Unknown action class " + action.getClass());
+    return classToId.get(action.getClass()).toByteBuffer();
   }
 
   private static class ActionID {

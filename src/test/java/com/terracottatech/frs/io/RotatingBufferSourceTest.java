@@ -45,6 +45,8 @@ public class RotatingBufferSourceTest {
             rotate.getBuffer(size*=2);
         }
         System.gc();
+        rotate.spinsToFail(-1);
+        rotate.millisToWait(5000);
         while ( size > 1024 ) {
             assert(rotate.getBuffer(size/=2) != null);
             Thread.sleep(100);

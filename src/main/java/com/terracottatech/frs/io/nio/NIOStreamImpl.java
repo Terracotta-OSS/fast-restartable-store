@@ -49,8 +49,8 @@ class NIOStreamImpl implements Stream {
             strategies = new HashMap<String, Integer>();
         }
         segmentSize = recommendedSize;
-        if ( memorySize < segmentSize * 2 ) {
-            memorySize = segmentSize * 2;
+        if ( memorySize < segmentSize * 4 ) {
+            memorySize = segmentSize * 4;
         }
         
         manualPool = new ManualBufferSource(memorySize);
@@ -441,7 +441,7 @@ class NIOStreamImpl implements Stream {
                 if ( LOGGER.isDebugEnabled() ) {
                     String strat = nextHead.getStrategyDebug();
                     Integer count = strategies.get(strat);
-                    if ( count == 0 ) {
+                    if ( count == null ) {
                         strategies.put(strat,1);
                     } else {
                         strategies.put(strat,count+1);

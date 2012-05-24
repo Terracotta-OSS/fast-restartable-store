@@ -104,6 +104,7 @@ class NIOSegmentImpl {
 //        int bufferSize = 1024 * 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
         if ( bufferSize > 10 * 1024 * 1024 ) bufferSize *= .10;
+//        if ( bufferSize > 10 * 1024 * 1024 ) bufferSize = 128 * 1024;
 
         buffer = createFileBuffer(segment, bufferSize, reader);
 
@@ -112,6 +113,7 @@ class NIOSegmentImpl {
           try {
               if ( buffer.capacity() >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
               else strategy = new ChunkedReadbackStrategy(buffer,reader);
+//              else strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
           } catch ( OutOfDirectMemoryError ioe ) {
               LOGGER.info("using mapped strategy", ioe);
               strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());

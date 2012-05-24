@@ -52,7 +52,10 @@ public class RotatingBufferSource implements BufferSource {
             factor = checkFree(size + 8);
             // pad some extra for later
 
-            if (factor == null && !(spinsToFail < 0) && spins++ > spinsToFail ) return null;
+            if (factor == null) {
+                if ( !(spinsToFail < 0) && spins++ > spinsToFail ) return null;
+                else System.gc();
+            }
         }
         factor = addUsed(factor,size);
         return factor;

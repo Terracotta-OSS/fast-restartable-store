@@ -106,7 +106,7 @@ public class ManualBufferSource implements BufferSource {
    
     public String toString() {
         return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity +
-                "min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation;
+                " min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation;
     }
     
 }

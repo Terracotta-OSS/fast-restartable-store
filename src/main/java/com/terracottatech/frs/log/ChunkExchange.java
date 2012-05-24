@@ -191,6 +191,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     class RecordIterator implements Iterator<LogRecord> {
 
+        long lsn;
         volatile boolean isDone = false;
         boolean first = true;
         Deque<LogRecord> list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
@@ -253,7 +254,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 throw new NoSuchElementException();
             }
             try {
-                assert(list.peek().getLsn() <= lastLsn);
+                lsn = list.peek().getLsn();
+                assert(lsn <= lastLsn);
                 return list.removeFirst();
             } finally {
 
@@ -280,6 +282,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         } 
 
         synchronized void setDone() {
+            assert (lsn <= lowestLsn );
             isDone = true;
             this.notifyAll();
             queue.clear();

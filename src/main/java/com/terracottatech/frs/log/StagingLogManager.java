@@ -108,6 +108,7 @@ public class StagingLogManager implements LogManager {
         if ( lsn > cl ) {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
+                    io.setMinimumMarker(lsn);
                     if ( lsn - lastClean > 1000 ) {
                         try {
                             exchanger.get();
@@ -121,7 +122,6 @@ public class StagingLogManager implements LogManager {
                         io.clean(0);
                         lastClean = lsn;
                     }
-                    io.setMinimumMarker(lsn);
                 }
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);

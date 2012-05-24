@@ -171,6 +171,8 @@ public class StagingLogManagerTest {
 
         private final Deque<Chunk> chunks = new LinkedList<Chunk>();
         private long max = 0;
+        private long min = 0;
+        private long current = 0;
 
         @Override
         public long write(Chunk region) throws IOException {
@@ -181,6 +183,7 @@ public class StagingLogManagerTest {
         
     @Override
     public void setCurrentMarker(long lsn) throws IOException {
+        current = lsn;
     }
 
     @Override
@@ -190,11 +193,12 @@ public class StagingLogManagerTest {
 
     @Override
     public void setMinimumMarker(long lsn) throws IOException {
+        min = lsn;
     }
 
     @Override
     public long getCurrentMarker() throws IOException {
-        return 0;
+        return current;
     }
 
     @Override
@@ -204,7 +208,7 @@ public class StagingLogManagerTest {
 
     @Override
     public long getMinimumMarker() throws IOException {
-        return 0;
+        return min;
     }
 
         @Override

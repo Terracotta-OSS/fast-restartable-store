@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.config.Configuration;
@@ -17,6 +18,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.concurrent.Future;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static org.junit.Assert.assertNotNull;
@@ -29,12 +31,14 @@ import static org.mockito.Mockito.*;
 public class RestartStoreImplTest {
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>  restartStore;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private ActionManager                                     actionManager;
   private Compactor                                         compactor;
   private TransactionManager                                transactionManager;
   private TransactionHandle                                 handle;
-  private LogManager logManager;
-  private MapActionFactory mapActionFactory;
-  private Configuration configuration;
+  private LogManager                                        logManager;
+  private MapActionFactory                                  mapActionFactory;
+  private Configuration                                     configuration;
+  private Future<Void>                                      syncHappenedFuture;
 
   @Before
   public void setUp() throws Exception {
@@ -43,6 +47,9 @@ public class RestartStoreImplTest {
     transactionManager = mock(TransactionManager.class);
     doReturn(handle).when(transactionManager).begin();
     objectManager = mock(ObjectManager.class);
+    actionManager = mock(ActionManager.class);
+    syncHappenedFuture = mock(Future.class);
+    doReturn(syncHappenedFuture).when(actionManager).syncHappened(any(Action.class));
     compactor = mock(Compactor.class);
     logManager = spy(new NullLogManager());
     restartStore = createStore();
@@ -52,7 +59,7 @@ public class RestartStoreImplTest {
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
     return new RestartStoreImpl(objectManager, transactionManager, logManager,
-                                mock(ActionManager.class), compactor, configuration);
+                                actionManager, compactor, configuration);
   }
 
   @Test
@@ -70,11 +77,13 @@ public class RestartStoreImplTest {
     try {
       restartStore.beginTransaction(true);
       fail();
-    } catch (IllegalStateException e) {}
+    } catch (IllegalStateException e) {
+    }
     try {
       restartStore.beginAutoCommitTransaction(true);
       fail();
-    } catch (IllegalStateException e) {}
+    } catch (IllegalStateException e) {
+    }
   }
 
   @Test
@@ -147,28 +156,58 @@ public class RestartStoreImplTest {
   }
 
   @Test
-  public void testAutoCommitPut() throws Exception {
+  public void testSyncAutoCommitPut() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
             restartStore.beginAutoCommitTransaction(true);
     transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
                     byteBufferWithInt(3));
-    verify(transactionManager).happened(mapActionFactory.put(1, 2, 3));
+    verify(actionManager).syncHappened(mapActionFactory.put(1, 2, 3));
+    verify(syncHappenedFuture).get();
   }
 
   @Test
-  public void testAutoCommitRemove() throws Exception {
+  public void testAsyncAutoCommitPut() throws Exception {
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> transaction =
+            restartStore.beginAutoCommitTransaction(false);
+    transaction.put(byteBufferWithInt(1), byteBufferWithInt(2),
+                    byteBufferWithInt(3));
+    verify(actionManager).happened(mapActionFactory.put(1, 2, 3));
+    verify(syncHappenedFuture, never()).get();
+  }
+
+  @Test
+  public void testAsyncAutoCommitRemove() throws Exception {
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
+            transaction = restartStore.beginAutoCommitTransaction(false);
+    transaction.remove(byteBufferWithInt(1), byteBufferWithInt(15));
+    verify(actionManager).happened(mapActionFactory.remove(1, 15));
+    verify(syncHappenedFuture, never()).get();
+  }
+  @Test
+  public void testSyncAutoCommitRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.remove(byteBufferWithInt(1), byteBufferWithInt(15));
-    verify(transactionManager).happened(mapActionFactory.remove(1, 15));
+    verify(actionManager).syncHappened(mapActionFactory.remove(1, 15));
+    verify(syncHappenedFuture).get();
   }
 
   @Test
-  public void testAutoCommitDelete() throws Exception {
+  public void testAsyncAutoCommitDelete() throws Exception {
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
+            transaction = restartStore.beginAutoCommitTransaction(false);
+    transaction.delete(byteBufferWithInt(99));
+    verify(actionManager).happened(mapActionFactory.delete(99));
+    verify(syncHappenedFuture, never()).get();
+  }
+
+  @Test
+  public void testSyncAutoCommitDelete() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>
             transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.delete(byteBufferWithInt(99));
-    verify(transactionManager).happened(mapActionFactory.delete(99));
+    verify(actionManager).syncHappened(mapActionFactory.delete(99));
+    verify(syncHappenedFuture).get();
   }
 
   @Test

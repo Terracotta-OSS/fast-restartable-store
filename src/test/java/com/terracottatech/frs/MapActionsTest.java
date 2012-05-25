@@ -43,7 +43,8 @@ public class MapActionsTest {
   }
 
   private void checkEncodeDecode(Action action) throws Exception {
-    assertThat(actionCodec.decode(actionCodec.encode(action)), is(action));
+    Action decoded = actionCodec.decode(actionCodec.encode(action));
+    assertThat(decoded, is(action));
   }
 
   @Test

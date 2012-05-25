@@ -21,8 +21,7 @@ class DeleteAction implements Action {
     @Override
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                          ActionCodec codec, ByteBuffer[] buffers) {
-      int idLength = ByteBufferUtils.getInt(buffers);
-      return new DeleteAction(objectManager, null, ByteBufferUtils.getBytes(idLength, buffers), false);
+      return new DeleteAction(objectManager, null, ByteBufferUtils.getFirstNonEmpty(buffers), false);
     }
   };
 
@@ -57,9 +56,7 @@ class DeleteAction implements Action {
 
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer buffer = ByteBuffer.allocate(ByteBufferUtils.INT_SIZE);
-    buffer.putInt(id.remaining()).flip();
-    return new ByteBuffer[] { buffer, id.slice() };
+    return new ByteBuffer[] { id.slice() };
   }
 
   @Override

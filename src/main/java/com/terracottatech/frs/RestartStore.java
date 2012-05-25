@@ -34,6 +34,7 @@ public interface RestartStore<I, K, V> {
   /**
    * Open a transaction for mutating the {@link RestartStore}
    *
+   * @param synchronous whether or not the transaction should be committed synchronously
    * @return a transaction context
    */
   Transaction<I, K, V> beginTransaction(boolean synchronous);
@@ -41,6 +42,8 @@ public interface RestartStore<I, K, V> {
   /**
    * Open an auto-commit transaction.
    *
+   * @param synchronous whether the actions within the autocommit transaction should be
+   *                    committed synchronously
    * @return an auto-commit transaction context.
    */
   Transaction<I, K, V> beginAutoCommitTransaction(boolean synchronous);

@@ -49,6 +49,6 @@ public class MockActionManager implements ActionManager {
 
   @Override
   public Future<Void> syncHappened(Action action) {
-    throw new UnsupportedOperationException();
+    return happened(action);
   }
 }

@@ -92,20 +92,6 @@ public class TransactionManagerImplTest {
   }
 
   @Test
-  public void testSynchronousAutoCommit() throws Exception {
-    transactionManager.happened(action);
-    verify(actionManager).syncHappened(action);
-    verify(happenedFuture).get();
-  }
-
-  @Test
-  public void testAsyncAutoCommit() throws Exception {
-    transactionManager.asyncHappened(action);
-    verify(actionManager).happened(action);
-    verify(happenedFuture, never()).get();
-  }
-
-  @Test
   public void testLowestLsn() throws Exception {
     assertThat(transactionManager.getLowestOpenTransactionLsn(), is(Long.MAX_VALUE));
 

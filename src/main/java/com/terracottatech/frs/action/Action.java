@@ -14,6 +14,11 @@ import java.nio.ByteBuffer;
  */
 public interface Action extends LSNEventListener {
 
+  /**
+   * Called when the action has been assigned an LSN.
+   *
+   * @param lsn lsn assigned to this action
+   */
   void record(long lsn);
 
   /**
@@ -23,5 +28,11 @@ public interface Action extends LSNEventListener {
    */
   void replay(long lsn);
 
+  /**
+   * Get the serialized form of the action.
+   *
+   * @param codec {@link ActionCodec} to serialize the action with
+   * @return Array of {@link ByteBuffer}s representing this action.
+   */
   ByteBuffer[] getPayload(ActionCodec codec);
 }

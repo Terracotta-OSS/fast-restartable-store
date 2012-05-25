@@ -7,16 +7,10 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 
-import java.util.concurrent.Future;
-
 /**
  * @author tim
  */
 public class NullTransactionManager implements TransactionManager {
-  @Override
-  public Future<Void> asyncHappened(Action action) {
-    return null;
-  }
 
   @Override
   public TransactionHandle begin() {
@@ -30,10 +24,6 @@ public class NullTransactionManager implements TransactionManager {
 
   @Override
   public void happened(TransactionHandle handle, Action action) {
-  }
-
-  @Override
-  public void happened(Action action) throws InterruptedException, TransactionException {
   }
 
   @Override

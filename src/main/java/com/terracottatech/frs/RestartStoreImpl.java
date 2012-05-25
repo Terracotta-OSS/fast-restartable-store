@@ -20,6 +20,7 @@ import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 /**
@@ -57,7 +58,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
                           ActionManager actionManager, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
     this(objectManager, transactionManager, logManager, actionManager,
-         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration),
+         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration,
+                           actionManager),
          configuration);
   }
 
@@ -123,9 +125,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     private void happened(Action action) throws TransactionException,
             InterruptedException {
       if (synchronous) {
-        transactionManager.happened(action);
+        try {
+          actionManager.syncHappened(action).get();
+        } catch (ExecutionException e) {
+          throw new TransactionException(e);
+        }
       } else {
-        transactionManager.asyncHappened(action);
+        actionManager.happened(action);
       }
     }
 

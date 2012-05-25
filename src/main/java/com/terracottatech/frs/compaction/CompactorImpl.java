@@ -6,6 +6,7 @@ package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.TransactionException;
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.IOManager;
@@ -36,6 +37,7 @@ public class CompactorImpl implements Compactor {
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
+  private final ActionManager actionManager;
   private final LogManager logManager;
   private final Semaphore compactionCondition = new Semaphore(0);
   private final AtomicBoolean alive = new AtomicBoolean();
@@ -47,11 +49,12 @@ public class CompactorImpl implements Compactor {
   private CompactorThread compactorThread;
 
   CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                TransactionManager transactionManager, LogManager logManager,
+                TransactionManager transactionManager, ActionManager actionManager, LogManager logManager,
                 CompactionPolicy policy, long runIntervalSeconds,
                 long compactActionThrottle, int startThreshold) {
     this.objectManager = objectManager;
     this.transactionManager = transactionManager;
+    this.actionManager = actionManager;
     this.logManager = logManager;
     this.policy = policy;
     this.runIntervalSeconds = runIntervalSeconds;
@@ -61,8 +64,8 @@ public class CompactorImpl implements Compactor {
 
   public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                        TransactionManager transactionManager, LogManager logManager,
-                       IOManager ioManager, Configuration configuration) throws RestartStoreException {
-    this(objectManager, transactionManager, logManager,
+                       IOManager ioManager, Configuration configuration, ActionManager actionManager) throws RestartStoreException {
+    this(objectManager, transactionManager, actionManager, logManager,
          getPolicy(configuration, objectManager, logManager, ioManager),
          configuration.getLong(COMPACTOR_RUN_INTERVAL),
          configuration.getLong(COMPACTOR_THROTTLE_AMOUNT),
@@ -125,7 +128,7 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
 
           // Flush the new lowest LSN with a dummy record
-          transactionManager.asyncHappened(new NullAction()).get();
+          actionManager.happened(new NullAction()).get();
         } catch (InterruptedException e) {
           LOGGER.info("Compactor thread interrupted, shutting down.");
           return;
@@ -151,7 +154,7 @@ public class CompactorImpl implements Compactor {
         try {
           CompactionAction compactionAction =
                   new CompactionAction(objectManager, compactionEntry);
-          Future<Void> written = transactionManager.asyncHappened(compactionAction);
+          Future<Void> written = actionManager.happened(compactionAction);
           // We can't update the object manager on Action.record() because the compactor
           // is holding onto the segment lock. Since we want to wait for the action to be
           // sequenced anyways so we don't keep getting the same compaction keys, we may as

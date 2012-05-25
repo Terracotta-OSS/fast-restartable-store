@@ -65,11 +65,6 @@ public class MockTransactionManager implements TransactionManager {
     rcdManager.happened(new MockTransactionalAction(getIdAndValidateHandle(handle), action));
   }
 
-  @Override
-  public void happened(Action action) {
-    rcdManager.happened(action);
-  }
-
   private long getIdAndValidateHandle(TransactionHandle handle) {
     if (handle instanceof MockTransactionHandle) {
       MockTransactionHandle mth = (MockTransactionHandle) handle;
@@ -104,10 +99,5 @@ public class MockTransactionManager implements TransactionManager {
   @Override
   public long getLowestOpenTransactionLsn() {
     return Long.MAX_VALUE;
-  }
-
-  @Override
-  public Future<Void> asyncHappened(Action action) {
-    throw new UnsupportedOperationException();
   }
 }

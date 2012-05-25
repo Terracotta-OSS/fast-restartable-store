@@ -64,6 +64,15 @@ public abstract class ByteBufferUtils {
     throw new BufferUnderflowException();
   }
 
+  public static ByteBuffer getFirstNonEmpty(ByteBuffer[] buffers) {
+    for (ByteBuffer buffer : buffers) {
+      if (buffer.hasRemaining()) {
+        return buffer;
+      }
+    }
+    throw new BufferUnderflowException();
+  }
+
   public static ByteBuffer[] concatenate(ByteBuffer before, ByteBuffer[] after) {
     ByteBuffer[] newBufferArray = new ByteBuffer[after.length + 1];
     newBufferArray[0] = before;

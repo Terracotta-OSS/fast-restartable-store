@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.mock.compaction;
 
+import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -19,6 +20,7 @@ import java.util.concurrent.ThreadFactory;
  */
 public class MockCompactor<I, K, V> implements Compactor {
   private final TransactionManager txnManager;
+  private final ActionManager actionManager;
   private final ObjectManager<I, K, V> objManager;
   private final ExecutorService executor = Executors.newFixedThreadPool(1, new ThreadFactory() {
     @Override
@@ -49,8 +51,9 @@ public class MockCompactor<I, K, V> implements Compactor {
   };
 
   public MockCompactor(TransactionManager txnManager,
-      ObjectManager<I, K, V> objectManager) {
+                       ActionManager actionManager, ObjectManager<I, K, V> objectManager) {
     this.txnManager = txnManager;
+    this.actionManager = actionManager;
     this.objManager = objectManager;
   }
 
@@ -66,7 +69,7 @@ public class MockCompactor<I, K, V> implements Compactor {
     ObjectManagerEntry<I, K, V> entry = objManager.acquireCompactionEntry(txnManager.getLowestOpenTransactionLsn());
     if (entry != null) {
       try {
-        txnManager.happened(new MockCompactionAction<I, K, V>(objManager, entry));
+        actionManager.happened(new MockCompactionAction<I, K, V>(objManager, entry));
       } catch (Exception e) {
         throw new RuntimeException(e);
       } finally {

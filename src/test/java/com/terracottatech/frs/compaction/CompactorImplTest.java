@@ -5,12 +5,13 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.NullActionManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
-import com.terracottatech.frs.transaction.NullTransactionManager;
 import com.terracottatech.frs.transaction.TransactionManager;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.*;
 public class CompactorImplTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private TransactionManager transactionManager;
+  private ActionManager actionManager;
   private LogManager logManager;
   private Compactor compactor;
   private TestCompactionPolicy policy;
@@ -37,10 +39,12 @@ public class CompactorImplTest {
   public void setUp() throws Exception {
     future = mock(Future.class);
     objectManager = spy(new CompactionTestObjectManager());
-    transactionManager = spy(new CompactionTestTransactionManager());
+    transactionManager = mock(TransactionManager.class);
+    actionManager = spy(new CompactionTestActionManager());
     policy = spy(new TestCompactionPolicy());
     logManager = mock(LogManager.class);
-    compactor = new CompactorImpl(objectManager, transactionManager, logManager, policy,
+    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
+                                  logManager, policy,
                                   60, 1000, 2000);
   }
 
@@ -64,7 +68,7 @@ public class CompactorImplTest {
 
     compactor.shutdown();
 
-    verify(transactionManager, never()).happened(any(CompactionAction.class));
+    verify(actionManager, only()).happened(any(CompactionAction.class));
   }
 
   @Test
@@ -89,13 +93,13 @@ public class CompactorImplTest {
   }
 
   private void verifyCompactedTimes(int times) {
-    verify(transactionManager, times(times)).asyncHappened(isA(CompactionAction.class));
+    verify(actionManager, times(times)).happened(isA(CompactionAction.class));
     verify(policy, times(times)).compacted(any(ObjectManagerEntry.class));
   }
 
-  private class CompactionTestTransactionManager extends NullTransactionManager {
+  private class CompactionTestActionManager extends NullActionManager {
     @Override
-    public Future<Void> asyncHappened(Action action) {
+    public Future<Void> happened(Action action) {
       action.record(1);
       return future;
     }

@@ -194,6 +194,7 @@ public class NIOManager implements IOManager {
         }
         if (lock != null) {
             lock.release();
+            lastSync.close();
         }
         if (lockFile != null) {
             lockFile.delete();

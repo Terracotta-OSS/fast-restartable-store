@@ -16,6 +16,7 @@ import com.terracottatech.frs.util.NullFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.Iterator;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,7 +41,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
     this.compressedSkipSet = configuration.getBoolean(FrsProperty.RECOVERY_COMPRESSED_SKIP_SET);
     this.replayFilter = new ReplayFilter(configuration.getInt(FrsProperty.RECOVERY_MIN_THREAD_COUNT),
                                          configuration.getInt(FrsProperty.RECOVERY_MAX_THREAD_COUNT),
-                                         configuration.getInt(FrsProperty.RECOVERY_MAX_QUEUE_LENGTH));
+                                         configuration.getInt(FrsProperty.RECOVERY_MAX_QUEUE_LENGTH),
+                                         configuration.getDBHome());
   }
 
   @Override
@@ -111,8 +113,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
             new AtomicReference<Throwable>();
 
     private final ExecutorService            executorService;
+    private final File dbHome;
 
-    ReplayFilter(int minThreadCount, int maxThreadCount, int maxQueueLength) {
+    ReplayFilter(int minThreadCount, int maxThreadCount, int maxQueueLength, File dbHome) {
       executorService = new ThreadPoolExecutor(minThreadCount,
                                                maxThreadCount, 60,
                                                SECONDS,
@@ -120,6 +123,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
                                                        maxQueueLength),
                                                this,
                                                new ThreadPoolExecutor.CallerRunsPolicy());
+      this.dbHome = dbHome;
     }
 
     @Override
@@ -145,7 +149,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     void checkError() throws RecoveryException {
       Throwable t = firstError.get();
       if (t != null) {
-        throw new RecoveryException("Caught an error during recovery!", t);
+        throw new RecoveryException("Caught an error recovering from log at " + dbHome.getAbsolutePath(), t);
       }
     }
 

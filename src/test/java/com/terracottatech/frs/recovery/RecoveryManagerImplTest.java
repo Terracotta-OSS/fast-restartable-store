@@ -15,7 +15,9 @@ import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
+import com.terracottatech.frs.util.JUnitTestFolder;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
@@ -34,6 +36,9 @@ import static org.mockito.Mockito.*;
  * @author tim
  */
 public class RecoveryManagerImplTest {
+  @Rule
+  public JUnitTestFolder testFolder = new JUnitTestFolder();
+
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private TransactionActionFactory transactionActionFactory;
   private MapActionFactory mapActionFactory;
@@ -48,7 +53,7 @@ public class RecoveryManagerImplTest {
     mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
     logManager = newLogManager();
     actionManager = newActionManager();
-    recoveryManager = new RecoveryManagerImpl(logManager, actionManager, Configuration.getConfiguration(new File("foo")));
+    recoveryManager = new RecoveryManagerImpl(logManager, actionManager, Configuration.getConfiguration(testFolder.newFolder()));
   }
 
   private LogManager newLogManager() {

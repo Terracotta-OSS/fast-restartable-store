@@ -11,6 +11,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.*;
@@ -85,6 +86,7 @@ class NIOSegmentImpl {
 
         buffer = createFileBuffer(segment, FILE_HEADER_SIZE, reader);
 
+        buffer.read(1);
         readFileHeader(buffer);
 
         return this;
@@ -101,24 +103,27 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header", this);
         }
         
-//        int bufferSize = 1024 * 1024;
         int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
         if ( bufferSize > 10 * 1024 * 1024 ) bufferSize *= .10;
-//        if ( bufferSize > 10 * 1024 * 1024 ) bufferSize = 128 * 1024;
-
-        buffer = createFileBuffer(segment, bufferSize, reader);
-
-        readFileHeader(buffer);
-
-          try {
-              if ( buffer.capacity() >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
-              else strategy = new ChunkedReadbackStrategy(buffer,reader);
-//              else strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
-          } catch ( OutOfDirectMemoryError ioe ) {
-              LOGGER.info("using mapped strategy", ioe);
-              strategy = new MappedReadbackStrategy(new FileInputStream(src).getChannel());
-          }
-
+        
+//        try {
+//            buffer = createFileBuffer(segment, bufferSize, reader);
+//            if ( buffer.capacity() != bufferSize ) {
+//                throw new OutOfDirectMemoryError();
+//            }
+//            buffer.partition(NIOSegmentImpl.FILE_HEADER_SIZE);
+//            buffer.read(1);
+//            readFileHeader(buffer);
+//            if ( buffer.capacity() >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
+//            else strategy = new ChunkedReadbackStrategy(buffer,parent.getGCBufferSource());
+//        } catch ( OutOfDirectMemoryError ooe ) {
+            if ( buffer != null ) buffer = null;
+            MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
+            buf.load();
+            readFileHeader(new WrappingChunk(buf));
+            strategy = new MappedReadbackStrategy(buf);
+//        }
+        
         return this;
     }
     
@@ -128,11 +133,11 @@ class NIOSegmentImpl {
     }
 
     private void readFileHeader(Chunk readBuffer) throws IOException, HeaderException {
-        if ( buffer.capacity() < FILE_HEADER_SIZE ) {
+        if ( readBuffer.remaining() < FILE_HEADER_SIZE ) {
             throw new IOException("file buffering size too small");
         }
         
-        buffer.partition(FILE_HEADER_SIZE).read(1);
+//        readBuffer.partition(FILE_HEADER_SIZE).read(1);
         
         byte[] code = new byte[4];
         if ( readBuffer.get(code) != 4 ) {
@@ -170,7 +175,9 @@ class NIOSegmentImpl {
             throw new IOException(LOCKED_FILE_ACCESS);
         }
         
-        buffer = createFileBuffer(segment, 1024 * 1024, pool);
+        while ( buffer == null ) {
+            buffer = createFileBuffer(segment, 512 * 1024, pool);
+        } 
 
         writeJumpList = new ArrayList<Long>();
 
@@ -252,16 +259,10 @@ class NIOSegmentImpl {
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
             writeJumpList(buffer);
             buffer.write(1);
-            buffer = null;
         }
     }
 
     long close() throws IOException {
-        if ( bufferSource != null ) {
-            bufferSource.returnBuffer(memoryBuffer);
-            bufferSource = null;
-            memoryBuffer = null;
-        }
         
         long totalWrite = 0;
         
@@ -281,7 +282,13 @@ class NIOSegmentImpl {
         
         buffer.close();
         buffer = null;
-
+        
+        if ( bufferSource != null ) {
+            bufferSource.returnBuffer(memoryBuffer);
+            bufferSource = null;
+            memoryBuffer = null;
+        }
+        
         return totalWrite;
     }
     
@@ -371,11 +378,11 @@ class NIOSegmentImpl {
     }
 
     public long length() throws IOException {
-        return buffer.size();
+        return src.length();
     }
 
     public long position() throws IOException {
-        return buffer.position();
+        return ( buffer == null ) ? 0 : buffer.position();
     }
     
     public boolean isEmpty() {

@@ -108,7 +108,11 @@ class NIOSegmentList {
         while ( count < position ) {
             File f = segments.remove(0);
             size += f.length();
-            f.delete();
+            if ( !f.delete() ) {
+                size -= f.length();
+                segments.add(0,f);
+                return size;
+            }
             count++;
         }
         assert(segments.get(0).equals(readHead));

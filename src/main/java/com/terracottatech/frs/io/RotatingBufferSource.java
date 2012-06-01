@@ -7,7 +7,6 @@ package com.terracottatech.frs.io;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
-import java.util.Formatter;
 import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +26,7 @@ public class RotatingBufferSource implements BufferSource {
     private int created = 0;
     private int released = 0;
     private long totalCapacity = 0;
-    private int spinsToFail = 6;
+    private int spinsToFail = 0;
     private long millisToWait = 250;
     
     public RotatingBufferSource(BufferSource parent) {
@@ -81,7 +80,6 @@ public class RotatingBufferSource implements BufferSource {
             }
             while (holder != null) {
                 if (used.remove(holder)) {
-                    holder.getBase().position(0);
                     ByteBuffer check = holder.getBase();
                     totalCapacity -= check.capacity();
                     parent.returnBuffer(check);
@@ -95,9 +93,11 @@ public class RotatingBufferSource implements BufferSource {
     }
 
     private ByteBuffer addUsed(ByteBuffer buffer, int size) {
+        if ( !buffer.isDirect() ) {
+            return buffer;
+        }
         if ( buffer.capacity() < size + 8 ) {
             throw new AssertionError();
-            
         }
         buffer.clear().position(buffer.capacity()-size);
         ByteBuffer pass = buffer.slice();

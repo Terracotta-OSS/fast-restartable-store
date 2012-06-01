@@ -87,4 +87,31 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         return targets;
     }    
     
+        
+    protected ArrayList<Long> readJumpList(Chunk buffer) throws IOException {
+
+        int jump = buffer.getInt(buffer.length()-4);
+        if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {
+            int numberOfChunks = buffer.getShort(buffer.length()-6);
+            if ( numberOfChunks < 0 ) {
+                return null;
+            }
+            
+            int reach = numberOfChunks * ByteBufferUtils.LONG_SIZE;
+            long close = buffer.length() - (reach + 10);
+            if ( close < 0 ) {
+                return null;
+            }
+            int cfm = buffer.getInt((int)(close));
+            if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
+                ArrayList<Long> jumps = new ArrayList<Long>();
+                for (int x=0;x<numberOfChunks;x++) {
+                    jumps.add(buffer.getLong(close + 4 + (x*8)));
+                }
+                return jumps;
+            }
+        }
+        return null;
+    }
+
 }

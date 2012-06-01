@@ -77,13 +77,22 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     private void prepare() throws IOException {
-        List<Long> jumps = readJumpList();
+        buffer.clear();
+        if ( buffer.size() < buffer.remaining() ) {
+            buffer.limit(buffer.size());
+        }
+        buffer.position(buffer.size()-buffer.remaining());
+        buffer.read(1);        
+        
+        List<Long> jumps = readJumpList(buffer);
         
         if ( jumps == null ) {
-            throw new IOException("unable to read jump list");
+            throw new OutOfDirectMemoryError("unable to read jump list");
         }
+
+        numberOfChunks = jumps.size();
         
-        ArrayList<ByteBuffer> readIn = new ArrayList<ByteBuffer>(jumps.size()-1);
+        ArrayList<ByteBuffer> readIn = new ArrayList<ByteBuffer>(jumps.size());
         
         long last = NIOSegmentImpl.FILE_HEADER_SIZE;
         int clength = 0;
@@ -121,36 +130,5 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
                 add = readChunk(src);
             }
         }
-    }
-    
-    private ArrayList<Long> readJumpList() throws IOException {
-        buffer.clear();
-        if ( buffer.size() < buffer.remaining() ) {
-            buffer.limit(buffer.size());
-        }
-        buffer.position(buffer.size()-buffer.remaining());
-        buffer.read(1);
-        int jump = buffer.getInt(buffer.remaining()-4);
-        if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {
-            numberOfChunks = buffer.getShort(buffer.remaining()-6);
-            if ( numberOfChunks < 0 ) return null;
-            
-            int reach = numberOfChunks * ByteBufferUtils.LONG_SIZE;
-            long close = buffer.remaining()-reach-10;
-            if ( close < 0 ) return null;
-            buffer.skip(close);
-            int cfm = buffer.getInt();
-            if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
-                ArrayList<Long> jumps = new ArrayList<Long>();
-                for (int x=0;x<numberOfChunks;x++) {
-                    jumps.add(buffer.getLong());
-                }
-                return jumps;
-            }
-        }
-        return null;
-    }
-    
-    
-    
+    }    
 }

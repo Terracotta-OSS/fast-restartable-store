@@ -14,20 +14,10 @@ import java.util.*;
 class GlobalBufferSource implements BufferSource {
     
     private static GlobalBufferSource GLOBAL = new GlobalBufferSource();
-    private long   totalSize;
     
     private long maxCapacity = 0;
-    
-//    private static Set<BufferSource> clients = Collections.synchronizedSet(new HashSet<BufferSource>());
+    private final CachingBufferSource delegate = new CachingBufferSource();
     private static Map<BufferSource,Long> clients = Collections.synchronizedMap(new HashMap<BufferSource,Long>());
-    
-    private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
-        @Override
-        public int compare(Integer t, Integer t1) {
-     // make sure nothing ever equals so everything fits in the set
-            return t.intValue() - t1.intValue();
-        }
-    });
         
     static GlobalBufferSource getInstance(BufferSource client, long capacity) {
         clients.put(client, capacity);
@@ -48,61 +38,25 @@ class GlobalBufferSource implements BufferSource {
     }
     
     public synchronized void releaseCapacity(long max) {
-//        maxCapacity -= max;
+        maxCapacity -= max;
     }
 
     @Override
     public synchronized ByteBuffer getBuffer(int size) {
-        if (freeList.isEmpty()) {
-            return null;
-        }
-        Integer get = freeList.ceilingKey(size);
-        if ( get == null ) {
-            get = freeList.floorKey(size);
-        }
-//  don't need to check for null again, already check that the map is not empty
-        ByteBuffer buffer = freeList.remove(get);
-        if ( buffer.capacity() < size ) {
-            findSlot(buffer);
-            return null;
-        }
-        
-        totalSize -= buffer.capacity();
-        buffer.clear();
-        if ( buffer.capacity() > size * 2 ) {
-            ByteBuffer slice = ((ByteBuffer)buffer.clear().position(buffer.limit()-size)).slice();
-            findSlot(((ByteBuffer)buffer.flip()).slice());
-            buffer = slice;
-        }
-        return buffer;
+        return delegate.getBuffer(size);
     }
 
     @Override
     public synchronized void reclaim() {
-        Map.Entry<Integer,ByteBuffer> poll = freeList.pollFirstEntry();
-        if ( poll != null ) {
-            totalSize -= poll.getValue().capacity();
-        }
+        delegate.reclaim();
     }
 
     @Override
     public synchronized void returnBuffer(ByteBuffer buffer) {
-        if ( totalSize + buffer.capacity() > maxCapacity ) {
+        if ( delegate.getSize() + buffer.capacity() > maxCapacity ) {
             return;
         }
-        findSlot(buffer);
-    }
-    
-    private void findSlot(ByteBuffer buffer) {
-        totalSize += buffer.capacity();
-        while ( buffer != null ) {
-            if ( buffer.limit() == 0 ) {
-                totalSize -= buffer.capacity();
-                return;
-            }
-            buffer = freeList.put(buffer.limit(),buffer);
-            if ( buffer != null ) buffer.limit(buffer.limit()-1);
-        }
+        delegate.returnBuffer(buffer);
     }
     
 }

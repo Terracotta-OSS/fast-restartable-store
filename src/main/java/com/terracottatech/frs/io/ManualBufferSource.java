@@ -5,7 +5,7 @@
 package com.terracottatech.frs.io;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.util.ArrayList;
 
 /**
  *
@@ -21,7 +21,8 @@ public class ManualBufferSource implements BufferSource {
     private int max = 0;
     private int fails = 0;
     private int failedAllocation = 0;
-    private HashMap<Integer,ByteBuffer> pool = new HashMap<Integer,ByteBuffer>();
+    private long allocated = 0;
+    private ArrayList<BufferWrapper> pool = new ArrayList<BufferWrapper>();
 
     public ManualBufferSource(long maxCapacity) {
         this.parent = GlobalBufferSource.getInstance(this, maxCapacity);
@@ -46,44 +47,53 @@ public class ManualBufferSource implements BufferSource {
             return null;
         }  
             
-        ByteBuffer base = null;
-        while ( base == null ) {
-            base = parent.getBuffer(size);
+        ByteBuffer  base = parent.getBuffer(size);
  
+        if ( base == null ) {
+            base = performAllocation(size);
             if ( base == null ) {
-                try {
-                    int allocate = Math.round(size * 1.05f);
-                    if ( allocate < 64 * 1024 ) allocate = 64 * 1024;
-                    base = ByteBuffer.allocateDirect(allocate);
-                    created += 1;
-                } catch (OutOfMemoryError err) {
-                    parent.reclaim();
-                    failedAllocation += 1;
-                    return null;
-    //                    LOGGER.warn("ran out of direct memory calling GC");
-                }
+                failedAllocation += 1;
+            } else {
+                allocated += base.capacity();
+                created += 1;
             }
-        } 
-        if ( base != null ) {
-            ByteBuffer rsrc = base.duplicate();
-            if ( size != rsrc.capacity() ) {
-                rsrc = ((ByteBuffer)rsrc.position(rsrc.limit() - size)).slice();
-            } 
-            usage += base.capacity();
-            pool.put(System.identityHashCode(rsrc),base);
-            return rsrc;
         }
-        return null;
+
+        if ( base != null ) {
+           base.clear();
+           if ( base.remaining() != size ) {
+               base.limit(size);
+           }
+           BufferWrapper wrap = new BufferWrapper(base);
+           assert(!pool.contains(wrap));
+           pool.add(wrap);
+           usage += base.capacity();
+        }
+           
+        return base;
+    }
+    
+    protected ByteBuffer performAllocation(int size) {
+        try {
+            int allocate = Math.round(size * 1.05f);
+            if ( allocate < 64 * 1024 ) allocate = 64 * 1024;
+            ByteBuffer base = ByteBuffer.allocateDirect(allocate);
+            return base;
+        } catch (OutOfMemoryError err) {
+            parent.reclaim();
+            return null;
+//                    LOGGER.warn("ran out of direct memory calling GC");
+        }
     }
 
     @Override
-    public void reclaim() {
-
+    public synchronized void reclaim() {
+        if ( parent != null ) parent.reclaim();
     }
     
     private long calculateUsage() {
         long val = 0;
-        for ( ByteBuffer buffer : pool.values() ) {
+        for ( BufferWrapper buffer : pool ) {
             val += buffer.capacity();
         }
         return val;
@@ -92,21 +102,38 @@ public class ManualBufferSource implements BufferSource {
     @Override
     public synchronized void returnBuffer(ByteBuffer buffer) {
         assert(buffer != null);
-        if ( !buffer.isDirect() ) {
-            return;
-        }
         
-        ByteBuffer base = pool.remove(System.identityHashCode(buffer));
-        if ( base != null ) {
-            usage -= base.capacity();
+        if ( pool.remove(new BufferWrapper(buffer)) ) {
+            assert(!pool.contains(new BufferWrapper(buffer)));
+            usage -= buffer.capacity();
             assert(usage == calculateUsage());
-            parent.returnBuffer(base);
+            parent.returnBuffer(buffer);
         } 
     }
    
     public String toString() {
         return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity +
-                " min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation;
+                " min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation + " size: " + pool.size();
+    }
+    
+    static class BufferWrapper {
+        private final ByteBuffer check;
+        
+        BufferWrapper(ByteBuffer eq) {
+            this.check = eq;
+        }
+        
+        public boolean equals(Object obj) {
+            if ( obj instanceof BufferWrapper ) {
+                return ((BufferWrapper)obj).check == check;
+            } else {
+                return super.equals(obj);
+            }
+        }
+        
+        public int capacity() {
+            return check.capacity();
+        }
     }
     
 }

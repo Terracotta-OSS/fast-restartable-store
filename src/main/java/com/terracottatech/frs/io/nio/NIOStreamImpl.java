@@ -52,6 +52,8 @@ class NIOStreamImpl implements Stream {
         if ( memorySize < segmentSize * 4 ) {
             memorySize = segmentSize * 4;
         }
+        LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
+        LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
         
         manualPool = new ManualBufferSource(memorySize);
         gcPool = new RotatingBufferSource(manualPool);
@@ -80,6 +82,10 @@ class NIOStreamImpl implements Stream {
     
     void memoryTimeToWait(long t) {
         gcPool.millisToWait(t);
+    }
+    
+    BufferSource getGCBufferSource() {
+        return gcPool;
     }
     
     public void setBufferBuilder(BufferBuilder builder) {
@@ -301,7 +307,6 @@ class NIOStreamImpl implements Stream {
         if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
             
-            gcPool.reclaim();
             writeHead = new NIOSegmentImpl(this, f).openForWriting(manualPool);
             writeHead.insertFileHeader(lowestMarker, currentMarker);
             lowestMarkerOnDisk = lowestMarker;
@@ -413,9 +418,7 @@ class NIOStreamImpl implements Stream {
         }
        
         gcPool.reclaim();
-        manualPool.reclaim();
-        
-        
+        manualPool.reclaim();        
     }
 
     @Override
@@ -430,9 +433,10 @@ class NIOStreamImpl implements Stream {
                 File f = segments.nextReadFile(dir);
                 if (f == null) {
                     readHead = null;
+                    gcPool.reclaim();
                     return null;
                 }
-                NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(gcPool);
+                NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(manualPool);
                 if ( readHead != null ) {
                     if (nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) != 0) {
                         throw new IOException("broken stream during readback");
@@ -473,6 +477,7 @@ class NIOStreamImpl implements Stream {
         if (readHead != null) {
             readHead.close();
         }
+        gcPool.reclaim();
         readHead = null;
     }
 

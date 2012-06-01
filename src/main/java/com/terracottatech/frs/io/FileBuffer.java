@@ -146,6 +146,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         while (buffer.hasRemaining()) {
             lt += channel.write(buffer);
         }
+        offset = channel.position();
         return lt;
     }    
 
@@ -280,7 +281,6 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             }
         }
 
-        offset = channel.position();
         mark += count;
         total += lt;
         return lt;

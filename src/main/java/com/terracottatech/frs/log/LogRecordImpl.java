@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.log;
 
-import com.terracottatech.frs.io.Chunk;
 import java.nio.ByteBuffer;
 
 /**

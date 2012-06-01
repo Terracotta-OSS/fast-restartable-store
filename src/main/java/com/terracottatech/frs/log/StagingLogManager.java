@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Global;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
@@ -175,6 +176,7 @@ public class StagingLogManager implements LogManager {
         long turns = 0;
         long size = 0;
         int fill = 0;
+        try {
         while (regionFactory != null) {
           CommitList oldRegion = currentRegion;
           try {
@@ -205,8 +207,11 @@ public class StagingLogManager implements LogManager {
         }
         if ( turns == 0 ) turns = 1;
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("processing -- waiting: %.3f active: %.3f ave. queue: %d fill: %d",
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(processing)== waiting: %.3f active: %.3f ave. queue: %d fill: %d",
                     waiting*1e-6,processing*1e-6,size/(turns),fill/turns).out().toString());
+        }
+        } catch ( OutOfMemoryError oome ) {
+            oome.printStackTrace();
         }
       }
     }
@@ -421,17 +426,16 @@ public class StagingLogManager implements LogManager {
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        return _append(record,true);
+        Future<Void> w = _append(record,true);
+        Global.set(w);
+        return w;
     }
 
     @Override
     public Iterator<LogRecord> reader() {
         if ( exchanger == null ) this.startup();
         
-        Iterator<LogRecord> it = exchanger.iterator();
-        it.hasNext();
-
-        return it;
+        return exchanger.iterator();
     }
         
     public ChunkExchange getRecoveryExchanger() {

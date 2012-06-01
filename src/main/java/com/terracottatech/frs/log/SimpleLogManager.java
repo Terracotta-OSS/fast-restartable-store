@@ -13,6 +13,7 @@ import com.terracottatech.frs.io.IOManager;
  * 
  * @author mscott
  */
+@Deprecated
 public class SimpleLogManager extends StagingLogManager {
 
     public SimpleLogManager(Signature check, CommitList list, IOManager io) {

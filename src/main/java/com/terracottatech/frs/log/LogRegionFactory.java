@@ -5,7 +5,6 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -15,5 +14,5 @@ import java.util.List;
 public interface LogRegionFactory<T> {
 
   Chunk pack(Iterable<T> payload);
-  List<T> unpack(Chunk data) throws ChecksumException ;
+  List<T> unpack(Chunk data) throws FormatException ;
 }

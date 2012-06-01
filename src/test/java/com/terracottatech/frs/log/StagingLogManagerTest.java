@@ -130,7 +130,7 @@ public class StagingLogManagerTest {
 
         // Some of the syncs can wind up overlapping, so let's say at least 50% of them
         // can trigger a new write.
-        verify(ioManager, atLeast(syncs.get() / 2)).write(any(Chunk.class));
+        verify(ioManager, atLeast(syncs.get() / 10)).write(any(Chunk.class));
     }
 
     /**

@@ -7,7 +7,7 @@ package com.terracottatech.frs.mock.io;
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRegionFactory;
-import com.terracottatech.frs.log.ChecksumException;
+import com.terracottatech.frs.log.FormatException;
 import com.terracottatech.frs.mock.MockFuture;
 
 import java.io.ByteArrayOutputStream;
@@ -148,7 +148,7 @@ public class MockIOManager implements IOManager {
             {
                 try {
                     current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
-                } catch ( ChecksumException ce ) {
+                } catch ( FormatException ce ) {
                     throw new RuntimeException(ce);
                 }
             }
@@ -167,7 +167,7 @@ public class MockIOManager implements IOManager {
                 try {
                 current = as.unpack(new WrappingChunk(ByteBuffer.wrap(delegate.next()))).iterator();
                 return current.hasNext();
-                                } catch ( ChecksumException ce ) {
+                                } catch ( FormatException ce ) {
                     throw new RuntimeException(ce);
                 }
             }

@@ -8,7 +8,7 @@ package com.terracottatech.frs.log;
  *
  * @author mscott
  */
-public class ChecksumException extends Exception {
+public class FormatException extends Exception {
 
     private long expected;
     private long calculated;
@@ -18,7 +18,7 @@ public class ChecksumException extends Exception {
      * Creates a new instance of
      * <code>ChecksumException</code> without detail message.
      */
-    public ChecksumException(String message, long expected, long calc, long length) {
+    public FormatException(String message, long expected, long calc, long length) {
         this.expected = expected;
         this.calculated = calc;
         this.length = length;
@@ -30,7 +30,7 @@ public class ChecksumException extends Exception {
      *
      * @param msg the detail message.
      */
-    public ChecksumException(String msg) {
+    public FormatException(String msg) {
         super(msg);
     }
 }

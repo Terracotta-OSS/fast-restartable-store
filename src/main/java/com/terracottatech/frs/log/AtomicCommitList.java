@@ -33,7 +33,6 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         baseLsn = startLsn;
         endLsn = new AtomicLong();
         regions = new AtomicReferenceArray<LogRecord>(maxSize);
-//        this.doChecksum = useChecksum;
         goLatch = new CountDownLatch(maxSize);
         wait = waitTime;
     }
@@ -249,14 +248,12 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public Void get() throws InterruptedException, ExecutionException {
-        checkForClosed();
         this.waitForWrite();
         return null;
     }
 
     @Override
     public Void get(long time, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-        checkForClosed();
         this.waitForWrite(tu.convert(time, TimeUnit.MILLISECONDS));
         return null;
     }

@@ -7,6 +7,7 @@ package com.terracottatech.frs.log;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.MappedChunk;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -28,14 +29,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private long lastLsn = -1;
     private long lowestLsn = -1;
     private Exception exception;
-    Thread runner;
-    private RecordIterator master = new RecordIterator();
+    private Thread runner;
+    private final RecordIterator master;
     private long totalRead;
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
     ChunkExchange(IOManager io, Signature style, int maxQueue) {
         this.io = io;
         queue = new ArrayBlockingQueue<Chunk>(maxQueue);
+        master = new RecordIterator(maxQueue);
     }
 
     public int returned() {
@@ -88,7 +90,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long waiting = 0;
         long reading = 0;
         long fill = 0;
-        long time = 0;
+
         try {
             io.seek(IOManager.Seek.END.getValue());
             Chunk chunk = io.read(Direction.REVERSE);
@@ -100,6 +102,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 reading += (System.nanoTime() - last);
                 last = System.nanoTime();
                 fill += queue.size();
+                if ( queue.remainingCapacity() < queue.size() ) {
+                    if ( chunk instanceof MappedChunk ) {
+                        ((MappedChunk)chunk).load();
+                    }
+                }
                 queue.put(chunk);
                 count+=1;
                 waiting += (System.nanoTime() - last);
@@ -110,11 +117,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                     first = false;
                 } else {
                     if ( System.currentTimeMillis() - tick > 15 * 1000) {
-                        time += tick;
                         tick += System.currentTimeMillis();
-//                        if ( LOGGER.isDebugEnabled() ) {
-//                            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
-//                        }
                     }
                 }
             }
@@ -133,7 +136,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logread)== waiting: %.3f active: %.3f queue: %d", 
                     waiting*1e-6, reading*1e-6, (count == 0) ? 0 : fill / count).out().toString());
-//            LOGGER.debug(new Formatter(new StringBuilder()).format("Recovery: read rate %.2f", totalRead / (1024f * 1024f * time * 1e-3)).out().toString());
        }
         return totalRead;
     }
@@ -186,61 +188,88 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     @Override
     public Iterator<LogRecord> iterator() {
+        master.start();
         return master;
     }
 
-    class RecordIterator implements Iterator<LogRecord> {
-
+    class RecordIterator extends Thread implements Iterator<LogRecord> {
+        long loaded = 0;
+        long unloaded = 0;
+        long recordCount = 0;
+        long recordMiss = 0;
         long lsn;
         volatile boolean isDone = false;
         boolean first = true;
-        Deque<LogRecord> list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
+        BlockingQueue<LogRecord> list;
+        volatile LogRecord head = null;
 
+        public RecordIterator(int size) {
+            list = new LinkedBlockingDeque<LogRecord>();
+            this.setDaemon(true);
+            this.setName("Recovery record unpacker");
+        }
+        
         @Override
-        public boolean hasNext() {
-            if (exception != null) {
-                throw new RuntimeException(exception);
-            }
-            if (list.isEmpty()) {
+        public void run() {
+            while ( !ioDone || !queue.isEmpty() ) {
                 try {
-                    Chunk queued = null;
-                    while (queued == null && list.isEmpty()) {
-                        if (ioDone && queue.isEmpty()) {
-                            break;
-                        }
-                        queued = queue.poll(10, TimeUnit.SECONDS);
-                        if (queued != null) {
-                            returned.incrementAndGet();
-                            try {
-                                List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
-                                Collections.reverse(records);
-                                list = new ArrayDeque<LogRecord>(records);
-                            } catch ( ChecksumException ce ) {
-                                throw new RuntimeException(ce);
+                    Chunk queued = queue.poll(10, TimeUnit.SECONDS);
+                    if ( queued != null ) {
+                        if ( queued instanceof MappedChunk ) {
+                            if ( ((MappedChunk)queued).isLoaded() ) {
+                                loaded += 1;
+                            } else {
+                                unloaded += 1;
+                                ((MappedChunk)queued).load();
                             }
+                        }                        
+                        returned.incrementAndGet();
+                        try {
+                            List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
+                            Collections.reverse(records);
+                            for ( LogRecord r : records ) {
+                                list.put(r);
+                            }
+                        } catch ( FormatException ce ) {
+                            throw new RuntimeException(ce);
                         }
                     }
-                } catch (InterruptedException ie) {
-                    throw new RuntimeException(ie);
-                } catch (RuntimeException ioe) {
+                } catch ( InterruptedException ie ) {
+                    
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "RecordIterator{" + "loaded=" + loaded + ", unloaded=" + unloaded + ", recordCount=" + recordCount + ", recordMiss=" + recordMiss + '}';
+        }
+
+        
+        @Override
+        public boolean hasNext() {
+            while (head == null) {
+                if ( ioDone && list.isEmpty() && queue.isEmpty() ) {
                     setDone();
-                    throw new RuntimeException(ioe);
+                    return false;
+                }
+                try {
+                    head = list.poll(3, TimeUnit.MILLISECONDS);
+                    if (head != null) recordCount += 1;
+                    else recordMiss +=1;
+                } catch ( InterruptedException ie ) {
+                    
                 }
             }
 
-            if (!list.isEmpty()) {
-                //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
-                if (list.peek().getLsn() < lowestLsn) {
-                    setDone();
-                    // TODO: This is a total hack to work around the race between finishing
-                    // the iteration and the reader thread blocking on the queue.
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
+            //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
+            if (head.getLsn() < lowestLsn) {
                 setDone();
+                // TODO: This is a total hack to work around the race between finishing
+                // the iteration and the reader thread blocking on the queue.
                 return false;
+            } else {
+                return true;
             }
         }
 
@@ -249,16 +278,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if (exception != null) {
                 throw new RuntimeException(exception);
             }
-            hasNext();
-            if (list.isEmpty()) {
-                throw new NoSuchElementException();
+            if ( head == null && !hasNext() ) {
+                throw new NoSuchElementException();                
             }
+            lsn = head.getLsn();
+            assert(lsn <= lastLsn);
             try {
-                lsn = list.peek().getLsn();
-                assert(lsn <= lastLsn);
-                return list.removeFirst();
+                return head;
             } finally {
-
+                head = null;
             }
         }
 
@@ -286,7 +314,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             isDone = true;
             this.notifyAll();
             queue.clear();
-            list = new ArrayDeque<LogRecord>(Collections.<LogRecord>emptyList());
+            list.clear();
+            if ( LOGGER.isDebugEnabled() ) {
+                LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d", 
+                    loaded,unloaded,recordCount,recordMiss).out().toString());
+            }
         }
     }
 }

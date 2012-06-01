@@ -8,7 +8,6 @@ import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.WrappingChunk;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 
 /**
@@ -17,7 +16,6 @@ import java.util.Collections;
  */
 public class CopyingPacker extends LogRegionPacker {
     
-//    private ByteBuffer headers = ByteBuffer.allocate(1024 * 128);
     private final BufferSource pool;
     private static final int FUTURE_SPACER = 64;
     
@@ -73,15 +71,11 @@ public class CopyingPacker extends LogRegionPacker {
                 count++;
             }
 
-//            if (lowestLsn == 0 || lowestLsn > record.getLowestLsn()) {
-//                lowestLsn = record.getLowestLsn();
-//            }
-
             header.position(header.position() + copy.position());
             
             copy.flip();
             
-            formRecordHeader(len,record.getLsn(),/*record.getLowestLsn(),*/copy);
+            formRecordHeader(len,record.getLsn(),copy);
         }
         
         header.flip();

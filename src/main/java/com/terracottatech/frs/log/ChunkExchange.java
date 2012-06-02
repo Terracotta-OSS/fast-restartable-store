@@ -253,12 +253,19 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public boolean hasNext() {
+            boolean joined = false;
             while (head == null) {
-                if (ioDone && list.isEmpty() && queue.isEmpty()) {
-                    setDone();
-                    return false;
-                }
                 try {
+                    if (ioDone && queue.isEmpty()) {
+                        this.join();
+                        joined = true;
+                    }
+                    
+                    if ( joined && list.isEmpty() ) {
+                        setDone();
+                        return false;
+                    }
+                
                     head = list.poll(3, TimeUnit.MILLISECONDS);
                     if (head != null) {
                         recordCount += 1;
@@ -266,6 +273,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                         recordMiss += 1;
                     }
                 } catch (InterruptedException ie) {
+                    throw new RuntimeException(ie);
                 }
             }
 

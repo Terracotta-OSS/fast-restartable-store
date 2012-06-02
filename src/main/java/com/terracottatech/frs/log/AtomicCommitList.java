@@ -28,6 +28,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
     private Exception error;
     private volatile CommitList next;
     private final int      wait;
+    private volatile boolean        atHead = false;
 
     public AtomicCommitList(long startLsn, int maxSize,int waitTime) {
         baseLsn = startLsn;
@@ -60,6 +61,9 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
             goLatch.countDown();
+            if ( atHead && sync ) {
+                checkForClosed();
+            }
         } else {
             return false;
         }
@@ -200,6 +204,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
 
     @Override
     public void waitForContiguous() throws InterruptedException {
+        atHead = true;
         if ( goLatch.getCount() != regions.length() ) {
             checkForClosed();
         } else {

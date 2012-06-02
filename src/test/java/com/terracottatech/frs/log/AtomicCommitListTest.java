@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,7 +23,7 @@ import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.junit.Assert.fail;
-
+import static org.hamcrest.number.OrderingComparison.lessThan;
 
 /**
  * @author tim
@@ -32,7 +33,7 @@ public class AtomicCommitListTest {
 
   @Before
   public void setUp() throws Exception {
-    commitList = new AtomicCommitList(10, 10, 20);
+    commitList = new AtomicCommitList(10, 10, 2000);
   }
 
   @Test
@@ -49,6 +50,26 @@ public class AtomicCommitListTest {
     for (LogRecord record : commitList) {
       assertThat(record, is(record0));
     }
+  }
+  
+  @Test
+  public void testOneElementSync() throws Exception {
+      final long time = System.currentTimeMillis();
+      new Thread() {
+            @Override
+          public void run() {
+            try {
+                Thread.sleep(1);
+            } catch ( InterruptedException ie ) {
+                
+            }
+            commitList.append(record(10), true);
+          }
+      }.start();
+    commitList.waitForContiguous();
+    commitList.written();
+    commitList.get();
+    assertThat(System.currentTimeMillis()-time,lessThan(2000l));
   }
 
   @Test

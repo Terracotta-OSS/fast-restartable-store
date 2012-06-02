@@ -155,7 +155,8 @@ public class StagingLogManager implements LogManager {
       long waiting;
       long processing;
       
-      LogRegionFactory        regionFactory = new CopyingPacker(checksumStyle,buffers);
+      volatile boolean        stopped = false;
+      final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle,buffers);
 //      LogRegionFactory        regionFactory = new LogRegionPacker(checksumStyle);
       
         
@@ -166,7 +167,7 @@ public class StagingLogManager implements LogManager {
       }
       
       void done() {
-          regionFactory = null;
+          stopped = true;
           this.interrupt();
       }
     
@@ -177,7 +178,7 @@ public class StagingLogManager implements LogManager {
         long size = 0;
         int fill = 0;
         try {
-        while (regionFactory != null) {
+        while (!stopped) {
           CommitList oldRegion = currentRegion;
           try {
             if ( state != MachineState.NORMAL ) {
@@ -197,6 +198,7 @@ public class StagingLogManager implements LogManager {
                 oldRegion.written();
                 continue;
             }
+            
             queue.put(new WritingPackage(oldRegion,regionFactory.pack(oldRegion)));
             size += queue.size();
             fill += (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());

@@ -7,18 +7,21 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.io.IOManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author mscott
  */
 public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private FileBuffer buffer;
     private long lastGood = 0;
     private long lastMarker = 0;
@@ -91,6 +94,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
                 throw new IOException(new String(check));
             }
         } catch (Exception ioe) {
+            LOGGER.error("io error checking integrity",ioe);
             done = true;
         }
         primed = false;

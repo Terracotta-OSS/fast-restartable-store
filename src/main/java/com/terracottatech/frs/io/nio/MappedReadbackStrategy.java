@@ -22,12 +22,10 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     private final MappedByteBuffer                src;
     protected ListIterator<Chunk>   chunks;
     protected Direction             queueDirection;
-    private final FileChannel                     channel;
     
     public MappedReadbackStrategy(FileChannel data) throws IOException {
 //        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
         src = data.map(MapMode.READ_ONLY,0,(int)data.size());
-        channel = data;
         data.close();
         prepare(Direction.REVERSE);
     }
@@ -35,7 +33,6 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     public MappedReadbackStrategy(MappedByteBuffer data) throws IOException {
 //        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
         src = data;
-        channel = null;
         prepare(Direction.REVERSE);
     }
     
@@ -47,10 +44,9 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
             queue(dir);
             return;
         }
-        Long last = new Long(NIOSegmentImpl.FILE_HEADER_SIZE);
+        Long last = Long.valueOf(NIOSegmentImpl.FILE_HEADER_SIZE);
         ArrayList<Chunk> root = new ArrayList<Chunk>(jumps.size());
         for ( Long next : jumps ) {
-            int len = (int)(next - last);
             try {
                 src.clear().position(last.intValue() + 12).limit(next.intValue() - 20);
                 root.add(new WrappingChunk(src.slice()));

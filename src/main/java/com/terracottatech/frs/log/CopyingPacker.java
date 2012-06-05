@@ -41,7 +41,6 @@ public class CopyingPacker extends LogRegionPacker {
     @Override
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
 //        long lowestLsn = 0;
-        int count = 0;
         int size = sizeRegion(records);
 //  too small to try and optimize with copying        
         if ( size < 1024 ) {
@@ -68,7 +67,6 @@ public class CopyingPacker extends LogRegionPacker {
             for ( ByteBuffer bb : payload ) {
                 len += bb.remaining();
                 copy.put(bb);
-                count++;
             }
 
             header.position(header.position() + copy.position());

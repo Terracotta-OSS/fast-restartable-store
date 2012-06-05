@@ -20,7 +20,7 @@ public class HeapReadbackStrategy extends AbstractReadbackStrategy {
     
     public HeapReadbackStrategy(FileBuffer src, BufferSource buffers) throws IOException {
         buffer = src;
-        queue(buffers, Direction.REVERSE);
+        queue(Direction.REVERSE);
     }
     
     @Override
@@ -43,7 +43,7 @@ public class HeapReadbackStrategy extends AbstractReadbackStrategy {
         return null;
     } 
 
-    private void queue(BufferSource src, Direction dir) throws IOException {  
+    private void queue(Direction dir) throws IOException {  
         queueDirection = dir;
 //        ByteBuffer whole = src.getBuffer((int)(buffer.size()-NIOSegmentImpl.FILE_HEADER_SIZE));
         ByteBuffer whole = null;
@@ -68,7 +68,7 @@ public class HeapReadbackStrategy extends AbstractReadbackStrategy {
         Chunk loaded = new WrappingChunk(whole);
         List<Chunk> list = new ArrayList<Chunk>();
         ByteBuffer[] chunk = readChunk(loaded);
-
+        
         while (chunk != null) {
             list.add(new WrappingChunk(chunk));
             chunk = readChunk(loaded);

@@ -19,7 +19,7 @@ public enum SegmentHeaders {
     CHUNK_START("-st-"),
     FILE_CHUNK("~fc~");
     
-    byte[] value;
+    private byte[] value;
     
     SegmentHeaders(String value) {
         assert(value.length() == 4);

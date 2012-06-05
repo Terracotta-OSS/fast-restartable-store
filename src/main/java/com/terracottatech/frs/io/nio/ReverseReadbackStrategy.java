@@ -19,7 +19,6 @@ import java.util.*;
  */
 class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     
-    private boolean                 consistent = false;
     private final Deque<Long>       fileJumps = new ArrayDeque<Long>();
     private final FileChannel        channel;
     private ListIterator<Chunk>   chunks;
@@ -27,7 +26,7 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
     private final BufferSource    bufferSrc;
     private ByteBuffer              buffer;
     
-    private final int  READ_SIZE = 1024 * 1024;
+    private static final int  READ_SIZE = 1024 * 1024;
     
     public ReverseReadbackStrategy(FileChannel channel, BufferSource src) {
         super();
@@ -171,10 +170,6 @@ class ReverseReadbackStrategy extends AbstractReadbackStrategy {
         }
         
         throw new IOException("buffer is not wide enough");
-    }
-    
-    private long jumpForwardChunk(long magicPos) throws IOException {
-        return -1;
     }
     
     private int jumpBackwardChunk(int magicPos) throws IOException {

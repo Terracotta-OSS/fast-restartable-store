@@ -19,6 +19,7 @@ public class FormatException extends Exception {
      * <code>ChecksumException</code> without detail message.
      */
     public FormatException(String message, long expected, long calc, long length) {
+        super(message);
         this.expected = expected;
         this.calculated = calc;
         this.length = length;
@@ -33,4 +34,11 @@ public class FormatException extends Exception {
     public FormatException(String msg) {
         super(msg);
     }
+
+    @Override
+    public String toString() {
+        return "FormatException{" + "expected=" + expected + ", calculated=" + calculated + ", length=" + length + '}';
+    }
+    
+    
 }

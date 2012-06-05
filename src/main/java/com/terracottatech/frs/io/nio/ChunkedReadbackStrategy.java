@@ -5,7 +5,6 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
-import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -24,7 +23,6 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
     BufferSource source;
     List<Chunk>  chunkList;
     ListIterator<Chunk>  chunks;
-    int numberOfChunks;
     int preferredLength;
     Direction    direction;
 
@@ -89,8 +87,6 @@ public class ChunkedReadbackStrategy extends AbstractReadbackStrategy {
         if ( jumps == null ) {
             throw new OutOfDirectMemoryError("unable to read jump list");
         }
-
-        numberOfChunks = jumps.size();
         
         ArrayList<ByteBuffer> readIn = new ArrayList<ByteBuffer>(jumps.size());
         

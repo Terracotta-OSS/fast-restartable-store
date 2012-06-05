@@ -34,10 +34,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private long totalRead;
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
-    ChunkExchange(IOManager io, Signature style, int maxQueue) {
+    ChunkExchange(IOManager io, int maxQueue) {
         this.io = io;
         queue = new ArrayBlockingQueue<Chunk>(maxQueue);
-        master = new RecordIterator(maxQueue);
+        master = new RecordIterator();
     }
 
     public int returned() {
@@ -155,7 +155,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     }
 
     private synchronized void waitForDone(long t, TimeUnit tu) throws InterruptedException {
-        runner.join();
+        runner.join(tu.toMillis(t));
         master.waitForIterator();
     }
 
@@ -209,7 +209,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         BlockingQueue<LogRecord> list;
         volatile LogRecord head = null;
 
-        public RecordIterator(int size) {
+        public RecordIterator() {
             list = new LinkedBlockingDeque<LogRecord>();
             this.setDaemon(true);
             this.setName("Recovery record unpacker");

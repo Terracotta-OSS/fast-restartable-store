@@ -103,26 +103,11 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header", this);
         }
         
-        int bufferSize = (fileSize > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) fileSize;
-        if ( bufferSize > 10 * 1024 * 1024 ) bufferSize *= .10;
-        
-//        try {
-//            buffer = createFileBuffer(segment, bufferSize, reader);
-//            if ( buffer.capacity() != bufferSize ) {
-//                throw new OutOfDirectMemoryError();
-//            }
-//            buffer.partition(NIOSegmentImpl.FILE_HEADER_SIZE);
-//            buffer.read(1);
-//            readFileHeader(buffer);
-//            if ( buffer.capacity() >= fileSize ) strategy = new WholeFileReadbackStrategy(buffer);
-//            else strategy = new ChunkedReadbackStrategy(buffer,parent.getGCBufferSource());
-//        } catch ( OutOfDirectMemoryError ooe ) {
-            if ( buffer != null ) buffer = null;
-            MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
-            buf.load();
-            readFileHeader(new WrappingChunk(buf));
-            strategy = new MappedReadbackStrategy(buf);
-//        }
+        if ( buffer != null ) buffer = null;
+        MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
+        buf.load();
+        readFileHeader(new WrappingChunk(buf));
+        strategy = new MappedReadbackStrategy(buf);
         
         return this;
     }
@@ -277,7 +262,6 @@ class NIOSegmentImpl {
             buffer.sync();
             lock.release();
             lock = null;
-        } else {
         }
         
         buffer.close();

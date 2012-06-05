@@ -181,10 +181,8 @@ public class StagingLogManager implements LogManager {
         while (!stopped) {
           CommitList oldRegion = currentRegion;
           try {
-            if ( state != MachineState.NORMAL ) {
-                if (currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
-                    oldRegion.close(currentLsn.get()-1);
-                }
+            if ( state != MachineState.NORMAL && currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
+                oldRegion.close(currentLsn.get()-1);
             }
             long mark = System.nanoTime();
             processing += (mark - last);
@@ -213,7 +211,7 @@ public class StagingLogManager implements LogManager {
                     waiting*1e-6,processing*1e-6,size/(turns),fill/turns).out().toString());
         }
         } catch ( OutOfMemoryError oome ) {
-            oome.printStackTrace();
+            LOGGER.error("on write queue thread",oome);
         }
       }
     }
@@ -221,6 +219,7 @@ public class StagingLogManager implements LogManager {
     private class IODaemon extends Thread {
     long waiting;
     long writing;
+    long written;
     
       IODaemon() {
         setDaemon(true);
@@ -255,7 +254,7 @@ public class StagingLogManager implements LogManager {
             io.setCurrentMarker(packer.baseLsn());
             io.setMaximumMarker(packer.endLsn());
             Chunk c = packer.take();
-            long out = io.write(c);
+            written += io.write(c);
             for ( ByteBuffer giveBack : c.getBuffers() ) {
                 buffers.returnBuffer(giveBack);
             }
@@ -274,8 +273,6 @@ public class StagingLogManager implements LogManager {
             break;
           } catch (InterruptedException ie) {
             if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
-          } finally {
-
           }
         }
         
@@ -295,7 +292,7 @@ public class StagingLogManager implements LogManager {
         
         state = MachineState.IDLE;
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logwrite)== waiting: %.3f active: %.3f",waiting*1e-6,writing*1e-6).out().toString());
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logwrite)== waiting: %.3f active: %.3f written: %d",waiting*1e-6,writing*1e-6,written).out().toString());
         }
       }
     }
@@ -304,7 +301,7 @@ public class StagingLogManager implements LogManager {
     public Future<Void> recover() {
         if ( exchanger != null ) return exchanger;
         
-        exchanger = new ChunkExchange(io, checksumStyle,RECOVERY_QUEUE_SIZE);
+        exchanger = new ChunkExchange(io, RECOVERY_QUEUE_SIZE);
         
         exchanger.recover();
         
@@ -357,9 +354,9 @@ public class StagingLogManager implements LogManager {
             exchanger.cancel(true);
             exchanger.get();
         } catch ( ExecutionException ee ) {
-            
+            LOGGER.error("error during shutdown",ee);
         } catch ( InterruptedException ie ) {
-            
+            LOGGER.error("error during shutdown",ie);
         }
         try {
             io.close();

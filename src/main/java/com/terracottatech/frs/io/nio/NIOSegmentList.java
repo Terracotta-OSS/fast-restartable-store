@@ -38,7 +38,7 @@ class NIOSegmentList {
         enumerateSegments();
     }
 
-    private void enumerateSegments() throws IOException {   
+    private synchronized void enumerateSegments() throws IOException {   
         File[] list = directory.listFiles(SEGMENT_FILENAME_FILTER);
         if ( list == null ) list = new File[0];
         segments = Arrays.asList(list);
@@ -120,13 +120,15 @@ class NIOSegmentList {
     }
     
     synchronized long removeFilesFromHead() throws IOException {
-        int count = 0;
         long size = 0;
         while ( position+1 < segments.size()) {
             File f = segments.remove(position+1);
             size += f.length();
-            f.delete();
-            count++;
+            if ( !f.delete() ) {
+                size -= f.length();
+                segments.add(f);
+                return size;
+            }
         }
         assert(readHead == null || segments.get(position).equals(readHead));
         return size;
@@ -134,7 +136,9 @@ class NIOSegmentList {
     
     synchronized void removeCurrentSegment() throws IOException {
         assert(!readHead.equals(writeHead));
-        segments.remove(position).delete();
+        if ( !segments.remove(position).delete() ) {
+            segments.add(writeHead);
+        }
         readHead = null;
     }
     

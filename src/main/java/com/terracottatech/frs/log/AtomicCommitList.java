@@ -207,7 +207,6 @@ public class AtomicCommitList implements CommitList, Future<Void> {
         atHead = true;
         if ( goLatch.getCount() != regions.length() ) {
             checkForClosed();
-        } else {
         }
         
         while ( !goLatch.await(wait, TimeUnit.MILLISECONDS) ) {
@@ -235,9 +234,7 @@ public class AtomicCommitList implements CommitList, Future<Void> {
             while ( record == null && size-- > 0) {
                 record = regions.get(size);
             }
-            if ( size < 0 ) {
-//                this.close(baseLsn-1, false);
-            } else {
+            if ( size >= 0 ) {
                 this.close(record.getLsn());
             }
         }

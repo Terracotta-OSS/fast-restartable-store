@@ -111,9 +111,14 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         byte[] rf = new byte[2];
         data.get(rf);
 
+        if ( check != check2 ) {
+            throw new FormatException("log region has mismatched checksums");
+        }
+        
         if ( region != REGION_VERSION ) {
             throw new FormatException("log region has an unrecognized version code");
         }
+        
         if ( check != 0 ) {
             long value = checksum(Arrays.asList(data.getBuffers()));
             if (check != value ) {

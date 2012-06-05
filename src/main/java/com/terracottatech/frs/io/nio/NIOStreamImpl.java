@@ -8,7 +8,6 @@ import com.terracottatech.frs.io.*;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.Exchanger;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -294,8 +293,6 @@ class NIOStreamImpl implements Stream {
             assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
                 return segments.removeFilesFromTail();
-            } else {
-                
             }
         }
         return 0;
@@ -336,8 +333,7 @@ class NIOStreamImpl implements Stream {
             try {
                 return pivot.exchange(target);
             } catch (InterruptedException ie) {
-            } finally {
-            }
+            } 
             return null;
         }
 
@@ -357,8 +353,7 @@ class NIOStreamImpl implements Stream {
                 }
             } catch (InterruptedException ie) {
             } catch (IOException ioe) {
-            } finally {
-            }
+            } 
         }
     }
     //  fsync current segment.  old segments are fsyncd on close
@@ -438,7 +433,8 @@ class NIOStreamImpl implements Stream {
                 }
                 NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(manualPool);
                 if ( readHead != null ) {
-                    if (nextHead.getSegmentId() - readHead.getSegmentId() + ((dir == Direction.FORWARD) ? -1 : +1) != 0) {
+                    int expected = readHead.getSegmentId() + ((dir == Direction.REVERSE) ? -1 : +1);
+                    if (nextHead.getSegmentId() != expected) {
                         throw new IOException("broken stream during readback");
                     }
                 }

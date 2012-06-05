@@ -197,7 +197,9 @@ public class NIOManager implements IOManager {
             lastSync.close();
         }
         if (lockFile != null) {
-            lockFile.delete();
+            if ( !lockFile.delete() ) {
+                throw new IOException("lock file cannot be deleted");
+            }
         }
         backend = null;
         if ( LOGGER.isDebugEnabled() ) {

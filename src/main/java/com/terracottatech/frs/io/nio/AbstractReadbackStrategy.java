@@ -69,6 +69,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             return null;
         }
         int start = buffer.getInt();
+        assert(SegmentHeaders.CHUNK_START.validate(start));
         long length = buffer.getLong();
         if ( buffer.remaining() < length + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
             return null;
@@ -78,7 +79,8 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( length != buffer.getLong() ) {
             return null;
         }
-        long maxMarker = buffer.getLong();
+//  this long is the max marker at the time of chunk write
+        buffer.getLong();
 // confirm file chunk magic        
         if ( !SegmentHeaders.FILE_CHUNK.validate(buffer.getInt()) ) {
             return null;

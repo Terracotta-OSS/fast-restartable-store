@@ -104,7 +104,10 @@ public class StackingCommitList implements CommitList {
         if (count++ == endLsn - baseLsn) {
             this.notify();  // adding one will make count match slots
         }
-        if ( sync ) this.syncing = true;
+        if ( sync ) {
+            this.syncing = true;
+            this.notify();
+        }
         
         return true;
     }
@@ -230,9 +233,6 @@ public class StackingCommitList implements CommitList {
 //  iterator interface
     @Override
     public Iterator<LogRecord> iterator() {
-        assert(closed);
-        assert(count == endLsn - baseLsn +1);
-        
         return new Iterator<LogRecord>() {
             int current = 0;
             @Override

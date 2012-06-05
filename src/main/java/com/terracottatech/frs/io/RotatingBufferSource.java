@@ -85,8 +85,7 @@ public class RotatingBufferSource implements BufferSource {
                     parent.returnBuffer(check);
                 }
                 holder = (BaseHolder) queue.poll();
-
-            };
+            }
         } catch (InterruptedException re) {
             throw new RuntimeException(re);
         }

@@ -210,7 +210,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         volatile LogRecord head = null;
 
         public RecordIterator() {
-            list = new LinkedBlockingDeque<LogRecord>();
+            list = new LinkedBlockingDeque<LogRecord>(8192);
             this.setDaemon(true);
             this.setName("Recovery record unpacker");
         }

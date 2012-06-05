@@ -15,10 +15,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Formatter;
 import java.util.Iterator;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +50,7 @@ public class StagingLogManager implements LogManager {
     private int RECOVERY_QUEUE_SIZE = 1024;
     
     private ChunkExchange                               exchanger;
-    private final ArrayBlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(20);
+    private final BlockingQueue<WritingPackage>    queue = new SynchronousQueue<WritingPackage>();
     private IOException                                 blockingException;
     
     private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);

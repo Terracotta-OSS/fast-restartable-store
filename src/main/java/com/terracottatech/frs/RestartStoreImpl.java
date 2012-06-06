@@ -106,7 +106,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   private void checkReadyState() {
     if (state != State.RUNNING && state != State.RECOVERING) {
-      throw new IllegalStateException("RestartStore is not ready for mutations.");
+      throw new IllegalStateException("RestartStore is not ready for mutations. Current state " + state);
     }
   }
 

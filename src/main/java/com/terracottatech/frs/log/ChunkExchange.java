@@ -105,11 +105,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 reading += (System.nanoTime() - last);
                 last = System.nanoTime();
                 fill += queue.size();
-                if (queue.remainingCapacity() < queue.size()) {
-                    if (chunk instanceof MappedChunk) {
-                        ((MappedChunk) chunk).load();
-                    }
-                }
                 queue.put(chunk);
                 count += 1;
                 waiting += (System.nanoTime() - last);
@@ -129,10 +124,13 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
             cleanup();
         } catch (InterruptedException i) {
+            if ( !master.isDone() ) {
+ //  unplanned interrupt
+                exception = i;
+            }
             exception = i;
         } catch (IOException ioe) {
             exception = ioe;
-            ioe.printStackTrace();
         } finally {
             ioDone = true;
         }
@@ -210,7 +208,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         volatile LogRecord head = null;
 
         public RecordIterator() {
-            list = new LinkedBlockingDeque<LogRecord>(8192);
+            list = new ArrayBlockingQueue<LogRecord>(8192);
             this.setDaemon(true);
             this.setName("Recovery record unpacker");
         }
@@ -218,30 +216,28 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         @Override
         public void run() {
             while (!ioDone || !queue.isEmpty()) {
+                Chunk queued = null;
                 try {
-                    Chunk queued = queue.poll(10, TimeUnit.SECONDS);
+                    queued = queue.poll(10, TimeUnit.SECONDS);
                     if (queued != null) {
-                        if (queued instanceof MappedChunk) {
-                            if (((MappedChunk) queued).isLoaded()) {
-                                loaded += 1;
-                            } else {
-                                unloaded += 1;
-                                ((MappedChunk) queued).load();
-                            }
-                        }
                         returned.incrementAndGet();
                         try {
                             List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
                             Collections.reverse(records);
                             for (LogRecord r : records) {
-                                list.put(r);
+                                if ( !isDone ) list.put(r);
                             }
                         } catch (FormatException ce) {
                             throw new RuntimeException(ce);
                         }
+                    } else {
+                        LOGGER.debug("!!!!!!!!!!!!recovery queue timeout!!!!!!!!!!!!!!!!");
                     }
                 } catch (InterruptedException ie) {
-                    LOGGER.error("the record iterator was interrupted",ie);
+                    if ( !isDone && queued != null ) {
+        //  unplanned interrupt, rethrow
+                        throw new RuntimeException(ie);
+                    }
                 }
             }
         }
@@ -256,22 +252,23 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             boolean joined = false;
             while (head == null) {
                 try {
-                    if (ioDone && queue.isEmpty()) {
-                        this.join();
-                        joined = true;
-                    }
-                    
                     if ( joined && list.isEmpty() ) {
                         setDone();
                         return false;
-                    }
+                    } 
                 
                     head = list.poll(3, TimeUnit.MILLISECONDS);
+                    
                     if (head != null) {
                         recordCount += 1;
                     } else {
                         recordMiss += 1;
                     }
+                    
+                    if (ioDone && queue.isEmpty()) {
+                        this.join();
+                        joined = true;
+                    }                    
                 } catch (InterruptedException ie) {
                     throw new RuntimeException(ie);
                 }
@@ -280,6 +277,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
             if (head.getLsn() < lowestLsn) {
                 setDone();
+                try {
+                    this.join();
+                } catch (InterruptedException ie) {
+                    throw new RuntimeException(ie);
+                }
                 // TODO: This is a total hack to work around the race between finishing
                 // the iteration and the reader thread blocking on the queue.
                 return false;
@@ -331,6 +333,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             this.notifyAll();
             queue.clear();
             list.clear();
+            runner.interrupt();
+            this.interrupt();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d",
                         loaded, unloaded, recordCount, recordMiss).out().toString());

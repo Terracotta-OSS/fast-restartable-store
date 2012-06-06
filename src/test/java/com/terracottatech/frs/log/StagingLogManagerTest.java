@@ -163,6 +163,64 @@ public class StagingLogManagerTest {
         assertThat(expectedLsn, is(99L));
     }
 
+    @Test
+    public void testSlowPuts() throws Exception {
+        long lsn = 100;
+        for (int i = 0; i < 10; i++) {
+            List<LogRecord> records = new ArrayList<LogRecord>();
+            for (int j = 0; j < 10; j++) {
+                LogRecord record = newRecord(-1);
+                record.updateLsn(lsn);
+                lsn++;
+                records.add(record);
+            }
+            ioManager.setMaximumMarker(lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+        }
+        logManager.startup();
+
+        long expectedLsn = 199;
+        Iterator<LogRecord> i = logManager.reader();
+        while (i.hasNext()) {
+            LogRecord record = i.next();
+//            assertThat(record.getLowestLsn(), is(0L));
+            assertThat(record.getLsn(), is(expectedLsn));
+            expectedLsn--;
+            Thread.sleep(100);
+            System.out.println("got " + record.getLsn());
+        }
+        assertThat(expectedLsn, is(99L));
+    }  
+    
+    @Test
+    public void testSlowReader() throws Exception {
+        long lsn = 100;
+        for (int i = 0; i < 10; i++) {
+            List<LogRecord> records = new ArrayList<LogRecord>();
+            for (int j = 0; j < 10; j++) {
+                LogRecord record = newRecord(-1);
+                record.updateLsn(lsn);
+                lsn++;
+                records.add(record);
+            }
+            ioManager.setMaximumMarker(lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+        }
+        ioManager.slowReads();
+        logManager.startup();
+
+        long expectedLsn = 199;
+        Iterator<LogRecord> i = logManager.reader();
+        while (i.hasNext()) {
+            LogRecord record = i.next();
+//            assertThat(record.getLowestLsn(), is(0L));
+            assertThat(record.getLsn(), is(expectedLsn));
+            expectedLsn--;
+            System.out.println("got " + record.getLsn());
+        }
+        assertThat(expectedLsn, is(99L));
+    }      
+
     private LogRecord newRecord(long lowest) {
         return new LogRecordImpl(lowest, new ByteBuffer[0], mock(LSNEventListener.class));
     }
@@ -173,6 +231,7 @@ public class StagingLogManagerTest {
         private long max = 0;
         private long min = 0;
         private long current = 0;
+        private boolean slowReads = false;
 
         @Override
         public long write(Chunk region) throws IOException {
@@ -210,6 +269,10 @@ public class StagingLogManagerTest {
     public long getMinimumMarker() throws IOException {
         return min;
     }
+    
+    public void slowReads() {
+        slowReads = true;
+    }
 
         @Override
         public IOStatistics getStatistics() throws IOException {
@@ -226,6 +289,13 @@ public class StagingLogManagerTest {
 
         @Override
         public Chunk read(Direction dir) throws IOException {
+            if ( slowReads ) {
+                try {
+                    Thread.sleep(100);
+                } catch ( InterruptedException ie ) {
+                    throw new RuntimeException(ie);
+                }
+            }
             if (chunks.isEmpty()) {
                 return null;
             }

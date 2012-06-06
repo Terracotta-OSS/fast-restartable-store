@@ -13,6 +13,8 @@ import java.util.Set;
  * @author tim
  */
 public abstract class ByteBufferUtils {
+  private static final ByteBuffer NULL_BUFFER = ByteBuffer.allocate(0);
+
   public static final int LONG_SIZE = Long.SIZE / Byte.SIZE;
   public static final int INT_SIZE = Integer.SIZE / Byte.SIZE;
   public static final int SHORT_SIZE = Short.SIZE / Byte.SIZE;
@@ -48,6 +50,9 @@ public abstract class ByteBufferUtils {
   }
 
   public static ByteBuffer getBytes(int length, ByteBuffer[] buffers) {
+    if (length == 0) {
+      return NULL_BUFFER;
+    }
     for (ByteBuffer buffer : buffers) {
       if (buffer.hasRemaining()) {
         if (length > buffer.remaining()) {

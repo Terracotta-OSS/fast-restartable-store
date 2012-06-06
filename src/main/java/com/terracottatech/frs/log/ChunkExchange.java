@@ -218,6 +218,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             while (!ioDone || !queue.isEmpty()) {
                 Chunk queued = null;
                 try {
+                    if ( isDone ) break;
                     queued = queue.poll(10, TimeUnit.SECONDS);
                     if (queued != null) {
                         returned.incrementAndGet();

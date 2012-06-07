@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     private final LinkedBlockingDeque<Future<List<LogRecord>>> queue;
-    private final ExecutorService    chunkProcessor = Executors.newCachedThreadPool();
+    private final ExecutorService    chunkProcessor = Executors.newSingleThreadExecutor();
     private final IOManager io;
     private volatile boolean ioDone = false;
     private volatile int count = 0;

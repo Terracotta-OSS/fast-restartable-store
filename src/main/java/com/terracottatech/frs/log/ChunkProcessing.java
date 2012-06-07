@@ -26,8 +26,7 @@ public class ChunkProcessing implements Callable<List<LogRecord>> {
 
     @Override
     public List<LogRecord> call() throws Exception {
-        List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, base);
-        Collections.reverse(records);
+        List<LogRecord> records = LogRegionPacker.unpackInReverse(Signature.ADLER32, base);
         return records;
     }
 }

@@ -42,7 +42,7 @@ public class StagingLogManager implements LogManager {
     private volatile LogMachineState   state = LogMachineState.IDLE;
     
     private int MAX_QUEUE_SIZE;
-    private int RECOVERY_QUEUE_SIZE = 1024;
+    private int RECOVERY_QUEUE_SIZE = 64;
     
     private ChunkExchange                               exchanger;
     private final BlockingQueue<WritingPackage>    queue = new SynchronousQueue<WritingPackage>();

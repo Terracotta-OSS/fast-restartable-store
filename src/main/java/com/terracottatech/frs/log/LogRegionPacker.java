@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.Adler32;
 import org.slf4j.Logger;
@@ -48,13 +49,25 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     public static List<LogRecord> unpack(Signature type, Chunk data) throws FormatException {
         long headCheck = readRegionHeader(data);
         
-        ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
+        LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
             queue.add(readRecord(headCheck,data));
         }
         return queue;
     }
+    
+     public static List<LogRecord> unpackInReverse(Signature type, Chunk data) throws FormatException {
+        long headCheck = readRegionHeader(data);
+        
+        LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
+                
+        while ( data.hasRemaining() ) {
+            queue.push(readRecord(headCheck,data));
+        }
+        return queue;
+    }   
+    
 
     public List<LogRecord> unpack(Chunk data) throws FormatException {
         long headCheck = readRegionHeader(data);

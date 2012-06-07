@@ -203,7 +203,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long recordMiss = 0;
         long lsn;
         volatile boolean isDone = false;
-        boolean first = true;
+        volatile boolean complete = false;
         BlockingQueue<LogRecord> list;
         volatile LogRecord head = null;
 
@@ -215,31 +215,35 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public void run() {
-            while (!ioDone || !queue.isEmpty()) {
-                Chunk queued = null;
-                try {
-                    if ( isDone ) break;
-                    queued = queue.poll(10, TimeUnit.SECONDS);
-                    if (queued != null) {
-                        returned.incrementAndGet();
-                        try {
-                            List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
-                            Collections.reverse(records);
-                            for (LogRecord r : records) {
-                                if ( !isDone ) list.put(r);
+            try {
+                while (!ioDone || !queue.isEmpty()) {
+                    Chunk queued = null;
+                    try {
+                        if ( isDone ) break;
+                        queued = queue.poll(10, TimeUnit.SECONDS);
+                        if (queued != null) {
+                            returned.incrementAndGet();
+                            try {
+                                List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
+                                Collections.reverse(records);
+                                for (LogRecord r : records) {
+                                    if ( !isDone ) list.put(r);
+                                }
+                            } catch (FormatException ce) {
+                                throw new RuntimeException(ce);
                             }
-                        } catch (FormatException ce) {
-                            throw new RuntimeException(ce);
+                        } else {
+                            LOGGER.debug("!!!!!!!!!!!!recovery queue timeout!!!!!!!!!!!!!!!!");
                         }
-                    } else {
-                        LOGGER.debug("!!!!!!!!!!!!recovery queue timeout!!!!!!!!!!!!!!!!");
-                    }
-                } catch (InterruptedException ie) {
-                    if ( !isDone && queued != null ) {
-        //  unplanned interrupt, rethrow
-                        throw new RuntimeException(ie);
+                    } catch (InterruptedException ie) {
+                        if ( !isDone && queued != null ) {
+            //  unplanned interrupt, rethrow
+                            throw new RuntimeException(ie);
+                        }
                     }
                 }
+            } finally {
+                complete = true;
             }
         }
 
@@ -250,10 +254,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public boolean hasNext() {
-            boolean joined = false;
             while (head == null) {
                 try {
-                    if ( joined && list.isEmpty() ) {
+                    if ( complete && list.isEmpty() ) {
                         setDone();
                         return false;
                     } 
@@ -265,26 +268,14 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                     } else {
                         recordMiss += 1;
                     }
-                    
-                    if (ioDone && queue.isEmpty()) {
-                        this.join();
-                        joined = true;
-                    }                    
+                        
                 } catch (InterruptedException ie) {
                     throw new RuntimeException(ie);
                 }
             }
 
-            //  check to see if iterator is past the lowestLsn.  If so, no need to return any more records.       
             if (head.getLsn() < lowestLsn) {
                 setDone();
-                try {
-                    this.join();
-                } catch (InterruptedException ie) {
-                    throw new RuntimeException(ie);
-                }
-                // TODO: This is a total hack to work around the race between finishing
-                // the iteration and the reader thread blocking on the queue.
                 return false;
             } else {
                 return true;

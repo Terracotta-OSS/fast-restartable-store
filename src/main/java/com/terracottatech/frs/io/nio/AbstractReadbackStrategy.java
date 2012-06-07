@@ -106,7 +106,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             }
             int cfm = buffer.getInt((int)(close));
             if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
-                ArrayList<Long> jumps = new ArrayList<Long>();
+                ArrayList<Long> jumps = new ArrayList<Long>(numberOfChunks);
                 for (int x=0;x<numberOfChunks;x++) {
                     jumps.add(buffer.getLong(close + 4 + (x*8)));
                 }

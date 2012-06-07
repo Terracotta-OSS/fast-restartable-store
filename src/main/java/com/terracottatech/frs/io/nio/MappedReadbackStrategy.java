@@ -18,27 +18,23 @@ import java.util.*;
  */
 class MappedReadbackStrategy extends AbstractReadbackStrategy {
 
-//    MappedFileBuffer                      src;
     private final MappedByteBuffer                src;
     protected ListIterator<Chunk>   chunks;
     protected Direction             queueDirection;
     
     public MappedReadbackStrategy(FileChannel data) throws IOException {
-//        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
         src = data.map(MapMode.READ_ONLY,0,(int)data.size());
         data.close();
         prepare(Direction.REVERSE);
     }
         
     public MappedReadbackStrategy(MappedByteBuffer data) throws IOException {
-//        src = new MappedFileBuffer(data,MapMode.READ_ONLY,(int)data.size());
         src = data;
         prepare(Direction.REVERSE);
     }
     
     private void prepare(Direction dir) throws IOException {
         queueDirection = dir;
-//        src.load();
         List<Long> jumps = readJumpList(new WrappingChunk(src));
         if ( jumps == null )  {
             queue(dir);
@@ -49,7 +45,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
         for ( Long next : jumps ) {
             try {
                 src.clear().position(last.intValue() + 12).limit(next.intValue() - 20);
-                root.add(new WrappingChunk(src.slice()));
+                root.add(new MappedChunk(src,src.slice()));
             } catch ( Throwable t ) {
                 throw new AssertionError(t);
             }
@@ -57,8 +53,8 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
         }
         assert(checkQueue(root));
         
-        Collections.reverse(root);
-//        root.set(0, new MappedChunk(src,root.get(0).getBuffers()));
+        if ( dir == Direction.REVERSE ) Collections.reverse(root);
+
         chunks = root.listIterator();
         src.position(NIOSegmentImpl.FILE_HEADER_SIZE);
         
@@ -105,15 +101,15 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     public void queue(Direction dir) throws IOException {
-        List<Chunk> list = new ArrayList<Chunk>();
+        LinkedList<Chunk> list = new LinkedList<Chunk>();
         Chunk buf = getBuffer();
         ByteBuffer[] chunk = readChunk(buf);
 
         while (chunk != null) {
-            list.add(new MappedChunk(src, chunk));
+            if ( dir == Direction.REVERSE ) list.push(new MappedChunk(src, chunk));
+            else list.add(new MappedChunk(src, chunk));
             chunk = readChunk(buf);
         }
-        if ( dir == Direction.REVERSE ) Collections.reverse(list); 
         
         this.chunks = list.listIterator();
         this.queueDirection = dir;

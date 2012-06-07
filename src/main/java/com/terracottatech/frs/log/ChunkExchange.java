@@ -228,7 +228,12 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 try {
                     Future<List<LogRecord>> pre = queue.poll(3, TimeUnit.MILLISECONDS);
                     
-                    if ( pre != null ) list = pre.get();
+                    if ( pre != null ) {
+                        list = pre.get();
+                        recordCount += 1;
+                    } else {
+                        recordMiss += 1;
+                    }
                 } catch ( ExecutionException ex ) {
                     throw new RuntimeException(ex.getCause());
                 } catch (InterruptedException ie) {

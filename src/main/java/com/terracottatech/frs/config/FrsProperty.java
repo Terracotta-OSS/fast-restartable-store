@@ -3,7 +3,7 @@ package com.terracottatech.frs.config;
 public enum FrsProperty {
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
   IO_COMMIT_QUEUE_SIZE("io.commitQueueSize", Type.INTEGER, 8192),
-  IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 64),
+  IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 512),
   IO_COMMITLIST("io.commitList", Type.STRING, "ATOMIC"),
   IO_WAIT("io.wait", Type.INTEGER, 20),
   

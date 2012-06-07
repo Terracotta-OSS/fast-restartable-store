@@ -7,7 +7,6 @@ package com.terracottatech.frs.log;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.MappedChunk;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -21,7 +20,8 @@ import org.slf4j.LoggerFactory;
  */
 public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
-    private final ArrayBlockingQueue<Chunk> queue;
+    private final LinkedBlockingDeque<Future<List<LogRecord>>> queue;
+    private final ExecutorService    chunkProcessor = Executors.newCachedThreadPool();
     private final IOManager io;
     private volatile boolean ioDone = false;
     private volatile int count = 0;
@@ -36,7 +36,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     ChunkExchange(IOManager io, int maxQueue) {
         this.io = io;
-        queue = new ArrayBlockingQueue<Chunk>(maxQueue);
+        queue = new LinkedBlockingDeque<Future<List<LogRecord>>>(maxQueue);
         master = new RecordIterator();
     }
 
@@ -105,7 +105,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 reading += (System.nanoTime() - last);
                 last = System.nanoTime();
                 fill += queue.size();
-                queue.put(chunk);
+                ChunkProcessing cp = new ChunkProcessing(chunk);
+                queue.put(chunkProcessor.submit(cp));
                 count += 1;
                 waiting += (System.nanoTime() - last);
                 last = System.nanoTime();
@@ -146,6 +147,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         if (master.isDone()) {
             queue.clear();
         }
+        chunkProcessor.shutdown();
     }
 
     long getTotalRead() {
@@ -189,13 +191,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     @Override
     public Iterator<LogRecord> iterator() {
-        if (!master.isAlive() && !master.isDone()) {
-            master.start();
-        }
         return master;
     }
 
-    class RecordIterator extends Thread implements Iterator<LogRecord> {
+    class RecordIterator implements Iterator<LogRecord> {
 
         long loaded = 0;
         long unloaded = 0;
@@ -203,48 +202,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long recordMiss = 0;
         long lsn;
         volatile boolean isDone = false;
-        volatile boolean complete = false;
-        BlockingQueue<LogRecord> list;
-        volatile LogRecord head = null;
+        List<LogRecord> list = Collections.<LogRecord>emptyList();
 
         public RecordIterator() {
-            list = new ArrayBlockingQueue<LogRecord>(8192);
-            this.setDaemon(true);
-            this.setName("Recovery record unpacker");
-        }
 
-        @Override
-        public void run() {
-            try {
-                while (!ioDone || !queue.isEmpty()) {
-                    Chunk queued = null;
-                    try {
-                        if ( isDone ) break;
-                        queued = queue.poll(10, TimeUnit.SECONDS);
-                        if (queued != null) {
-                            returned.incrementAndGet();
-                            try {
-                                List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, queued);
-                                Collections.reverse(records);
-                                for (LogRecord r : records) {
-                                    if ( !isDone ) list.put(r);
-                                }
-                            } catch (FormatException ce) {
-                                throw new RuntimeException(ce);
-                            }
-                        } else {
-                            LOGGER.debug("!!!!!!!!!!!!recovery queue timeout!!!!!!!!!!!!!!!!");
-                        }
-                    } catch (InterruptedException ie) {
-                        if ( !isDone && queued != null ) {
-            //  unplanned interrupt, rethrow
-                            throw new RuntimeException(ie);
-                        }
-                    }
-                }
-            } finally {
-                complete = true;
-            }
         }
 
         @Override
@@ -254,27 +215,28 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public boolean hasNext() {
-            while (head == null) {
-                try {
-                    if ( complete && list.isEmpty() ) {
-                        setDone();
-                        return false;
-                    } 
+            if (exception != null) {
+                throw new RuntimeException(exception);
+            }
+            if ( isDone ) return false;
+            
+            while ( list.isEmpty() ) {
+                if ( ioDone && queue.isEmpty() ) {
+                    return false;
+                }
                 
-                    head = list.poll(3, TimeUnit.MILLISECONDS);
+                try {
+                    Future<List<LogRecord>> pre = queue.poll(3, TimeUnit.MILLISECONDS);
                     
-                    if (head != null) {
-                        recordCount += 1;
-                    } else {
-                        recordMiss += 1;
-                    }
-                        
+                    if ( pre != null ) list = pre.get();
+                } catch ( ExecutionException ex ) {
+                    throw new RuntimeException(ex.getCause());
                 } catch (InterruptedException ie) {
                     throw new RuntimeException(ie);
                 }
             }
 
-            if (head.getLsn() < lowestLsn) {
+            if (list.isEmpty() || list.get(0).getLsn() < lowestLsn) {
                 setDone();
                 return false;
             } else {
@@ -287,12 +249,17 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if (exception != null) {
                 throw new RuntimeException(exception);
             }
-            if (head == null && !hasNext()) {
+            if ( isDone ) {
                 throw new NoSuchElementException();
             }
+            if (list.isEmpty() && !hasNext()) {
+                throw new NoSuchElementException();
+            }
+            LogRecord head = list.remove(0);
             lsn = head.getLsn();
             assert (lsn <= lastLsn);
             try {
+                recordCount += 1;
                 return head;
             } finally {
                 head = null;
@@ -309,7 +276,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 while (!isDone) {
                     this.wait();
                 }
-                this.join();
             } catch (InterruptedException ie) {
                 throw new RuntimeException(ie);
             }
@@ -326,7 +292,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             queue.clear();
             list.clear();
             runner.interrupt();
-            this.interrupt();
+            chunkProcessor.shutdownNow();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d",
                         loaded, unloaded, recordCount, recordMiss).out().toString());

@@ -31,11 +31,6 @@ public class StagingLogManager implements LogManager {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
-        
-    static enum MachineState {
-        BOOTSTRAP,NORMAL,SHUTDOWN,ERROR,IDLE
-    }
-    
     private StagingLogManager.IODaemon daemon;
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
@@ -44,7 +39,7 @@ public class StagingLogManager implements LogManager {
     private final AtomicLong highestOnDisk = new AtomicLong(99);
     private Signature  checksumStyle;
     private final IOManager io;
-    private volatile MachineState   state = MachineState.IDLE;
+    private volatile LogMachineState   state = LogMachineState.IDLE;
     
     private int MAX_QUEUE_SIZE;
     private int RECOVERY_QUEUE_SIZE = 1024;
@@ -63,10 +58,9 @@ public class StagingLogManager implements LogManager {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
         String checksum = config.getString(FrsProperty.IO_CHECKSUM);
         this.checksumStyle = Signature.valueOf(checksum);
-        if ( this.checksumStyle == null ) this.checksumStyle = Signature.ADLER32;
-        String commitList = config.getString(FrsProperty.IO_COMMITLIST);
         this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
         this.RECOVERY_QUEUE_SIZE = config.getInt(FrsProperty.IO_RECOVERY_QUEUE_SIZE);
+        String commitList = config.getString(FrsProperty.IO_COMMITLIST);
         if ( commitList.equals("ATOMIC") ) {
             this.currentRegion = new AtomicCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
         } else if ( commitList.equals("STACKING") ) {
@@ -92,7 +86,7 @@ public class StagingLogManager implements LogManager {
         long cl = lowestLsn.get();
         long onDisk = highestOnDisk.get();
 
-        if ( state != MachineState.NORMAL ) return;
+        if ( !state.acceptRecords() ) return;
 
 //  recovery not completed.  can't do reading from two places
         if ( exchanger == null || !exchanger.isDone() ) return;
@@ -133,17 +127,20 @@ public class StagingLogManager implements LogManager {
     }
 
     private synchronized void enterNormalState(long lastLsn, long lowest) {
-        if ( state != MachineState.BOOTSTRAP ) return;
+        if ( !state.isBootstrapping() ) return;
+        
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
         currentRegion = currentRegion.create(lastLsn + 1);
-        if ( state == MachineState.BOOTSTRAP ) state = MachineState.NORMAL;
+
+        state = state.progress();
+        
         updateLowestLsn(lowest);
         this.notifyAll();
     }   
     
     private synchronized void waitForNormalState() throws InterruptedException {
-        while ( state == MachineState.BOOTSTRAP ) {
+        while ( state.isBootstrapping() ) {
             this.wait();
         }
     }
@@ -178,7 +175,7 @@ public class StagingLogManager implements LogManager {
         while (!stopped) {
           CommitList oldRegion = currentRegion;
           try {
-            if ( state != MachineState.NORMAL && currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
+            if ( !state.acceptRecords() && currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
                 oldRegion.close(currentLsn.get()-1);
             }
             long mark = System.nanoTime();
@@ -199,7 +196,7 @@ public class StagingLogManager implements LogManager {
             fill += (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
             turns+=1;
           } catch (InterruptedException ie) {
-            if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
+            state.checkException(ie);
           } 
         }
         if ( turns == 0 ) turns = 1;
@@ -230,7 +227,7 @@ public class StagingLogManager implements LogManager {
         queuer.start();  
                 
         long last = System.nanoTime();
-        while ( state == MachineState.NORMAL || currentLsn.get() - 1 != highestOnDisk.get()) {
+        while ( state.acceptRecords() || currentLsn.get() - 1 != highestOnDisk.get()) {
           WritingPackage packer = null;
           try {
             long mark = System.nanoTime();
@@ -265,16 +262,16 @@ public class StagingLogManager implements LogManager {
             
           } catch (IOException ioe) {
             blockingException = ioe;
-            state = MachineState.ERROR;
+            state = state.checkException(ioe);
             packer.list.exceptionThrown(ioe);
             break;
           } catch (InterruptedException ie) {
-            if ( state == MachineState.NORMAL ) throw new AssertionError(ie);
+            state = state.checkException(ie);
           }
         }
         
         try {
-            if ( state == MachineState.ERROR ) {
+            if ( state.isErrorState() ) {
                 while ( !queue.isEmpty() ) {
                     queue.poll().list.exceptionThrown(blockingException);
                 }
@@ -287,7 +284,6 @@ public class StagingLogManager implements LogManager {
             throw new AssertionError(ie);
         }
         
-        state = MachineState.IDLE;
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logwrite)== waiting: %.3f active: %.3f written: %d",waiting*1e-6,writing*1e-6,written).out().toString());
         }
@@ -307,10 +303,8 @@ public class StagingLogManager implements LogManager {
 
     //  TODO:  re-examine when more runtime context is available.
     @Override
-    public void startup() {
-        assert(MachineState.IDLE == state);
-        
-        state = MachineState.BOOTSTRAP;
+    public void startup() {        
+        state = state.bootstrap();
         
         if ( exchanger == null ) recover();
         
@@ -327,10 +321,8 @@ public class StagingLogManager implements LogManager {
 
     //  TODO:  re-examine when more runtime context is available.
     @Override
-    public void shutdown() {
-        boolean normalShutdown = ( state == MachineState.NORMAL );
-        
-        state = MachineState.SHUTDOWN;
+    public void shutdown() {        
+        state = state.shutdown();
         
         CommitList  current = currentRegion;
 
@@ -344,7 +336,7 @@ public class StagingLogManager implements LogManager {
         if (daemon.isAlive()) {
             throw new AssertionError();
         }
-        if (normalShutdown && currentLsn.get()-1 != highestOnDisk.get()) {
+        if (!state.isErrorState() && currentLsn.get()-1 != highestOnDisk.get()) {
             throw new AssertionError();
         }
         try {
@@ -361,28 +353,24 @@ public class StagingLogManager implements LogManager {
             throw new AssertionError(ioe);
         }
         exchanger = null;
-        state = MachineState.IDLE;
+        state = state.idle();
     }
     
     private CommitList _append(LogRecord record, boolean sync) {
-        if ( state == MachineState.SHUTDOWN ) {
-            throw new RuntimeException("shutting down");
+        if ( !state.acceptRecords() ) {
+            if ( blockingException != null ) {
+                throw new LogWriteError(blockingException);
+            } else {
+                throw new RuntimeException("frs is not accepting records");
+            }
         }
         
-        if ( state == MachineState.BOOTSTRAP ) {
+        if ( state.isBootstrapping() ) {
             try {
                 waitForNormalState();
             } catch ( InterruptedException it ) {
                 throw new RuntimeException(it);
             }
-        }
-        
-        if ( state == MachineState.ERROR ) {
-            throw new LogWriteError(blockingException);
-        }
-        
-        if ( state == MachineState.IDLE ) {
-            throw new LogWriteError("idle");
         }
         
         CommitList mine = currentRegion;

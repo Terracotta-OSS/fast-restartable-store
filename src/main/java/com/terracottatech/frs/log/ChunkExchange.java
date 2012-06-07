@@ -222,8 +222,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             
             while ( list.isEmpty() ) {
                 if ( ioDone && queue.isEmpty() ) {
-                    setDone();
-                    return false;
+                    break;
                 }
                 
                 try {

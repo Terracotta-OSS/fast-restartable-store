@@ -38,6 +38,7 @@ class NIOSegmentImpl {
 //  for reading 
     private ReadbackStrategy strategy;
 //  for writing
+    private volatile boolean forWriting = false;
 //    private FileLock lock;
     private List<Long> writeJumpList;
     private long lowestMarker;
@@ -155,6 +156,7 @@ class NIOSegmentImpl {
         }
 
         FileChannel segment = new FileOutputStream(src).getChannel();
+        forWriting = true;
 //        lock = segment.tryLock();
 //        if (lock == null) {
 //            throw new IOException(LOCKED_FILE_ACCESS);
@@ -251,21 +253,23 @@ class NIOSegmentImpl {
         
         long totalWrite = 0;
         
-        if (buffer == null || !buffer.isOpen()) {
-            return 0;
-        } else {
-            totalWrite = buffer.getTotal();
-        }
-
-        buffer.sync();
-        buffer.close();
-        buffer = null;
-        
+ //  don't need any memory buffers anymore       
         if ( bufferSource != null ) {
             bufferSource.returnBuffer(memoryBuffer);
             bufferSource = null;
             memoryBuffer = null;
+        }        
+        
+        if (buffer == null || !buffer.isOpen()) {
+            return 0;
         }
+        
+        if ( forWriting ) {
+           totalWrite = buffer.getTotal();
+           buffer.sync();
+        }
+        buffer.close();
+        buffer = null;
         
         return totalWrite;
     }

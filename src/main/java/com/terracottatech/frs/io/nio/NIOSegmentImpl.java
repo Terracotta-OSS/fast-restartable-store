@@ -38,7 +38,7 @@ class NIOSegmentImpl {
 //  for reading 
     private ReadbackStrategy strategy;
 //  for writing
-    private FileLock lock;
+//    private FileLock lock;
     private List<Long> writeJumpList;
     private long lowestMarker;
     private long minMarker;
@@ -155,10 +155,10 @@ class NIOSegmentImpl {
         }
 
         FileChannel segment = new FileOutputStream(src).getChannel();
-        lock = segment.tryLock();
-        if (lock == null) {
-            throw new IOException(LOCKED_FILE_ACCESS);
-        }
+//        lock = segment.tryLock();
+//        if (lock == null) {
+//            throw new IOException(LOCKED_FILE_ACCESS);
+//        }
         
         while ( buffer == null ) {
             buffer = createFileBuffer(segment, 512 * 1024, pool);
@@ -239,7 +239,7 @@ class NIOSegmentImpl {
     }
     
     void prepareForClose() throws IOException {
-        if (lock != null) {
+        if (buffer != null) {
             buffer.clear();
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
             writeJumpList(buffer);
@@ -251,19 +251,13 @@ class NIOSegmentImpl {
         
         long totalWrite = 0;
         
-        if (buffer == null || !buffer.isOpen()) {
+        if (buffer == null) {
             return 0;
         } else {
             totalWrite = buffer.getTotal();
         }
 
-        if (lock != null) {
-            //  TODO: is this force neccessary?  not sure, research
-            buffer.sync();
-            lock.release();
-            lock = null;
-        }
-        
+        buffer.sync();
         buffer.close();
         buffer = null;
         

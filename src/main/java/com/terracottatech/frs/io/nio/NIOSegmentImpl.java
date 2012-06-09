@@ -251,7 +251,7 @@ class NIOSegmentImpl {
         
         long totalWrite = 0;
         
-        if (buffer == null) {
+        if (buffer == null || !buffer.isOpen()) {
             return 0;
         } else {
             totalWrite = buffer.getTotal();

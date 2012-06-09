@@ -5,9 +5,6 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -18,7 +15,6 @@ import java.util.concurrent.Callable;
 public class ChunkProcessing implements Callable<List<LogRecord>> {
     
     private final Chunk           base;
-    private FormatException     format;
 
     public ChunkProcessing(Chunk base) {
         this.base = base;

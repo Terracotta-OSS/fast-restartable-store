@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
-    private final LinkedBlockingDeque<Future<List<LogRecord>>> queue;
+    private final BlockingQueue<Future<List<LogRecord>>> queue;
     private final ExecutorService    chunkProcessor = Executors.newSingleThreadExecutor();
     private final IOManager io;
     private volatile boolean ioDone = false;
@@ -36,7 +36,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     ChunkExchange(IOManager io, int maxQueue) {
         this.io = io;
-        queue = new LinkedBlockingDeque<Future<List<LogRecord>>>(maxQueue);
+        queue = new LinkedBlockingQueue<Future<List<LogRecord>>>(maxQueue);
         master = new RecordIterator();
     }
 
@@ -99,7 +99,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             Chunk chunk = io.read(Direction.REVERSE);
             long last = System.nanoTime();
             boolean first = true;
-            long tick = System.currentTimeMillis();
             while (chunk != null && !master.isDone()) {
                 totalRead += chunk.length();
                 reading += (System.nanoTime() - last);
@@ -114,10 +113,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 if (first) {
                     offerLsns(io.getMinimumMarker(), io.getMaximumMarker());
                     first = false;
-                } else {
-                    if (System.currentTimeMillis() - tick > 15 * 1000) {
-                        tick += System.currentTimeMillis();
-                    }
                 }
             }
             if (first) {

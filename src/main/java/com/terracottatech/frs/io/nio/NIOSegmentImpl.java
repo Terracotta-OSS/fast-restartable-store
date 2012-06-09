@@ -38,7 +38,7 @@ class NIOSegmentImpl {
 //  for reading 
     private ReadbackStrategy strategy;
 //  for writing
-    private volatile boolean forWriting = false;
+    private boolean forWriting = false;
 //    private FileLock lock;
     private List<Long> writeJumpList;
     private long lowestMarker;

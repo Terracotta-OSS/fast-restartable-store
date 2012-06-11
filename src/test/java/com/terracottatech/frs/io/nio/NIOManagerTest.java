@@ -73,6 +73,13 @@ public class NIOManagerTest {
         System.gc();
     }
 
+        
+    @Test
+    public void testDoubleClose() throws IOException {
+        manager.close();
+        manager.close();
+        System.gc();
+    }
   /**
      * Test of append method, of class IOManagerImpl.
      */

@@ -322,7 +322,13 @@ public class StagingLogManager implements LogManager {
     //  TODO:  re-examine when more runtime context is available.
     @Override
     public void shutdown() {        
-        state = state.shutdown();
+        try {
+            state = state.shutdown();
+        } catch ( Throwable t ) {
+     //  just log and fail fast
+            LOGGER.error("was in " + state + " at shutdown",t);
+            return;
+        }
         
         CommitList  current = currentRegion;
 

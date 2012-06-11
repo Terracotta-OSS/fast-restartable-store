@@ -193,6 +193,20 @@ public class StagingLogManagerTest {
     }  
     
     @Test
+    public void testShutdownNoStartup() throws Exception {
+        logManager.shutdown();
+        verify(ioManager, atLeastOnce()).close();
+    }
+    
+    @Test
+    public void testDoubleShutdown() throws Exception {
+        logManager.startup();
+        logManager.shutdown();
+        logManager.shutdown();
+        verify(ioManager, atLeastOnce()).close();
+    }
+    
+    @Test
     public void testSlowReader() throws Exception {
         long lsn = 100;
         for (int i = 0; i < 10; i++) {

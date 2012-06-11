@@ -185,12 +185,13 @@ public class NIOManager implements IOManager {
 
     @Override
     public void close() throws IOException {
-        if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug("==PERFORMANCE(iostats)== " + getStatistics());
-        }
-
         if ( backend != null ) {
+            if ( LOGGER.isDebugEnabled() ) {
+                LOGGER.debug("==PERFORMANCE(iostats)== " + getStatistics());
+            }
             backend.close();
+            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(iowrite)==  written: %.2f MB in %d parts over %d requests.\n==PERFORMANCE(iowrite)==  total time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request",
+                    written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests).out().toString());
         }
         if (lock != null) {
             lock.release();
@@ -202,10 +203,6 @@ public class NIOManager implements IOManager {
             }
         }
         backend = null;
-        if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(iowrite)==  written: %.2f MB in %d parts over %d requests.\n==PERFORMANCE(iowrite)==  total time: %.3f msec -- rate: %.3f MB/s - %.4f B/part - %.2f parts/request",
-                    written/(1024d*1024d),parts,requests,writeTime*1e-3,(written*1e9)/(writeTime*1024d*1024d),(written*1d)/(parts),(parts*1d)/requests).out().toString());
-        }
     }
     
     private void open() throws IOException {        

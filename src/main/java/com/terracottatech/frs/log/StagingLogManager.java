@@ -326,6 +326,12 @@ public class StagingLogManager implements LogManager {
             state = state.shutdown();
         } catch ( Throwable t ) {
      //  just log and fail fast
+            try {
+     //  io should still be closed
+                io.close();
+            } catch ( IOException ioe ) {
+                throw new AssertionError(ioe);
+            }
             LOGGER.error("was in " + state + " at shutdown",t);
             return;
         }

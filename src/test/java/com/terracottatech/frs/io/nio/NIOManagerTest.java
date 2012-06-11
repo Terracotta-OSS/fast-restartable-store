@@ -72,13 +72,18 @@ public class NIOManagerTest {
         manager = null;
         System.gc();
     }
-
+    
+    @Test
+    public void testClose() throws IOException {
+        manager.close();
+        assert(manager.isClosed());
+    }
         
     @Test
     public void testDoubleClose() throws IOException {
         manager.close();
         manager.close();
-        System.gc();
+        assert(manager.isClosed());
     }
   /**
      * Test of append method, of class IOManagerImpl.

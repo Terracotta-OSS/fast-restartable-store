@@ -267,7 +267,7 @@ public class NIOManager implements IOManager {
     }
     
     public boolean isClosed() {
-        return (lock != null && lock.isValid());
+        return !(lock != null && lock.isValid());
     }
     
     

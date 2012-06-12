@@ -49,8 +49,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     }
 
     public synchronized long getLastLsn() throws InterruptedException {
-        while (lastLsn < 0) {
+        while (exception == null && lastLsn < 0) {
             this.wait();
+        }
+        if ( exception != null ) {
+            throw new RuntimeException(exception);
         }
         return lastLsn;
     }
@@ -58,10 +61,19 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     public synchronized long getLowestLsn() throws InterruptedException {
         // Lowest LSN does have a possibility of being -1, so just check lastLsn for the
         // loop condition.
-        while (lastLsn < 0) {
+        while (exception == null && lastLsn < 0) {
             this.wait();
         }
+        if ( exception != null ) {
+            throw new RuntimeException(exception);
+        }
         return lowestLsn;
+    }
+    
+    private synchronized void checkReadException() {
+        if ( exception != null ) {
+            throw new RuntimeException(exception);
+        }
     }
 
     public synchronized void offerLsns(long lowest, long last) {
@@ -74,6 +86,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         lastLsn = last;
         lowestLsn = lowest;
         this.notify();
+    }
+    
+    private synchronized void exceptionThrownInRecovery(Exception exp) {
+        exception = exp;
+        this.notifyAll();
     }
 
     void recover() {
@@ -122,11 +139,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         } catch (InterruptedException i) {
             if ( !master.isDone() ) {
  //  unplanned interrupt
-                exception = i;
+                exceptionThrownInRecovery(i);
             }
-            exception = i;
         } catch (IOException ioe) {
-            exception = ioe;
+            exceptionThrownInRecovery(ioe);
         } finally {
             ioDone = true;
         }
@@ -210,9 +226,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public boolean hasNext() {
-            if (exception != null) {
-                throw new RuntimeException(exception);
-            }
             if ( isDone ) return false;
             
             while ( list.isEmpty() ) {
@@ -227,6 +240,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                         list = pre.get();
                         recordCount += 1;
                     } else {
+             //  if nothing is left in the queue, an exception may have occured on the read 
+             //  thread
+                        checkReadException();
                         recordMiss += 1;
                     }
                 } catch ( ExecutionException ex ) {
@@ -246,9 +262,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         @Override
         public LogRecord next() {
-            if (exception != null) {
-                throw new RuntimeException(exception);
-            }
             if ( isDone ) {
                 throw new NoSuchElementException();
             }
@@ -286,7 +299,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         }
 
         synchronized void setDone() {
-            assert (lowestLsn < 100 || lsn <= lowestLsn);
+            if ( lowestLsn >= 100 && lsn > lowestLsn) {
+                throw new RuntimeException("bad recovery");
+            }
             isDone = true;
             this.notifyAll();
             queue.clear();

@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNot.not;
 import static org.mockito.Mockito.*;
 import static org.junit.Assert.fail;
 import org.junit.Ignore;
@@ -206,6 +207,46 @@ public class StagingLogManagerTest {
         verify(ioManager, atLeastOnce()).close();
     }
     
+    
+    @Test
+    public void testReaderDeath() throws Exception {
+        long lsn = 100;
+        for (int i = 0; i < 10; i++) {
+            List<LogRecord> records = new ArrayList<LogRecord>();
+            for (int j = 0; j < 10; j++) {
+                LogRecord record = newRecord(-1);
+                record.updateLsn(lsn);
+                lsn++;
+                records.add(record);
+            }
+            ioManager.setMaximumMarker(lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+        }
+        
+        ioManager.dieOnRead(); // dies with 10 records left to read
+        try {
+            logManager.startup();
+        } catch ( Throwable t ) {
+//   receovery may have died already, expected
+            t.printStackTrace();
+        }
+
+        long expectedLsn = 199;
+        Iterator<LogRecord> i = logManager.reader();
+        try {
+            while (i.hasNext()) {
+                LogRecord record = i.next();
+    //            assertThat(record.getLowestLsn(), is(0L));
+                assertThat(record.getLsn(), is(expectedLsn));
+                System.out.println("got " + record.getLsn());
+            }
+        } catch ( Throwable t ) {
+            t.printStackTrace();
+        }
+        assertThat(expectedLsn, not(99L));
+    }     
+    
+    
     @Test
     public void testSlowReader() throws Exception {
         long lsn = 100;
@@ -246,6 +287,7 @@ public class StagingLogManagerTest {
         private long min = 0;
         private long current = 0;
         private boolean slowReads = false;
+        private boolean dieOnRead = false;
 
         @Override
         public long write(Chunk region) throws IOException {
@@ -287,6 +329,10 @@ public class StagingLogManagerTest {
     public void slowReads() {
         slowReads = true;
     }
+    
+    public void dieOnRead() {
+        dieOnRead = true;
+    }
 
         @Override
         public IOStatistics getStatistics() throws IOException {
@@ -298,7 +344,7 @@ public class StagingLogManagerTest {
             throw new UnsupportedOperationException("Not supported yet.");
         }
     
-    
+        
     
 
         @Override
@@ -310,6 +356,10 @@ public class StagingLogManagerTest {
                     throw new RuntimeException(ie);
                 }
             }
+            if ( dieOnRead && chunks.size() == 10 ) {
+                throw new IOException("!!!!!corrupted!!!!");
+            }
+            
             if (chunks.isEmpty()) {
                 return null;
             }

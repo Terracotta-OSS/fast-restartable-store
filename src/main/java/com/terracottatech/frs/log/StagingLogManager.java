@@ -281,7 +281,7 @@ public class StagingLogManager implements LogManager {
             queuer.done();
             queuer.join();
         } catch ( InterruptedException ie ) {
-            throw new AssertionError(ie);
+            throw new RuntimeException(ie);
         }
         
         if ( LOGGER.isDebugEnabled() ) {
@@ -311,7 +311,7 @@ public class StagingLogManager implements LogManager {
         try {
             enterNormalState(exchanger.getLastLsn(), exchanger.getLowestLsn());
         } catch ( InterruptedException ioe ) {
-          throw new AssertionError(ioe);
+          throw new RuntimeException(ioe);
         }  
         
         this.daemon = new IODaemon();
@@ -330,7 +330,8 @@ public class StagingLogManager implements LogManager {
      //  io should still be closed
                 io.close();
             } catch ( IOException ioe ) {
-                throw new AssertionError(ioe);
+                LOGGER.error("error closing io",ioe);
+     //  log and continue
             }
             LOGGER.error("was in " + state + " at shutdown",t);
             return;
@@ -343,7 +344,7 @@ public class StagingLogManager implements LogManager {
         try {
             daemon.join();
         } catch ( InterruptedException ie ) {
-            throw new AssertionError(ie);
+            LOGGER.error("error waiting for write thread to close",ie);
         }
         if (daemon.isAlive()) {
             throw new AssertionError();
@@ -362,7 +363,8 @@ public class StagingLogManager implements LogManager {
         try {
             io.close();
         } catch ( IOException ioe ) {
-            throw new AssertionError(ioe);
+//  log io error and close            
+            LOGGER.error("error closing io",ioe);
         }
         exchanger = null;
         state = state.idle();

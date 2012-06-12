@@ -34,6 +34,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
   private final ActionManager actionManager;
   private final boolean compressedSkipSet;
   private final ReplayFilter replayFilter;
+  private final Configuration configuration;
 
   public RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration) {
     this.logManager = logManager;
@@ -43,6 +44,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
                                          configuration.getInt(FrsProperty.RECOVERY_MAX_THREAD_COUNT),
                                          configuration.getInt(FrsProperty.RECOVERY_MAX_QUEUE_LENGTH),
                                          configuration.getDBHome());
+    this.configuration = configuration;
   }
 
   @Override
@@ -59,16 +61,22 @@ public class RecoveryManagerImpl implements RecoveryManager {
                                                  compressedSkipSet);
 
     // For now we're not spinning off another thread for recovery.
+    long lastRecoveredLsn = Long.MAX_VALUE;
     try {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
         Action action = actionManager.extract(logRecord);
         skipsFilter.filter(action, logRecord.getLsn(), false);
         replayFilter.checkError();
+        lastRecoveredLsn = logRecord.getLsn();
       }
     } finally {
       replayFilter.finish();
       replayFilter.checkError();
+    }
+
+    if (logManager.lowestLsn() >= 100 && lastRecoveredLsn > logManager.lowestLsn()) {
+      throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
     }
 
     for (RecoveryListener listener : listeners) {

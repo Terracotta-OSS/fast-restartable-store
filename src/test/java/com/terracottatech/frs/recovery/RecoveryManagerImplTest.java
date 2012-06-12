@@ -114,6 +114,8 @@ public class RecoveryManagerImplTest {
     logManager.append(record(19, checkedPut));
     logManager.append(record(20, mapActionFactory.delete(1)));
 
+    logManager.updateLowestLsn(8);
+
     recoveryManager.recover();
 
     verify(skipper).replay(9);
@@ -135,6 +137,19 @@ public class RecoveryManagerImplTest {
     }
   }
 
+  @Test
+  public void testMissingRecordsOnRecovery() throws Exception {
+    logManager.append(record(200, action(true)));
+    logManager.updateLowestLsn(100);
+
+    try {
+      recoveryManager.recover();
+      fail();
+    } catch (RecoveryException e) {
+      // Expected
+    }
+  }
+
   private Action skipped(Action action) {
     Action a = spy(action);
     doThrow(new AssertionError("Should not have been executed.")).when(a).replay(anyLong());
@@ -143,6 +158,7 @@ public class RecoveryManagerImplTest {
 
   private class RecoveryTestLogManager extends NullLogManager {
     private final List<LogRecord> records = new LinkedList<LogRecord>();
+    private long lowestLsn = Long.MAX_VALUE;
 
     @Override
     public Future<Void> append(LogRecord record) {
@@ -158,6 +174,16 @@ public class RecoveryManagerImplTest {
     @Override
     public Iterator<LogRecord> reader() {
       return records.iterator();
+    }
+
+    @Override
+    public void updateLowestLsn(long lsn) {
+      lowestLsn = lsn;
+    }
+
+    @Override
+    public long lowestLsn() {
+      return lowestLsn;
     }
   }
 }

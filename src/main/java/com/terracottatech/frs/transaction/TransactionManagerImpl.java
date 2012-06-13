@@ -11,6 +11,7 @@ import com.terracottatech.frs.action.ActionManager;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -38,8 +39,7 @@ public class TransactionManagerImpl implements TransactionManager {
   }
 
   @Override
-  public void commit(TransactionHandle handle, boolean synchronous) throws InterruptedException,
-          TransactionException {
+  public void commit(TransactionHandle handle, boolean synchronous) throws TransactionException {
     TransactionAccount account = liveTransactions.remove(handle);
     if (account == null) {
       throw new IllegalArgumentException(
@@ -47,10 +47,20 @@ public class TransactionManagerImpl implements TransactionManager {
     }
     TransactionCommitAction action = new TransactionCommitAction(handle, account.begin());
     if (synchronous) {
-      try {
-        actionManager.syncHappened(action).get();
-      } catch (ExecutionException e) {
-        throw new TransactionException("Commit failed.", e);
+      Future<Void> written = actionManager.syncHappened(action);
+      boolean interrupted = false;
+      while (true) {
+        try {
+          written.get();
+          break;
+        } catch (ExecutionException e) {
+          throw new TransactionException("Commit failed.", e);
+        } catch (InterruptedException e) {
+          interrupted = true;
+        }
+      }
+      if (interrupted) {
+        Thread.currentThread().interrupt();
       }
     } else {
       actionManager.happened(action);

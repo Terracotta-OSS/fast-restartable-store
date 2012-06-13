@@ -10,13 +10,40 @@ package com.terracottatech.frs;
  */
 public interface Transaction<I, K, V> {
 
-  Transaction<I, K, V> put(I id, K key, V value) throws TransactionException,
-          InterruptedException;
+  /**
+   * Record a put
+   *
+   * @param id identifier to be put into
+   * @param key key for the put
+   * @param value value for the put
+   * @return this
+   * @throws TransactionException
+   */
+  Transaction<I, K, V> put(I id, K key, V value) throws TransactionException;
 
-  Transaction<I, K, V> delete(I id) throws TransactionException, InterruptedException;
+  /**
+   * Record a delete on the id
+   *
+   * @param id identifier for the map to be deleted
+   * @return this
+   * @throws TransactionException
+   */
+  Transaction<I, K, V> delete(I id) throws TransactionException;
 
-  Transaction<I, K, V> remove(I id, K key) throws TransactionException,
-          InterruptedException;
+  /**
+   * Record a remove
+   *
+   * @param id identifier to remove from
+   * @param key key to be removed
+   * @return this
+   * @throws TransactionException
+   */
+  Transaction<I, K, V> remove(I id, K key) throws TransactionException;
 
-  void commit() throws InterruptedException, TransactionException;
+  /**
+   * Commit this transaction
+   *
+   * @throws TransactionException
+   */
+  void commit() throws TransactionException;
 }

@@ -122,22 +122,32 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       this.synchronous = synchronous;
     }
 
-    private void happened(Action action) throws TransactionException,
-            InterruptedException {
+    private void happened(Action action) throws TransactionException {
       if (synchronous) {
-        try {
-          actionManager.syncHappened(action).get();
-        } catch (ExecutionException e) {
-          throw new TransactionException(e);
+        boolean interrupted = false;
+        Future<Void> written = actionManager.syncHappened(action);
+        while (true) {
+          try {
+            written.get();
+            break;
+          } catch (ExecutionException e) {
+            throw new TransactionException(e);
+          } catch (InterruptedException e) {
+            interrupted = true;
+          }
+        }
+        if (interrupted) {
+          Thread.currentThread().interrupt();
         }
       } else {
         actionManager.happened(action);
       }
+
     }
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
-            TransactionException, InterruptedException {
+            TransactionException {
       checkReadyState();
       happened(new PutAction(objectManager, compactor, id, key, value, isRecovering()));
       return this;
@@ -145,7 +155,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
-            TransactionException, InterruptedException {
+            TransactionException {
       checkReadyState();
       happened(new DeleteAction(objectManager, compactor, id, isRecovering()));
       return this;
@@ -153,14 +163,14 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> remove(ByteBuffer id, ByteBuffer key) throws
-            TransactionException, InterruptedException {
+            TransactionException {
       checkReadyState();
       happened(new RemoveAction(objectManager, compactor, id, key, isRecovering()));
       return this;
     }
 
     @Override
-    public void commit() throws InterruptedException, TransactionException {
+    public void commit() throws TransactionException {
     }
   }
 
@@ -200,7 +210,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     @Override
-    public synchronized void commit() throws InterruptedException, TransactionException {
+    public synchronized void commit() throws TransactionException {
       checkReadyState();
       checkCommitted();
       transactionManager.commit(handle, synchronous);

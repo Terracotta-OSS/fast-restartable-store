@@ -45,7 +45,7 @@ class MockTransaction implements Transaction<Long, String, String> {
   }
 
   @Override
-  public void commit() throws InterruptedException, TransactionException {
+  public void commit() throws TransactionException {
     txnManager.commit(txnHandle, true);
   }
   

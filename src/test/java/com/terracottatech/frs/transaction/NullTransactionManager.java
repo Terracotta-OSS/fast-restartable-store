@@ -18,8 +18,7 @@ public class NullTransactionManager implements TransactionManager {
   }
 
   @Override
-  public void commit(TransactionHandle handle, boolean synchronous) throws InterruptedException,
-          TransactionException {
+  public void commit(TransactionHandle handle, boolean synchronous) throws TransactionException {
   }
 
   @Override

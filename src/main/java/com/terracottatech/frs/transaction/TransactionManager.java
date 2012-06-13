@@ -25,10 +25,9 @@ public interface TransactionManager {
    *
    * @param handle handle to the transaction to commit.
    * @param synchronous whether or not to commit this transaction synchronously
-   * @throws InterruptedException if the committing thread is interrupted
    * @throws TransactionException thrown if the flush fails for some reason
    */
-  void commit(TransactionHandle handle, boolean synchronous) throws InterruptedException, TransactionException;
+  void commit(TransactionHandle handle, boolean synchronous) throws TransactionException;
 
   /**
    * Record the {@link Action} under the given transaction

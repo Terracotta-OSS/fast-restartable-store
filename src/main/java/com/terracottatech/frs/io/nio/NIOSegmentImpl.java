@@ -82,6 +82,7 @@ class NIOSegmentImpl {
         fileSize = segment.size();
 
         if (fileSize < FILE_HEADER_SIZE) {
+            segment.close();
             throw new HeaderException("bad header", this);
         }
 
@@ -104,7 +105,10 @@ class NIOSegmentImpl {
             throw new HeaderException("bad header", this);
         }
         
-        if ( buffer != null ) buffer = null;
+        if ( buffer != null ) {
+            buffer.close();
+            buffer = null;
+        }
         MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
         buf.load();
         readFileHeader(new WrappingChunk(buf));

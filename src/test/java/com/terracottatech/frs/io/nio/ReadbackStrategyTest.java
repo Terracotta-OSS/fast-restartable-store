@@ -82,6 +82,23 @@ public class ReadbackStrategyTest {
     }
     
     @Test
+    public void testDeleteFile() throws Exception {
+        File f = folder.newFile();
+        FileOutputStream fos = new FileOutputStream(f);
+        for (int x=0;x<1024;x++) fos.write(0x00AB);
+        fos.close();
+        FileInputStream fis = new FileInputStream(f);
+        
+        FileChannel buffer = fis.getChannel();
+        buffer.close();
+        if ( !f.delete() ) {
+            throw new AssertionError("not deleted");
+        }
+        assert(!f.exists());
+//        for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
+    }
+    
+    @Test
     public void testDeleteMappedFile() throws Exception {
         File f = folder.newFile();
         FileOutputStream fos = new FileOutputStream(f);
@@ -90,10 +107,16 @@ public class ReadbackStrategyTest {
         FileInputStream fis = new FileInputStream(f);
         
         MappedByteBuffer buffer = fis.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length());
+        fis.close();
         for (int x=0;x<1024;x++) System.out.println(buffer.get(x));
-        f.delete();
-        assert(!f.exists());
         for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
+        buffer = null;
+        System.gc();
+        if ( !f.delete() ) {
+            throw new AssertionError("not deleted");
+        }
+        assert(!f.exists());
+//        for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
     }
     
     @Test

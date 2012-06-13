@@ -73,7 +73,7 @@ enum LogMachineState {
         IDLE {
             LogMachineState bootstrap() {
                 return BOOTSTRAP;
-            }
+            }         
         
             boolean starting() {
                 return true;

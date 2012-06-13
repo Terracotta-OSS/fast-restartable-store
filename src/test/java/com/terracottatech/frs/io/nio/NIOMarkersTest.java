@@ -18,7 +18,6 @@ import org.junit.*;
  * @author mscott
  */
 public class NIOMarkersTest {
-    NIOStreamImpl stream;
     File workArea;
     NIOManager manager;
     long current;
@@ -44,7 +43,13 @@ public class NIOMarkersTest {
             workArea = folder.newFolder();
             System.out.println(workArea.getAbsolutePath());
             manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
-   //  create a 10k lsn window
+        manager.setMinimumMarker(100);
+        manager.setMaximumMarker(100);
+        manager.setCurrentMarker(100);
+        current = 100;
+        min = 100;
+        max = 100;
+        //  create a 10k lsn window
             for(int x=0;x<1000;x++) {
                 writeChunkWithMarkers(10);
             }
@@ -67,8 +72,10 @@ public class NIOMarkersTest {
             count++;
             c = manager.read(Direction.FORWARD);
         }
+        System.out.println(manager.getMinimumMarker());
+        System.out.println(manager.getMaximumMarker());
         assert(manager.getMinimumMarker() == 10000);
-        assert(manager.getMaximumMarker() == 20000);
+        assert(manager.getMaximumMarker() == 20100);
         System.out.println("chunks after clean " + count);
         assert(count < 2000);
     }

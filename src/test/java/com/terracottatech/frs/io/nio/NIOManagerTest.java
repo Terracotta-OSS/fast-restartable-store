@@ -60,6 +60,9 @@ public class NIOManagerTest {
             }
             config = Configuration.getConfiguration(workArea);
             manager = new NIOManager(config);
+        manager.setMinimumMarker(100);
+        manager.setMaximumMarker(100);
+        manager.setCurrentMarker(100);
     }
     
     @After
@@ -221,6 +224,8 @@ public class NIOManagerTest {
        }
 
        lm.shutdown();
+       
+       lm.reset();
        
        lm.startup();
        

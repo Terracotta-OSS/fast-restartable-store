@@ -304,10 +304,16 @@ public class StagingLogManager implements LogManager {
         
         return exchanger;
     }
+    
+    public void reset() {
+        state = state.reset();
+    }
 
     //  TODO:  re-examine when more runtime context is available.
     @Override
-    public void startup() {        
+    public void startup() {      
+        if ( state != state.IDLE ) state = state.reset();
+        
         state = state.bootstrap();
         
         if ( exchanger == null ) recover();

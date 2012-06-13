@@ -53,7 +53,9 @@ enum LogMachineState {
             }
         },
         FINISHED {
-            
+            LogMachineState reset() {
+                return IDLE;
+            }
         },
         ERROR {
             LogMachineState shutdown() {
@@ -98,6 +100,10 @@ enum LogMachineState {
         LogMachineState bootstrap() {
             throw new RuntimeException(this + "  -- bad state");
         }
+        
+        LogMachineState reset() {
+            throw new RuntimeException(this + "  -- bad state");
+        }        
         
         boolean isErrorState() {
             return false;

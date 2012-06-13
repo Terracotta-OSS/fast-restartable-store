@@ -33,6 +33,9 @@ public class NIOSpeedTest {
   @Before
   public void setUp() throws Exception {
     stream = new NIOStreamImpl(folder.getRoot(), MAX_SEGMENT_SIZE);
+        stream.setMinimumMarker(100);
+        stream.setMaximumMarker(100);
+        stream.setMarker(100);
   }
   
   public NIOSpeedTest() {

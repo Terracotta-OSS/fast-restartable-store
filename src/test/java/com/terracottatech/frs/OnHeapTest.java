@@ -116,6 +116,7 @@ public class OnHeapTest {
 
         time = System.nanoTime();
         external.clear();
+        
         store.startup();
         System.out.format("%.6f sec.\n",(System.nanoTime() - time)/(1e9));
         long esize = 0;

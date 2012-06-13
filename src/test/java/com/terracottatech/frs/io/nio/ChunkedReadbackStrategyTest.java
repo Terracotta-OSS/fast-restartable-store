@@ -42,6 +42,9 @@ public class ChunkedReadbackStrategyTest {
     public void setUp() throws Exception {
         System.out.println(folder.getRoot());
         stream = new NIOStreamImpl(folder.getRoot(), 1024 * 1024);
+        stream.setMinimumMarker(100);
+        stream.setMaximumMarker(100);
+        stream.setMarker(100);
         for (int x=0;x<1024;x++) {
             WrappingChunk c = new WrappingChunk(ByteBuffer.wrap(("test me please " + x).getBytes()));
             stream.append(c);

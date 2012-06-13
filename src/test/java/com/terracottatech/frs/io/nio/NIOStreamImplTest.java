@@ -33,7 +33,11 @@ public class NIOStreamImplTest {
   public void setUp() throws Exception {
     workArea = folder.newFolder();
     stream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
-    long seed = System.currentTimeMillis();
+        stream.setMinimumMarker(100);
+        stream.setMaximumMarker(100);
+        stream.setMarker(100);
+        
+        long seed = System.currentTimeMillis();
     r = new Random(seed);
   }
 

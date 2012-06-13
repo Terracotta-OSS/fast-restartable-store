@@ -45,6 +45,9 @@ public class NIOSegmentImplTest {
     public void setUp() throws IOException {
             workarea = folder.newFolder();
             stream = new NIOStreamImpl(workarea, (1 * 1024 * 1024));
+            stream.setMinimumMarker(100);
+            stream.setMarker(100);
+            stream.setMaximumMarker(100);
     }
 
     @After

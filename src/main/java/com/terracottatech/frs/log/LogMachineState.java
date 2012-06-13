@@ -21,6 +21,14 @@ enum LogMachineState {
             boolean isBootstrapping() {
                 return true;
             }
+            
+            boolean starting() {
+                return true;
+            }
+            
+            boolean acceptRecords() {
+                return true;
+            }  
         },
         NORMAL {
             LogMachineState shutdown() {
@@ -41,8 +49,11 @@ enum LogMachineState {
         },
         SHUTDOWN {
             LogMachineState idle() {
-                return IDLE;
+                return FINISHED;
             }
+        },
+        FINISHED {
+            
         },
         ERROR {
             LogMachineState shutdown() {
@@ -54,13 +65,22 @@ enum LogMachineState {
             }
             
             LogMachineState idle() {
-                return IDLE;
+                return FINISHED;
             }
         },
         IDLE {
             LogMachineState bootstrap() {
                 return BOOTSTRAP;
             }
+        
+            boolean starting() {
+                return true;
+            }
+
+            boolean acceptRecords() {
+                return true;
+            }             
+            
         };
         
         LogMachineState progress() {
@@ -90,6 +110,10 @@ enum LogMachineState {
         boolean acceptRecords() {
             return false;
         }
+        
+        boolean starting() {
+            return false;
+        }        
         
         LogMachineState checkException(Exception e) throws RuntimeException {
             if ( e instanceof InterruptedException ) {

@@ -172,6 +172,10 @@ class NIOSegmentImpl {
     }
 
     void insertFileHeader(long lowestMarker, long marker) throws IOException {
+        if ( lowestMarker < 99 || marker < 99 ) {
+            throw new AssertionError("bad markers");
+        }
+        
         this.streamId = parent.getStreamId();
 
         buffer.clear();

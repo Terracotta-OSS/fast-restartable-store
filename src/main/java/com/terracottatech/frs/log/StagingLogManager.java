@@ -131,17 +131,21 @@ public class StagingLogManager implements LogManager {
         
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
+        lowestLsn.set(lowest);
+        
         currentRegion = currentRegion.create(lastLsn + 1);
 
         state = state.progress();
-        
-        updateLowestLsn(lowest);
+                
         this.notifyAll();
     }   
     
     private synchronized void waitForNormalState() throws InterruptedException {
-        while ( state.isBootstrapping() ) {
+        while ( state.starting() ) {
             this.wait();
+        }
+        if ( !state.acceptRecords() ) {
+            throw new RuntimeException("normal state not achieved");
         }
     }
         
@@ -379,7 +383,7 @@ public class StagingLogManager implements LogManager {
             }
         }
         
-        if ( state.isBootstrapping() ) {
+        while ( state.starting() ) {
             try {
                 waitForNormalState();
             } catch ( InterruptedException it ) {

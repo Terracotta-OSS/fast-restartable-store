@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
     private final BlockingQueue<Future<List<LogRecord>>> queue;
-    private final ExecutorService    chunkProcessor = Executors.newSingleThreadExecutor();
+    private final ExecutorService    chunkProcessor;
     private final IOManager io;
     private volatile boolean ioDone = false;
     private volatile int count = 0;
@@ -37,6 +37,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     ChunkExchange(IOManager io, int maxQueue) {
         this.io = io;
         queue = new LinkedBlockingQueue<Future<List<LogRecord>>>(maxQueue);
+        chunkProcessor = Executors.newCachedThreadPool(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("unpack thread");
+                return t;
+            }
+        });
         master = new RecordIterator();
     }
 
@@ -210,6 +219,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long loaded = 0;
         long unloaded = 0;
         long recordCount = 0;
+        long recordWait = 0;
         long recordMiss = 0;
         long lsn;
         volatile boolean isDone = false;
@@ -235,9 +245,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 
                 try {
                     Future<List<LogRecord>> pre = queue.poll(3, TimeUnit.MILLISECONDS);
-                    
                     if ( pre != null ) {
+                        long nano = System.nanoTime();
                         list = pre.get();
+                        recordWait += (System.nanoTime() - nano);
                         recordCount += 1;
                     } else {
              //  if nothing is left in the queue, an exception may have occured on the read 
@@ -252,7 +263,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 }
             }
 
-            if (list.isEmpty() || list.get(0).getLsn() < lowestLsn) {
+            if ( list.isEmpty()) {
                 setDone();
                 return false;
             } else {
@@ -272,6 +283,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             lsn = head.getLsn();
             assert (lsn <= lastLsn);
             try {
+                if ( lsn < lowestLsn ) {
+                    setDone();
+                }
                 recordCount += 1;
                 return head;
             } finally {
@@ -309,8 +323,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             runner.interrupt();
             chunkProcessor.shutdownNow();
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d",
-                        loaded, unloaded, recordCount, recordMiss).out().toString());
+                LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d avg. wait: %d",
+                        loaded, unloaded, recordCount, recordMiss, (recordCount == 0 ) ? 0 : recordWait/recordCount).out().toString());
             }
         }
     }

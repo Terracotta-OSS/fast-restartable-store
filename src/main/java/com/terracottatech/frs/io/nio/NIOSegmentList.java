@@ -122,7 +122,7 @@ class NIOSegmentList {
     synchronized long removeFilesFromHead() throws IOException {
         long size = 0;
         while ( position+1 < segments.size()) {
-            File f = segments.remove(position+1);
+            File f = segments.remove(segments.size()-1);
             size += f.length();
             if ( !f.delete() ) {
                 size -= f.length();
@@ -149,6 +149,22 @@ class NIOSegmentList {
     synchronized File getEndFile() throws IOException {
         return segments.get(segments.size()-1);
     }
+    
+    synchronized boolean currentIsHead() throws IOException {
+        if (readHead == null && segments.isEmpty() ) return true;
+        if ( readHead != null && segments.isEmpty() ) {
+            throw new AssertionError("segment list is inconsistent");
+        }
+        return segments.get(segments.size()-1).equals(readHead);
+    }
+    
+    synchronized boolean currentIsTail() throws IOException {
+        if (readHead == null && segments.isEmpty() ) return true;
+        if ( readHead != null && segments.isEmpty() ) {
+            throw new AssertionError("segment list is inconsistent");
+        }
+        return segments.get(0).equals(readHead);
+    }    
     
     synchronized File getBeginningFile() throws IOException {
         return segments.get(0);

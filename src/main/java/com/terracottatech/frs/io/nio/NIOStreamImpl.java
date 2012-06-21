@@ -161,6 +161,9 @@ class NIOStreamImpl implements Stream {
             File f = segments.nextReadFile(Direction.REVERSE);
             if (f == null) {
                 segments.removeFilesFromHead();
+                if ( !segments.currentIsHead() ) {
+                    throw new IOException("unable to make log stream consistent");
+                }
                 return false;
             }
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
@@ -177,11 +180,17 @@ class NIOStreamImpl implements Stream {
                     } else {
 //   truncate and exit            
                         segments.removeFilesFromHead();
+                        if ( !segments.currentIsHead() ) {
+                            throw new IOException("unable to make log stream consistent");
+                        }
                         seg.limit(seg.position());
                         return true;
                     }
                 } else {
                     segments.removeFilesFromHead();
+                    if ( !segments.currentIsHead() ) {
+                        throw new IOException("unable to make log stream consistent");
+                    }
                     return false;
                 }
             } catch (HeaderException ioe) {
@@ -211,6 +220,9 @@ class NIOStreamImpl implements Stream {
                 }
                 if (seg.getSegmentId() == segment) {
                     segments.removeFilesFromHead();
+                    if ( !segments.currentIsHead() ) {
+                        throw new IOException("unable to make log stream consistent");
+                    }
                     seg.limit(position);
                     return;
                 }

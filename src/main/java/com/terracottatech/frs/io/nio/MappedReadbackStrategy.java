@@ -30,6 +30,9 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
         
     public MappedReadbackStrategy(MappedByteBuffer data) throws IOException {
         src = data;
+//        for(int y=data.position();y<data.limit();y=y+512) {
+//            data.put(y, data.get(y));
+//        }
         prepare(Direction.REVERSE);
     }
     
@@ -51,7 +54,6 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
             }
             last = next;
         }
-        assert(checkQueue(root));
         
         if ( dir == Direction.REVERSE ) Collections.reverse(root);
 
@@ -72,10 +74,12 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
         }
         
         if ( got.size() != list.size() ) {
+            System.out.println(got.size() + " " + list.size());
             return false;
         }
         for (int x=0;x<got.size();x++) {
             if ( got.get(x).remaining() != list.get(x).remaining()  ) {
+                System.out.println(x + " " + got.get(x).remaining() + " " + list.get(x).remaining());
                 return false;
             }
         }

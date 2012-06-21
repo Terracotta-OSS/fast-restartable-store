@@ -6,14 +6,10 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.util.ByteBufferUtils;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +93,7 @@ class NIOSegmentImpl {
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
-        FileChannel segment = new FileInputStream(src).getChannel();
+        FileChannel segment = new RandomAccessFile(src,"rw").getChannel();
 
         fileSize = segment.size();
 
@@ -109,7 +105,12 @@ class NIOSegmentImpl {
             buffer.close();
             buffer = null;
         }
-        MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
+//        buffer = createFileBuffer(segment, 512*1024, reader);
+//        buffer.partition(FILE_HEADER_SIZE);
+//        buffer.read(1);
+//        readFileHeader(buffer);
+//        strategy = new ChunkedReadbackStrategy(buffer, reader);
+        MappedByteBuffer buf = segment.map(FileChannel.MapMode.PRIVATE,0,(int)src.length());
         buf.load();
         readFileHeader(new WrappingChunk(buf));
         strategy = new MappedReadbackStrategy(buf);

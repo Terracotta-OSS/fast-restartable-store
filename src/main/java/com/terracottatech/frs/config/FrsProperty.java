@@ -2,10 +2,10 @@ package com.terracottatech.frs.config;
 
 public enum FrsProperty {
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
-  IO_COMMIT_QUEUE_SIZE("io.commitQueueSize", Type.INTEGER, 8192),
-  IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 512),
+  IO_COMMIT_QUEUE_SIZE("io.commitQueueSize", Type.INTEGER, 1024),
+  IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 16),
   IO_COMMITLIST("io.commitList", Type.STRING, "ATOMIC"),
-  IO_WAIT("io.wait", Type.INTEGER, 20),
+  IO_WAIT("io.wait", Type.INTEGER, 200),
   
   IO_NIO_SEGMENT_SIZE("io.nio.segmentSize", Type.LONG, 16L * 1024 * 1024),
   IO_NIO_MEMORY_SIZE("io.nio.memorySize", Type.LONG, ((Long) IO_NIO_SEGMENT_SIZE.defaultValue()) * 4),

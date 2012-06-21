@@ -17,7 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,6 +53,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
   public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
           InterruptedException {
     logManager.startup();
+    long filter = 0;
+    long put = 0;
+    long ntime = System.nanoTime();
 
     Iterator<LogRecord> i = logManager.reader();
 
@@ -66,7 +71,11 @@ public class RecoveryManagerImpl implements RecoveryManager {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
         Action action = actionManager.extract(logRecord);
+        long ctime = System.nanoTime();
+        filter += (ctime - ntime);
         skipsFilter.filter(action, logRecord.getLsn(), false);
+        ntime = System.nanoTime();
+        put += (ntime - ctime);
         replayFilter.checkError();
         lastRecoveredLsn = logRecord.getLsn();
       }
@@ -83,6 +92,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
       listener.recovered();
     }
 
+    LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);
+    LOGGER.debug(skipsFilter.toString());
     return new NullFuture();
   }
 
@@ -122,16 +133,23 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     private final ExecutorService            executorService;
     private final File dbHome;
+    private long replayed = 0;
+    private ArrayList<ReplayElement> batch  = new ArrayList<ReplayElement>(1024);
 
     ReplayFilter(int minThreadCount, int maxThreadCount, int maxQueueLength, File dbHome) {
       executorService = new ThreadPoolExecutor(minThreadCount,
                                                maxThreadCount, 60,
                                                SECONDS,
-                                               new ArrayBlockingQueue<Runnable>(
-                                                       maxQueueLength),
+                new SynchronousQueue(),
+//                                               new ArrayBlockingQueue<Runnable>(
+//                                                       maxQueueLength,false),
                                                this,
                                                new ThreadPoolExecutor.CallerRunsPolicy());
       this.dbHome = dbHome;
+    }
+    
+    public long getReplayCount() {
+        return replayed;
     }
 
     @Override
@@ -139,19 +157,34 @@ public class RecoveryManagerImpl implements RecoveryManager {
       if (filtered) {
         return false;
       } else {
-        executorService.submit(new Runnable() {
-          @Override
-          public void run() {
-            try {
-              element.replay(lsn);
-            } catch (Throwable t) {
-              firstError.compareAndSet(null, t);
-              LOGGER.error("Error replaying record: " + t.getMessage());
-            }
-          }
-        });
+        replayed++;
+        batch.add(new ReplayElement(element,lsn));
+        if ( batch.size() >= 1024 ) {
+            submitJob();
+        }
+
         return true;
       }
+    }
+    
+    private void submitJob() {
+        if ( batch.isEmpty() ) return;
+        
+        final List<ReplayElement> go = batch;
+        batch = new ArrayList<ReplayElement>(batch.size());
+        executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    for ( ReplayElement a : go ) {
+                        a.replay();
+                    }
+                } catch (Throwable t) {
+                firstError.compareAndSet(null, t);
+                LOGGER.error("Error replaying record: " + t.getMessage());
+                }
+            }
+            });
     }
 
     void checkError() throws RecoveryException {
@@ -162,6 +195,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     void finish() throws InterruptedException {
+      submitJob();
       executorService.shutdown();
       executorService.awaitTermination(Long.MAX_VALUE, SECONDS);
     }
@@ -174,4 +208,18 @@ public class RecoveryManagerImpl implements RecoveryManager {
       return t;
     }
   }
+  
+    private static class ReplayElement {
+      private final Action action;
+      private final long lsn;
+
+      private ReplayElement(Action action, long lsn) {
+        this.action = action;
+        this.lsn = lsn;
+      }
+
+      void replay() {
+        action.replay(lsn);
+      }
+    }
 }

@@ -45,17 +45,17 @@ public class StagingLogManager implements LogManager {
     private int RECOVERY_QUEUE_SIZE = 64;
     
     private ChunkExchange                               exchanger;
-    private final BlockingQueue<WritingPackage>    queue = new SynchronousQueue<WritingPackage>();
+    private final BlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(8);
     private IOException                                 blockingException;
     
     private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
     
     public StagingLogManager(IOManager io) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
     }
         
     public StagingLogManager(IOManager io,Configuration config) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 20),io);
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
         String checksum = config.getString(FrsProperty.IO_CHECKSUM);
         this.checksumStyle = Signature.valueOf(checksum);
         this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
@@ -155,9 +155,7 @@ public class StagingLogManager implements LogManager {
       
       volatile boolean        stopped = false;
       final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle,buffers);
-//      LogRegionFactory        regionFactory = new LogRegionPacker(checksumStyle);
       
-        
       WriteQueuer() {
         setDaemon(true);
         setName("WriteQueuer - Chunk prep and queue for write");
@@ -195,14 +193,25 @@ public class StagingLogManager implements LogManager {
                 continue;
             }
             
-            queue.put(new WritingPackage(oldRegion,regionFactory.pack(oldRegion)));
+            WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
+            wp.run();
+
+            queue.put(wp);
             size += queue.size();
-            fill += (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
+            int lf = (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
+            fill += lf;
             turns+=1;
+//  if in synchronous mode, wait here so more log records are batched in the next region
+            if ( oldRegion.isSyncRequested() ) {
+                oldRegion.get();
+            }
           } catch (InterruptedException ie) {
             state.checkException(ie);
+          } catch (ExecutionException ee) {
+            state.checkException(ee);
           } 
         }
+        
         if ( turns == 0 ) turns = 1;
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(processing)== waiting: %.3f active: %.3f ave. queue: %d fill: %d",
@@ -271,7 +280,7 @@ public class StagingLogManager implements LogManager {
             break;
           } catch (InterruptedException ie) {
             state = state.checkException(ie);
-          }
+          } 
         }
         
         try {
@@ -299,6 +308,7 @@ public class StagingLogManager implements LogManager {
         if ( exchanger != null ) return exchanger;
         
         exchanger = new ChunkExchange(io, RECOVERY_QUEUE_SIZE);
+        LOGGER.debug("recovery queue size: " + RECOVERY_QUEUE_SIZE);
         
         exchanger.recover();
         
@@ -407,7 +417,7 @@ public class StagingLogManager implements LogManager {
        
             int spincount = 0;
   //  if we hit this, try and spread out
-            int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
+            int waitspin = 8 + (Math.round((float)(Math.random() * 1024f)));
             while ( !mine.append(record,sync) ) {
                 if ( spincount++ > waitspin ) {
                     try {
@@ -451,15 +461,25 @@ public class StagingLogManager implements LogManager {
     }
 
 
-    static class WritingPackage {
-        CommitList list;
-        Chunk      data;
+    static class WritingPackage implements Runnable {
+        private final CommitList            list;
+        private volatile LogRegionFactory      factory;
+        private volatile Chunk        data;
         
-        WritingPackage(CommitList list, Chunk data) {
+        WritingPackage(CommitList list, LogRegionFactory factory) {
             this.list= list;
-            this.data = data;
+            this.factory = factory;
         }
-    
+
+        @Override
+        public void run() {
+            if ( data == null ) {
+                synchronized (list) {
+                    if ( data == null ) data = factory.pack(list);
+               }
+            }
+        }
+
         public long endLsn() {
             return list.getEndLsn();
         }
@@ -478,9 +498,12 @@ public class StagingLogManager implements LogManager {
         
         public Chunk take() {
             try {
+                run();
+                assert(data != null);
                 return data;
             } finally {
                 data = null;
+                factory = null;
             }
         }
     }

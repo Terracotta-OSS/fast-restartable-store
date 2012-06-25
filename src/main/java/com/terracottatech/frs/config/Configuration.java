@@ -12,7 +12,7 @@ import java.util.Properties;
  * @author tim
  */
 public class Configuration {
-  private static final String USER_PROPERITES_FILE = "frs.properties";
+  public static final String USER_PROPERITES_FILE = "frs.properties";
 
   private final EnumMap<FrsProperty, Object> configuration;
   private final File dbHome;

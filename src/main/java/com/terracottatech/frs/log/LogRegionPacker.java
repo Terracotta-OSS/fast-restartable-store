@@ -84,7 +84,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         int count = 0;
                 
-        ByteBuffer headers = ByteBuffer.allocate(100 * 1024);
+        ByteBuffer headers = ByteBuffer.allocate(512 * 1024);
         ByteBuffer header = headers.duplicate();
         headers.position(LOG_REGION_HEADER_SIZE);
 

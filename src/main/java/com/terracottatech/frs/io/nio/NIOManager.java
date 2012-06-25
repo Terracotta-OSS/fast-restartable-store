@@ -231,6 +231,13 @@ public class NIOManager implements IOManager {
         
         backend.open();
     }
+
+    @Override
+    public String toString() {
+        return "NIO - " + directory.getAbsolutePath();
+    }
+    
+    
     
     private void saveForCrash(long position) throws IOException {
         if ( writeToLockFile ) {

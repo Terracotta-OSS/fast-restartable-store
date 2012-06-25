@@ -16,6 +16,10 @@ import java.util.Properties;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -46,27 +50,36 @@ public class OfflineCompactorTest {
       uncompactedStore.startup().get();
 
       for (int i = 0; i < 100; i++) {
-        uncompactedStore.beginTransaction(false).put(TestUtils.byteBufferWithInt(0),
-                                                     TestUtils.byteBufferWithInt(i % 2),
-                                                     TestUtils.byteBufferWithInt(
-                                                             i)).commit();
+        for (int j = 0; j < 100; j++) {
+          uncompactedStore.beginTransaction(false).put(TestUtils.byteBufferWithInt(0),
+                                                       TestUtils.byteBufferWithInt(j),
+                                                       TestUtils.byteBufferWithInt(
+                                                               i)).commit();
+        }
       }
 
       uncompactedStore.shutdown();
-      assertThat(objectManager.size(), is(2L));
+      assertThat(objectManager.size(), is(100L));
     }
 
-    {
-      new OfflineCompactor(uncompacted, compacted).compact();
-    }
+    new OfflineCompactor(uncompacted, compacted).compact();
 
     {
       ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              new HeapObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(1);
+              spy(new HeapObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(1));
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> compactedStore =
               RestartStoreFactory.createStore(objectManager, compacted, properties);
       compactedStore.startup().get();
-      assertThat(objectManager.size(), is(2L));
+      compactedStore.shutdown();
+
+      for (int i = 0; i < 100; i++) {
+        verify(objectManager).replayPut(eq(TestUtils.byteBufferWithInt(0)),
+                                        eq(TestUtils.byteBufferWithInt(i)),
+                                        eq(TestUtils.byteBufferWithInt(99)),
+                                        anyLong());
+      }
+
+      assertThat(objectManager.size(), is(100L));
     }
 
     assertThat(FileUtils.sizeOfDirectory(compacted), lessThan(

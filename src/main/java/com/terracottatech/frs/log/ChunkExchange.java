@@ -38,11 +38,12 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         this.io = io;
         queue = new LinkedBlockingQueue<Future<List<LogRecord>>>(maxQueue);
         chunkProcessor = Executors.newCachedThreadPool(new ThreadFactory() {
+            int count = 1;
             @Override
             public Thread newThread(Runnable r) {
                 Thread t = new Thread(r);
                 t.setDaemon(true);
-                t.setName("unpack thread");
+                t.setName("unpack thread - " + count++);
                 return t;
             }
         });

@@ -154,11 +154,23 @@ public class StagingLogManager implements LogManager {
       long processing;
       
       volatile boolean        stopped = false;
-      final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle,buffers);
+      private final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle,buffers);
+      private final ExecutorService   asyncPacker = Executors.newCachedThreadPool(new ThreadFactory() {
+
+            int count = 1;
+          
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setName("async packing thread - " + count++);
+                t.setDaemon(true);
+                return t;
+            }
+        });
       
       WriteQueuer() {
         setDaemon(true);
-        setName("WriteQueuer - Chunk prep and queue for write");
+        setName("Write Queue Manager - " + io.toString());
         setPriority(MAX_PRIORITY);
       }
       
@@ -194,9 +206,16 @@ public class StagingLogManager implements LogManager {
             }
             
             WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
-            wp.run();
+//            if ( !oldRegion.isSyncRequested() ) {
+//                asyncPacker.submit(wp);
+//            } else {
+                wp.run();
+//            }
 
-            queue.put(wp);
+            while ( !queue.offer(wp,200,TimeUnit.MICROSECONDS) ) {
+                if ( stopped ) break;
+            }
+            
             size += queue.size();
             int lf = (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
             fill += lf;
@@ -212,6 +231,7 @@ public class StagingLogManager implements LogManager {
           } 
         }
         
+        asyncPacker.shutdown();
         if ( turns == 0 ) turns = 1;
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(processing)== waiting: %.3f active: %.3f ave. queue: %d fill: %d",
@@ -230,8 +250,8 @@ public class StagingLogManager implements LogManager {
     
       IODaemon() {
         setDaemon(true);
-        setName("IO - All IO Here");
-//        setPriority(MAX_PRIORITY);
+        setName("IO - " + io.toString());
+        setPriority(MAX_PRIORITY);
       }
 
       @Override
@@ -462,9 +482,9 @@ public class StagingLogManager implements LogManager {
 
 
     static class WritingPackage implements Runnable {
-        private final CommitList            list;
+        private final CommitList                list;
         private volatile LogRegionFactory      factory;
-        private volatile Chunk        data;
+        private volatile Chunk                  data;
         
         WritingPackage(CommitList list, LogRegionFactory factory) {
             this.list= list;

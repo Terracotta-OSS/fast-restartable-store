@@ -265,7 +265,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
             
             if ( list.isEmpty()) {
-                checkReadException();
                 setDone();
                 return false;
             } else {
@@ -315,6 +314,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         }
 
         synchronized void setDone() {
+            checkReadException();
             if ( lowestLsn >= 100 && lsn > lowestLsn) {
                 throw new RuntimeException("bad recovery");
             }

@@ -18,6 +18,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import junit.framework.Assert;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
@@ -215,8 +216,7 @@ public class StagingLogManagerTest {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
                 LogRecord record = newRecord(-1);
-                record.updateLsn(lsn);
-                lsn++;
+                record.updateLsn(lsn++);
                 records.add(record);
             }
             ioManager.setMaximumMarker(lsn-1);
@@ -226,6 +226,7 @@ public class StagingLogManagerTest {
         ioManager.dieOnRead(); // dies with 10 records left to read
         try {
             logManager.startup();
+            Assert.fail("expected reader exception");
         } catch ( Throwable t ) {
 //   receovery may have died already, expected
             t.printStackTrace();
@@ -237,10 +238,11 @@ public class StagingLogManagerTest {
             while (i.hasNext()) {
                 LogRecord record = i.next();
     //            assertThat(record.getLowestLsn(), is(0L));
-                assertThat(record.getLsn(), is(expectedLsn));
+                assertThat(record.getLsn(), is(expectedLsn--));
                 System.out.println("got " + record.getLsn());
             }
-        } catch ( Throwable t ) {
+            Assert.fail("expected reader exception");
+       } catch ( Throwable t ) {
             t.printStackTrace();
         }
         assertThat(expectedLsn, not(99L));
@@ -343,9 +345,6 @@ public class StagingLogManagerTest {
         public Future<Void> clean(long timeout) throws IOException {
             throw new UnsupportedOperationException("Not supported yet.");
         }
-    
-        
-    
 
         @Override
         public Chunk read(Direction dir) throws IOException {

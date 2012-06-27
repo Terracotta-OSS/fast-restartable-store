@@ -263,8 +263,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                     throw new RuntimeException(ie);
                 }
             }
-
+            
             if ( list.isEmpty()) {
+                checkReadException();
                 setDone();
                 return false;
             } else {

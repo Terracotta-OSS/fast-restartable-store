@@ -131,6 +131,7 @@ public class StagingLogManager implements LogManager {
         
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
+        if ( lowest < 100 ) lowest = 100;
         lowestLsn.set(lowest);
         
         currentRegion = currentRegion.create(lastLsn + 1);
@@ -437,7 +438,7 @@ public class StagingLogManager implements LogManager {
        
             int spincount = 0;
   //  if we hit this, try and spread out
-            int waitspin = 8 + (Math.round((float)(Math.random() * 1024f)));
+            int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
             while ( !mine.append(record,sync) ) {
                 if ( spincount++ > waitspin ) {
                     try {

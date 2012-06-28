@@ -84,7 +84,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
       replayFilter.checkError();
     }
 
-    if (logManager.lowestLsn() >= 100 && lastRecoveredLsn > logManager.lowestLsn()) {
+    if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
       throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
     }
 

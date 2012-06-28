@@ -22,6 +22,7 @@ import junit.framework.Assert;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
+import static org.hamcrest.number.OrderingComparison.greaterThan;
 import static org.mockito.Mockito.*;
 import static org.junit.Assert.fail;
 import org.junit.Ignore;
@@ -220,6 +221,7 @@ public class StagingLogManagerTest {
                 records.add(record);
             }
             ioManager.setMaximumMarker(lsn-1);
+            ioManager.setMinimumMarker(99);
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
         }
         
@@ -246,7 +248,14 @@ public class StagingLogManagerTest {
             t.printStackTrace();
         }
         assertThat(expectedLsn, not(99L));
-    }     
+    }
+    
+    @Test
+    public void testLowestLsn() throws Exception {
+        logManager.startup();
+        
+        assertThat(logManager.lowestLsn(), greaterThan(99L));
+    }
     
     
     @Test

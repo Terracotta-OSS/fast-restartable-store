@@ -62,9 +62,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         while (exception == null && lastLsn < 0) {
             this.wait();
         }
-        if ( exception != null ) {
-            throw new RuntimeException(exception);
-        }
+        checkReadException();
         return lastLsn;
     }
 
@@ -74,9 +72,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         while (exception == null && lastLsn < 0) {
             this.wait();
         }
-        if ( exception != null ) {
-            throw new RuntimeException(exception);
-        }
+        checkReadException();
         return lowestLsn;
     }
     
@@ -316,7 +312,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         synchronized void setDone() {
             checkReadException();
             if ( lowestLsn >= 100 && lsn > lowestLsn) {
-                throw new RuntimeException("bad recovery");
+                throw new RuntimeException("bad recovery lowest lsn: " + lowestLsn + " lsn:" + lsn);
+            } else {
+                LOGGER.info("lowest lsn: " + lowestLsn + " lsn:" + lsn);
             }
             isDone = true;
             this.notifyAll();

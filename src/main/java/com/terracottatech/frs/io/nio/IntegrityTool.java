@@ -32,6 +32,10 @@ public class IntegrityTool {
     }
 
     public static void main(String[] args) {
+        if ( args.length == 0 ) {
+            System.out.println("usage: java com.terracottatech.frs.io.nio.IntegrityTool  <<path to stream directory>>");
+            return;
+        }
         try {
             File dir = new File(args[0]);
             if (!dir.exists()) {

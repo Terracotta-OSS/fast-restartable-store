@@ -6,6 +6,7 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
@@ -65,12 +66,12 @@ public class NIOMarkersTest {
         manager.clean(0);
         manager.close();
         manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
-        manager.seek(0);
-        Chunk c = manager.read(Direction.FORWARD);
+        manager.seek(IOManager.Seek.END.getValue());
+        Chunk c = manager.read(Direction.REVERSE);
         int count = 0;
         while ( c != null ) {
             count++;
-            c = manager.read(Direction.FORWARD);
+            c = manager.read(Direction.REVERSE);
         }
         System.out.println(manager.getMinimumMarker());
         System.out.println(manager.getMaximumMarker());

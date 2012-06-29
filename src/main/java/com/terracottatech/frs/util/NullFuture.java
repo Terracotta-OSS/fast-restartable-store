@@ -13,6 +13,8 @@ import java.util.concurrent.TimeoutException;
  * @author tim
  */
 public class NullFuture implements Future<Void> {
+  public static NullFuture INSTANCE = new NullFuture();
+
   @Override
   public boolean cancel(boolean mayInterruptIfRunning) {
     return false;
@@ -25,7 +27,7 @@ public class NullFuture implements Future<Void> {
 
   @Override
   public boolean isDone() {
-    return false;
+    return true;
   }
 
   @Override

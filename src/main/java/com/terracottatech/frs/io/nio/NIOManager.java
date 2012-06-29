@@ -7,6 +7,10 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.*;
+import com.terracottatech.frs.util.NullFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -14,16 +18,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.util.UUID;
-import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
-import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
 import java.util.Formatter;
-import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
+import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 
 
 /**
@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 public class NIOManager implements IOManager {
     private final File          directory;
     private File                lockFile;
+    private File                backupLockFile;
     private FileLock            lock;
     private FileChannel         lastSync;
     private final long          segmentSize;
@@ -49,6 +50,7 @@ public class NIOManager implements IOManager {
         
     private static final String BAD_HOME_DIRECTORY = "no home";
     private static final String LOCKFILE_ACTIVE = "lock file exists";
+    private static final String BACKUP_LOCKFILE = "frs.backup.lck";
     
     private NIOStreamImpl backend;
     private long written = 1;
@@ -228,7 +230,10 @@ public class NIOManager implements IOManager {
         if ( crashed ) {
             checkForCrash();
         }
-        
+
+        backupLockFile = new File(directory, BACKUP_LOCKFILE);
+        backupLockFile.createNewFile();
+
         backend.open();
     }
 
@@ -292,45 +297,23 @@ public class NIOManager implements IOManager {
     @Override
     public synchronized Future<Void> clean(long timeout) throws IOException {        
         readOpsAllowed = false;
+        FileOutputStream fos = new FileOutputStream(backupLockFile);
+        FileChannel channel = fos.getChannel();
+        FileLock backupLock = channel.lock(0, Long.MAX_VALUE, false);
         try {
+            if (backupLock == null) {
+                LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");
+                return NullFuture.INSTANCE;
+            }
             backend.trimLogTail(timeout);
         } finally {
+            if (backupLock != null) {
+                backupLock.release();
+            }
+            fos.close();
             readOpsAllowed = true;
         }
         
-        return new Future<Void>() {
-
-            @Override
-            public boolean cancel(boolean bln) {
-// NOOP
-                return false;
-            }
-
-            @Override
-            public Void get() throws InterruptedException, ExecutionException {
-// NOOP
-                return null;
-            }
-
-            @Override
-            public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-// NOOP
-                return null;
-            }
-
-            @Override
-            public boolean isCancelled() {
-// NOOP
-                return false;
-            }
-
-            @Override
-            public boolean isDone() {
-// NOOP
-                return true;
-            }
-            
-        };
-                
+        return NullFuture.INSTANCE;
     }
 }

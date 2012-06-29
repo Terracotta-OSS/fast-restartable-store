@@ -63,7 +63,7 @@ class NIOSegmentImpl {
             memoryBuffer = ByteBuffer.allocate(1024 * 1024);
         }
         
-        FileBuffer created = ( parent.getBufferBuilder() != null ) 
+        FileBuffer created = ( parent != null && parent.getBufferBuilder() != null ) 
                 ? parent.getBufferBuilder().createBuffer(segment, memoryBuffer) 
                 : new FileBuffer(segment, memoryBuffer);
         

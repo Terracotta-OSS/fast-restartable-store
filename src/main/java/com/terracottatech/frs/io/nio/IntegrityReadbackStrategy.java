@@ -96,6 +96,11 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         } catch (Exception ioe) {
             LOGGER.error("io error checking integrity",ioe);
             done = true;
+            if ( ioe instanceof IOException ) {
+                throw (IOException)ioe;
+            } else {
+                throw new IOException(ioe);
+            }
         }
         primed = false;
         return null;

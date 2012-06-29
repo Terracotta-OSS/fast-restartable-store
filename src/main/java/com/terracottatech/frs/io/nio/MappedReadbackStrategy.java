@@ -73,20 +73,31 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
             chunk = readChunk(buf);
         }
         
-        if ( got.size() != list.size() ) {
-            System.out.println(got.size() + " " + list.size());
-            return false;
-        }
-        for (int x=0;x<got.size();x++) {
-            if ( got.get(x).remaining() != list.get(x).remaining()  ) {
-                System.out.println(x + " " + got.get(x).remaining() + " " + list.get(x).remaining());
+        if ( got != null ) {
+            if ( got.size() != list.size() ) {
+                System.out.println(got.size() + " " + list.size());
                 return false;
+            }
+            for (int x=0;x<got.size();x++) {
+                if ( got.get(x).remaining() != list.get(x).remaining()  ) {
+                    System.out.println(x + " " + got.get(x).remaining() + " " + list.get(x).remaining());
+                    return false;
+                }
             }
         }
         
-        return true;
+        return super.isConsistent();
     }
-    
+
+    @Override
+    public boolean isConsistent() {
+        try {
+            return checkQueue(null);
+        } catch ( IOException ioe ) {
+            return false;
+        }
+    }
+
     public Chunk getBuffer() {
         return new WrappingChunk(src);
     }
@@ -100,7 +111,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     public boolean hasMore(Direction dir) throws IOException {
         if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return true;
-        if ( dir != queueDirection && chunks.hasPrevious() ) return true;
+        if ( dir != queueDirection ) throw new UnsupportedOperationException(dir.toString());
         return false;
     }
 
@@ -123,7 +134,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     public Chunk iterate(Direction dir) throws IOException {
         if ( chunks == null ) queue(dir);
         if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
-        if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
+        if ( dir != queueDirection ) throw new UnsupportedOperationException(dir.toString());
         return null;
     }
     

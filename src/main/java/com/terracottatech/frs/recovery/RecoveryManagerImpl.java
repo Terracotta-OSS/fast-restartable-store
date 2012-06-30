@@ -44,7 +44,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     this.compressedSkipSet = configuration.getBoolean(FrsProperty.RECOVERY_COMPRESSED_SKIP_SET);
     this.replayFilter = new ReplayFilter(configuration.getInt(FrsProperty.RECOVERY_MIN_THREAD_COUNT),
                                          configuration.getInt(FrsProperty.RECOVERY_MAX_THREAD_COUNT),
-                                         configuration.getInt(FrsProperty.RECOVERY_MAX_QUEUE_LENGTH),
+                                         configuration.getInt(FrsProperty.RECOVERY_REPLAY_BATCH_SIZE),
                                          configuration.getDBHome());
     this.configuration = configuration;
   }
@@ -59,11 +59,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     Iterator<LogRecord> i = logManager.reader();
 
-    Filter<Action> deleteFilter = new DeleteFilter(new ProgressLoggingFilter(replayFilter,
-                                                                             logManager.lowestLsn()));
+    Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
                                                  compressedSkipSet);
+    Filter<Action> progressLoggingFilter =
+            new ProgressLoggingFilter(skipsFilter, logManager.lowestLsn());
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
@@ -73,7 +74,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
         Action action = actionManager.extract(logRecord);
         long ctime = System.nanoTime();
         filter += (ctime - ntime);
-        skipsFilter.filter(action, logRecord.getLsn(), false);
+        progressLoggingFilter.filter(action, logRecord.getLsn(), false);
         ntime = System.nanoTime();
         put += (ntime - ctime);
         replayFilter.checkError();
@@ -133,19 +134,20 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     private final ExecutorService            executorService;
     private final File dbHome;
+    private final int replayBatchSize;
     private long replayed = 0;
-    private ArrayList<ReplayElement> batch  = new ArrayList<ReplayElement>(1024);
+    private List<ReplayElement> batch;
 
-    ReplayFilter(int minThreadCount, int maxThreadCount, int maxQueueLength, File dbHome) {
+    ReplayFilter(int minThreadCount, int maxThreadCount, int replayBatchSize, File dbHome) {
       executorService = new ThreadPoolExecutor(minThreadCount,
                                                maxThreadCount, 60,
                                                SECONDS,
-                new SynchronousQueue(),
-//                                               new ArrayBlockingQueue<Runnable>(
-//                                                       maxQueueLength,false),
+                                               new SynchronousQueue<Runnable>(),
                                                this,
                                                new ThreadPoolExecutor.CallerRunsPolicy());
       this.dbHome = dbHome;
+      this.replayBatchSize = replayBatchSize;
+      batch = new ArrayList<ReplayElement>(replayBatchSize);
     }
     
     public long getReplayCount() {
@@ -159,7 +161,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
       } else {
         replayed++;
         batch.add(new ReplayElement(element,lsn));
-        if ( batch.size() >= 1024 ) {
+        if ( batch.size() >= replayBatchSize ) {
             submitJob();
         }
 
@@ -171,7 +173,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
         if ( batch.isEmpty() ) return;
         
         final List<ReplayElement> go = batch;
-        batch = new ArrayList<ReplayElement>(batch.size());
+        batch = new ArrayList<ReplayElement>(replayBatchSize);
         executorService.submit(new Runnable() {
             @Override
             public void run() {

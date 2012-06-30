@@ -16,7 +16,7 @@ public enum FrsProperty {
   RECOVERY_COMPRESSED_SKIP_SET("recovery.compressedSkipSet", Type.BOOLEAN, true),
   RECOVERY_MIN_THREAD_COUNT("recovery.minThreadCount", Type.INTEGER, 1),
   RECOVERY_MAX_THREAD_COUNT("recovery.maxThreadCount", Type.INTEGER, 64),
-  RECOVERY_MAX_QUEUE_LENGTH("recovery.maxQueueLength", Type.INTEGER, 1000),
+  RECOVERY_REPLAY_BATCH_SIZE("recovery.replayBatchSize", Type.INTEGER, 1024),
 	
   COMPACTOR_POLICY("compactor.policy", Type.STRING, "LSNGapCompactionPolicy"),
   COMPACTOR_THROTTLE_AMOUNT("compactor.throttleAmount", Type.LONG,  1000L),

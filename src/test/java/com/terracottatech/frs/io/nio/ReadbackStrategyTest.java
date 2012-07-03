@@ -67,18 +67,12 @@ public class ReadbackStrategyTest {
         assert (amt == c.length());
         buffer.put(SegmentHeaders.CHUNK_START.getBytes());
         buffer.putLong(amt);
-        buffer.write(1);
-        buffer.writeDirect(c.getBuffers());
-//        buffer.insert(c.getBuffers(), 1);
-        buffer.clear();
+        ByteBuffer[] raw = c.getBuffers();
+        buffer.insert(raw, 1, false);
         buffer.putLong(amt);
         buffer.putLong(max);
         buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
-        try {
-            buffer.write(1);
-        } finally {
-
-        }    
+        buffer.write(raw.length + 2);
     }
     
     @Test

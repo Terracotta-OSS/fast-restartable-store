@@ -25,7 +25,6 @@ class NIOStreamImpl implements Stream {
     private UUID streamId;
     private volatile long lowestMarker = 99;
     private volatile long lowestMarkerOnDisk = 0;
-//    private long highestMarker = 0;
     private long currentMarker = 99;  //  init lsn is 100
     private NIOSegmentImpl writeHead;
     private NIOSegmentImpl readHead;
@@ -137,9 +136,7 @@ class NIOStreamImpl implements Stream {
         //  fail,  the stream id does not equal segment's stream id
                     throw new IOException(BAD_STREAM_ID);
                 }
-        //  if the segment is empty, need to delete it
                 if ( seg.last() ) {
-//                    this.highestMarker = seg.getMaximumMarker();
                     this.currentMarker = seg.getMaximumMarker();
                     this.lowestMarker = seg.getMinimumMarker();
                     this.lowestMarkerOnDisk = this.lowestMarker;

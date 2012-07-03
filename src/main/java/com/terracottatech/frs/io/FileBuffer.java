@@ -171,42 +171,6 @@ public class FileBuffer extends AbstractChunk implements Closeable {
 
         return scratch;
     }
-    
-    private long copyingWrite(int usage, int count) throws IOException {
-        int smStart = -1;
-        long lt = 0;
-//  use the remaining buffer space as scratch space for small buffer aggregation and
-//  making sure the memory is direct memory
-        try {
-            ByteBuffer memcpy = ((ByteBuffer) base.position(usage)).slice();
-            int currentRun = 0;
-            for (int x = mark; x < mark + count; x++) {
-                if (currentRun + ref[x].remaining() > memcpy.capacity()) {
-                    // buffer is full
-                    if ( smStart < 0 ) {
-                        lt += writeFully(coalesce(memcpy, ref, x, 1));
-                    } else {
-                        lt += writeFully(coalesce(memcpy, ref, smStart, x - smStart));
-                        smStart = x;
-                        currentRun = ref[x].remaining();
-                    }
-                } else {
-                    if (smStart < 0) {
-                        smStart = x;
-                    }
-                    currentRun += ref[x].remaining();
-                }
-            }
-
-            if (smStart >= 0) {
-//  finish the writes
-                lt += writeFully(coalesce(memcpy, ref, smStart, (mark + count) - smStart));
-            }
-        } finally {
-            base.position(0);
-        }
-        return lt;
-    }
 
     private long coalescingWrite(int usage, int count) throws IOException {
         int smStart = -1;
@@ -293,12 +257,6 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             ref[loc + x] = ( writable ) ? bufs[x] : bufs[x].asReadOnlyBuffer();
         }
     }
-
-    public long writeDirect(ByteBuffer[] list) throws IOException {
-        mark = 0;
-        ref = list;
-        return coalescingWrite(base.capacity(), list.length);
-    }   
 
     @Override
     public void close() throws IOException {

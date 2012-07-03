@@ -51,20 +51,20 @@ public abstract class AbstractChunk implements Chunk {
         
         if ( length == 0 ) return new ByteBuffer[0];
         
-        for (int x=0;x<list.length;x++) {
-            if ( !list[x].hasRemaining() ) {
+        for (ByteBuffer buffer : list ) {
+            if ( !buffer.hasRemaining() ) {
                 continue;
             }
-            if ( list[x].remaining() >= length - count ) {
-                int restore = list[x].limit();
-                list[x].limit(list[x].position() + (int)(length-count));
-                copy.add(list[x].slice());
-                list[x].position(list[x].limit()).limit(restore);
+            if ( buffer.remaining() >= length - count ) {
+                int restore = buffer.limit();
+                buffer.limit(buffer.position() + (int)(length-count));
+                copy.add(buffer.slice());
+                buffer.position(buffer.limit()).limit(restore);
                 count = length;
             } else {
-                copy.add(list[x].duplicate());
-                count += list[x].remaining();
-                list[x].position(list[x].limit());
+                copy.add(buffer.duplicate());
+                count += buffer.remaining();
+                buffer.position(buffer.limit());
             }
             if ( count == length ) {
                 break;
@@ -89,28 +89,28 @@ public abstract class AbstractChunk implements Chunk {
     private BufferReference scanTo(long position) {
         ByteBuffer[] list = getBuffers();
         long seek = 0;
-        for (int x=0;x<list.length;x++) {
-            if ( seek + list[x].limit() > position ) {
-                return new BufferReference(list[x],(int)(position-seek));
+        for (ByteBuffer buffer : list ) {
+            if ( seek + buffer.limit() > position ) {
+                return new BufferReference(buffer,(int)(position-seek));
             }
-            seek += list[x].limit();
+            seek += buffer.limit();
         }
         throw new IndexOutOfBoundsException();
     }
     
     private ByteBuffer findEnd(int size,boolean forPut) {
         ByteBuffer[] list = getBuffers();
-        for (int x=0;x<list.length;x++) {
-            if ( forPut && list[x].isReadOnly() ) {
+        for (ByteBuffer buffer : list ) {
+            if ( forPut && buffer.isReadOnly() ) {
                 continue;
-            } else if ( !list[x].hasRemaining() ) {
+            } else if ( !buffer.hasRemaining() ) {
                 continue;
-            } else if ( list[x].remaining() < size ) {
-                if ( forPut ) list[x].limit(list[x].position());
+            } else if ( buffer.remaining() < size ) {
+                if ( forPut ) buffer.limit(buffer.position());
                 else throw new BufferUnderflowException();
                 continue;
             }
-            return list[x];
+            return buffer;
         }
         throw new IndexOutOfBoundsException();
     }    

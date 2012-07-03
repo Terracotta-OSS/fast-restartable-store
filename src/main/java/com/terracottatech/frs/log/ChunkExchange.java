@@ -314,7 +314,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if ( lowestLsn >= 100 && lsn > lowestLsn) {
                 throw new RuntimeException("bad recovery lowest lsn: " + lowestLsn + " lsn:" + lsn);
             } else {
-                LOGGER.info("lowest lsn: " + lowestLsn + " lsn:" + lsn);
+                LOGGER.debug("lowest lsn: " + lowestLsn + " lsn:" + lsn);
             }
             isDone = true;
             this.notifyAll();

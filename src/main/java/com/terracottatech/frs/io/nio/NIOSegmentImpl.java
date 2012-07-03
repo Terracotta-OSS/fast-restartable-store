@@ -214,25 +214,26 @@ class NIOSegmentImpl {
         int writeCount = 0;
         buffer.clear();
         this.maxMarker = maxMarker;
+        ByteBuffer[] raw = c.getBuffers();
         if (
 //  very specfic optimization to write out buffers as quickly as possible by using extra space in 
 //    passed in buffer creating one large write rather than small header writes
-            c.getBuffers().length == 1 && !c.getBuffers()[0].isReadOnly() && c.getBuffers()[0].isDirect() &&
-            c.getBuffers()[0].position() > ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE &&
-            c.getBuffers()[0].capacity() - c.getBuffers()[0].limit() > (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE
+            raw.length == 1 && !raw[0].isReadOnly() && raw[0].isDirect() &&
+            raw[0].position() > ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE &&    //  header is a long size and an int chunk marker
+            raw[0].capacity() - raw[0].limit() > (2*ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE //  footer is a long size for marker long for size and an int chunk marker
         ) {
-            return piggybackBufferOptimization(c.getBuffers()[0]);
+            return piggybackBufferOptimization(raw[0]);
         } else {
             buffer.clear();
             buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
             long amt = c.remaining();
             buffer.put(SegmentHeaders.CHUNK_START.getBytes());
             buffer.putLong(amt);
-            buffer.insert(c.getBuffers(), 1, false);
+            buffer.insert(raw, 1, false);
             buffer.putLong(amt);
             buffer.putLong(maxMarker);
             buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
-            writeCount = c.getBuffers().length + 2;
+            writeCount = raw.length + 2;
             try {
                 return buffer.write(writeCount);
             } finally {

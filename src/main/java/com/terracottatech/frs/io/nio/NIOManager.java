@@ -176,6 +176,7 @@ public class NIOManager implements IOManager {
         }
         if (lock != null) {
             lock.release();
+            lock.channel().close();
             lock = null;
         }
         if (lockFile != null) {

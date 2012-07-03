@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 
@@ -19,22 +18,33 @@ public enum SegmentHeaders {
     CHUNK_START("-st-"),
     FILE_CHUNK("~fc~");
     
-    private byte[] value;
+    private final byte[] value;
+    private final int    validator;
     
     SegmentHeaders(String value) {
         assert(value.length() == 4);
         try {
             this.value = value.getBytes("ASCII");
+            this.validator = produceIntValue(this.value);
         } catch ( UnsupportedEncodingException unsupported ) {
-            this.value = new byte[value.length()];
-            for (int x=0;x<value.length();x++) {
-                this.value[x] = (byte)value.charAt(x);
-            }
+            throw new AssertionError(unsupported);
         }
     }
     
+    private int produceIntValue(byte[] value) {
+        if ( value.length != 4 ) throw new AssertionError("segment headers must be 4 bytes long");
+        int val = value[0] & 0xff;
+        val = val << Byte.SIZE;
+        val |= (value[1] & 0xff);
+        val = val << Byte.SIZE;
+        val |= (value[2] & 0xff);
+        val = val << Byte.SIZE;
+        val |= (value[3] & 0xff);
+        return val;
+    }
+    
     public boolean validate(int test) {
-        return test == this.getIntValue();
+        return test == this.validator;
     }
     
     public boolean validate(byte[] test) {
@@ -42,11 +52,7 @@ public enum SegmentHeaders {
     }
     
     public int getIntValue() {
-        int val = 0;
-        for (int x=0;x<ByteBufferUtils.INT_SIZE;x++) {
-            val |= ((this.value[x] & 0xff) << ((ByteBufferUtils.INT_SIZE - x - 1) * Byte.SIZE));
-        }
-        return val;
+        return validator;
     }
     
     public byte[] getBytes() {
@@ -58,7 +64,7 @@ public enum SegmentHeaders {
         try {
             return new String(this.value,"ASCII");
         } catch ( UnsupportedEncodingException unsupported ) {
-            return new String(this.value);
+            throw new AssertionError(unsupported);
         }
     }
     

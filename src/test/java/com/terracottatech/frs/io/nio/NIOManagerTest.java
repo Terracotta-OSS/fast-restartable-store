@@ -60,9 +60,7 @@ public class NIOManagerTest {
             }
             config = Configuration.getConfiguration(workArea);
             manager = new NIOManager(config);
-        manager.setMinimumMarker(100);
-        manager.setMaximumMarker(100);
-        manager.setCurrentMarker(100);
+            manager.setMinimumMarker(100);
     }
     
     @After
@@ -100,12 +98,11 @@ public class NIOManagerTest {
         int lastSync = -1;
         long lastLen = 0;
         long total = System.nanoTime();
-        LogRegionPacker packer = new LogRegionPacker(Signature.ADLER32);
 
         for ( int x=0;x<count;x++) {
             Chunk test = createLogRegion();
             long start = System.nanoTime();
-            tb +=manager.write(test);
+            tb +=manager.write(test,100);
             System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
             
             if ( Math.random() * 10 < 1 ) {
@@ -246,7 +243,7 @@ public class NIOManagerTest {
         DecimalFormat df = new DecimalFormat("0000000000");
         try {
             while ( true ) {
-                manager.write(new WrappingChunk(ByteBuffer.wrap(df.format(count++).getBytes())));
+                manager.write(new WrappingChunk(ByteBuffer.wrap(df.format(count++).getBytes())),100);
                 if ( count % 10000 == 0 ) manager.sync();
             }
         } catch ( IOException ioe ) {

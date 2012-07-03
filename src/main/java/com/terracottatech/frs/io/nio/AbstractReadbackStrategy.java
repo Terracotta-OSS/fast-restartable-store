@@ -27,32 +27,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
     public boolean isConsistent() {
         return consistent;
     }
-        
-    protected BitSet scanFileChunkMagic(Chunk buffer) throws IOException {
-        assert(buffer.remaining() < Integer.MAX_VALUE);
-        
-        BitSet positions = new BitSet();
-        for (int x=0;x>buffer.remaining();x--) {
-            if ( buffer.get(x) == '~' ) {
-               positions.set(x);
-            }
-        }
-        int cpos = positions.nextSetBit(0);
-        while ( cpos >= 0 ) {
-            if ( 
-                positions.get(cpos+3) &&
-                buffer.get(cpos+1) == 'f' &&
-                buffer.get(cpos+2) == 'c'
-            ) {
-                positions.clear(cpos++ + 3);
-            } else {
-                positions.clear(cpos);
-            }
-            cpos = positions.nextSetBit(cpos);
-        }
-        return positions;
-    }
-    
+       
     protected ByteBuffer[] readChunk(Chunk buffer) throws IOException {
         if ( !buffer.hasRemaining() ) {
             return null;
@@ -60,16 +35,17 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( buffer.remaining() < ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
             return null;
         }
+
+        int start = buffer.getInt();
 // do we see chunk start?  
-        if ( !SegmentHeaders.CHUNK_START.validate(buffer.peekInt()) ) {
-            if ( SegmentHeaders.CLOSE_FILE.validate(buffer.peekInt()) ) {
+        if ( !SegmentHeaders.CHUNK_START.validate(start) ) {
+            if ( SegmentHeaders.CLOSE_FILE.validate(start) ) {
 //  close file magic is in a reasonable place, call this segment consistent
                 consistent = true;
             }
             return null;
         }
-        int start = buffer.getInt();
-        assert(SegmentHeaders.CHUNK_START.validate(start));
+
         long length = buffer.getLong();
         if ( buffer.remaining() < length + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
             return null;
@@ -91,24 +67,26 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
     
         
     protected ArrayList<Long> readJumpList(Chunk buffer) throws IOException {
-
-        int jump = buffer.getInt(buffer.length()-4);
+        final long LAST_INT_WORD_IN_CHUNK = buffer.length()-ByteBufferUtils.INT_SIZE;
+        final long LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
+        
+        int jump = buffer.getInt(LAST_INT_WORD_IN_CHUNK);
         if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {
-            int numberOfChunks = buffer.getShort(buffer.length()-6);
+            int numberOfChunks = buffer.getShort(LAST_SHORT_WORD_BEFORE_JUMP_MARK);
             if ( numberOfChunks < 0 ) {
                 return null;
             }
             
             int reach = numberOfChunks * ByteBufferUtils.LONG_SIZE;
-            long close = buffer.length() - (reach + 10);
-            if ( close < 0 ) {
+            final long EXPECTED_CLOSE_POSITION = LAST_SHORT_WORD_BEFORE_JUMP_MARK - reach - ByteBufferUtils.INT_SIZE;
+            if ( EXPECTED_CLOSE_POSITION < 0 ) {
                 return null;
             }
-            int cfm = buffer.getInt((int)(close));
+            int cfm = buffer.getInt(EXPECTED_CLOSE_POSITION);
             if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
                 ArrayList<Long> jumps = new ArrayList<Long>(numberOfChunks);
                 for (int x=0;x<numberOfChunks;x++) {
-                    jumps.add(buffer.getLong(close + 4 + (x*8)));
+                    jumps.add(buffer.getLong(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.LONG_SIZE)));
                 }
                 return jumps;
             }

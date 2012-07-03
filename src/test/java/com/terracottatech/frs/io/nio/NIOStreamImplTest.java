@@ -34,8 +34,6 @@ public class NIOStreamImplTest {
     workArea = folder.newFolder();
     stream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
         stream.setMinimumMarker(100);
-        stream.setMaximumMarker(100);
-        stream.setMarker(100);
         
         long seed = System.currentTimeMillis();
     r = new Random(seed);
@@ -53,14 +51,14 @@ public class NIOStreamImplTest {
    */
   @Test
   public void testAppend() throws Exception {
-    assertThat(stream.append(newChunk(1)), is(CHUNK_OVERHEAD + 1));
+    assertThat(stream.append(newChunk(1),100), is(CHUNK_OVERHEAD + 1));
     assertThat(listFiles().length, is(1));
 
-    assertThat(stream.append(newChunk(MAX_SEGMENT_SIZE - 2)),
+    assertThat(stream.append(newChunk(MAX_SEGMENT_SIZE - 2),100),
                is(CHUNK_OVERHEAD + MAX_SEGMENT_SIZE - 2));
     assertThat(listFiles().length, is(1));
 
-    assertThat(stream.append(newChunk(1)), is(CHUNK_OVERHEAD + 1));
+    assertThat(stream.append(newChunk(1),100), is(CHUNK_OVERHEAD + 1));
     assertThat(listFiles().length, is(2));
   }
 
@@ -70,7 +68,7 @@ public class NIOStreamImplTest {
     int numChunks = 0;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s));
+      stream.append(newChunk(s),100);
       size -= s;
       numChunks++;
     }
@@ -92,7 +90,7 @@ public class NIOStreamImplTest {
     int numChunks = 0;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s));
+      stream.append(newChunk(s),100);
       size -= s;
       numChunks++;
     }
@@ -129,7 +127,7 @@ public class NIOStreamImplTest {
   public void testSync() throws Exception {
     System.out.println("sync");
     Chunk c = new WrappingChunk(ByteBuffer.allocateDirect(1024));
-    stream.append(c);
+    stream.append(c,100);
     stream.sync();
     File lock = new File(workArea.getAbsolutePath() + "/FRS.lck");
     assertTrue(lock.exists());
@@ -145,7 +143,7 @@ public class NIOStreamImplTest {
     int numChunks = 0;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s));
+      stream.append(newChunk(s),100);
       size -= s;
       numChunks++;
     }
@@ -166,7 +164,7 @@ public class NIOStreamImplTest {
     
   @Test
   public void testMiniBuffers() throws Exception {
-    stream.append(newChunk(40));
+    stream.append(newChunk(40),100);
 
     stream.close();
     BufferSource bufs = new ManualBufferSource(1024 * 1024);
@@ -183,7 +181,7 @@ public class NIOStreamImplTest {
   
   @Test
   public void testMegaBuffers() throws Exception {
-    stream.append(newChunk(10 * 1024 * 1024));
+    stream.append(newChunk(10 * 1024 * 1024),100);
 
     stream.close();
     BufferSource bufs = new ManualBufferSource(1024 * 1024);

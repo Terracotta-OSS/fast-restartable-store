@@ -23,7 +23,7 @@ public interface Stream extends Iterable<Chunk>,Closeable  {
     
     /* close previous segment if any, provide a new segment for appending  */
     
-    long append(Chunk c) throws IOException;
+    long append(Chunk c, long marker) throws IOException;
     
 
     UUID getStreamId();

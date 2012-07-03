@@ -134,7 +134,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 last = System.nanoTime();
                 chunk = io.read(Direction.REVERSE);
                 if (first) {
-                    offerLsns(io.getMinimumMarker(), io.getMaximumMarker());
+                    offerLsns(io.getMinimumMarker(), io.getCurrentMarker());
                     first = false;
                 }
             }

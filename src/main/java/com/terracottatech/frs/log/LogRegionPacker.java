@@ -84,15 +84,19 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         int count = 0;
                 
-        ByteBuffer headers = ByteBuffer.allocate(512 * 1024);
-        ByteBuffer header = headers.duplicate();
-        headers.position(LOG_REGION_HEADER_SIZE);
+        ByteBuffer headers = ByteBuffer.allocate(LOG_REGION_HEADER_SIZE + (LOG_RECORD_HEADER_SIZE * 1024));
+        headers.limit(LOG_REGION_HEADER_SIZE);
+        ByteBuffer regionHeader = headers.slice();
+        headers.position(headers.limit()).limit(headers.capacity());
 
-        buffers.add(header);
+        buffers.add(regionHeader);
         for (LogRecord record : records) {
+            if ( headers.remaining() < LOG_RECORD_HEADER_SIZE) {
+                headers = ByteBuffer.allocate((LOG_RECORD_HEADER_SIZE * 1024));
+            }
             headers.limit(headers.position() + LOG_RECORD_HEADER_SIZE);
             ByteBuffer rhead = headers.slice();
-            headers.position(headers.limit()).limit(headers.position()+LOG_RECORD_HEADER_SIZE);
+            headers.position(headers.limit()).limit(headers.capacity());
             
             buffers.add(rhead);
 
@@ -108,7 +112,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             rhead.flip();
         }
         
-        formRegionHeader(doChecksum() ? checksum(buffers.subList(1, buffers.size())) : 0,header);
+        formRegionHeader(doChecksum() ? checksum(buffers.subList(1, buffers.size())) : 0,regionHeader);
         tuningMax = tuningMax + (int)Math.round((count - tuningMax) * .1);
         return new BufferListWrapper(buffers);
     }

@@ -46,8 +46,6 @@ public class NIOSegmentImplTest {
             workarea = folder.newFolder();
             stream = new NIOStreamImpl(workarea, (1 * 1024 * 1024));
             stream.setMinimumMarker(100);
-            stream.setMarker(100);
-            stream.setMaximumMarker(100);
     }
 
     @After
@@ -75,7 +73,7 @@ public class NIOSegmentImplTest {
                 return 40;
             }
         };
-            long result = stream.append(c);
+            long result = stream.append(c,100);
             assertEquals(72l, result);  //  length of these bytes plus 32 bytes of header for LogRegions
     }
 

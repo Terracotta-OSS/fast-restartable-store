@@ -81,8 +81,6 @@ public class NIOManager implements IOManager {
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
             config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE));
 
-        backend.memorySpinsToFail(config.getInt(FrsProperty.IO_NIO_MEMORY_SPINS));
-        backend.memoryTimeToWait(config.getLong(FrsProperty.IO_NIO_MEMORY_TIMEOUT));
         String bufferBuilder = config.getString(FrsProperty.IO_NIO_BUFFER_BUILDER);
         if ( bufferBuilder != null ) {
             try {
@@ -100,29 +98,19 @@ public class NIOManager implements IOManager {
     }
 
     @Override
-    public long write(Chunk region) throws IOException {
+    public long write(Chunk region, long marker) throws IOException {
         if (backend == null) {
             open();
         }    
         
         long blit = System.nanoTime();
-        long w = backend.append(region);
+        long w = backend.append(region, marker);
         blit = System.nanoTime() - blit;
         written += w;
         writeTime += blit;
         parts += region.getBuffers().length;
         requests += 1;
         return w;
-    }
-
-    @Override
-    public void setCurrentMarker(long marker) throws IOException {
-        backend.setMarker(marker);
-    }
-
-    @Override
-    public void setMaximumMarker(long marker) throws IOException {
-        backend.setMaximumMarker(marker);
     }
 
     @Override
@@ -134,12 +122,6 @@ public class NIOManager implements IOManager {
     public long getCurrentMarker() throws IOException {
         if ( backend == null ) return 0;
         return backend.getMarker();
-    }
-
-    @Override
-    public long getMaximumMarker() throws IOException {
-        if ( backend == null ) return 0;
-        return backend.getMaximumMarker();
     }
 
     @Override

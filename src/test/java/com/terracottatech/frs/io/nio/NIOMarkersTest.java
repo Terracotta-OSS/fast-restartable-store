@@ -45,8 +45,6 @@ public class NIOMarkersTest {
             System.out.println(workArea.getAbsolutePath());
             manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
         manager.setMinimumMarker(100);
-        manager.setMaximumMarker(100);
-        manager.setCurrentMarker(100);
         current = 100;
         min = 100;
         max = 100;
@@ -55,10 +53,13 @@ public class NIOMarkersTest {
                 writeChunkWithMarkers(10);
             }
             min = 10000;
+            manager.setMinimumMarker(min);
+            manager.sync();
    //  create a 10k lsn window
             for(int x=0;x<1000;x++) {
                 writeChunkWithMarkers(10);
-            }            
+            }      
+            manager.sync();
     }
     
     @Test
@@ -74,18 +75,15 @@ public class NIOMarkersTest {
             c = manager.read(Direction.REVERSE);
         }
         System.out.println(manager.getMinimumMarker());
-        System.out.println(manager.getMaximumMarker());
+        System.out.println(manager.getCurrentMarker());
         assert(manager.getMinimumMarker() == 10000);
-        assert(manager.getMaximumMarker() == 20100);
+        assert(manager.getCurrentMarker() == 20100);
         System.out.println("chunks after clean " + count);
         assert(count < 2000);
     }
     
     private void writeChunkWithMarkers(int size) throws Exception {
-        manager.setCurrentMarker(current);
-        manager.setMinimumMarker(min);
-        manager.setMaximumMarker(current+=size);
-        manager.write(new WrappingChunk(ByteBuffer.allocate(10 * 1024)));
+        manager.write(new WrappingChunk(ByteBuffer.allocate(10 * 1024)),current+=size);
     }
     
     @After

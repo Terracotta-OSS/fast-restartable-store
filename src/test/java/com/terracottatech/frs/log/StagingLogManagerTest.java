@@ -53,7 +53,7 @@ public class StagingLogManagerTest {
         LogRecord record = newRecord(-1);
         Future<Void> f = logManager.appendAndSync(record);
         f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
-        verify(ioManager).write(any(Chunk.class));
+        verify(ioManager).write(any(Chunk.class),any(Long.class));
     }
 
     /**
@@ -68,7 +68,7 @@ public class StagingLogManagerTest {
             verify(record).updateLsn(i);
         }
         logManager.shutdown();
-        verify(ioManager, atLeastOnce()).write(any(Chunk.class));
+        verify(ioManager, atLeastOnce()).write(any(Chunk.class),any(Long.class));
     }
     
     @Test 
@@ -133,7 +133,7 @@ public class StagingLogManagerTest {
 
         // Some of the syncs can wind up overlapping, so let's say at least 50% of them
         // can trigger a new write.
-        verify(ioManager, atLeast(syncs.get() / 10)).write(any(Chunk.class));
+        verify(ioManager, atLeast(syncs.get() / 10)).write(any(Chunk.class),any(Long.class));
     }
 
     /**
@@ -150,8 +150,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.setMaximumMarker(lsn-1);
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         logManager.startup();
 
@@ -177,8 +176,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.setMaximumMarker(lsn-1);
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         logManager.startup();
 
@@ -220,9 +218,8 @@ public class StagingLogManagerTest {
                 record.updateLsn(lsn++);
                 records.add(record);
             }
-            ioManager.setMaximumMarker(lsn-1);
             ioManager.setMinimumMarker(99);
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         
         ioManager.dieOnRead(); // dies with 10 records left to read
@@ -269,8 +266,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.setMaximumMarker(lsn-1);
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records));
+            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         ioManager.slowReads();
         logManager.startup();
@@ -294,29 +290,19 @@ public class StagingLogManagerTest {
     private class DummyIOManager implements IOManager {
 
         private final Deque<Chunk> chunks = new LinkedList<Chunk>();
-        private long max = 0;
-        private long min = 0;
-        private long current = 0;
+        private long min = 99;
+        private long current = 99;
         private boolean slowReads = false;
         private boolean dieOnRead = false;
 
         @Override
-        public long write(Chunk region) throws IOException {
+        public long write(Chunk region, long lsn) throws IOException {
             if ( startThrowing ) throw new IOException();
+            current = lsn;
             chunks.push(region);
             return 0;
         }
         
-    @Override
-    public void setCurrentMarker(long lsn) throws IOException {
-        current = lsn;
-    }
-
-    @Override
-    public void setMaximumMarker(long lsn) throws IOException {
-        max = lsn;
-    }
-
     @Override
     public void setMinimumMarker(long lsn) throws IOException {
         min = lsn;
@@ -325,11 +311,6 @@ public class StagingLogManagerTest {
     @Override
     public long getCurrentMarker() throws IOException {
         return current;
-    }
-
-    @Override
-    public long getMaximumMarker() throws IOException {
-        return max;
     }
 
     @Override

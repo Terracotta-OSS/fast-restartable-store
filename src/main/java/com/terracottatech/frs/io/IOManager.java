@@ -14,15 +14,15 @@ import java.util.concurrent.Future;
  */
 public interface IOManager extends Closeable {
   
-  long write(Chunk region) throws IOException;
+  long write(Chunk region, long marker) throws IOException;
   
   void setMinimumMarker(long marker) throws IOException;
   long getMinimumMarker() throws IOException;
   
-  void setMaximumMarker(long marker) throws IOException;
-  long getMaximumMarker() throws IOException;
+//  void setMaximumMarker(long marker) throws IOException;
+//  long getMaximumMarker() throws IOException;
   
-  void setCurrentMarker(long marker) throws IOException;
+//  void setCurrentMarker(long marker) throws IOException;
   long getCurrentMarker() throws IOException;
   
   Chunk read(Direction dir) throws IOException;

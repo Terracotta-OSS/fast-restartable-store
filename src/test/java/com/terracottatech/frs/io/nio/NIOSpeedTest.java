@@ -34,8 +34,6 @@ public class NIOSpeedTest {
   public void setUp() throws Exception {
     stream = new NIOStreamImpl(folder.getRoot(), MAX_SEGMENT_SIZE);
         stream.setMinimumMarker(100);
-        stream.setMaximumMarker(100);
-        stream.setMarker(100);
   }
   
   public NIOSpeedTest() {
@@ -103,7 +101,7 @@ public class NIOSpeedTest {
         long n = System.nanoTime();
         while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
-            w += stream.append(c);
+            w += stream.append(c,100);
 //            stream.sync();
         }
         stream.seek(IOManager.Seek.BEGINNING.getValue());

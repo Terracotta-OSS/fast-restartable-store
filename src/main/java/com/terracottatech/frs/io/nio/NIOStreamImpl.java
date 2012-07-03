@@ -23,20 +23,18 @@ class NIOStreamImpl implements Stream {
     private final long segmentSize;
     private NIOSegmentList segments;
     private UUID streamId;
-    private long lowestMarker = 0;
-    private long lowestMarkerOnDisk = 0;
-    private long highestMarker = 0;
-    private long currentMarker = 0;
+    private volatile long lowestMarker = 99;
+    private volatile long lowestMarkerOnDisk = 0;
+//    private long highestMarker = 0;
+    private long currentMarker = 99;  //  init lsn is 100
     private NIOSegmentImpl writeHead;
     private NIOSegmentImpl readHead;
-    private ManualBufferSource manualPool;
-    private RotatingBufferSource gcPool;
+    private BufferSource manualPool;
     private FSyncer syncer;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private BufferBuilder createBuffer;
     private HashMap<String, Integer> strategies;
-//    private long debugIn;
-//    private long debugOut;
+    
     public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
         this(filePath,recommendedSize, recommendedSize);
     }
@@ -54,8 +52,7 @@ class NIOStreamImpl implements Stream {
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
         
-        manualPool = new ManualBufferSource(memorySize);
-        gcPool = new RotatingBufferSource(manualPool);
+        manualPool = new ManualBufferSource(new CachingBufferSource(), memorySize);
 
         segments = new NIOSegmentList(directory);
 
@@ -75,18 +72,6 @@ class NIOStreamImpl implements Stream {
         }
     }
     
-    void memorySpinsToFail(int spins) {
-        gcPool.spinsToFail(spins);
-    }
-    
-    void memoryTimeToWait(long t) {
-        gcPool.millisToWait(t);
-    }
-    
-    BufferSource getGCBufferSource() {
-        return gcPool;
-    }
-    
     public void setBufferBuilder(BufferBuilder builder) {
         createBuffer = builder;
     }
@@ -104,27 +89,12 @@ class NIOStreamImpl implements Stream {
         this.lowestMarker = lowestMarker;
     }
 
-    public void setMarker(long marker) {
-        currentMarker = marker;
-    }
-
     public long getMarker() {
-        gcPool.reclaim();
         return currentMarker;
     }
 
     public long getMinimumMarker() {
-        gcPool.reclaim();
         return lowestMarker;
-    }
-
-    public long getMaximumMarker() {
-        gcPool.reclaim();
-        return highestMarker;
-    }
-
-    public void setMaximumMarker(long marker) {
-        this.highestMarker = marker;
     }
 
     boolean checkForCleanExit() throws IOException {
@@ -156,54 +126,35 @@ class NIOStreamImpl implements Stream {
             return false;
         }
         segments.setReadPosition(-1);
-        boolean goodClose = false;
-        while (!goodClose) {
-            File f = segments.nextReadFile(Direction.REVERSE);
-            if (f == null) {
-                segments.removeFilesFromHead();
-                if ( !segments.currentIsHead() ) {
-                    throw new IOException("unable to make log stream consistent");
-                }
-                return false;
-            }
+        
+        ListIterator<File> files = segments.listIterator(segments.size());
+        while ( files.hasPrevious() ) {
+            File f = files.previous();
             NIOSegmentImpl seg = new NIOSegmentImpl(this, f);
             try {
                 seg.openForHeader(manualPool);
                 if (!seg.getStreamId().equals(streamId)) {
+        //  fail,  the stream id does not equal segment's stream id
                     throw new IOException(BAD_STREAM_ID);
                 }
-
-                if (!seg.last()) {
-                    //  segment did not close cleanly, mark for truncation at last good chunk
-                    if (seg.isEmpty()) {
-                        continue;
-                    } else {
-//   truncate and exit            
-                        segments.removeFilesFromHead();
-                        if ( !segments.currentIsHead() ) {
-                            throw new IOException("unable to make log stream consistent");
-                        }
-                        seg.limit(seg.position());
-                        return true;
-                    }
-                } else {
-                    segments.removeFilesFromHead();
-                    if ( !segments.currentIsHead() ) {
-                        throw new IOException("unable to make log stream consistent");
-                    }
-                    return false;
+        //  if the segment is empty, need to delete it
+                if ( seg.last() ) {
+//                    this.highestMarker = seg.getMaximumMarker();
+                    this.currentMarker = seg.getMaximumMarker();
+                    this.lowestMarker = seg.getMinimumMarker();
+                    this.lowestMarkerOnDisk = this.lowestMarker;
+                    return true;                    
                 }
-            } catch (HeaderException ioe) {
-            //  bad header info in this file, move on.
+            } catch ( HeaderException h ) {
+                
             } finally {
-                this.highestMarker = seg.getMaximumMarker();
-                this.lowestMarker = seg.getMinimumMarker();
-                this.lowestMarkerOnDisk = seg.getMinimumMarker();
                 seg.close();
             }
+   //  if here, the segment was bad, delete it
+            files.remove();
+            if ( f.exists() ) throw new IOException("unable to make log stream consistent");
         }
         
-
         return true;
     }
 
@@ -245,7 +196,7 @@ class NIOStreamImpl implements Stream {
             throw new IOException(header);
         }
 
-        if (segment.getBaseMarker() > this.lowestMarker) {
+        if (segment.getBaseMarker() > this.lowestMarkerOnDisk) {
             return false;
         }
 //   gotta scan it
@@ -253,7 +204,7 @@ class NIOStreamImpl implements Stream {
 //  not stable and closed, just exit
             return false;
         }
-        if (segment.getMaximumMarker() > this.lowestMarker) {
+        if (segment.getMaximumMarker() > this.lowestMarkerOnDisk) {
             return true;
         } else {
             return false;
@@ -311,17 +262,17 @@ class NIOStreamImpl implements Stream {
     }
 
     @Override
-    public long append(Chunk c) throws IOException {
+    public long append(Chunk c, long marker) throws IOException {
 
         if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
             
             writeHead = new NIOSegmentImpl(this, f).openForWriting(manualPool);
-            writeHead.insertFileHeader(lowestMarker, currentMarker);
-            lowestMarkerOnDisk = lowestMarker;
+            writeHead.insertFileHeader(lowestMarker, currentMarker+1);
         }
 
-        long w = writeHead.append(c, this.highestMarker);
+        long w = writeHead.append(c, marker);
+        currentMarker = marker;
         if (writeHead.length() > segmentSize) {
             writeHead.prepareForClose();
 //            debugIn += writeHead.close();
@@ -332,7 +283,7 @@ class NIOStreamImpl implements Stream {
 
     }
 
-    static class FSyncer extends Thread {
+    class FSyncer extends Thread {
 
         private Exchanger<NIOSegmentImpl> pivot = new Exchanger<NIOSegmentImpl>();
 
@@ -361,6 +312,7 @@ class NIOStreamImpl implements Stream {
                     } else {
                         seg.fsync();
                     }
+                    lowestMarkerOnDisk = seg.getMinimumMarker();
                     seg = pivot.exchange(seg);
                 }
             } catch (InterruptedException ie) {
@@ -373,17 +325,20 @@ class NIOStreamImpl implements Stream {
     @Override
     public long sync() throws IOException {
         if (writeHead != null && !writeHead.isClosed()) {
+            long pos = writeHead.position();
             if (syncer != null) {
-                long pos = writeHead.position();
                 syncer.pivot(writeHead);
             //  get it back
                 NIOSegmentImpl check = syncer.pivot(null);
                 assert(check == writeHead);
                 return pos;
             } else {
-                return writeHead.fsync();
+                pos = writeHead.fsync();
+                this.lowestMarkerOnDisk = writeHead.getMinimumMarker();
             }
+            return pos;
         }
+        
         return -1;
     }
     //  segment implementation forces before close.  neccessary?
@@ -424,7 +379,6 @@ class NIOStreamImpl implements Stream {
             LOGGER.debug("==PERFORMANCE(strategies)==" + slist.toString());
         }
        
-        gcPool.reclaim();
         manualPool.reclaim();        
     }
 
@@ -440,7 +394,6 @@ class NIOStreamImpl implements Stream {
                 File f = segments.nextReadFile(dir);
                 if (f == null) {
                     readHead = null;
-                    gcPool.reclaim();
                     return null;
                 }
                 NIOSegmentImpl nextHead = new NIOSegmentImpl(this, f).openForReading(manualPool);
@@ -485,7 +438,6 @@ class NIOStreamImpl implements Stream {
         if (readHead != null) {
             readHead.close();
         }
-        gcPool.reclaim();
         readHead = null;
     }
 
@@ -514,9 +466,6 @@ class NIOStreamImpl implements Stream {
                         return true;
                     }
                     next = read(Direction.getDefault());
-                    if ( next == null ) {
-                        gcPool.reclaim();
-                    }
                     return (next != null);
                 } catch (IOException ioe) {
                     throw new RuntimeException(ioe);

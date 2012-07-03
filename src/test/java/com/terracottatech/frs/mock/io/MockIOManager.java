@@ -32,7 +32,7 @@ public class MockIOManager implements IOManager {
     }
 
     @Override
-    public long write(Chunk region) throws IOException {
+    public long write(Chunk region, long lsn) throws IOException {
         byte[] ref = serialize(region);
         storage.push(ref);
         return ref.length;
@@ -43,13 +43,6 @@ public class MockIOManager implements IOManager {
         //  NOOP
     }
 
-    @Override
-    public void setCurrentMarker(long lsn) throws IOException {
-    }
-
-    @Override
-    public void setMaximumMarker(long lsn) throws IOException {
-    }
 
     @Override
     public void setMinimumMarker(long lsn) throws IOException {
@@ -57,11 +50,6 @@ public class MockIOManager implements IOManager {
 
     @Override
     public long getCurrentMarker() throws IOException {
-        return 0;
-    }
-
-    @Override
-    public long getMaximumMarker() throws IOException {
         return 0;
     }
 

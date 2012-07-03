@@ -97,7 +97,7 @@ public class MockLogManager implements LogManager {
     public synchronized Future<Void> append(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
-            ioManager.write(packer.pack(new MockLogRegion(record)));
+            ioManager.write(packer.pack(new MockLogRegion(record)),100);
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
@@ -108,7 +108,7 @@ public class MockLogManager implements LogManager {
     public Future<Void> appendAndSync(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
-            ioManager.write(packer.pack(new MockLogRegion(record)));
+            ioManager.write(packer.pack(new MockLogRegion(record)),100);
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }

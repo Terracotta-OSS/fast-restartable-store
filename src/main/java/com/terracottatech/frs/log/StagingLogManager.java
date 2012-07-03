@@ -278,11 +278,11 @@ public class StagingLogManager implements LogManager {
                 continue;
             }
            
-            io.setMinimumMarker(lowestLsn.get());
-            io.setCurrentMarker(packer.baseLsn());
-            io.setMaximumMarker(packer.endLsn());
             Chunk c = packer.take();
-            written += io.write(c);
+            if (io.getCurrentMarker()+1 != packer.baseLsn()) {
+                throw new AssertionError("lsns not sequenced");
+            }
+            written += io.write(c,packer.endLsn());
             for ( ByteBuffer giveBack : c.getBuffers() ) {
                 buffers.returnBuffer(giveBack);
             }

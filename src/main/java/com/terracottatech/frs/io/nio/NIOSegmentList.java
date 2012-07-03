@@ -16,7 +16,7 @@ import java.util.*;
  *
  * @author mscott
  */
-class NIOSegmentList {
+class NIOSegmentList extends AbstractList<File> {
     static final FilenameFilter SEGMENT_FILENAME_FILTER = new FilenameFilter() {
       @Override
       public boolean accept(File file, String string) {
@@ -71,7 +71,8 @@ class NIOSegmentList {
         return writeHead;
     }
     
-    synchronized boolean isEmpty() {
+    @Override
+    public synchronized boolean isEmpty() {
         return segments.isEmpty();
     }
     
@@ -134,14 +135,6 @@ class NIOSegmentList {
         return size;
     }
     
-    synchronized void removeCurrentSegment() throws IOException {
-        assert(!readHead.equals(writeHead));
-        if ( !segments.remove(position).delete() ) {
-            segments.add(writeHead);
-        }
-        readHead = null;
-    }
-    
     synchronized File getCurrentReadFile() {
         return readHead;
     }
@@ -173,7 +166,24 @@ class NIOSegmentList {
     synchronized int getCount() {
         return segments.size();
     }
-    
+
+    @Override
+    public synchronized File get(int i) {
+        return segments.get(i);
+    }
+
+    @Override
+    public synchronized int size() {
+        return segments.size();
+    }
+
+    @Override
+    public synchronized File remove(int i) {
+        File f = segments.remove(i);
+        f.delete();
+        return f;
+    }
+
     static int convertSegmentNumber(File f) {
         try {
             return new DecimalFormat(SEG_NUM_FORMAT).parse(f.getName().substring(3, f.getName().length() - 4)).intValue();

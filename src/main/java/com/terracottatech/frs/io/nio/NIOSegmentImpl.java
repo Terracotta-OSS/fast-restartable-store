@@ -93,7 +93,7 @@ class NIOSegmentImpl {
     NIOSegmentImpl openForReading(BufferSource reader) throws IOException, HeaderException {
         long fileSize = 0;
 
-        FileChannel segment = new RandomAccessFile(src,"rw").getChannel();
+        FileChannel segment = new FileInputStream(src).getChannel();
 
         fileSize = segment.size();
 
@@ -105,12 +105,8 @@ class NIOSegmentImpl {
             buffer.close();
             buffer = null;
         }
-//        buffer = createFileBuffer(segment, 512*1024, reader);
-//        buffer.partition(FILE_HEADER_SIZE);
-//        buffer.read(1);
-//        readFileHeader(buffer);
-//        strategy = new ChunkedReadbackStrategy(buffer, reader);
-        MappedByteBuffer buf = segment.map(FileChannel.MapMode.PRIVATE,0,(int)src.length());
+
+        MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
         buf.load();
         readFileHeader(new WrappingChunk(buf));
         strategy = new MappedReadbackStrategy(buf);
@@ -127,9 +123,7 @@ class NIOSegmentImpl {
         if ( readBuffer.remaining() < FILE_HEADER_SIZE ) {
             throw new IOException("file buffering size too small");
         }
-        
-//        readBuffer.partition(FILE_HEADER_SIZE).read(1);
-        
+                
         byte[] code = new byte[4];
         if ( readBuffer.get(code) != 4 ) {
             throw new HeaderException("empty file", this);
@@ -162,10 +156,6 @@ class NIOSegmentImpl {
 
         FileChannel segment = new FileOutputStream(src).getChannel();
         forWriting = true;
-//        lock = segment.tryLock();
-//        if (lock == null) {
-//            throw new IOException(LOCKED_FILE_ACCESS);
-//        }
         
         while ( buffer == null ) {
             buffer = createFileBuffer(segment, 512 * 1024, pool);
@@ -177,6 +167,9 @@ class NIOSegmentImpl {
     }
 
     void insertFileHeader(long lowestMarker, long marker) throws IOException {
+        this.lowestMarker = lowestMarker;
+        this.minMarker = marker;
+        
         if ( lowestMarker < 99 || marker < 99 ) {
             throw new AssertionError("bad markers");
         }
@@ -190,8 +183,8 @@ class NIOSegmentImpl {
         buffer.putInt(segNum);
         buffer.putLong(streamId.getMostSignificantBits());
         buffer.putLong(streamId.getLeastSignificantBits());
-        buffer.putLong(lowestMarker);
-        buffer.putLong(marker);
+        buffer.putLong(this.lowestMarker);
+        buffer.putLong(this.minMarker);
 
         buffer.write(1);
     }
@@ -375,10 +368,6 @@ class NIOSegmentImpl {
     public long position() throws IOException {
         return ( buffer == null ) ? 0 : buffer.position();
     }
-    
-    public boolean isEmpty() {
-        return writeJumpList.isEmpty();
-    }
 
     public void limit(long pos) throws IOException {
         buffer.clear();
@@ -412,7 +401,7 @@ class NIOSegmentImpl {
             while (find.hasMore(Direction.FORWARD)) {
                 try {
                     find.iterate(Direction.FORWARD);
-                    count+=1;
+                    count += 1;
                 } catch (IOException ioe) {
                     return false;
                 }
@@ -423,6 +412,15 @@ class NIOSegmentImpl {
             buffer.position(find.getLastValidPosition());
             writeJumpList = find.getJumpList();
         }
-        return find.wasClosed();
+        
+        if ( count == 0 ) {
+            return false;
+        }
+        
+        if ( !find.wasClosed() ) {
+            this.limit(this.position());
+        }
+        
+        return true;
     }
 }

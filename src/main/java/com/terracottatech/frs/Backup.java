@@ -46,10 +46,12 @@ public class Backup {
   }
 
   private static void copyDataFiles(File sourceFrsFolder, File destFrsFolder) throws IOException {
-    for (String file : listSortedFiles(sourceFrsFolder)) {
-      File sourceFile = new File(sourceFrsFolder, file);
-      File destFile = new File(destFrsFolder, file);
-      copyFile(sourceFile, destFile);
+    synchronized (copyLockString(sourceFrsFolder)) {
+      for (String file : listSortedFiles(sourceFrsFolder)) {
+        File sourceFile = new File(sourceFrsFolder, file);
+        File destFile = new File(destFrsFolder, file);
+        copyFile(sourceFile, destFile);
+      }
     }
   }
 
@@ -112,6 +114,10 @@ public class Backup {
       fos.close();
       fis.close();
     }
+  }
+
+  private static String copyLockString(File sourceFrsFolder) {
+    return new File(sourceFrsFolder, FRS_BACKUP_LOCKFILE).getAbsolutePath().intern();
   }
 
   public static void main(String[] args) throws IOException {

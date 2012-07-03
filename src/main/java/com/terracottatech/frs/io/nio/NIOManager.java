@@ -241,7 +241,9 @@ public class NIOManager implements IOManager {
                 LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");
                 return NullFuture.INSTANCE;
             }
-            backend.trimLogTail(timeout);
+            synchronized (backupLockFile.getAbsolutePath().intern()) {
+              backend.trimLogTail(timeout);
+            }
         } finally {
             if (backupLock != null) {
                 backupLock.release();

@@ -12,18 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.Formatter;
-import java.util.UUID;
 import java.util.concurrent.Future;
 
-import static com.terracottatech.frs.util.ByteBufferUtils.INT_SIZE;
-import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 
 
 /**
@@ -41,11 +36,6 @@ public class NIOManager implements IOManager {
     private FileLock            lock;
     private final long          segmentSize;
     private long                memorySize;
-    private UUID                streamid;
-    private int                 lastGoodSegment;
-    private long                lastGoodPosition;
-    private final boolean       writeToLockFile = false;
-    private static int          LOCKFILE_INFO_SIZE = LONG_SIZE + LONG_SIZE + INT_SIZE + LONG_SIZE;
         
     private static final String BAD_HOME_DIRECTORY = "no home";
     private static final String LOCKFILE_ACTIVE = "lock file exists";

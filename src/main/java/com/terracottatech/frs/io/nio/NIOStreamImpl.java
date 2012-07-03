@@ -21,7 +21,7 @@ class NIOStreamImpl implements Stream {
     private static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
     private final long segmentSize;
-    private NIOSegmentList segments;
+    private final NIOSegmentList segments;
     private UUID streamId;
     private volatile long lowestMarker = 99;
     private volatile long lowestMarkerOnDisk = 0;
@@ -384,7 +384,6 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public Chunk read(final Direction dir) throws IOException {
-
         while (readHead == null || !readHead.hasMore(dir)) {
             if (readHead != null) {
                 readHead.close();

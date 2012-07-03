@@ -39,7 +39,6 @@ public class NIOManager implements IOManager {
     private File                lockFile;
     private File                backupLockFile;
     private FileLock            lock;
-    private FileChannel         lastSync;
     private final long          segmentSize;
     private long                memorySize;
     private UUID                streamid;
@@ -137,8 +136,6 @@ public class NIOManager implements IOManager {
             open();
         }
         long pos = backend.sync();
-
-        saveForCrash(pos);    
     }
     
     @Override
@@ -179,7 +176,6 @@ public class NIOManager implements IOManager {
         }
         if (lock != null) {
             lock.release();
-            lastSync.close();
             lock = null;
         }
         if (lockFile != null) {
@@ -202,15 +198,10 @@ public class NIOManager implements IOManager {
         boolean crashed = !lockFile.createNewFile();
         
         FileOutputStream w = new FileOutputStream(lockFile);
-        lastSync = w.getChannel();
+        FileChannel lastSync = w.getChannel();
         lock = lastSync.tryLock();
         if (lock == null) {
             throw new IOException(LOCKFILE_ACTIVE);
-        } else {
-
-        }
-        if ( crashed ) {
-            checkForCrash();
         }
 
         backupLockFile = new File(directory, BACKUP_LOCKFILE);
@@ -224,47 +215,9 @@ public class NIOManager implements IOManager {
         return "NIO - " + directory.getAbsolutePath();
     }
     
-    
-    
-    private void saveForCrash(long position) throws IOException {
-        if ( writeToLockFile ) {
-            ByteBuffer last = ByteBuffer.allocate(LOCKFILE_INFO_SIZE);
-            last.putLong(backend.getStreamId().getMostSignificantBits());
-            last.putLong(backend.getStreamId().getLeastSignificantBits());
-            last.putInt(backend.getSegmentId());
-            last.putLong(position);
-            last.flip();
-            lastSync.position(0);
-            while ( last.hasRemaining() ) lastSync.write(last);
-            lastSync.force(false);
-        }
-    }
-        
-    private void checkForCrash() throws IOException {
-        ByteBuffer check = ByteBuffer.allocate(LOCKFILE_INFO_SIZE);
-        FileChannel lckChk = new FileInputStream(lockFile).getChannel();
-        if ( lckChk.size() != LOCKFILE_INFO_SIZE ) {
-            // no good move on
-            
-            return;
-        }
-        while ( check.hasRemaining() ) {
-            if ( 0 > lckChk.read(check) ) {
-                throw new IOException("bad log marker");
-            }
-        }
-        check.flip();
-        streamid = new UUID(check.getLong(),check.getLong());
-        lastGoodSegment = check.getInt();
-        lastGoodPosition = check.getLong(); 
-        this.backend.limit(streamid,lastGoodSegment,lastGoodPosition);
-    }
-    
     public boolean isClosed() {
         return !(lock != null && lock.isValid());
     }
-    
-    
 
     @Override
     public synchronized IOStatistics getStatistics() throws IOException {

@@ -109,7 +109,7 @@ class NIOSegmentImpl {
         MappedByteBuffer buf = segment.map(FileChannel.MapMode.READ_ONLY,0,(int)src.length());
         buf.load();
         readFileHeader(new WrappingChunk(buf));
-        strategy = new MappedReadbackStrategy(buf);
+        strategy = new MappedReadbackStrategy(buf,Direction.REVERSE);
         
         return this;
     }

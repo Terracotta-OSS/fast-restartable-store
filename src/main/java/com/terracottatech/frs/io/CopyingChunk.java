@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
  */
 public class CopyingChunk extends AbstractChunk {
 
-    ByteBuffer[] list;
+   private final ByteBuffer[] list;
     
    public CopyingChunk(Chunk src) {
        ByteBuffer[] copy = src.getBuffers();

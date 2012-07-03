@@ -12,11 +12,11 @@ import java.io.File;
  * @author mscott
  */
 public class NIOStatistics implements IOStatistics {
-    long available;
-    long totalUsed;
-    long totalWrites;
-    long totalReads;
-    long dead;
+    private final long available;
+    private final long totalUsed;
+    private final long totalWrites;
+    private final long totalReads;
+    private final long dead;
     
     NIOStatistics(File directory, long used, long dead, long written, long reads) {
         available = directory.getUsableSpace();

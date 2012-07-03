@@ -27,23 +27,17 @@ class NIOSegmentList extends AbstractList<File> {
     private static final String SEGMENT_NAME_FORMAT = "seg%09d.frs";
     private static final String SEG_NUM_FORMAT = "000000000";
     
-    private List<File>              segments;
-    private File                    directory;
+    private final List<File>              segments;
+    private final File                    directory;
     private File                    readHead;
     private File                    writeHead;
     private int                     position;
 
     NIOSegmentList(File directory) throws IOException {
-        this.directory = directory;
-        enumerateSegments();
-    }
-
-    private synchronized void enumerateSegments() throws IOException {   
+        this.directory = directory;  
         File[] list = directory.listFiles(SEGMENT_FILENAME_FILTER);
         if ( list == null ) list = new File[0];
-        segments = Arrays.asList(list);
-        
-        segments = new LinkedList<File>(segments);
+        segments = new LinkedList<File>(Arrays.asList(list));
         Collections.sort(segments);        
         
         position = -1;

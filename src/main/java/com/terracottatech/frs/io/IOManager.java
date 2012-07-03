@@ -18,11 +18,6 @@ public interface IOManager extends Closeable {
   
   void setMinimumMarker(long marker) throws IOException;
   long getMinimumMarker() throws IOException;
-  
-//  void setMaximumMarker(long marker) throws IOException;
-//  long getMaximumMarker() throws IOException;
-  
-//  void setCurrentMarker(long marker) throws IOException;
   long getCurrentMarker() throws IOException;
   
   Chunk read(Direction dir) throws IOException;

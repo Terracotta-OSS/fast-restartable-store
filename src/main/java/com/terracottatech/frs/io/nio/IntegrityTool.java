@@ -20,11 +20,11 @@ import java.util.List;
  * @author mscott
  */
 public class IntegrityTool {
-    long lowestLsn = 0;
-    long max = 0;
-    long min = 0;
-    int currentSegment = -1;
-    File dir;
+    private long lowestLsn = 0;
+    private long max = 0;
+    private long min = 0;
+    private int currentSegment = -1;
+    private final File dir;
     
 
     public IntegrityTool(File f) {

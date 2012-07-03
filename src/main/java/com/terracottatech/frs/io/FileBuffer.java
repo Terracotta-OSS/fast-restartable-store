@@ -19,8 +19,7 @@ import java.util.Arrays;
 public class FileBuffer extends AbstractChunk implements Closeable {
 
     protected final FileChannel channel;
-    protected BufferSource src;
-    protected ByteBuffer base;
+    protected final ByteBuffer base;
     protected ByteBuffer[] ref;
     private int mark = 0;
     private long total = 0;

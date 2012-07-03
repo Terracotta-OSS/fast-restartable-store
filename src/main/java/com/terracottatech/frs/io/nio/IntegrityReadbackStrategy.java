@@ -22,12 +22,12 @@ import org.slf4j.LoggerFactory;
  */
 public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
-    private FileBuffer buffer;
+    private final FileBuffer buffer;
+    private final ArrayList<Long> jumpList = new ArrayList<Long>();
     private long lastGood = 0;
     private long lastMarker = 0;
     private boolean primed = false;
     private boolean done = false;
-    private ArrayList<Long> jumpList = new ArrayList<Long>();
     private int exitStatus;
     
 
@@ -104,11 +104,6 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         }
         primed = false;
         return null;
-    }
-
-    @Override
-    public Iterator<Chunk> iterator() {
-        throw new UnsupportedOperationException("Not supported yet.");
     }
 
     long getLastValidPosition() {

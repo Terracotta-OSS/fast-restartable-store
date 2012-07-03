@@ -13,16 +13,16 @@ import java.util.ArrayList;
  */
 public class ManualBufferSource implements BufferSource {
     
-    private BufferSource parent;
-    private long maxCapacity;
+    private final BufferSource parent;
+    private final long maxCapacity;
     private long usage = 0;
     private int created = 0;
+    private int allocated = 0;
     private int min = Integer.MAX_VALUE;
     private int max = 0;
     private int fails = 0;
     private int failedAllocation = 0;
-    private long allocated = 0;
-    private ArrayList<BufferWrapper> pool = new ArrayList<BufferWrapper>();
+    private final ArrayList<BufferWrapper> pool = new ArrayList<BufferWrapper>();
 
     public ManualBufferSource(long maxCapacity) {
         this.parent = GlobalBufferSource.getInstance(this, maxCapacity);
@@ -113,7 +113,7 @@ public class ManualBufferSource implements BufferSource {
    
     public String toString() {
         return "buffer pool created: " + created + " bytes held: " + usage + " capacity: " + maxCapacity +
-                " min: " + min + " max: " + max + " overcommit: " + fails + " failedAlloc: " + failedAllocation + " size: " + pool.size();
+                " min: " + min + " max: " + max + " overcommit: " + fails + " allocated: " + allocated + " failedAlloc: " + failedAllocation + " size: " + pool.size();
     }
     
     static class BufferWrapper {

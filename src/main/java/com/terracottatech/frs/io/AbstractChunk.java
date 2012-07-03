@@ -21,8 +21,8 @@ public abstract class AbstractChunk implements Chunk {
     
     
     private static class BufferReference {
-        ByteBuffer current;
-        int        position;
+        private final ByteBuffer current;
+        private final int        position;
         BufferReference(ByteBuffer buf, int pos) {
             current = buf;
             position = pos;
@@ -32,15 +32,12 @@ public abstract class AbstractChunk implements Chunk {
             return current.get(position);
         }
         public short getShort() {
-            if ( current.limit() < SHORT_SIZE) throw new BufferUnderflowException();
             return current.getShort(position);
         }
         public int getInt() {
-            if ( current.limit() < INT_SIZE) throw new BufferUnderflowException();
             return current.getInt(position);
         }
         public long getLong() {
-            if ( current.limit() < LONG_SIZE) throw new BufferUnderflowException();
             return current.getLong(position);
         }
     }
@@ -61,13 +58,10 @@ public abstract class AbstractChunk implements Chunk {
             if ( list[x].remaining() >= length - count ) {
                 int restore = list[x].limit();
                 list[x].limit(list[x].position() + (int)(length-count));
-                ByteBuffer add = list[x].slice();
-//                copy.add(add.asReadOnlyBuffer());
-                copy.add(add.duplicate());
+                copy.add(list[x].slice());
                 list[x].position(list[x].limit()).limit(restore);
                 count = length;
             } else {
-//                copy.add(list[x].asReadOnlyBuffer());
                 copy.add(list[x].duplicate());
                 count += list[x].remaining();
                 list[x].position(list[x].limit());

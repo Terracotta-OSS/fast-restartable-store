@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
  */
 public class WrappingChunk extends AbstractChunk {
     
-    ByteBuffer[] base;
+    private final ByteBuffer[] base;
 
     public WrappingChunk(ByteBuffer base) {
         this.base = new ByteBuffer[] {base};

@@ -125,6 +125,10 @@ public class CompactorImpl implements Compactor {
             compact();
           }
 
+          // Flush in a dummy record to make sure everything for the updated lowest lsn
+          // is on disk prior to cleaning up to the new lowest lsn.
+          actionManager.happened(new NullAction()).get();
+
           logManager.updateLowestLsn(objectManager.getLowestLsn());
 
           // Flush the new lowest LSN with a dummy record
@@ -147,9 +151,11 @@ public class CompactorImpl implements Compactor {
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     long liveSize = objectManager.size();
     long compactedCount = 0;
+    int acquireRetries = 0;
     while (compactedCount < liveSize) {
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
       if (compactionEntry != null) {
+        acquireRetries = 0;
         compactedCount++;
         try {
           CompactionAction compactionAction =
@@ -174,6 +180,13 @@ public class CompactorImpl implements Compactor {
           }
         } finally {
           objectManager.releaseCompactionEntry(compactionEntry);
+        }
+      } else {
+        // Don't spin indefinitely when acquiring a compaction target fails
+        acquireRetries++;
+        if (acquireRetries >= 10) {
+          acquireRetries = 0;
+          compactedCount++;
         }
       }
     }

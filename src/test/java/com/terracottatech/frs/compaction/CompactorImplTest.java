@@ -9,7 +9,6 @@ import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.NullActionManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.NullObjectManager;
-import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
@@ -27,7 +26,7 @@ import static org.mockito.Mockito.*;
  * @author tim
  */
 public class CompactorImplTest {
-  private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private CompactionTestObjectManager objectManager;
   private TransactionManager transactionManager;
   private ActionManager actionManager;
   private LogManager logManager;
@@ -68,7 +67,7 @@ public class CompactorImplTest {
 
     compactor.shutdown();
 
-    verify(actionManager, only()).happened(any(CompactionAction.class));
+    verify(actionManager, times(2)).happened(any(Action.class));
   }
 
   @Test
@@ -88,6 +87,28 @@ public class CompactorImplTest {
     verify(policy).startedCompacting();
     verify(policy).stoppedCompacting();
     verify(future, atLeastOnce()).get();
+    verify(logManager).updateLowestLsn(anyLong());
+    compactor.shutdown();
+  }
+
+  @Test
+  public void testCompactionTerminatesOnEmptyObjectManager() throws Exception {
+    policy.compactCount = 1000;
+
+    compactor.startup();
+
+    doReturn(1000L).when(objectManager).size();
+    doReturn(null).when(objectManager).acquireCompactionEntry(anyLong());
+
+    compactor.compactNow();
+
+    SECONDS.sleep(1);
+
+    policy.waitForCompactionComplete();
+
+    verifyCompactedTimes(0);
+    verify(policy).startedCompacting();
+    verify(policy).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
   }

@@ -1,8 +1,8 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.config.FrsProperty;
-import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.object.heap.HeapObjectManager;
+import com.terracottatech.frs.object.RegisterableObjectManager;
+import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import com.terracottatech.frs.util.TestUtils;
 import org.apache.commons.io.FileUtils;
@@ -16,10 +16,6 @@ import java.util.Properties;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -38,23 +34,27 @@ public class OfflineCompactorTest {
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(),
                            "NoCompactionPolicy");
+    properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(Integer.MAX_VALUE));
+    properties.setProperty(FrsProperty.COMPACTOR_START_THRESHOLD.shortName(), Integer.toString(Integer.MAX_VALUE));
 
     {
       assertThat(uncompacted.mkdirs(), is(true));
-      ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              new HeapObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(1);
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> uncompactedStore =
               RestartStoreFactory.createStore(
                       objectManager,
                       uncompacted, properties);
+      SimpleRestartableMap map =
+              new SimpleRestartableMap(TestUtils.byteBufferWithInt(0), uncompactedStore,
+                                       false);
+      objectManager.registerObject(map);
+
       uncompactedStore.startup().get();
 
       for (int i = 0; i < 100; i++) {
         for (int j = 0; j < 100; j++) {
-          uncompactedStore.beginTransaction(false).put(TestUtils.byteBufferWithInt(0),
-                                                       TestUtils.byteBufferWithInt(j),
-                                                       TestUtils.byteBufferWithInt(
-                                                               i)).commit();
+          map.put(Integer.toString(j), Integer.toString(i));
         }
       }
 
@@ -65,19 +65,23 @@ public class OfflineCompactorTest {
     new OfflineCompactor(uncompacted, compacted).compact();
 
     {
-      ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              spy(new HeapObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>(1));
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> compactedStore =
               RestartStoreFactory.createStore(objectManager, compacted, properties);
+
+      SimpleRestartableMap map =
+              new SimpleRestartableMap(TestUtils.byteBufferWithInt(0), compactedStore,
+                                       false);
+      objectManager.registerObject(map);
+
       compactedStore.startup().get();
-      compactedStore.shutdown();
 
       for (int i = 0; i < 100; i++) {
-        verify(objectManager).replayPut(eq(TestUtils.byteBufferWithInt(0)),
-                                        eq(TestUtils.byteBufferWithInt(i)),
-                                        eq(TestUtils.byteBufferWithInt(99)),
-                                        anyLong());
+        assertThat(map.get(Integer.toString(i)), is("99"));
       }
+
+      compactedStore.shutdown();
 
       assertThat(objectManager.size(), is(100L));
     }

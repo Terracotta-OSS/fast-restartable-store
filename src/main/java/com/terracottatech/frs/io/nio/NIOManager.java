@@ -16,6 +16,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.util.Formatter;
 import java.util.concurrent.Future;
 
@@ -225,7 +226,12 @@ public class NIOManager implements IOManager {
         readOpsAllowed = false;
         FileOutputStream fos = new FileOutputStream(backupLockFile);
         FileChannel channel = fos.getChannel();
-        FileLock backupLock = channel.lock(0, Long.MAX_VALUE, false);
+        FileLock backupLock = null;
+        try {
+          backupLock = channel.lock(0, Long.MAX_VALUE, false);
+        } catch (OverlappingFileLockException e) {
+          LOGGER.info("Backup file already locked.");
+        }
         try {
             if (backupLock == null) {
                 LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");

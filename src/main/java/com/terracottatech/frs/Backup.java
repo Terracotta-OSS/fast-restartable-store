@@ -5,6 +5,7 @@ import com.terracottatech.frs.config.Configuration;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,7 +66,14 @@ public class Backup {
     FileChannel channel = fis.getChannel();
 
     for (int i = 0; i < MAX_LOCK_RETRIES; i++) {
-      FileLock lock = channel.lock(0, Long.MAX_VALUE, true);
+      FileLock lock;
+      try {
+        lock = channel.lock(0, Long.MAX_VALUE, true);
+      } catch (OverlappingFileLockException e) {
+        // We're trying to lock from the same JVM, just pretend the lock acquisition failed
+        // and retry later.
+        lock = null;
+      }
       if (lock != null) {
         return lock;
       }

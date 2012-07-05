@@ -148,7 +148,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 exceptionThrownInRecovery(i);
             }
         } catch (IOException ioe) {
-            exceptionThrownInRecovery(ioe);
+            if ( !master.isDone() ) {
+                exceptionThrownInRecovery(ioe);
+            }
         } finally {
             ioDone = true;
         }
@@ -264,7 +266,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 setDone();
                 return false;
             } else {
-                return true;
+                return (list.get(0).getLsn() >= lowestLsn);
             }
         }
 
@@ -277,12 +279,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 throw new NoSuchElementException();
             }
             LogRecord head = list.remove(0);
+            
+            if ( head.getLsn() < lowestLsn ) {
+                setDone();
+                throw new NoSuchElementException();
+            }
+            
             lsn = head.getLsn();
             assert (lsn <= lastLsn);
             try {
-                if ( lsn < lowestLsn ) {
-                    setDone();
-                }
                 recordCount += 1;
                 return head;
             } finally {
@@ -311,7 +316,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
         synchronized void setDone() {
             checkReadException();
-            if ( lowestLsn >= 100 && lsn > lowestLsn) {
+            if ( lowestLsn >= 100 && lsn != lowestLsn) {
                 throw new RuntimeException("bad recovery lowest lsn: " + lowestLsn + " lsn:" + lsn);
             } else {
                 LOGGER.debug("lowest lsn: " + lowestLsn + " lsn:" + lsn);

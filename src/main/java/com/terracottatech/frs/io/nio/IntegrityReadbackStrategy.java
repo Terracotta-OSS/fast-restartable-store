@@ -11,7 +11,7 @@ import com.terracottatech.frs.io.IOManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Formatter;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +94,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
                 throw new IOException(new String(check));
             }
         } catch (Exception ioe) {
+            logPosition();
             LOGGER.error("io error checking integrity",ioe);
             done = true;
             if ( ioe instanceof IOException ) {
@@ -104,6 +105,15 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         }
         primed = false;
         return null;
+    }
+    
+    private void logPosition() {
+        try {
+        LOGGER.error(new Formatter(new StringBuilder()).format("file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
+                this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString());
+        } catch ( Throwable t ) {
+            LOGGER.error("unexpected",t);
+        }
     }
 
     long getLastValidPosition() {

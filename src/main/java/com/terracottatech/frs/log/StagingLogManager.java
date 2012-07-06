@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.log;
 
-import com.terracottatech.frs.Global;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
@@ -466,7 +465,6 @@ public class StagingLogManager implements LogManager {
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
         Future<Void> w = _append(record,true);
-        Global.set(w);
         return w;
     }
 

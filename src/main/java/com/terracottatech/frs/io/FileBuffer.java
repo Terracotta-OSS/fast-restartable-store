@@ -271,4 +271,11 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public void sync() throws IOException {
         channel.force(false);
     }
+
+    @Override
+    public String toString() {
+        return "FileBuffer{" + "channel=" + channel.toString() + '}';
+    }
+    
+    
 }

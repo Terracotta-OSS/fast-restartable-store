@@ -273,7 +273,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         @Override
         public LogRecord next() {
             if ( isDone ) {
-                throw new NoSuchElementException();
+                throw new NoSuchElementException("no more records to recover");
             }
             if (list.isEmpty() && !hasNext()) {
                 throw new NoSuchElementException();
@@ -282,17 +282,14 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             
             if ( head.getLsn() < lowestLsn ) {
                 setDone();
-                throw new NoSuchElementException();
+                throw new NoSuchElementException("earliest valid record has been already been recovered " + head.getLsn() + " < " + lowestLsn);
             }
             
             lsn = head.getLsn();
             assert (lsn <= lastLsn);
-            try {
-                recordCount += 1;
-                return head;
-            } finally {
-                head = null;
-            }
+
+            recordCount += 1;
+            return head;
         }
 
         @Override

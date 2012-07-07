@@ -229,12 +229,12 @@ public class NIOManager implements IOManager {
         FileChannel channel = fos.getChannel();
         FileLock backupLock = null;
         try {
-          backupLock = channel.lock(0, Long.MAX_VALUE, false);
+          backupLock = channel.tryLock(0, Long.MAX_VALUE, false);
         } catch (OverlappingFileLockException e) {
           LOGGER.info("Backup file already locked.");
         }
         try {
-            if (backupLock == null) {
+            if (backupLock == null || !backupLock.isValid()) {
                 LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");
                 return NullFuture.INSTANCE;
             }

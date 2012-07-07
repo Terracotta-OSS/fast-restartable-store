@@ -119,9 +119,10 @@ public class NIOManager implements IOManager {
         if ( backend == null ) return 0;
         return backend.getMinimumMarker();
     }
-    
+
     
 
+    @Override
     public void sync() throws IOException {
         if (backend == null) {
             open();

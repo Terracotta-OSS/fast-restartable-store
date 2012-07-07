@@ -273,8 +273,12 @@ class NIOStreamImpl implements Stream {
         if (writeHead.length() > segmentSize) {
             writeHead.prepareForClose();
 //            debugIn += writeHead.close();
-            if ( syncer != null ) syncer.pivot(writeHead);
-            else writeHead.close();
+            if ( syncer != null ) {
+                syncer.pivot(writeHead);
+            } else {
+                writeHead.close();
+                lowestMarkerOnDisk = writeHead.getMinimumMarker();
+            }
         }
         return w;
 

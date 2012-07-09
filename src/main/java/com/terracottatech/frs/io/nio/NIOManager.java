@@ -86,6 +86,14 @@ public class NIOManager implements IOManager {
             }
         }
     }
+    
+    void setBufferBuilder(BufferBuilder builder) {
+        backend.setBufferBuilder(builder);
+    }
+    
+    BufferBuilder getBufferBuilder() {
+        return backend.getBufferBuilder();
+    }    
 
     @Override
     public long write(Chunk region, long marker) throws IOException {

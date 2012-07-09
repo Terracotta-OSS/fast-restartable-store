@@ -404,7 +404,7 @@ class NIOSegmentImpl {
                     find.iterate(Direction.FORWARD);
                     count += 1;
                 } catch (IOException ioe) {
-                    return false;
+                    break;
                 }
             }
         } finally {

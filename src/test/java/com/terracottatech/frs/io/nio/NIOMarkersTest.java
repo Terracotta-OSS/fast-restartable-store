@@ -23,7 +23,6 @@ public class NIOMarkersTest {
     NIOManager manager;
     long current;
     long min;
-    long max;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();    
@@ -41,30 +40,68 @@ public class NIOMarkersTest {
     
     @Before
     public void setUp() throws Exception {
-            workArea = folder.newFolder();
-            System.out.println(workArea.getAbsolutePath());
-            manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
+        workArea = folder.newFolder();
+        System.out.println(workArea.getAbsolutePath());
+        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
         manager.setMinimumMarker(100);
-        current = 100;
-        min = 100;
-        max = 100;
-        //  create a 10k lsn window
-            for(int x=0;x<1000;x++) {
-                writeChunkWithMarkers(10);
-            }
-            min = 10000;
-            manager.setMinimumMarker(min);
-            manager.sync();
-   //  create a 10k lsn window
-            for(int x=0;x<1000;x++) {
-                writeChunkWithMarkers(10);
-            }      
-            manager.sync();
     }
     
     @Test
-    public void testClean() throws Exception {
+    public void testAsyncClean() throws Exception {
+        current = 100;
+        min = 100;
+    //  create a 10k lsn window
+        for(int x=0;x<1000;x++) {
+            writeChunkWithMarkers(10);
+        }
+        min = current;
+        manager.setMinimumMarker(min);
+//  create a 10k lsn window
+        for(int x=0;x<1000;x++) {
+            writeChunkWithMarkers(10);
+        }      
         manager.clean(0);
+        NIOSegmentList list = new NIOSegmentList(workArea);
+//  make sure files were deleted
+        File first = list.getBeginningFile();
+        System.err.println(first.getName());
+        int seg = new NIOSegmentImpl(null,list.getBeginningFile()).getSegmentId();
+        System.out.println(seg);
+        assert(seg != 0);        
+        
+        testRecovery();
+    }
+    
+    
+    @Test
+    public void testSyncClean() throws Exception {
+        current = 100;
+        min = 100;
+    //  create a 10k lsn window
+        for(int x=0;x<1000;x++) {
+            writeChunkWithMarkers(10);
+            manager.sync();
+        }
+        min = current;
+        manager.setMinimumMarker(min);
+//  create a 10k lsn window
+        for(int x=0;x<1000;x++) {
+            writeChunkWithMarkers(10);
+            manager.sync();
+        }      
+        manager.clean(0);
+        NIOSegmentList list = new NIOSegmentList(workArea);
+//  make sure files were deleted
+        File first = list.getBeginningFile();
+        System.err.println(first.getName());
+        int seg = new NIOSegmentImpl(null,list.getBeginningFile()).getSegmentId();
+        System.out.println(seg);
+        assert(seg != 0);           
+        
+        testRecovery();
+    }    
+    
+    public void testRecovery() throws Exception {
         manager.close();
         manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
         manager.seek(IOManager.Seek.END.getValue());
@@ -76,7 +113,7 @@ public class NIOMarkersTest {
         }
         System.out.println(manager.getMinimumMarker());
         System.out.println(manager.getCurrentMarker());
-        assert(manager.getMinimumMarker() == 10000);
+        assert(manager.getMinimumMarker() == min);
         assert(manager.getCurrentMarker() == 20100);
         System.out.println("chunks after clean " + count);
         assert(count < 2000);

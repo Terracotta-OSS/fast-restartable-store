@@ -107,11 +107,13 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     }
     
     private void logPosition(Exception e) {
-        try {
-        LOGGER.debug(new Formatter(new StringBuilder()).format("io error checking integrity file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
-                this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString(),e);
-        } catch ( Throwable t ) {
-            LOGGER.debug("unexpected",t);
+        if ( LOGGER.isDebugEnabled() ) {
+            try {
+            LOGGER.debug(new Formatter(new StringBuilder()).format("io error checking integrity file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
+                    this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString(),e);
+            } catch ( Throwable t ) {
+                LOGGER.debug("unexpected",t);
+            }
         }
     }
 

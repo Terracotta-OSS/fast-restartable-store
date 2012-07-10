@@ -54,7 +54,7 @@ public class OfflineCompactor {
       throw new IOException("Failed to created output directory " + out);
     }
 
-    File userPropertiesFile = new File(in, Configuration.USER_PROPERITES_FILE);
+    File userPropertiesFile = new File(in, Configuration.USER_PROPERTIES_FILE);
     if (userPropertiesFile.exists()) {
       Properties userProperties = new Properties();
       FileInputStream fis = new FileInputStream(userPropertiesFile);
@@ -65,7 +65,7 @@ public class OfflineCompactor {
       }
 
       File compactedUserPropertiesFile =
-              new File(out, Configuration.USER_PROPERITES_FILE);
+              new File(out, Configuration.USER_PROPERTIES_FILE);
       FileOutputStream fos = new FileOutputStream(compactedUserPropertiesFile);
       try {
         userProperties.store(fos, null);

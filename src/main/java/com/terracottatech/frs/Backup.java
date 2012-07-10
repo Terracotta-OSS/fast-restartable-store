@@ -96,9 +96,9 @@ public class Backup {
 
   private static void copyConfiguration(File sourceFrsFolder, File destFrsFolder) throws IOException {
     File sourceConfiguration = new File(sourceFrsFolder,
-                                        Configuration.USER_PROPERITES_FILE);
+                                        Configuration.USER_PROPERTIES_FILE);
     if (sourceConfiguration.exists() && sourceConfiguration.isFile()) {
-      copyFile(sourceConfiguration, new File(destFrsFolder, Configuration.USER_PROPERITES_FILE));
+      copyFile(sourceConfiguration, new File(destFrsFolder, Configuration.USER_PROPERTIES_FILE));
     }
   }
 

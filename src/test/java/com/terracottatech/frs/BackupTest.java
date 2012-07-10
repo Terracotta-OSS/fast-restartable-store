@@ -13,9 +13,13 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -40,7 +44,7 @@ public class BackupTest {
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
                                                                                                       original, properties);
-      SimpleRestartableMap map = new SimpleRestartableMap(byteBufferWithInt(0), restartStore, false);
+      SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
       objectManager.registerObject(map);
 
       restartStore.startup().get();
@@ -60,7 +64,7 @@ public class BackupTest {
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
                                                                                                       copy, properties);
-      SimpleRestartableMap map = new SimpleRestartableMap(byteBufferWithInt(0), restartStore, false);
+      SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
       objectManager.registerObject(map);
       restartStore.startup().get();
 
@@ -92,7 +96,7 @@ public class BackupTest {
       final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
                                                                                                             original, properties);
 
-      SimpleRestartableMap restartableMap = new SimpleRestartableMap(byteBufferWithInt(0), restartStore, false);
+      SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
 
       restartStore.startup().get();
@@ -110,7 +114,7 @@ public class BackupTest {
       final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
                                                                                                             original, properties);
 
-      final SimpleRestartableMap restartableMap = new SimpleRestartableMap(byteBufferWithInt(0), restartStore, false);
+      final SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
       restartStore.startup().get();
 
@@ -154,7 +158,7 @@ public class BackupTest {
       final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
                                                                                                             copy, properties);
 
-      final SimpleRestartableMap restartableMap = new SimpleRestartableMap(byteBufferWithInt(0), restartStore, false);
+      final SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
       restartStore.startup().get();
 
@@ -162,6 +166,54 @@ public class BackupTest {
 
       for (int i = 0; i < 100; i++) {
         assertThat(restartableMap.get(Integer.toString(i)), is(Integer.toString(i)));
+      }
+
+      restartStore.shutdown();
+    }
+  }
+
+  @Test
+  public void testBackupSyncWrite() throws Exception {
+    File folder = tempFolder.newFolder("testBackupWithSyncWrite");
+
+    File original = new File(folder, "original");
+    File copy = new File(folder, "copy");
+
+    assertThat(original.mkdirs(), is(true));
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+              RestartStoreFactory.createStore(objectManager, original, new Properties());
+
+      SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
+      objectManager.registerObject(map);
+      restartStore.startup().get();
+
+      for (int i = 0; i < 1000; i++) {
+        map.put(Integer.toString(i), Integer.toString(i));
+      }
+      Backup.backup(original, copy);
+
+      restartStore.shutdown();
+    }
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+              spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+              RestartStoreFactory.createStore(objectManager, copy, new Properties());
+
+      SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
+      objectManager.registerObject(map);
+      restartStore.startup().get();
+
+      assertThat(map.size(), is(1000));
+      verify(objectManager, times(1000)).replayPut(any(ByteBuffer.class), any(ByteBuffer.class),
+                                                   any(ByteBuffer.class), anyLong());
+
+      for (int i = 0; i < 1000; i++) {
+        assertThat(map.get(Integer.toString(i)), is(Integer.toString(i)));
       }
 
       restartStore.shutdown();

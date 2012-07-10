@@ -38,7 +38,6 @@ public class NIOManager implements IOManager {
     private final long          segmentSize;
     private long                memorySize;
         
-    private static final String BAD_HOME_DIRECTORY = "no home";
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     private static final String BACKUP_LOCKFILE = "frs.backup.lck";
     
@@ -190,7 +189,7 @@ public class NIOManager implements IOManager {
     
     private void open() throws IOException {        
         if (!directory.exists() || !directory.isDirectory()) {
-            throw new IOException(BAD_HOME_DIRECTORY);
+            throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
         }
         
         backend = new NIOStreamImpl(directory, segmentSize, memorySize);

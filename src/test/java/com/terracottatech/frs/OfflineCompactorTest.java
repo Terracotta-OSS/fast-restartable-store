@@ -4,7 +4,6 @@ import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
-import com.terracottatech.frs.util.TestUtils;
 import org.apache.commons.io.FileUtils;
 import org.junit.Rule;
 import org.junit.Test;
@@ -16,6 +15,11 @@ import java.util.Properties;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -46,7 +50,7 @@ public class OfflineCompactorTest {
                       objectManager,
                       uncompacted, properties);
       SimpleRestartableMap map =
-              new SimpleRestartableMap(TestUtils.byteBufferWithInt(0), uncompactedStore,
+              new SimpleRestartableMap(0, uncompactedStore,
                                        false);
       objectManager.registerObject(map);
 
@@ -66,12 +70,12 @@ public class OfflineCompactorTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+              spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> compactedStore =
               RestartStoreFactory.createStore(objectManager, compacted, properties);
 
       SimpleRestartableMap map =
-              new SimpleRestartableMap(TestUtils.byteBufferWithInt(0), compactedStore,
+              new SimpleRestartableMap(0, compactedStore,
                                        false);
       objectManager.registerObject(map);
 
@@ -84,6 +88,9 @@ public class OfflineCompactorTest {
       compactedStore.shutdown();
 
       assertThat(objectManager.size(), is(100L));
+      verify(objectManager, times(100)).replayPut(any(ByteBuffer.class),
+                                                  any(ByteBuffer.class), any(ByteBuffer.class),
+                                                  anyLong());
     }
 
     assertThat(FileUtils.sizeOfDirectory(compacted), lessThan(

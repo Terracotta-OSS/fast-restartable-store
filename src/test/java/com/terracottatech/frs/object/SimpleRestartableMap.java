@@ -4,13 +4,15 @@ import com.terracottatech.frs.RestartStore;
 
 import java.nio.ByteBuffer;
 
+import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
+
 /**
  * @author tim
  */
 public class SimpleRestartableMap extends RestartableMap<String, String, ByteBuffer, ByteBuffer, ByteBuffer> {
 
-  public SimpleRestartableMap(ByteBuffer identifier, RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartability, boolean synchronousWrites) {
-    super(identifier, restartability, synchronousWrites);
+  public SimpleRestartableMap(int identifier, RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartability, boolean synchronousWrites) {
+    super(byteBufferWithInt(identifier), restartability, synchronousWrites);
   }
 
   @Override

@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
@@ -24,6 +25,7 @@ public class NIOCorruptionTests {
     NIOManager manager;
     long current;
     long min;
+    private static final int DATA_SIZE = 10 * 1024;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();        
@@ -43,70 +45,102 @@ public class NIOCorruptionTests {
     public void setUp() throws Exception {
         workArea = folder.newFolder();
         Properties props = new Properties();
-        props.setProperty("io.nio.segmentSize", Integer.toString(1 * 1024 * 1024));
-        props.setProperty("io.nio.memorySize", Integer.toString(10 * 1024 * 1024));
+        props.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1 * 1024 * 1024));
+        props.setProperty(FrsProperty.IO_NIO_MEMORY_SIZE.shortName(), Integer.toString(10 * 1024 * 1024));
 //        props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.nio.CorruptionBuilder");
-        props.store(new FileWriter("frs.properties"), "frs test properties");
+        props.store(new FileWriter(new File(workArea,Configuration.USER_PROPERTIES_FILE)), "frs test properties");
         
         Configuration config = Configuration.getConfiguration(workArea);
         manager = new NIOManager(config);
         manager.setMinimumMarker(100);
         current = 100;
     }
-     
+    
+    @Test
+    public void testZeroSegmentException() throws Exception {
+        manager.setBufferBuilder(new ExceptionBuilder(0));
+        long written = 0;
+        try {
+            while ( true ) {
+                manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
+                written += 1;
+            }
+        } catch ( IOException ioe ) {
+            System.out.println("written " + written);
+        }
+        assert(testRecovery() == (written * DATA_SIZE));
+    }  
+    
     @Test
     public void testOneSegmentException() throws Exception {
         manager.setBufferBuilder(new ExceptionBuilder(300 * 1024));
         long written = 0;
         try {
             while ( true ) {
-                manager.write(new WrappingChunk(ByteBuffer.allocate(10 *1024)), current++);
+                manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
                 written += 1;
             }
         } catch ( IOException ioe ) {
-            manager.sync();
-            System.out.println(manager.getStatistics());
+            System.out.println("written " + written);
         }
-        assert(testRecovery() == (written * 10 * 1024));
+        assert(testRecovery() == (written * DATA_SIZE));
     }   
     
      
     @Test
-    public void testTenSegmentException() throws Exception {
-        manager.setBufferBuilder(new ExceptionBuilder(10 * 1024 * 1024));
+    public void testMultiSegmentException() throws Exception {
         long written = 0;
         try {
             while ( true ) {
-                manager.write(new WrappingChunk(ByteBuffer.allocate(10 *1024)), current++);
-                written += 1;
+                manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
+                if ( written++ > 1024 ) {
+                    manager.setBufferBuilder(new ExceptionBuilder(512 * 1024));
+                }
             }
         } catch ( IOException ioe ) {
-            manager.sync();
-            System.out.println(manager.getStatistics());
+            System.out.println("written " + written);
         }
-        assert(testRecovery() == (written * 10 * 1024));
+        assert(testRecovery() == (written * DATA_SIZE));
     }  
     
     @Test
     public void testMiddleSegmentException() throws Exception {
-        manager.setBufferBuilder(new ExceptionBuilder(10 * 1024 * 1024 + 916));
+        manager.setBufferBuilder(new ExceptionBuilder((512 * 1024) + 916));
         long written = 0;
         try {
             while ( true ) {
-                manager.write(new WrappingChunk(ByteBuffer.allocate(10 *1024)), current++);
+                manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
                 written += 1;
             }
         } catch ( IOException ioe ) {
-            manager.sync();
-            System.out.println(manager.getStatistics());
+            System.out.println("written " + written);
         }
-        assert(testRecovery() == (written * 10 * 1024));
+        assert(testRecovery() == (written * DATA_SIZE));
     }      
+    
+     
+        @Test
+    public void testSyncWritesException() throws Exception {
+        manager.setBufferBuilder(new ExceptionBuilder(512 * 1024 + 916));
+        long written = 0;
+        try {
+            while ( true ) {
+                manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
+                manager.sync();
+                written += 1;
+            }
+        } catch ( IOException ioe ) {
+            System.out.println("written " + written);
+        }
+        assert(testRecovery() == (written * DATA_SIZE));
+    }     
     
     public long testRecovery() throws Exception {
         long size = 0;
         manager.close();
         manager = new NIOManager(Configuration.getConfiguration(workArea));
+        System.out.println(manager.getStatistics());
+
         manager.seek(IOManager.Seek.END.getValue());
         Chunk c = manager.read(Direction.REVERSE);
         int count = 0;

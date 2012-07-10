@@ -231,7 +231,11 @@ public class NIOManager implements IOManager {
     }
     
     @Override
-    public synchronized Future<Void> clean(long timeout) throws IOException {        
+    public synchronized Future<Void> clean(long timeout) throws IOException {  
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug("PRE-clean " + this.getStatistics());
+        }
+        
         readOpsAllowed = false;
         FileOutputStream fos = new FileOutputStream(backupLockFile);
         FileChannel channel = fos.getChannel();
@@ -257,6 +261,9 @@ public class NIOManager implements IOManager {
             readOpsAllowed = true;
         }
         
+        if ( LOGGER.isDebugEnabled() ) {
+            LOGGER.debug("POST-clean " + this.getStatistics());
+        }
         return NullFuture.INSTANCE;
     }
 }

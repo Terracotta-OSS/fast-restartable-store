@@ -119,7 +119,7 @@ public class NIOCorruptionTests {
     }      
     
      
-        @Test
+    @Test
     public void testSyncWritesException() throws Exception {
         manager.setBufferBuilder(new ExceptionBuilder(512 * 1024 + 916));
         long written = 0;
@@ -133,8 +133,27 @@ public class NIOCorruptionTests {
             System.out.println("written " + written);
         }
         assert(testRecovery() == (written * DATA_SIZE));
-    }     
-    
+    }    
+        
+     
+    @Test
+    public void testCountUpSegment() throws Exception {
+        long written = 0;
+        for (int x=0;x<1*1024*1024;x+=2000) {
+            manager.setBufferBuilder(new ExceptionBuilder(x));
+            try {
+                while ( true ) {
+                    manager.write(new WrappingChunk(ByteBuffer.allocate(DATA_SIZE)), current++);
+                    manager.sync();
+                    written += 1;
+                }
+            } catch ( IOException ioe ) {
+                System.out.println("written " + written);
+            }
+            assert(testRecovery() == (written * DATA_SIZE));
+        }
+    }    
+        
     public long testRecovery() throws Exception {
         long size = 0;
         manager.close();

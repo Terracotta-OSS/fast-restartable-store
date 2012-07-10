@@ -94,8 +94,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
                 throw new IOException(new String(check));
             }
         } catch (Exception ioe) {
-            logPosition();
-            LOGGER.error("io error checking integrity",ioe);
+            logPosition(ioe);
             done = true;
             if ( ioe instanceof IOException ) {
                 throw (IOException)ioe;
@@ -107,12 +106,12 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         return null;
     }
     
-    private void logPosition() {
+    private void logPosition(Exception e) {
         try {
-        LOGGER.error(new Formatter(new StringBuilder()).format("file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
-                this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString());
+        LOGGER.debug(new Formatter(new StringBuilder()).format("io error checking integrity file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
+                this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString(),e);
         } catch ( Throwable t ) {
-            LOGGER.error("unexpected",t);
+            LOGGER.debug("unexpected",t);
         }
     }
 

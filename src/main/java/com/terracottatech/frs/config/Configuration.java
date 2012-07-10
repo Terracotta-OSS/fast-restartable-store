@@ -12,7 +12,7 @@ import java.util.Properties;
  * @author tim
  */
 public class Configuration {
-  public static final String USER_PROPERITES_FILE = "frs.properties";
+  public static final String USER_PROPERTIES_FILE = "frs.properties";
 
   private final EnumMap<FrsProperty, Object> configuration;
   private final File dbHome;
@@ -74,7 +74,7 @@ public class Configuration {
 
   private static Properties getUserProperties(File directory) {
     Properties properties = new Properties();
-    File useFile = new File(directory, USER_PROPERITES_FILE);
+    File useFile = new File(directory, USER_PROPERTIES_FILE);
     if (useFile.exists()) {
       FileInputStream fis;
       try {

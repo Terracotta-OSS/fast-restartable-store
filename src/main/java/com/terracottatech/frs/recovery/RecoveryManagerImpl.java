@@ -100,8 +100,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
   private static class ProgressLoggingFilter extends AbstractFilter<Action> {
     private final long lowestLsn;
-    private Long totalLsns;
-    private double lastLoggedProgress;
+    private int position = 10;
+    private long count = 0;
 
     ProgressLoggingFilter(Filter<Action> delegate, long lowestLsn) {
       super(delegate);
@@ -110,21 +110,21 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     @Override
     public boolean filter(Action element, long lsn, boolean filtered) {
-      if (totalLsns == null) {
-        // grab the first lsn off the stream
-        totalLsns = lsn - lowestLsn;
-      }
-      double currentProgress = progress(lsn);
-      if (currentProgress - lastLoggedProgress >= 0.1) {
-        lastLoggedProgress = currentProgress;
-        LOGGER.info("Recovery progress " + String.format("%.2f", currentProgress * 100) + "%");
+//      double currentProgress = progress(lsn);
+      if (count-- <= 0 && position > 0) {
+        LOGGER.info("Recovery progress " + (10 - position)*10 + "%");
+        count = (lsn - lowestLsn)/position--;
+      } 
+      
+      if ( lsn == lowestLsn ) {
+        LOGGER.info("Recovery progress 100%");
       }
       return delegate(element, lsn, filtered);
     }
 
-    private double progress(long current) {
-      return (1.0 - ((double) current) / totalLsns);
-    }
+//    private double progress(long current) {
+//      return (1.0 - ((double) current) / totalLsns);
+//    }
   }
 
   private static class ReplayFilter implements Filter<Action>, ThreadFactory {

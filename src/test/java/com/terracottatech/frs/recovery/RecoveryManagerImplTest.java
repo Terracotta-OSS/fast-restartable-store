@@ -122,7 +122,22 @@ public class RecoveryManagerImplTest {
     verify(validTransactional).replay(12);
     verify(checkedPut).replay(19);
   }
+  
+    @Test
+  public void testRecoverZeroItems() throws Exception {
 
+    recoveryManager.recover();
+
+  }
+    
+    @Test
+  public void testRecoverOneItem() throws Exception {
+    logManager.append(record(8, action(true)));
+    logManager.updateLowestLsn(8);
+
+    recoveryManager.recover();
+  }
+    
   @Test
   public void testRecoveryError() throws Exception {
     Action errorAction = mock(Action.class);

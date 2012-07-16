@@ -64,7 +64,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
                                                  compressedSkipSet);
     Filter<Action> progressLoggingFilter =
-            new ProgressLoggingFilter(skipsFilter, logManager.lowestLsn());
+            new ProgressLoggingFilter(replayFilter.dbHome, skipsFilter, logManager.lowestLsn());
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
@@ -103,8 +103,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
     private int position = 10;
     private long count = 0;
 
-    ProgressLoggingFilter(Filter<Action> delegate, long lowestLsn) {
+    ProgressLoggingFilter(File home, Filter<Action> delegate, long lowestLsn) {
       super(delegate);
+      LOGGER.info("Starting recovery for " + home.getAbsolutePath());
       this.lowestLsn = lowestLsn;
     }
 

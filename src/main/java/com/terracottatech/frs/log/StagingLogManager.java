@@ -202,15 +202,13 @@ public class StagingLogManager implements LogManager {
             
             if ( oldRegion.isEmpty() ) {
                 oldRegion.written();
-                continue;
+     //  only skip the IO queue if records are still being accepted,
+     //  if not, the IO thread may need to loosened to shutdown
+                if ( state.acceptRecords() ) continue;
             }
             
             WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
-//            if ( !oldRegion.isSyncRequested() ) {
-//                asyncPacker.submit(wp);
-//            } else {
-                wp.run();
-//            }
+            wp.run();
 
             while ( !queue.offer(wp,200,TimeUnit.MICROSECONDS) ) {
                 if ( stopped ) break;
@@ -221,7 +219,7 @@ public class StagingLogManager implements LogManager {
             fill += lf;
             turns+=1;
 //  if in synchronous mode, wait here so more log records are batched in the next region
-            if ( oldRegion.isSyncRequested() ) {
+            if ( state.acceptRecords() && oldRegion.isSyncRequested() ) {
                 oldRegion.get();
             }
           } catch (InterruptedException ie) {
@@ -309,7 +307,11 @@ public class StagingLogManager implements LogManager {
                     queue.poll().list.exceptionThrown(blockingException);
                 }
             } else if ( !queue.isEmpty() ) {
-                throw new AssertionError("non-empty queue");
+                while ( !queue.isEmpty() ) {
+                    if ( !queue.poll().list.isEmpty() ) {
+                        throw new AssertionError("non-empty queue");
+                    }
+                }
             }
             queuer.done();
             queuer.join();

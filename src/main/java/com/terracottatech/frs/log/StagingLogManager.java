@@ -366,7 +366,17 @@ public class StagingLogManager implements LogManager {
     public void shutdown() {        
         try {
             state = state.shutdown();
-            if ( state != LogMachineState.SHUTDOWN ) return;
+            if ( state != LogMachineState.SHUTDOWN ) {
+        //  just log and fail fast
+                try {
+        //  io should still be closed
+                    io.close();
+                } catch ( IOException ioe ) {
+                    LOGGER.error("error closing io",ioe);
+        //  log and continue
+                }
+                return;
+            }
         } catch ( Throwable t ) {
      //  just log and fail fast
             try {

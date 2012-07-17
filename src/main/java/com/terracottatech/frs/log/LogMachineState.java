@@ -73,7 +73,11 @@ enum LogMachineState {
         IDLE {
             LogMachineState bootstrap() {
                 return BOOTSTRAP;
-            }         
+            }    
+            
+            LogMachineState shutdown() {
+                return IDLE;
+            }    
         
             boolean starting() {
                 return true;
@@ -81,7 +85,9 @@ enum LogMachineState {
 
             boolean acceptRecords() {
                 return true;
-            }             
+            }  
+            
+            
             
         };
         

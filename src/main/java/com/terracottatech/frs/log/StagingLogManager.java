@@ -366,6 +366,7 @@ public class StagingLogManager implements LogManager {
     public void shutdown() {        
         try {
             state = state.shutdown();
+            if ( state != LogMachineState.SHUTDOWN ) return;
         } catch ( Throwable t ) {
      //  just log and fail fast
             try {

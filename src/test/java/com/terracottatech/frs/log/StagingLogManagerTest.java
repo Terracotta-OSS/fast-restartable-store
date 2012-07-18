@@ -34,7 +34,7 @@ public class StagingLogManagerTest {
 
     private static final long LOG_REGION_WRITE_TIMEOUT = 10;
     private DummyIOManager ioManager;
-    private LogManager logManager;
+    private StagingLogManager logManager;
     private boolean startThrowing = false;
     
 
@@ -163,6 +163,7 @@ public class StagingLogManagerTest {
             expectedLsn--;
         }
         assertThat(expectedLsn, is(99L));
+        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }
 
     @Test
@@ -245,6 +246,7 @@ public class StagingLogManagerTest {
             t.printStackTrace();
         }
         assertThat(expectedLsn, not(99L));
+        assertThat(logManager.getRecoveryExchanger().isDone(),is(false));
     }
     
     @Test
@@ -281,6 +283,7 @@ public class StagingLogManagerTest {
             System.out.println("got " + record.getLsn());
         }
         assertThat(expectedLsn, is(99L));
+        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }      
 
     private LogRecord newRecord(long lowest) {

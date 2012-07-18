@@ -262,11 +262,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 }
             }
             
-            if ( list.isEmpty()) {
+            if ( list.isEmpty() || list.get(0).getLsn() < lowestLsn) {
                 setDone();
                 return false;
             } else {
-                return (list.get(0).getLsn() >= lowestLsn);
+                return true;
             }
         }
 

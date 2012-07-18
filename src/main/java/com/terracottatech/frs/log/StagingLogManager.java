@@ -488,7 +488,7 @@ public class StagingLogManager implements LogManager {
         return exchanger.iterator();
     }
         
-    public ChunkExchange getRecoveryExchanger() {
+    ChunkExchange getRecoveryExchanger() {
         return exchanger;
     }
 

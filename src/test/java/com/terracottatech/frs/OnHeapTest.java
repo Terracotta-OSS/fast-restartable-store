@@ -123,8 +123,8 @@ public class OnHeapTest {
         for ( Map.Entry e : external.entrySet() ) {
             esize += ((Map)e.getValue()).size();
         }
-        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
-                    esize);
+//        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
+//                    esize);
 
 //        for ( Map.Entry<ByteBuffer, Map<ByteBuffer,ByteBuffer>> ids : external.entrySet() ) {
 //            int id = ids.getKey().getInt(0);
@@ -156,8 +156,8 @@ public class OnHeapTest {
         for ( Map.Entry e : external.entrySet() ) {
             esize += ((Map)e.getValue()).size();
         }
-        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
-                    esize);
+//        System.out.format("recovered pulled: %d pushed: %d size: %d\n",logMgr.getRecoveryExchanger().returned(),logMgr.getRecoveryExchanger().count(),
+//                    esize);
 
 //        for ( Map.Entry<ByteBuffer, Map<ByteBuffer,ByteBuffer>> ids : external.entrySet() ) {
 //            int id = ids.getKey().getInt(0);

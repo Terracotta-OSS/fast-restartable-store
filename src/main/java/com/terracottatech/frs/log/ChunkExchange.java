@@ -151,6 +151,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if ( !master.isDone() ) {
                 exceptionThrownInRecovery(ioe);
             }
+        } catch ( RuntimeException t ) {
+            if ( !master.isDone() ) {
+                exceptionThrownInRecovery(t);
+            }
         } finally {
             ioDone = true;
         }

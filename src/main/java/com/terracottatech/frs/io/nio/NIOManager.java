@@ -249,7 +249,7 @@ public class NIOManager implements IOManager {
                 LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");
                 return NullFuture.INSTANCE;
             }
-            synchronized (backupLockFile.getAbsolutePath().intern()) {
+            synchronized (backupLockFile.getCanonicalPath().intern()) {
               backend.trimLogTail(timeout);
             }
         } finally {

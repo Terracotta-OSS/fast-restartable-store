@@ -124,8 +124,8 @@ public class Backup {
     }
   }
 
-  private static String copyLockString(File sourceFrsFolder) {
-    return new File(sourceFrsFolder, FRS_BACKUP_LOCKFILE).getAbsolutePath().intern();
+  private static String copyLockString(File sourceFrsFolder) throws IOException {
+    return new File(sourceFrsFolder, FRS_BACKUP_LOCKFILE).getCanonicalPath().intern();
   }
 
   public static void main(String[] args) throws IOException {

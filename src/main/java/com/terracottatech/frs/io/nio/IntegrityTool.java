@@ -33,20 +33,20 @@ public class IntegrityTool {
 
     public static void main(String[] args) {
         if ( args.length == 0 ) {
-            System.out.println("usage: java com.terracottatech.frs.io.nio.IntegrityTool  <<path to stream directory>>");
+            System.err.println("usage: java com.terracottatech.frs.io.nio.IntegrityTool  <<path to stream directory>>");
             return;
         }
         try {
             File dir = new File(args[0]);
             if (!dir.exists()) {
-                System.out.println("stream directory does not exist");
+                System.err.println("stream directory does not exist");
                 System.exit(99);
             }
             if (!dir.isDirectory()) {
-                System.out.println("stream directory is not valid");
+                System.err.println("stream directory is not valid");
                 System.exit(99);
             }
-            System.out.println("examining " + dir.getAbsolutePath());
+            System.err.println("examining " + dir.getAbsolutePath());
             new IntegrityTool(dir).examine();
         } catch (Exception ioe) {
             ioe.printStackTrace();

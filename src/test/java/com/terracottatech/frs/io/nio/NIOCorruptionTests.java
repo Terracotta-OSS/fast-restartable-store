@@ -31,14 +31,17 @@ public class NIOCorruptionTests {
     public JUnitTestFolder folder = new JUnitTestFolder();        
     
     public NIOCorruptionTests() {
+        
     }
 
     @BeforeClass
     public static void setUpClass() throws Exception {
+        
     }
 
     @AfterClass
     public static void tearDownClass() throws Exception {
+        
     }
     
     @Before
@@ -180,9 +183,4 @@ public class NIOCorruptionTests {
         manager = null;
         System.gc();
     }
-    // TODO add test methods here.
-    // The methods must be annotated with annotation @Test. For example:
-    //
-    // @Test
-    // public void hello() {}
 }

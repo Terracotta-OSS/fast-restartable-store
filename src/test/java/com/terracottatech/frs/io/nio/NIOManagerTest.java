@@ -47,20 +47,20 @@ public class NIOManagerTest {
     
     @Before
     public void setUp() throws IOException {
-            workArea = folder.newFolder();
-            System.out.println(workArea.getAbsolutePath());
-            Properties props = new Properties();
-            props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.SimulatingBufferBuilder");
-            props.setProperty("io.nio.segmentSize", Integer.toString(1024 * 1024));
-            props.setProperty("io.nio.memorySize", Integer.toString(10 * 1024 * 1024));
-            try {
-                props.store(new FileWriter(new File(workArea,"frs.properties")), null);
-            } catch ( IOException io ) {
-                
-            }
-            config = Configuration.getConfiguration(workArea);
-            manager = new NIOManager(config);
-            manager.setMinimumMarker(100);
+        workArea = folder.newFolder();
+        System.out.println(workArea.getAbsolutePath());
+        Properties props = new Properties();
+        props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.SimulatingBufferBuilder");
+        props.setProperty("io.nio.segmentSize", Integer.toString(1024 * 1024));
+        props.setProperty("io.nio.memorySize", Integer.toString(10 * 1024 * 1024));
+        try {
+            props.store(new FileWriter(new File(workArea,"frs.properties")), null);
+        } catch ( IOException io ) {
+
+        }
+        config = Configuration.getConfiguration(workArea);
+        manager = new NIOManager(config);
+        manager.setMinimumMarker(100);
     }
     
     @After
@@ -103,25 +103,25 @@ public class NIOManagerTest {
             Chunk test = createLogRegion();
             long start = System.nanoTime();
             tb +=manager.write(test,100);
-            System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
+//            System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
             
             if ( Math.random() * 10 < 1 ) {
                 start = System.nanoTime();
                 manager.sync();
-                System.out.format("Log Stream sync time: %dms count: %d length: %dk \n",
-                       NANOSECONDS.toMillis(System.nanoTime() - start),
-                        x-lastSync,
-                        (tb - lastLen)/1024
-                );
+//                System.out.format("Log Stream sync time: %dms count: %d length: %dk \n",
+//                       NANOSECONDS.toMillis(System.nanoTime() - start),
+//                        x-lastSync,
+//                        (tb - lastLen)/1024
+//                );
                 lastSync = x;
                 lastLen = tb;
             }
         }
 
         System.out.format("bytes written: %.3fM in %dms = %.3f MB/sec\n",
-                          tb / (1024d * 1024d),
-                          NANOSECONDS.toMillis(System.nanoTime() - total),
-                          (tb / (1024d * 1024d)) / ((System.nanoTime() - total) * 1e-9)
+                tb / (1024d * 1024d),
+                NANOSECONDS.toMillis(System.nanoTime() - total),
+                (tb / (1024d * 1024d)) / ((System.nanoTime() - total) * 1e-9)
         );
     }
     
@@ -162,7 +162,7 @@ public class NIOManagerTest {
                 @Override
                 public void run() {
                     int spins = 100;
-                     System.out.format("pushing %d log records\n",spins);
+//                     System.out.format("pushing %d log records\n",spins);
                      try {
                     for (int x=0;x<spins;x++) {
                         try {
@@ -171,8 +171,6 @@ public class NIOManagerTest {
                             LogRecord lr = new DummyLogRecord(100,1024);
                             if ( sync == 1 ) {
                                 lm.appendAndSync(lr).get();
-                                System.out.format("Log Stream sync time: %.6f sec \n", 
-                                        (System.nanoTime() - start) * 1e-9);
                             } else {
                                 lm.append(lr);
                             }
@@ -213,7 +211,7 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
+       StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
             DummyLogRecord lr1 = new DummyLogRecord(100,1024);
@@ -222,15 +220,14 @@ public class NIOManagerTest {
 
        lm.shutdown();
        
-       lm.reset();
-       
+       manager = new NIOManager(config);
+       lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
        lm.startup();
        
        long lsn = -1;
        Iterator<LogRecord> logs = lm.reader();
        while ( logs.hasNext() ) {
            LogRecord record = logs.next();
-           System.out.println(record.getLsn());
            if ( lsn > 0 ) assert(lsn-1 == record.getLsn());
            lsn = record.getLsn();
        }
@@ -247,9 +244,10 @@ public class NIOManagerTest {
                 if ( count % 10000 == 0 ) manager.sync();
             }
         } catch ( IOException ioe ) {
-            ioe.printStackTrace();
+            System.err.println(ioe.toString() + " " + ioe.getMessage());
+//            ioe.printStackTrace();
         } 
-        System.out.println(Integer.toString(count));
+        System.out.println("written count: " + Integer.toString(count));
         
         manager.seek(0);
         manager.close();
@@ -266,7 +264,7 @@ public class NIOManagerTest {
             c = manager.read(Direction.REVERSE);
             if ( c != null ) {
                 c.get(buf);
-                System.out.println(new String(buf));
+//                System.out.println(new String(buf));
             }
         }
         System.out.println("count: " + count + " check: " + check);

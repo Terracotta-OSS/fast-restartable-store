@@ -189,9 +189,10 @@ public class StagingLogManagerTest {
             assertThat(record.getLsn(), is(expectedLsn));
             expectedLsn--;
             Thread.sleep(100);
-            System.out.println("got " + record.getLsn());
+//            System.out.println("got " + record.getLsn());
         }
         assertThat(expectedLsn, is(99L));
+        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }  
     
     @Test
@@ -239,7 +240,7 @@ public class StagingLogManagerTest {
                 LogRecord record = i.next();
     //            assertThat(record.getLowestLsn(), is(0L));
                 assertThat(record.getLsn(), is(expectedLsn--));
-                System.out.println("got " + record.getLsn());
+//                System.out.println("got " + record.getLsn());
             }
             Assert.fail("expected reader exception");
        } catch ( Throwable t ) {
@@ -280,7 +281,7 @@ public class StagingLogManagerTest {
 //            assertThat(record.getLowestLsn(), is(0L));
             assertThat(record.getLsn(), is(expectedLsn));
             expectedLsn--;
-            System.out.println("got " + record.getLsn());
+//            System.out.println("got " + record.getLsn());
         }
         assertThat(expectedLsn, is(99L));
         assertThat(logManager.getRecoveryExchanger().isDone(),is(true));

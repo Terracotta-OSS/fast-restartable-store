@@ -102,7 +102,6 @@ public class ReadbackStrategyTest {
         
         MappedByteBuffer buffer = fis.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length());
         fis.close();
-        for (int x=0;x<1024;x++) System.out.println(buffer.get(x));
         for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
         buffer = null;
         System.gc();
@@ -190,9 +189,5 @@ public class ReadbackStrategyTest {
     @After
     public void tearDown() {
     }
-    // TODO add test methods here.
-    // The methods must be annotated with annotation @Test. For example:
-    //
-    // @Test
-    // public void hello() {}
+
 }

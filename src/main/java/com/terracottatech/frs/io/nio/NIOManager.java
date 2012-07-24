@@ -87,17 +87,20 @@ public class NIOManager implements IOManager {
     }
     
     void setBufferBuilder(BufferBuilder builder) {
-        backend.setBufferBuilder(builder);
+        if ( backend != null ) {
+            backend.setBufferBuilder(builder);
+        }
     }
     
     BufferBuilder getBufferBuilder() {
+        if ( backend == null ) return null;
         return backend.getBufferBuilder();
     }    
 
     @Override
     public long write(Chunk region, long marker) throws IOException {
         if (backend == null) {
-            open();
+            throw new IOException("stream is closed");
         }    
         
         long blit = System.nanoTime();
@@ -112,18 +115,25 @@ public class NIOManager implements IOManager {
 
     @Override
     public void setMinimumMarker(long marker) throws IOException {
+        if ( backend == null ) {
+            throw new IOException("stream is closed");
+        }
         backend.setMinimumMarker(marker);
     }
 
     @Override
     public long getCurrentMarker() throws IOException {
-        if ( backend == null ) return 0;
+        if ( backend == null ) {
+            throw new IOException("stream is closed");
+        }
         return backend.getMarker();
     }
 
     @Override
     public long getMinimumMarker() throws IOException {
-        if ( backend == null ) return 0;
+        if ( backend == null ) {
+            throw new IOException("stream is closed");
+        }
         return backend.getMinimumMarker();
     }
 
@@ -132,7 +142,7 @@ public class NIOManager implements IOManager {
     @Override
     public void sync() throws IOException {
         if (backend == null) {
-            open();
+            throw new IOException("stream is closed");
         }
         long pos = backend.sync();
     }
@@ -142,7 +152,7 @@ public class NIOManager implements IOManager {
         assert(readOpsAllowed);
 
         if (backend == null) {
-            open();
+            throw new IOException("stream is closed");
         }    
         
         backend.seek(marker);
@@ -154,7 +164,7 @@ public class NIOManager implements IOManager {
         assert(readOpsAllowed);
         
         if (backend == null) {
-            open();
+            throw new IOException("stream is closed");
         }
                 
         Chunk c = backend.read(dir);
@@ -221,6 +231,10 @@ public class NIOManager implements IOManager {
 
     @Override
     public synchronized IOStatistics getStatistics() throws IOException {
+        if (backend == null) {
+            throw new IOException("stream is closed");
+        }
+        
         readOpsAllowed = false;
         try {
             return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogTail(), written, read);
@@ -231,6 +245,10 @@ public class NIOManager implements IOManager {
     
     @Override
     public synchronized Future<Void> clean(long timeout) throws IOException {  
+        if (backend == null) {
+            throw new IOException("stream is closed");
+        }
+        
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug("PRE-clean " + this.getStatistics());
         }

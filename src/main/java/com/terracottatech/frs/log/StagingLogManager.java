@@ -34,7 +34,6 @@ public class StagingLogManager implements LogManager {
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong lowestLsn = new AtomicLong(0);
-    private long  lastClean = 0;
     private final AtomicLong highestOnDisk = new AtomicLong(99);
     private Signature  checksumStyle;
     private final IOManager io;
@@ -100,19 +99,16 @@ public class StagingLogManager implements LogManager {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
                     io.setMinimumMarker(lsn);
-                    if ( lsn - lastClean > 1000 ) {
-                        try {
-                            exchanger.get();
-                        } catch ( InterruptedException ie ) {
-                            LOGGER.debug("cleaning stream interrupted",ie);
-                            return;
-                        } catch ( ExecutionException ee ) {
-                            LOGGER.warn("cleaning stream failed",ee);
-                            return;
-                        }
-                        io.clean(0);
-                        lastClean = lsn;
+                    try {
+                        exchanger.get();
+                    } catch ( InterruptedException ie ) {
+                        LOGGER.debug("cleaning stream interrupted",ie);
+                        return;
+                    } catch ( ExecutionException ee ) {
+                        LOGGER.warn("cleaning stream failed",ee);
+                        return;
                     }
+                    io.clean(0);
                 }
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);
@@ -294,7 +290,9 @@ public class StagingLogManager implements LogManager {
           } catch (IOException ioe) {
             blockingException = ioe;
             state = state.checkException(ioe);
-            packer.list.exceptionThrown(ioe);
+            if ( packer != null ) {
+                packer.list.exceptionThrown(ioe);
+            }
             break;
           } catch (InterruptedException ie) {
             state = state.checkException(ie);
@@ -335,10 +333,6 @@ public class StagingLogManager implements LogManager {
         exchanger.recover();
         
         return exchanger;
-    }
-    
-    public void reset() {
-        state = state.reset();
     }
 
     //  TODO:  re-examine when more runtime context is available.

@@ -129,7 +129,7 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
 
           // Flush the new lowest LSN with a dummy record
-          actionManager.happened(new NullAction()).get();
+          actionManager.syncHappened(new NullAction()).get();
         } catch (InterruptedException e) {
           LOGGER.info("Compactor is interrupted. Shutting down.");
           return;

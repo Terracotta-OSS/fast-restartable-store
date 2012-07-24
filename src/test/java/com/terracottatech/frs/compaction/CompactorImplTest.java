@@ -6,8 +6,10 @@ package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.action.NullActionManager;
 import com.terracottatech.frs.log.LogManager;
+import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
@@ -66,7 +68,8 @@ public class CompactorImplTest {
 
     compactor.shutdown();
 
-    verify(actionManager, times(2)).happened(any(Action.class));
+    verify(actionManager, times(1)).happened(any(Action.class));
+    verify(actionManager, times(1)).syncHappened(any(Action.class));
   }
 
   @Test
@@ -121,6 +124,11 @@ public class CompactorImplTest {
       action.record(1);
       return future;
     }
+     @Override
+    public Future<Void> syncHappened(Action action) {
+      action.record(1);
+      return future;
+    }   
   }
 
   private class CompactionTestObjectManager extends

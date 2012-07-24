@@ -26,8 +26,7 @@ public class OfflineCompactor {
 
   public void compact() throws Exception {
     if (!in.isDirectory()) {
-      System.out.println("Input folder " + in + " is not a directory.");
-      System.exit(-1);
+      throw new IOException("Input folder " + in + " is not a directory.");
     }
 
     initOutputDirectory();
@@ -106,7 +105,7 @@ public class OfflineCompactor {
     if (args.length != 2) {
       System.err.println(
               "Usage: java com.terracottatech.frs.OfflineCompactor inputFolder outputFolder");
-      System.exit(-1);
+      System.exit(1);
     }
     File inputFile = new File(args[0]);
     File outputFile = new File(args[1]);

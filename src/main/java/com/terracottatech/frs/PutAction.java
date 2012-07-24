@@ -87,7 +87,7 @@ public class PutAction implements InvalidatingAction {
   public void record(long lsn) {
     objectManager.put(getId(), getKey(), getValue(), lsn);
     if (invalidatedLsn != -1) {
-      compactor.generatedGarbage();
+      compactor.generatedGarbage(invalidatedLsn);
     }
   }
 

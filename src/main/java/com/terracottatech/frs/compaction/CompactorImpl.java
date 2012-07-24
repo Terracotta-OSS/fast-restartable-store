@@ -5,7 +5,6 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.RestartStoreException;
-import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.config.Configuration;
@@ -21,13 +20,10 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
+import static com.terracottatech.frs.config.FrsProperty.*;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RUN_INTERVAL;
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_START_THRESHOLD;
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_THROTTLE_AMOUNT;
 
 /**
  * @author tim
@@ -40,17 +36,18 @@ public class CompactorImpl implements Compactor {
   private final ActionManager actionManager;
   private final LogManager logManager;
   private final Semaphore compactionCondition = new Semaphore(0);
-  private final AtomicBoolean alive = new AtomicBoolean();
+  private volatile boolean alive = false;
   private final CompactionPolicy policy;
   private final long runIntervalSeconds;
+  private final long retryIntervalSeconds;
   private final long compactActionThrottle;
   private final int startThreshold;
+  private final CompactorThread compactorThread;
 
-  private CompactorThread compactorThread;
 
   CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                 TransactionManager transactionManager, ActionManager actionManager, LogManager logManager,
-                CompactionPolicy policy, long runIntervalSeconds,
+                CompactionPolicy policy, long runIntervalSeconds, long retryIntervalSeconds,
                 long compactActionThrottle, int startThreshold) {
     this.objectManager = objectManager;
     this.transactionManager = transactionManager;
@@ -58,8 +55,10 @@ public class CompactorImpl implements Compactor {
     this.logManager = logManager;
     this.policy = policy;
     this.runIntervalSeconds = runIntervalSeconds;
+    this.retryIntervalSeconds = retryIntervalSeconds;
     this.compactActionThrottle = compactActionThrottle;
     this.startThreshold = startThreshold;
+    this.compactorThread = new CompactorThread();
   }
 
   public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -68,6 +67,7 @@ public class CompactorImpl implements Compactor {
     this(objectManager, transactionManager, actionManager, logManager,
          getPolicy(configuration, objectManager, logManager, ioManager),
          configuration.getLong(COMPACTOR_RUN_INTERVAL),
+         configuration.getLong(COMPACTOR_RETRY_INTERVAL),
          configuration.getLong(COMPACTOR_THROTTLE_AMOUNT),
          configuration.getInt(COMPACTOR_START_THRESHOLD));
   }
@@ -89,18 +89,15 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public void startup() {
-    if (alive.compareAndSet(false, true)) {
-      compactorThread = new CompactorThread();
-      compactorThread.start();
-    }
+    alive = true;
+    compactorThread.start();
   }
 
   @Override
   public void shutdown() throws InterruptedException {
-    if (alive.compareAndSet(true, false)) {
-      compactorThread.interrupt();
-      compactorThread.join();
-    }
+    alive = false;
+    compactorThread.interrupt();
+    compactorThread.join();
   }
 
   private class CompactorThread extends Thread {
@@ -111,18 +108,18 @@ public class CompactorImpl implements Compactor {
 
     @Override
     public void run() {
-      while (alive.get()) {
+      while (alive) {
         try {
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
 
-          if (!alive.get()) {
-            return;
-          }
-
           objectManager.updateLowestLsn();
 
-          if (policy.shouldCompact()) {
-            compact();
+          if (policy.startCompacting() && alive) {
+            try {
+              compact();
+            } finally {
+              policy.stoppedCompacting();
+            }
           }
 
           // Flush in a dummy record to make sure everything for the updated lowest lsn
@@ -134,68 +131,62 @@ public class CompactorImpl implements Compactor {
           // Flush the new lowest LSN with a dummy record
           actionManager.happened(new NullAction()).get();
         } catch (InterruptedException e) {
-          LOGGER.info("Compactor thread interrupted, shutting down.");
+          LOGGER.info("Compactor is interrupted. Shutting down.");
           return;
-        } catch (Exception e) {
-          LOGGER.error("Error performing compaction.", e);
-          throw new RuntimeException(e);
+        } catch (Throwable t) {
+          LOGGER.error("Error performing compaction. Temporarily disabling compaction for " + retryIntervalSeconds + " seconds.", t);
+          try {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(retryIntervalSeconds));
+          } catch (InterruptedException e) {
+            LOGGER.info("Compactor is interrupted. Shutting down.");
+            return;
+          }
         }
       }
     }
   }
 
-  private void compact() throws TransactionException,
-          InterruptedException, ExecutionException {
+  private void compact() throws ExecutionException, InterruptedException {
     compactionCondition.drainPermits();
-    policy.startedCompacting();
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     long liveSize = objectManager.size();
     long compactedCount = 0;
-    int acquireRetries = 0;
     while (compactedCount < liveSize) {
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
-      if (compactionEntry != null) {
-        acquireRetries = 0;
-        compactedCount++;
-        try {
-          CompactionAction compactionAction =
-                  new CompactionAction(objectManager, compactionEntry);
-          Future<Void> written = actionManager.happened(compactionAction);
-          // We can't update the object manager on Action.record() because the compactor
-          // is holding onto the segment lock. Since we want to wait for the action to be
-          // sequenced anyways so we don't keep getting the same compaction keys, we may as
-          // well just do the object manager update here.
-          compactionAction.updateObjectManager();
+      if (compactionEntry == null) {
+        return;
+      }
+      compactedCount++;
+      try {
+        CompactionAction compactionAction =
+                new CompactionAction(objectManager, compactionEntry);
+        Future<Void> written = actionManager.happened(compactionAction);
+        // We can't update the object manager on Action.record() because the compactor
+        // is holding onto the segment lock. Since we want to wait for the action to be
+        // sequenced anyways so we don't keep getting the same compaction keys, we may as
+        // well just do the object manager update here.
+        compactionAction.updateObjectManager();
 
-          // To prevent filling up the write queue with compaction junk, risking crowding
-          // out actual actions, we throttle a bit after some set number of compaction
-          // actions by just waiting until the latest compaction action is written to disk.
-          if (compactedCount % compactActionThrottle == 0) {
-            written.get();
-          }
+        // To prevent filling up the write queue with compaction junk, risking crowding
+        // out actual actions, we throttle a bit after some set number of compaction
+        // actions by just waiting until the latest compaction action is written to disk.
+        if (compactedCount % compactActionThrottle == 0) {
+          written.get();
+        }
 
-          // Check with the policy if we need to stop.
-          if (!policy.compacted(compactionEntry)) {
-            break;
-          }
-        } finally {
-          objectManager.releaseCompactionEntry(compactionEntry);
+        // Check with the policy if we need to stop.
+        if (!policy.compacted(compactionEntry)) {
+          break;
         }
-      } else {
-        // Don't spin indefinitely when acquiring a compaction target fails
-        acquireRetries++;
-        if (acquireRetries >= 10) {
-          acquireRetries = 0;
-          compactedCount++;
-        }
+      } finally {
+        objectManager.releaseCompactionEntry(compactionEntry);
       }
     }
     objectManager.updateLowestLsn();
-    policy.stoppedCompacting();
   }
 
   @Override
-  public void generatedGarbage() {
+  public void generatedGarbage(long lsn) {
     compactionCondition.release();
   }
 

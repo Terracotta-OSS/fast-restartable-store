@@ -40,7 +40,7 @@ public class MockCompactor<I, K, V> implements Compactor {
   }
 
   @Override
-  public void generatedGarbage() {
+  public void generatedGarbage(long lsn) {
   }
 
   private final Runnable runCompactor = new Runnable() {

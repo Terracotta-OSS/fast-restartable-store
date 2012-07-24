@@ -5,6 +5,8 @@ import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
+import java.io.IOException;
+
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_AMOUNT;
 
@@ -30,31 +32,35 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
   }
 
   @Override
-  public boolean shouldCompact() {
+  public boolean startCompacting() {
+    float ratio;
     try {
-      double ratio = ((double) objectManager.sizeInBytes()) / ioManager.getStatistics().getLiveSize();
-      return ratio <= sizeThreshold;
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to get data size.", e);
+      ratio = objectManager.sizeInBytes() / ioManager.getStatistics().getLiveSize();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to get log size.", e);
+    }
+    if (ratio <= sizeThreshold) {
+      isCompacting = true;
+      entriesToCompact = (long) (objectManager.size() * compactionPercentage);
+      return true;
+    } else {
+      return false;
     }
   }
 
   @Override
-  public void startedCompacting() {
-    assert !isCompacting;
-    isCompacting = true;
-    entriesToCompact = (long) (objectManager.size() * compactionPercentage);
-  }
-
-  @Override
   public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
-    assert isCompacting;
+    if (!isCompacting) {
+      throw new AssertionError("Compaction is not started.");
+    }
     return entriesToCompact-- > 0;
   }
 
   @Override
   public void stoppedCompacting() {
-    assert isCompacting;
+    if (!isCompacting) {
+      throw new AssertionError("Compaction is not started.");
+    }
     isCompacting = false;
   }
 }

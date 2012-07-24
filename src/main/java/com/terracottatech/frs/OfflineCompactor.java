@@ -25,6 +25,11 @@ public class OfflineCompactor {
   }
 
   public void compact() throws Exception {
+    if (!in.isDirectory()) {
+      System.out.println("Input folder " + in + " is not a directory.");
+      System.exit(-1);
+    }
+
     initOutputDirectory();
 
     Properties properties = new Properties();
@@ -42,8 +47,8 @@ public class OfflineCompactor {
             RestartStoreFactory.createStore(objectManager, in, properties);
     inputStore.startup().get();
 
-    outputStore.shutdown();
     inputStore.shutdown();
+    outputStore.shutdown();
   }
 
   private void initOutputDirectory() throws IOException {
@@ -99,15 +104,11 @@ public class OfflineCompactor {
 
   public static void main(String[] args) throws Exception {
     if (args.length != 2) {
-      System.out.println(
+      System.err.println(
               "Usage: java com.terracottatech.frs.OfflineCompactor inputFolder outputFolder");
       System.exit(-1);
     }
     File inputFile = new File(args[0]);
-    if (!inputFile.isDirectory()) {
-      System.out.println("Input folder " + inputFile + " is not a directory.");
-      System.exit(-1);
-    }
     File outputFile = new File(args[1]);
     System.out.println("Starting compaction.");
     new OfflineCompactor(inputFile, outputFile).compact();

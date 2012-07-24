@@ -66,7 +66,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   @Override
   public synchronized Future<Void> startup() throws InterruptedException,
           RecoveryException {
-    if (state != State.INIT && state != State.SHUTDOWN) {
+    if (state != State.INIT) {
       throw new IllegalStateException("Can't startup from state " + state);
     }
     state = State.RECOVERING;

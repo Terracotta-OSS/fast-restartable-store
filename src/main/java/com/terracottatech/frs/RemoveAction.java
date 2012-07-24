@@ -55,7 +55,7 @@ class RemoveAction implements InvalidatingAction {
   public void record(long lsn) {
     objectManager.remove(id, key);
     if (invalidatedLsn != -1) {
-      compactor.generatedGarbage();
+      compactor.generatedGarbage(invalidatedLsn);
     }
   }
 

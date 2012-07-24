@@ -23,8 +23,10 @@ public interface Compactor {
 
   /**
    * Callback to notify the compactor that some garbage was generated.
+   *
+   * @param lsn the LSN of the generated piece of garbage.
    */
-  void generatedGarbage();
+  void generatedGarbage(long lsn);
 
   /**
    * Callback to tell the compactor to run right now, unless it's already running.

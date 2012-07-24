@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.ActionCodec;
 
 import java.nio.ByteBuffer;
@@ -15,6 +16,6 @@ public abstract class CompactionActions {
   private CompactionActions() {}
 
   public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
-    codec.registerAction(id, 0, CompactionAction.class, CompactionAction.FACTORY);
+    codec.registerAction(id, 0, CompactionAction.class, PutAction.FACTORY);
   }
 }

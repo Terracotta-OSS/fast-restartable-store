@@ -7,16 +7,12 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
  */
 public interface CompactionPolicy {
   /**
-   * Called to check if compaction should start.
+   * Query this {@link CompactionPolicy} for whether or not compaction should begin. If so
+   * start compaction.
    *
-   * @return whether or not compaction should begin
+   * @return true to indicate that the compactor should compact
    */
-  boolean shouldCompact();
-
-  /**
-   * Notify the {@link CompactionPolicy} that compaction has begun
-   */
-  void startedCompacting();
+  boolean startCompacting();
 
   /**
    * Polled during compaction to check if compaction should continue.

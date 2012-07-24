@@ -5,9 +5,6 @@
 package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.PutAction;
-import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
@@ -17,15 +14,6 @@ import java.nio.ByteBuffer;
  * @author tim
  */
 class CompactionAction extends PutAction {
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-            @Override
-            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                 ActionCodec codec, ByteBuffer[] buffers) {
-                return PutAction.FACTORY.create(objectManager, codec, buffers);
-            }
-          };
-
   private final ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry;
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
 
@@ -45,11 +33,19 @@ class CompactionAction extends PutAction {
     }
   }
 
-  synchronized void updateObjectManager() throws InterruptedException {
+  synchronized void updateObjectManager() {
+    boolean interrupted = false;
     while (lsn == null) {
+      try {
         wait();
+      } catch (InterruptedException e) {
+        interrupted = true;
+      }
     }
     objectManager.updateLsn(entry, lsn);
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Override

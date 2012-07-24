@@ -44,24 +44,23 @@ public class CompactorImplTest {
     logManager = mock(LogManager.class);
     compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
                                   logManager, policy,
-                                  60, 1000, 2000);
+                                  60, 60, 1000, 2000);
   }
 
   @Test
   public void testBelowCompactionThreshold() throws Exception {
     compactor.startup();
     for (int i = 0; i < 1999; i++) {
-      compactor.generatedGarbage();
+      compactor.generatedGarbage(0);
     }
     SECONDS.sleep(1);
     verify(objectManager, never()).updateLowestLsn();
 
-    compactor.generatedGarbage();
+    compactor.generatedGarbage(0);
 
     SECONDS.sleep(1);
 
-    verify(policy).shouldCompact();
-    verify(policy, never()).startedCompacting();
+    verify(policy).startCompacting();
     verify(policy, never()).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
 
@@ -84,7 +83,6 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(1100);
-    verify(policy).startedCompacting();
     verify(policy).stoppedCompacting();
     verify(future, atLeastOnce()).get();
     verify(logManager).updateLowestLsn(anyLong());
@@ -107,7 +105,6 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(0);
-    verify(policy).startedCompacting();
     verify(policy).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
@@ -135,9 +132,6 @@ public class CompactorImplTest {
     public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> acquireCompactionEntry(long ceilingLsn) {
       assert compactingEntry == null;
       lsn++;
-      if (lsn % 3 == 0) {
-        return null;
-      }
       compactingEntry = new SimpleObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>(
               byteBufferWithInt(1), byteBufferWithInt(2), byteBufferWithInt(3), lsn);
       return compactingEntry;
@@ -161,15 +155,14 @@ public class CompactorImplTest {
     private boolean isCompacting = false;
 
     @Override
-    public boolean shouldCompact() {
+    public boolean startCompacting() {
       assert !isCompacting;
-      return compactCount > 0;
-    }
-
-    @Override
-    public synchronized void startedCompacting() {
-      assert !isCompacting;
-      isCompacting = true;
+      if (compactCount > 0) {
+        isCompacting = true;
+        return true;
+      } else {
+        return false;
+      }
     }
 
     @Override

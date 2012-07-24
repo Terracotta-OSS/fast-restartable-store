@@ -4,10 +4,12 @@ import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,8 +31,49 @@ public class BackupTest {
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
 
   @Test
+  public void testMissingSource() throws Exception {
+    File folder = tempFolder.newFolder();
+
+    try {
+      Backup.main(new String[] { new File(folder, "bogus").getAbsolutePath(), new File(folder, "bogus1").getAbsolutePath()});
+      Assert.fail("Should fail on missing source directory.");
+    } catch (IOException e) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testExistingDestinationDirectory() throws Exception {
+    File folder = tempFolder.newFolder();
+
+    File original = new File(folder, "original");
+    File copy = new File(folder, "copy");
+
+    assertThat(copy.mkdirs(), is(true));
+
+    {
+      assertThat(original.mkdirs(), is(true));
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
+                                                                                                      original, new Properties());
+
+      restartStore.startup().get();
+
+      restartStore.shutdown();
+    }
+
+    try {
+      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath()});
+      Assert.fail("Should throw when destination directory exists.");
+    } catch (IOException e) {
+      // expected
+    }
+  }
+
+  @Test
   public void testBasicBackup() throws Exception {
-    File folder = tempFolder.newFolder("testBackup");
+    File folder = tempFolder.newFolder();
 
     File original = new File(folder, "original");
     File copy = new File(folder, "copy");
@@ -56,7 +99,7 @@ public class BackupTest {
       restartStore.shutdown();
     }
 
-    Backup.backup(original, copy);
+    Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
@@ -78,7 +121,7 @@ public class BackupTest {
 
   @Test
   public void testBackupWhileGeneratingGarbage() throws Exception {
-    File folder = tempFolder.newFolder("testBackupWithCreatingGarbage");
+    File folder = tempFolder.newFolder();
 
     File original = new File(folder, "original");
     File copy = new File(folder, "copy");
@@ -174,7 +217,7 @@ public class BackupTest {
 
   @Test
   public void testBackupSyncWrite() throws Exception {
-    File folder = tempFolder.newFolder("testBackupWithSyncWrite");
+    File folder = tempFolder.newFolder();
 
     File original = new File(folder, "original");
     File copy = new File(folder, "copy");

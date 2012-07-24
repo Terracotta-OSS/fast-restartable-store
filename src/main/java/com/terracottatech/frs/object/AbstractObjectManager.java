@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I, K, V> {
 
-  private final Object compactionMutex = new Object();
   private final ConcurrentLinkedQueue<ObjectManagerSegment<I, K, V>> compactionTargets = new ConcurrentLinkedQueue<ObjectManagerSegment<I, K, V>>();
   
   private volatile long latestLowestLsn = -1;
@@ -63,11 +62,30 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
    */
   @Override
   public ObjectManagerEntry<I, K, V> acquireCompactionEntry(long ceilingLsn) {
-    ObjectManagerSegment<I, K, V> stripe = getCompactionSource();
-    if (stripe == null) {
-      return null;
-    } else {
-      return stripe.acquireCompactionEntry(ceilingLsn);
+    boolean refreshed = false;
+    while (true) {
+      ObjectManagerSegment<I, K, V> stripe = compactionTargets.poll();
+      if (stripe == null) {
+        if (!refreshed) {
+          refreshCompactionTargets();
+          refreshed = true;
+          continue;
+        } else {
+          return null;
+        }
+      }
+      ObjectManagerEntry<I, K, V> entry = stripe.acquireCompactionEntry(ceilingLsn);
+      if (entry != null) {
+        return entry;
+      }
+    }
+  }
+
+  private void refreshCompactionTargets() {
+    if (compactionTargets.isEmpty()) {
+      for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
+        compactionTargets.addAll(stripe.getSegments());
+      }
     }
   }
 
@@ -76,22 +94,6 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     getStripeFor(entry.getId()).releaseCompactionEntry(entry);
   }
 
-  private ObjectManagerSegment<I, K, V> getCompactionSource() {
-    ObjectManagerSegment<I, K, V> source = compactionTargets.poll();
-    if (source == null) {
-      synchronized (compactionMutex) {
-        if (compactionTargets.isEmpty()) {
-          for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
-            compactionTargets.addAll(stripe.getSegments());
-          }
-        }
-        return compactionTargets.poll();
-      }
-    } else {
-      return source;
-    }
-  }
-  
   public void updateLowestLsn() {
     long lowest = -1;
     for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {

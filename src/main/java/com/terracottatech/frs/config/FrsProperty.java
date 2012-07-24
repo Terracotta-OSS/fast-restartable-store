@@ -22,6 +22,7 @@ public enum FrsProperty {
   COMPACTOR_THROTTLE_AMOUNT("compactor.throttleAmount", Type.LONG,  1000L),
   COMPACTOR_RUN_INTERVAL("compactor.runInterval", Type.LONG, 300L),
   COMPACTOR_START_THRESHOLD("compactor.startThreshold", Type.INTEGER, 50000),
+  COMPACTOR_RETRY_INTERVAL("compactor.retryInterval", Type.LONG, 600L),
 
   COMPACTOR_LSNGAP_MIN_LOAD("compactor.lsnGap.minLoad", Type.DOUBLE, 0.30),
   COMPACTOR_LSNGAP_MAX_LOAD("compactor.lsnGap.maxLoad", Type.DOUBLE, 0.60),

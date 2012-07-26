@@ -222,10 +222,10 @@ public class NIOManagerTest {
        
        manager = new NIOManager(config);
        lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
-       lm.startup();
+       
        
        long lsn = -1;
-       Iterator<LogRecord> logs = lm.reader();
+       Iterator<LogRecord> logs = lm.startup();
        while ( logs.hasNext() ) {
            LogRecord record = logs.next();
            if ( lsn > 0 ) assert(lsn-1 == record.getLsn());

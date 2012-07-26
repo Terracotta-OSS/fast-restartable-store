@@ -52,12 +52,10 @@ public class RecoveryManagerImpl implements RecoveryManager {
   @Override
   public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
           InterruptedException {
-    logManager.startup();
+    Iterator<LogRecord> i = logManager.startup();
     long filter = 0;
     long put = 0;
     long ntime = System.nanoTime();
-
-    Iterator<LogRecord> i = logManager.reader();
 
     Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);

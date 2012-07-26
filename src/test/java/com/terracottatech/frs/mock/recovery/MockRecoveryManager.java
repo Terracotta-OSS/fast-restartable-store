@@ -34,7 +34,7 @@ public class MockRecoveryManager implements RecoveryManager {
 
   @Override
   public Future<Void> recover(RecoveryListener ... listeners) {
-    Iterator<LogRecord> it = logManager.reader();
+    Iterator<LogRecord> it = logManager.startup();
 
     Filter<Action> replay = new MockReplayFilter();
     Filter<Action> deleteFilter = new MockDeleteFilter(replay);

@@ -19,15 +19,13 @@ public interface LogManager {
 
   long lowestLsn();
 
-  void startup();
+  Iterator<LogRecord> startup();
 
   void shutdown();
   
-  Future<Void> recover();
+//  Future<Void> recover();
   
   Future<Void> append(LogRecord record);
   
   Future<Void> appendAndSync(LogRecord record);
-  
-  Iterator<LogRecord> reader();
 }

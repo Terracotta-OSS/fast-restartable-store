@@ -55,8 +55,7 @@ public class MockLogManager implements LogManager {
     return currentLsn.get();
   }
 
-    @Override
-    public Future<Void> recover() {
+  private Future<Void> recover() {
         return new Future<Void>() {
 
             @Override
@@ -87,7 +86,8 @@ public class MockLogManager implements LogManager {
     }
 
   @Override
-  public void startup() {
+  public Iterator<LogRecord> startup() {
+      return reader();
   }
 
     @Override
@@ -115,7 +115,7 @@ public class MockLogManager implements LogManager {
         return new MockFuture();
     }
 
-    public Iterator<LogRecord> reader() {
+    private Iterator<LogRecord> reader() {
         try {
             ioManager.seek(IOManager.Seek.END.getValue());
             Chunk cc = ioManager.read(Direction.REVERSE);

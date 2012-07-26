@@ -43,7 +43,7 @@ public class StagingLogManager implements LogManager {
     private int RECOVERY_QUEUE_SIZE = 64;
     
     private ChunkExchange                               exchanger;
-    private final BlockingQueue<WritingPackage>    queue = new ArrayBlockingQueue<WritingPackage>(8);
+    private final BlockingQueue<WritingPackage>         queue = new ArrayBlockingQueue<WritingPackage>(8);
     private IOException                                 blockingException;
     
     private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
@@ -84,11 +84,11 @@ public class StagingLogManager implements LogManager {
         long cl = lowestLsn.get();
         long onDisk = highestOnDisk.get();
 
-        if ( !state.acceptRecords() ) return;
-
-//  recovery not completed.  can't do reading from two places
-        if ( exchanger == null || !exchanger.isDone() ) return;
+        if ( exchanger ==null || !exchanger.isDone() ) {
+            throw new AssertionError("cannot update lowest lsn until recovery is finished");
+        }
         
+        if ( !state.acceptRecords() ) return;
         
         if ( lsn > onDisk ) {
  //  highest on disk is lower than lowest, entire log on disk is old, set lowestLsn to the highest 
@@ -99,15 +99,6 @@ public class StagingLogManager implements LogManager {
             try {
                 if ( lowestLsn.compareAndSet(cl, lsn) ) {
                     io.setMinimumMarker(lsn);
-                    try {
-                        exchanger.get();
-                    } catch ( InterruptedException ie ) {
-                        LOGGER.debug("cleaning stream interrupted",ie);
-                        return;
-                    } catch ( ExecutionException ee ) {
-                        LOGGER.warn("cleaning stream failed",ee);
-                        return;
-                    }
                     io.clean(0);
                 }
             } catch ( IOException ioe ) {
@@ -265,9 +256,6 @@ public class StagingLogManager implements LogManager {
             waiting += (last - mark);
 
             if ( packer == null ) {
-    //  trigger a queue cleaning in io memory, lame way to signal but ok for now.
-    //  might be a good time to cache IO stats
-                io.getCurrentMarker();
                 continue;
             }
            
@@ -323,35 +311,40 @@ public class StagingLogManager implements LogManager {
       }
     }
     
-    @Override
-    public Future<Void> recover() {
-        if ( exchanger != null ) return exchanger;
-        
-        exchanger = new ChunkExchange(io, RECOVERY_QUEUE_SIZE);
+    private Future<Void> recover() {        
+        ChunkExchange ex = new ChunkExchange(io, RECOVERY_QUEUE_SIZE);
         LOGGER.debug("recovery queue size: " + RECOVERY_QUEUE_SIZE);
         
-        exchanger.recover();
+        ex.recover();
         
-        return exchanger;
+        return ex;
     }
 
     //  TODO:  re-examine when more runtime context is available.
     @Override
-    public void startup() {      
-        if ( state != state.IDLE ) state = state.reset();
+    public Iterator<LogRecord> startup() {      
+        if ( state != LogMachineState.IDLE ) state = state.reset();
         
         state = state.bootstrap();
         
-        if ( exchanger == null ) recover();
-        
         try {
-            enterNormalState(exchanger.getLastLsn(), exchanger.getLowestLsn());
-        } catch ( InterruptedException ioe ) {
-          throw new RuntimeException(ioe);
-        }  
-        
-        this.daemon = new IODaemon();
-        this.daemon.start();
+            if ( state == LogMachineState.BOOTSTRAP ) {
+                exchanger = (ChunkExchange)recover();
+
+                try {
+                    enterNormalState(exchanger.getLastLsn(), exchanger.getLowestLsn());
+                } catch ( InterruptedException ioe ) {
+                    throw new RuntimeException(ioe);
+                }  
+
+                return exchanger.iterator();
+            } else {
+                return null;
+            }
+        } finally {
+            this.daemon = new IODaemon();
+            this.daemon.start();
+        }
         
     }
 
@@ -399,6 +392,7 @@ public class StagingLogManager implements LogManager {
         if (!state.isErrorState() && currentLsn.get()-1 != highestOnDisk.get()) {
             throw new AssertionError();
         }
+        
         try {
             exchanger.cancel(true);
             exchanger.get();
@@ -413,7 +407,6 @@ public class StagingLogManager implements LogManager {
 //  log io error and close            
             LOGGER.error("error closing io",ioe);
         }
-        exchanger = null;
         state = state.idle();
     }
     
@@ -474,18 +467,6 @@ public class StagingLogManager implements LogManager {
         Future<Void> w = _append(record,true);
         return w;
     }
-
-    @Override
-    public Iterator<LogRecord> reader() {
-        if ( exchanger == null ) this.startup();
-        
-        return exchanger.iterator();
-    }
-        
-    ChunkExchange getRecoveryExchanger() {
-        return exchanger;
-    }
-
 
     static class WritingPackage implements Runnable {
         private final CommitList                list;

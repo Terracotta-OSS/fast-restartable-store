@@ -152,10 +152,10 @@ public class StagingLogManagerTest {
             }
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
-        logManager.startup();
+        
 
         long expectedLsn = 1099;
-        Iterator<LogRecord> i = logManager.reader();
+        Iterator<LogRecord> i = logManager.startup();
         while (i.hasNext()) {
             LogRecord record = i.next();
 //            assertThat(record.getLowestLsn(), is(0L));
@@ -163,7 +163,6 @@ public class StagingLogManagerTest {
             expectedLsn--;
         }
         assertThat(expectedLsn, is(99L));
-        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }
 
     @Test
@@ -179,10 +178,10 @@ public class StagingLogManagerTest {
             }
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
-        logManager.startup();
+        
 
         long expectedLsn = 199;
-        Iterator<LogRecord> i = logManager.reader();
+        Iterator<LogRecord> i = logManager.startup();
         while (i.hasNext()) {
             LogRecord record = i.next();
 //            assertThat(record.getLowestLsn(), is(0L));
@@ -192,7 +191,6 @@ public class StagingLogManagerTest {
 //            System.out.println("got " + record.getLsn());
         }
         assertThat(expectedLsn, is(99L));
-        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }  
     
     @Test
@@ -225,29 +223,32 @@ public class StagingLogManagerTest {
         }
         
         ioManager.dieOnRead(); // dies with 10 records left to read
+        Iterator<LogRecord> i = null;
+        
         try {
-            logManager.startup();
+            i = logManager.startup();
             Assert.fail("expected reader exception");
         } catch ( Throwable t ) {
 //   receovery may have died already, expected
             t.printStackTrace();
         }
-
+        
+       
         long expectedLsn = 199;
-        Iterator<LogRecord> i = logManager.reader();
-        try {
-            while (i.hasNext()) {
-                LogRecord record = i.next();
-    //            assertThat(record.getLowestLsn(), is(0L));
-                assertThat(record.getLsn(), is(expectedLsn--));
-//                System.out.println("got " + record.getLsn());
+        if ( i != null ) {
+            try {
+                while (i.hasNext()) {
+                    LogRecord record = i.next();
+        //            assertThat(record.getLowestLsn(), is(0L));
+                    assertThat(record.getLsn(), is(expectedLsn--));
+    //                System.out.println("got " + record.getLsn());
+                }
+                Assert.fail("expected reader exception");
+            } catch ( Throwable t ) {
+                t.printStackTrace();
             }
-            Assert.fail("expected reader exception");
-       } catch ( Throwable t ) {
-            t.printStackTrace();
         }
         assertThat(expectedLsn, not(99L));
-        assertThat(logManager.getRecoveryExchanger().isDone(),is(false));
     }
     
     @Test
@@ -272,10 +273,10 @@ public class StagingLogManagerTest {
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         ioManager.slowReads();
-        logManager.startup();
 
         long expectedLsn = 199;
-        Iterator<LogRecord> i = logManager.reader();
+        Iterator<LogRecord> i = logManager.startup();
+        
         while (i.hasNext()) {
             LogRecord record = i.next();
 //            assertThat(record.getLowestLsn(), is(0L));
@@ -284,7 +285,6 @@ public class StagingLogManagerTest {
 //            System.out.println("got " + record.getLsn());
         }
         assertThat(expectedLsn, is(99L));
-        assertThat(logManager.getRecoveryExchanger().isDone(),is(true));
     }      
 
     private LogRecord newRecord(long lowest) {

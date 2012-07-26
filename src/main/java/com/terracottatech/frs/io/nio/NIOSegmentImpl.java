@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 class NIOSegmentImpl {
 
     static final int FILE_HEADER_SIZE = 42;
-    private static final String LOCKED_FILE_ACCESS = "could not obtain file lock";
     private static final short IMPL_NUMBER = 02;
     private final NIOStreamImpl parent;
     private final int segNum;

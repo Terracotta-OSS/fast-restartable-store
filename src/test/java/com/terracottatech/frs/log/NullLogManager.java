@@ -27,7 +27,8 @@ public class NullLogManager implements LogManager {
   }
 
   @Override
-  public void startup() {
+  public Iterator<LogRecord> startup() {
+      return reader();
   }
 
   @Override
@@ -44,15 +45,7 @@ public class NullLogManager implements LogManager {
     return null;
   }
 
-  @Override
-  public Iterator<LogRecord> reader() {
+  private Iterator<LogRecord> reader() {
     return Collections.<LogRecord>emptyList().iterator();
   }
-
-    @Override
-    public Future<Void> recover() {
-        return null;
-    }
-  
-  
 }

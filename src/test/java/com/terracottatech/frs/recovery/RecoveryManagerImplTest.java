@@ -187,7 +187,7 @@ public class RecoveryManagerImplTest {
     }
 
     @Override
-    public Iterator<LogRecord> reader() {
+    public Iterator<LogRecord> startup() {
       return records.iterator();
     }
 

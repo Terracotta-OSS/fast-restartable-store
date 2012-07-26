@@ -22,7 +22,6 @@ import java.util.List;
 public class IntegrityTool {
     private long lowestLsn = 0;
     private long max = 0;
-    private long min = 0;
     private int currentSegment = -1;
     private final File dir;
     
@@ -110,7 +109,6 @@ public class IntegrityTool {
                 System.out.format("!!!!! Invalid LSN Sequence %d->%d  !!!!!\n",max,thisMin);
             }
         }
-        min = thisMin;
         max = thisMax;
         System.out.format("%s - min: %d, max: %d, chunks: %d, avg. chunk size: %d, records: %d, avg. record size: %d closed: %b\n",
                 f.getName(),thisMin,thisMax,count,(count>0)?size/count:0,records,(records>0)?rsize/records:0,closed);

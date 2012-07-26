@@ -45,7 +45,7 @@ class NIOSegmentImpl {
     NIOSegmentImpl(NIOStreamImpl p, File file) {
         this.parent = p;
         this.src = file;
-        this.segNum = NIOSegmentList.convertSegmentNumber(file);
+        this.segNum = NIOConstants.convertSegmentNumber(file);
     }
 
     File getFile() {

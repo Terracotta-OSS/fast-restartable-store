@@ -39,7 +39,6 @@ public class NIOManager implements IOManager {
     private long                memorySize;
         
     private static final String LOCKFILE_ACTIVE = "lock file exists";
-    private static final String BACKUP_LOCKFILE = "frs.backup.lck";
     
     private NIOStreamImpl backend;
     private long written = 1;
@@ -214,7 +213,7 @@ public class NIOManager implements IOManager {
             throw new IOException(LOCKFILE_ACTIVE);
         }
 
-        backupLockFile = new File(directory, BACKUP_LOCKFILE);
+        backupLockFile = new File(directory, NIOConstants.BACKUP_LOCKFILE);
         backupLockFile.createNewFile();
 
         backend.open();

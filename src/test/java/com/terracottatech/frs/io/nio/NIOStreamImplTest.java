@@ -106,7 +106,7 @@ public class NIOStreamImplTest {
   }  
 
   private File[] listFiles() {
-    return workArea.listFiles(NIOSegmentList.SEGMENT_FILENAME_FILTER);
+    return workArea.listFiles(NIOConstants.SEGMENT_FILENAME_FILTER);
   }
 
   private Chunk newChunk(long size) {

@@ -181,7 +181,7 @@ public class BackupTest {
 
       Thread.sleep(5 * 1000);
 
-      Backup.backup(original, copy);
+      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
 
       done.set(true);
 
@@ -236,7 +236,7 @@ public class BackupTest {
       for (int i = 0; i < 1000; i++) {
         map.put(Integer.toString(i), Integer.toString(i));
       }
-      Backup.backup(original, copy);
+      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
 
       restartStore.shutdown();
     }

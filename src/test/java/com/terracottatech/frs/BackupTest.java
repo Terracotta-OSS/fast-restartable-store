@@ -1,6 +1,7 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.config.FrsProperty;
+import com.terracottatech.frs.io.nio.NIOConstants;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
@@ -39,6 +40,37 @@ public class BackupTest {
       Assert.fail("Should fail on missing source directory.");
     } catch (IOException e) {
       // expected
+    }
+  }
+
+  @Test
+  public void testMissingBackupLockfile() throws Exception {
+    File folder = tempFolder.newFolder();
+
+    File original = new File(folder, "original");
+    File copy = new File(folder, "copy");
+
+    assertThat(original.mkdirs(), is(true));
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
+                                                                                                      original, new Properties());
+
+      restartStore.startup().get();
+
+      restartStore.shutdown();
+    }
+
+    File backupLockfile = new File(original, NIOConstants.BACKUP_LOCKFILE);
+    assertThat(backupLockfile.delete(), is(true));
+
+    try {
+      Backup.main(new String[] {original.getAbsolutePath(), copy.getAbsolutePath()});
+      Assert.fail("Should have failed due to missing lock file.");
+    } catch (IOException e) {
+      //
     }
   }
 

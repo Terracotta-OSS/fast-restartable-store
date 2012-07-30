@@ -101,7 +101,7 @@ public class IntegrityToolTest {
     /**
      * Test of examineSegmentFile method, of class IntegrityTool.
      */
-    @Test
+    @Test @Ignore
     public void testExamineSegmentFile() throws Exception {
         System.out.println("examineSegmentFile");
         File f = null;

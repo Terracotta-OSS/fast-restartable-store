@@ -77,6 +77,9 @@ public class IntegrityTool {
     
     
     public long examineSegmentFile(File f) throws Exception {
+        if ( dir != null && !f.getParentFile().equals(dir) ) {
+            throw new IOException("segment is not part of the current stream");
+        }
         BufferSource src = new GCBufferSource();
         NIOSegmentImpl segment = new NIOSegmentImpl(null, f);
         segment.openForReading(src);

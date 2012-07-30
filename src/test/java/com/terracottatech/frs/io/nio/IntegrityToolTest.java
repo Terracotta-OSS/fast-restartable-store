@@ -101,15 +101,23 @@ public class IntegrityToolTest {
     /**
      * Test of examineSegmentFile method, of class IntegrityTool.
      */
-    @Test @Ignore
+    @Test 
     public void testExamineSegmentFile() throws Exception {
         System.out.println("examineSegmentFile");
-        File f = null;
-        IntegrityTool instance = null;
-        long expResult = 0L;
-        long result = instance.examineSegmentFile(f);
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+        File f = new NIOSegmentList(workArea).getBeginningFile();
+        IntegrityTool tool = new IntegrityTool(workArea);
+        assert(tool.examineSegmentFile(f) == 100);
+    }
+    
+    @Test
+    public void testMisAlignment() throws Exception {
+        try {
+            IntegrityTool tool = new IntegrityTool(workArea);
+            tool.examineSegmentFile(folder.newFile());
+            Assert.fail("file should not be a part of this stream");
+        } catch ( Exception e ) {
+            e.printStackTrace();
+            assert( e instanceof IOException );
+        }
     }
 }

@@ -12,6 +12,7 @@ import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.log.Signature;
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -48,18 +49,26 @@ public class IntegrityTool {
             System.err.println("examining " + dir.getAbsolutePath());
             new IntegrityTool(dir).examine();
         } catch (Exception ioe) {
-            ioe.printStackTrace();
+            System.err.println("error processing directory -- " + ioe.getMessage());
         }
     }
     
     public void examine() throws Exception {
+        if ( !dir.exists() || !dir.isDirectory() ) {
+            throw new IOException("target directory does not exist");
+        }
         NIOSegmentList list = new NIOSegmentList(dir);
+        
+        if ( list.getCount() == 0 ) {
+            throw new IOException("no segment files for in the specified directory");
+        }
+        
         File segfile = list.nextReadFile(Direction.FORWARD);
         while ( segfile != null ) {
             try {
                 lowestLsn = examineSegmentFile(segfile);
             } catch ( Exception e ) {
-                System.out.println(segfile.getName() + " " + e.getMessage());
+                System.out.println(segfile.getName() + " " + e.getClass().getCanonicalName() + " - " + e.getMessage());
             }
             segfile = list.nextReadFile(Direction.FORWARD);
         }

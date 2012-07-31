@@ -12,12 +12,14 @@ import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordImpl;
 import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.log.Signature;
+import com.terracottatech.frs.util.ByteBufferUtils;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import org.junit.*;
 
 /**
@@ -47,7 +49,7 @@ public class AbstractReadbackStrategyTest {
     public void setUp() throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
+        manager = new NIOManager(workArea.getAbsolutePath(), 4 * 1024 * 1024, 10 * 1024 * 1024);
         manager.setMinimumMarker(100);
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {
@@ -61,6 +63,12 @@ public class AbstractReadbackStrategyTest {
         list.add(new LogRecordImpl(current, new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
         manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
     }
+    
+    private void writePunyChunkWithMarkers(int size) throws Exception {
+        ArrayList<LogRecord> list = new ArrayList<LogRecord>();
+        list.add(new LogRecordImpl(current, new ByteBuffer[] {ByteBuffer.allocate(1)}, null));
+        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
+    }   
         
     
     @After
@@ -81,14 +89,97 @@ public class AbstractReadbackStrategyTest {
         assert(rs.isConsistent() == true);
     }    
     
-    public ReadbackStrategy testConsistency() throws Exception {
+    @Test
+    public void testJumpList() throws Exception {
+        NIOSegmentList list = new NIOSegmentList(workArea);
+//  test non closed stream
+        File end = list.getEndFile();
+        final FileBuffer  endbuffer = new FileBuffer(new FileInputStream(end).getChannel(), ByteBuffer.allocate((int)end.length()));
+        AbstractReadbackStrategy rs = new MockReadbackStrategy(endbuffer);
+        ArrayList<Long> jumps = rs.readJumpList(endbuffer);
+        assert(jumps == null);
+        
+        manager.close();
+//  test non closed stream
+        Iterator<File> fi = list.iterator();
+        int count = 0;
+        while ( fi.hasNext() ) {
+            File file = fi.next();
+            final FileBuffer  buffer = new FileBuffer(new FileInputStream(file).getChannel(), ByteBuffer.allocate((int)file.length()));
+            buffer.read(1);
+            buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
+            rs = new MockReadbackStrategy(buffer);
+
+            jumps = rs.readJumpList(buffer);
+            count += jumps.size();
+            buffer.close();
+        }
+        
+        assert(count == 1000);
+    }
+    
+    @Test
+    public void testMoreThanShortWidthChunks() throws Exception {
+    //  create a 10k lsn window
+        for(int x=0;x<Short.MAX_VALUE*2 + 1;x++) {
+            writePunyChunkWithMarkers(10);
+            manager.sync();
+        }
+        manager.close();
+//  test non closed stream
+        NIOSegmentList list = new NIOSegmentList(workArea);
+        Iterator<File> fi = list.iterator();
+        int count = 0;
+        while ( fi.hasNext() ) {
+            File file = fi.next();
+            final FileBuffer  buffer = new FileBuffer(new FileInputStream(file).getChannel(), ByteBuffer.allocate((int)file.length()));
+            buffer.read(1);
+            buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
+            MockReadbackStrategy rs = new MockReadbackStrategy(buffer);
+
+            ArrayList<Long> jumps = rs.readJumpList(buffer);
+            if ( jumps == null ) {
+                final long LAST_INT_WORD_IN_CHUNK = buffer.length()-ByteBufferUtils.INT_SIZE;
+                final long LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
+                int numberOfChunks = buffer.getShort(LAST_SHORT_WORD_BEFORE_JUMP_MARK);
+                assert(numberOfChunks < 0);
+                return;
+            }
+            count += jumps.size();
+            System.out.println(jumps.size());
+            buffer.close();
+        }
+        
+        Assert.fail("filled up a segment with more than short width of chunks and still got jump lists");
+        
+    }
+    
+    private ReadbackStrategy testConsistency() throws Exception {
         NIOSegmentList list = new NIOSegmentList(workArea);
         final FileBuffer  buffer = new FileBuffer(new FileInputStream(list.getEndFile()).getChannel(), ByteBuffer.allocate((int)list.getEndFile().length()));
         buffer.read(1);
         buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
-        ReadbackStrategy rs = new AbstractReadbackStrategy() {
+        ReadbackStrategy rs = new MockReadbackStrategy(buffer);
+        
+        while (rs.hasMore(Direction.FORWARD)) {
+            Chunk c = rs.iterate(Direction.FORWARD);
+        }
+        
+        buffer.close();
+        return rs;
+        
+    }
+    
+    
+    static class MockReadbackStrategy extends AbstractReadbackStrategy {
             
-            ByteBuffer[] hold = null;
+            private ByteBuffer[] hold = null;
+            private final Chunk buffer;
+            
+            MockReadbackStrategy(Chunk src) {
+                buffer = src;
+            }
+            
 
             @Override
             public Chunk iterate(Direction dir) throws IOException {
@@ -104,16 +195,6 @@ public class AbstractReadbackStrategyTest {
                 hold = readChunk(buffer);
                 return hold != null;
             }
-        };
-        
-        
-        while (rs.hasMore(Direction.FORWARD)) {
-            Chunk c = rs.iterate(Direction.FORWARD);
-        }
-        
-        return rs;
-        
     }
-    
 
 }

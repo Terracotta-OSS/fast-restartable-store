@@ -108,6 +108,7 @@ public class StagingLogManager implements LogManager {
                 }
             } catch ( ClosedByInterruptException in ) {
      //  someone interrupted the thread, just return
+                LOGGER.debug("cleaning was interrupted",in);
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);
             }

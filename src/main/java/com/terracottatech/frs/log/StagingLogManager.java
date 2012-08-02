@@ -109,6 +109,8 @@ public class StagingLogManager implements LogManager {
             } catch ( ClosedByInterruptException in ) {
      //  someone interrupted the thread, just return
                 LOGGER.debug("cleaning was interrupted",in);
+     //  reset interrupt
+                Thread.currentThread().interrupt();
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);
             }
@@ -472,7 +474,7 @@ public class StagingLogManager implements LogManager {
 
 
     @Override
-    public CommitList append(LogRecord record) {
+    public Future<Void> append(LogRecord record) {
         return _append(record,false);
     }
     

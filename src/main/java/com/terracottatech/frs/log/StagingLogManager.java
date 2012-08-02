@@ -78,6 +78,10 @@ public class StagingLogManager implements LogManager {
     public long currentLsn() { 
       return currentLsn.get();
     }
+    
+    long firstCommitListLsn() {
+        return currentRegion.getBaseLsn();
+    }
 
     @Override
     public void updateLowestLsn(long lsn) {
@@ -207,13 +211,15 @@ public class StagingLogManager implements LogManager {
             turns+=1;
 //  if in synchronous mode, wait here so more log records are batched in the next region
             if ( state.acceptRecords() && oldRegion.isSyncRequested() ) {
-                oldRegion.get();
+                try {
+                    oldRegion.get();
+                } catch ( ExecutionException ee ) {
+                    //  ignore this, this wait is a performace optimization
+                }
             }
           } catch (InterruptedException ie) {
             state.checkException(ie);
-          } catch (ExecutionException ee) {
-            state.checkException(ee);
-          } 
+          }
         }
         
         asyncPacker.shutdown();
@@ -289,8 +295,12 @@ public class StagingLogManager implements LogManager {
         
         try {
             if ( state.isErrorState() ) {
-                while ( !queue.isEmpty() ) {
-                    queue.poll().list.exceptionThrown(blockingException);
+//  clear any items in the queue
+                long floatingLsn = highestOnDisk.get();
+                while ( currentLsn.get() - 1 != floatingLsn ) {
+                    CommitList next = queue.take().list;
+                    next.exceptionThrown(blockingException);
+                    floatingLsn = next.getEndLsn();
                 }
             } else if ( !queue.isEmpty() ) {
                 while ( !queue.isEmpty() ) {
@@ -440,7 +450,7 @@ public class StagingLogManager implements LogManager {
             int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
             while ( !mine.append(record,sync) ) {
                 if ( spincount++ > waitspin ) {
-                    try {
+                    try {                      
                         mine.get();
                         waitspin += (Math.round((float)(Math.random() * 512f)));
                     } catch ( InterruptedException ie ) {

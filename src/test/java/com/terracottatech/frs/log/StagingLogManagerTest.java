@@ -71,6 +71,31 @@ public class StagingLogManagerTest {
         verify(ioManager, atLeastOnce()).write(any(Chunk.class),any(Long.class));
     }
     
+    @Test
+    public void testQueueClearOnException() throws Exception {
+        logManager.startup();
+        ioManager.haltWrites();
+        final CountDownLatch check = new CountDownLatch(50);
+        for (int x=0;x<50;x++) {
+            new Thread() {
+                public void run() {
+                    try {
+                        logManager.appendAndSync(spy(newRecord(-1))).get();
+                    } catch ( InterruptedException ir ) {
+                    
+                    } catch ( ExecutionException ee ) {
+                        
+                    } finally {
+                        check.countDown();
+                    }
+                }
+            }.start();
+        }
+        ioManager.throwException(new IOException("disk full"));
+        check.await();
+        assert(logManager.currentLsn() == logManager.firstCommitListLsn());
+    }
+    
     @Test 
     public void testAppendException() {
         logManager.startup();
@@ -298,14 +323,27 @@ public class StagingLogManagerTest {
         private long current = 99;
         private boolean slowReads = false;
         private boolean dieOnRead = false;
+        private boolean haltWrites = false;
+        private volatile IOException exception;
 
         @Override
         public long write(Chunk region, long lsn) throws IOException {
             if ( startThrowing ) throw new IOException();
+            if ( haltWrites ) block();
+            if ( exception != null ) throw exception;
             current = lsn;
             chunks.push(region);
             return 0;
         }
+        
+        private synchronized void block() {
+            try {
+                if ( exception == null ) this.wait();
+            } catch ( InterruptedException ie ) {
+                throw new RuntimeException(ie);
+            }
+        }
+        
         
     @Override
     public void setMinimumMarker(long lsn) throws IOException {
@@ -328,6 +366,15 @@ public class StagingLogManagerTest {
     
     public void dieOnRead() {
         dieOnRead = true;
+    }
+    
+    public void haltWrites() {
+        haltWrites = true;
+    }
+    
+    public synchronized void throwException(IOException exp) {
+        exception = exp;
+        this.notifyAll();
     }
 
         @Override

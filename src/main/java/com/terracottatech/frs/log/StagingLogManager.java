@@ -12,6 +12,7 @@ import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.ManualBufferSource;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.*;
@@ -105,6 +106,8 @@ public class StagingLogManager implements LogManager {
                     io.setMinimumMarker(lsn);
                     io.clean(0);
                 }
+            } catch ( ClosedByInterruptException in ) {
+     //  someone interrupted the thread, just return
             } catch ( IOException ioe ) {
                 throw new RuntimeException(ioe);
             }

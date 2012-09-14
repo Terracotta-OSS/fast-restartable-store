@@ -28,18 +28,12 @@ class MockLogRegion implements LogRegion, Serializable {
     public Iterator<LogRecord> iterator() {
         return Arrays.asList(record).iterator();
     }
-    
-    
-
-  public long getLowestLsn() {
-    return record.getLowestLsn();
-  }
 
   public String toString() {
     String recordOut = record.toString();
     recordOut = "\t" + recordOut.replace("\n", "\n\t");
     
-    return "LogRegion[lowest-lsn=" + getLowestLsn() + "] {\n"
+    return "LogRegion[] {\n"
             + recordOut + "\n}";
   }
   

@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
  */
 public class MasterLogRecordFactory implements LogRecordFactory {
     @Override
-    public LogRecord createLogRecord(long lowestLsn, ByteBuffer[] payload, LSNEventListener listener) {
-        return new LogRecordImpl(lowestLsn, payload, listener);
+    public LogRecord createLogRecord(ByteBuffer[] payload, LSNEventListener listener) {
+        return new LogRecordImpl(payload, listener);
     }
 }

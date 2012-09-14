@@ -15,26 +15,14 @@ import java.nio.ByteBuffer;
  */
 public class LogRecordImpl implements LogRecord {
     
-    private long lowestLsn;
     private long lsn;
     private final ByteBuffer[] payload;
     
     private final LSNEventListener listener;
 
-    public LogRecordImpl(long lowestLsn, ByteBuffer[] buffers, LSNEventListener listener) {
-        this.lowestLsn = lowestLsn;
+    public LogRecordImpl(ByteBuffer[] buffers, LSNEventListener listener) {
         this.payload = buffers;
         this.listener = listener;
-    }
-
-    @Override
-    public long getLowestLsn() {
-        return lowestLsn;
-    }
-
-    @Override
-    public void setLowestLsn(long lsn) {
-        lowestLsn = lsn;
     }
     
     @Override
@@ -59,6 +47,6 @@ public class LogRecordImpl implements LogRecord {
 
     @Override
     public String toString() {
-        return "LogRecordImpl{" + "lowestLsn=" + lowestLsn + ", lsn=" + lsn + '}';
+        return "LogRecordImpl{lsn=" + lsn + '}';
     }
 }

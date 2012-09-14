@@ -27,7 +27,7 @@ public class MockActionManager implements ActionManager {
   }
 
   public Future<Void> happened(Action action) {
-    LogRecord record = new MockLogRecord(action, objManager.getLowestLsn());
+    LogRecord record = new MockLogRecord(action);
     return logManager.append(record);
   }
 

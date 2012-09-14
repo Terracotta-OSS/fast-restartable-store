@@ -50,7 +50,7 @@ public class StagingLogManagerTest {
     @Test
     public void testAppendAndSync() throws Exception {
         logManager.startup();
-        LogRecord record = newRecord(-1);
+        LogRecord record = newRecord();
         Future<Void> f = logManager.appendAndSync(record);
         f.get(LOG_REGION_WRITE_TIMEOUT, SECONDS);
         verify(ioManager).write(any(Chunk.class),any(Long.class));
@@ -63,7 +63,7 @@ public class StagingLogManagerTest {
     public void testAppend() throws Exception {
         logManager.startup();
         for (long i = 100; i < 200; i++) {
-            LogRecord record = spy(newRecord(-1));
+            LogRecord record = spy(newRecord());
             logManager.append(record);
             verify(record).updateLsn(i);
         }
@@ -80,7 +80,7 @@ public class StagingLogManagerTest {
             new Thread() {
                 public void run() {
                     try {
-                        logManager.appendAndSync(spy(newRecord(-1))).get();
+                        logManager.appendAndSync(spy(newRecord())).get();
                     } catch ( InterruptedException ir ) {
                     
                     } catch ( ExecutionException ee ) {
@@ -103,7 +103,7 @@ public class StagingLogManagerTest {
 
         try {
             for (long i = 100; i < 100000000; i++) {
-                LogRecord record = spy(newRecord(-1));
+                LogRecord record = spy(newRecord());
                 logManager.append(record);
                 verify(record).updateLsn(i);
             }
@@ -128,7 +128,7 @@ public class StagingLogManagerTest {
                     @Override
                     public Void call() {
                         try {
-                            logManager.appendAndSync(newRecord(-1)).get();
+                            logManager.appendAndSync(newRecord()).get();
                             syncs.incrementAndGet();
                             return null;
                         } catch (Exception exp) {
@@ -142,7 +142,7 @@ public class StagingLogManagerTest {
                     @Override
                     public Void call() {
                         try {
-                            logManager.append(newRecord(-1)).get();
+                            logManager.append(newRecord()).get();
                             return null;
                         } catch (Exception exp) {
                             throw new RuntimeException(exp);
@@ -170,7 +170,7 @@ public class StagingLogManagerTest {
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 100; j++) {
-                LogRecord record = newRecord(-1);
+                LogRecord record = newRecord();
                 record.updateLsn(lsn);
                 lsn++;
                 records.add(record);
@@ -196,7 +196,7 @@ public class StagingLogManagerTest {
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
-                LogRecord record = newRecord(-1);
+                LogRecord record = newRecord();
                 record.updateLsn(lsn);
                 lsn++;
                 records.add(record);
@@ -239,7 +239,7 @@ public class StagingLogManagerTest {
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
-                LogRecord record = newRecord(-1);
+                LogRecord record = newRecord();
                 record.updateLsn(lsn++);
                 records.add(record);
             }
@@ -290,7 +290,7 @@ public class StagingLogManagerTest {
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
-                LogRecord record = newRecord(-1);
+                LogRecord record = newRecord();
                 record.updateLsn(lsn);
                 lsn++;
                 records.add(record);
@@ -312,8 +312,8 @@ public class StagingLogManagerTest {
         assertThat(expectedLsn, is(99L));
     }      
 
-    private LogRecord newRecord(long lowest) {
-        return new LogRecordImpl(lowest, new ByteBuffer[0], mock(LSNEventListener.class));
+    private LogRecord newRecord() {
+        return new LogRecordImpl(new ByteBuffer[0], mock(LSNEventListener.class));
     }
 
     private class DummyIOManager implements IOManager {

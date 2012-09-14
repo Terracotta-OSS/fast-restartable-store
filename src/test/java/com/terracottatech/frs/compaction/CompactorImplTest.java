@@ -56,7 +56,7 @@ public class CompactorImplTest {
       compactor.generatedGarbage(0);
     }
     SECONDS.sleep(1);
-    verify(objectManager, never()).updateLowestLsn();
+    verify(objectManager, never()).getLowestLsn();
 
     compactor.generatedGarbage(0);
 

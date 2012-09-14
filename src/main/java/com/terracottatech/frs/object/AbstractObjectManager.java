@@ -15,13 +15,6 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
 
   private final ConcurrentLinkedQueue<ObjectManagerSegment<I, K, V>> compactionTargets = new ConcurrentLinkedQueue<ObjectManagerSegment<I, K, V>>();
   
-  private volatile long latestLowestLsn = -1;
-
-  @Override
-  public long getLowestLsn() {
-    return latestLowestLsn;
-  }
-
   @Override
   public long getLsn(I id, K key) {
     Long l = getStripeFor(id).getLsn(key);
@@ -94,7 +87,8 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     getStripeFor(entry.getId()).releaseCompactionEntry(entry);
   }
 
-  public void updateLowestLsn() {
+    @Override
+  public long getLowestLsn() {
     long lowest = -1;
     for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
       Long lowestInStripe = stripe.getLowestLsn();
@@ -104,7 +98,7 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
 	    }
 	  }
     }
-    latestLowestLsn = lowest;
+    return lowest;
   }
 
   public long size() {

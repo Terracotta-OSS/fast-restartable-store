@@ -22,11 +22,6 @@ public class DummyLogRegion implements LogRegion {
     }
     
     @Override
-    public long getLowestLsn() {
-        return -1;
-    }
-
-    @Override
     public Iterator<LogRecord> iterator() {
         return records.iterator();
     }

@@ -135,11 +135,6 @@ public class MockObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public void updateLowestLsn() {
-    // Nothing to do for the mock implementation
-  }
-
-  @Override
   public long sizeInBytes() {
     throw new UnsupportedOperationException();
   }

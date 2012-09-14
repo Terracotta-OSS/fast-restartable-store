@@ -52,11 +52,6 @@ public class DummyLogRecord implements LogRecord {
         return list;
     }
 
-    @Override
-    public long getLowestLsn() {
-        return 5;
-    }
-
     public void setLowestLsn(long lsn) {
     }
 

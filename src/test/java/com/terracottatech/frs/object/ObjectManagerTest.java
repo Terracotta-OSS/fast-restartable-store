@@ -192,7 +192,7 @@ public abstract class ObjectManagerTest {
   }
 
   @Test
-  public void predictableUpdateLowestLsnTest() {
+  public void predictablegetLowestLsnTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
     Assume.assumeThat(objMgr, instanceOf(AbstractObjectManager.class));
 
@@ -201,21 +201,21 @@ public abstract class ObjectManagerTest {
     assertThat(objMgr.getLowestLsn(), is(-1L));
     assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
 
-    absObjMgr.updateLowestLsn();
+    absObjMgr.getLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(-1L));
     assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
 
     for (long i = 0L; i < 100L; i++) {
       objMgr.put("foo", Long.toString(i), "bar", i);
 
-      assertThat(objMgr.getLowestLsn(), is(-1L));
+      assertThat(objMgr.getLowestLsn(), is(0L));
       ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry(Long.MAX_VALUE);
       assertThat(Long.parseLong(entry.getKey()), lessThanOrEqualTo(i));
       objMgr.releaseCompactionEntry(entry);
       assertThat(objMgr.getLsn("foo", Long.toString(i)), is(i));
     }
 
-    absObjMgr.updateLowestLsn();
+    absObjMgr.getLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(0L));
     ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry(Long.MAX_VALUE);
     assertThat(Long.parseLong(entry.getKey()), lessThan(100L));
@@ -223,7 +223,7 @@ public abstract class ObjectManagerTest {
 
     for (long i = 0L; i < 100L; i++) {
       objMgr.remove("foo", Long.toString(i));
-      absObjMgr.updateLowestLsn();
+      absObjMgr.getLowestLsn();
       if (i == 99L) {
         assertThat(objMgr.getLowestLsn(), is(-1L));
         assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
@@ -237,7 +237,7 @@ public abstract class ObjectManagerTest {
   }
 
   @Test
-  public void randomUpdateLowestLsnTest() {
+  public void randomgetLowestLsnTest() {
     ObjectManager<String, String, String> objMgr = createObjectManager();
     Assume.assumeThat(objMgr, instanceOf(AbstractObjectManager.class));
 
@@ -246,7 +246,7 @@ public abstract class ObjectManagerTest {
     assertThat(objMgr.getLowestLsn(), is(-1L));
     assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
 
-    absObjMgr.updateLowestLsn();
+    absObjMgr.getLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(-1L));
     assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
 
@@ -255,27 +255,27 @@ public abstract class ObjectManagerTest {
       objMgr.put("foo", Long.toString(i), "bar", i);
       liveLsn.add(i);
 
-      assertThat(objMgr.getLowestLsn(), is(-1L));
+      assertThat(objMgr.getLowestLsn(), is(0L));
       ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry(Long.MAX_VALUE);
       assertThat(Long.parseLong(entry.getKey()), lessThanOrEqualTo(i));
       assertThat(objMgr.getLsn("foo", Long.toString(i)), is(i));
       objMgr.releaseCompactionEntry(entry);
     }
 
-    absObjMgr.updateLowestLsn();
+    absObjMgr.getLowestLsn();
     assertThat(objMgr.getLowestLsn(), is(0L));
     ObjectManagerEntry<String, String, String> entry = objMgr.acquireCompactionEntry(Long.MAX_VALUE);
     assertThat(Long.parseLong(entry.getKey()), lessThan(100L));
     objMgr.releaseCompactionEntry(entry);
 
     long seed = System.nanoTime();
-    System.err.println("randomUpdateLowestLsnTest using seed " + seed);
+    System.err.println("randomgetLowestLsnTest using seed " + seed);
     Random rndm = new Random(seed);
 
     while (!liveLsn.isEmpty()) {
       long removalCandidate = liveLsn.remove(rndm.nextInt(liveLsn.size()));
       objMgr.remove("foo", Long.toString(removalCandidate));
-      absObjMgr.updateLowestLsn();
+      absObjMgr.getLowestLsn();
       if (liveLsn.isEmpty()) {
         assertThat(objMgr.getLowestLsn(), is(-1L));
         assertThat(objMgr.acquireCompactionEntry(Long.MAX_VALUE), nullValue());
@@ -296,7 +296,7 @@ public abstract class ObjectManagerTest {
       testlow.put(1, "test", "low", 2L);
       testlow.put(2, "test", "low", 3L);
       testlow.remove(2, "test");
-      testlow.updateLowestLsn();
+      testlow.getLowestLsn();
       assertThat(testlow.getLowestLsn(),is(2L));
         
   } 

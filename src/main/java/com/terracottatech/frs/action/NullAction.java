@@ -13,6 +13,8 @@ import java.nio.ByteBuffer;
  */
 public class NullAction implements Action {
   public static final Action INSTANCE = new NullAction();
+  
+  private long lsn;
 
   public static <I, K, V> ActionFactory<I, K, V> factory() {
     return new ActionFactory<I, K, V>() {
@@ -25,6 +27,11 @@ public class NullAction implements Action {
 
   @Override
   public void record(long lsn) {
+      this.lsn = lsn;
+  }
+  
+  public long getLsn() {
+      return lsn;
   }
 
   @Override

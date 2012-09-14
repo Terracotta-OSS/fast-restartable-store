@@ -8,10 +8,7 @@ package com.terracottatech.frs.object;
  * @author tim
  */
 public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
-  @Override
-  public long getLowestLsn() {
-    return 0;
-  }
+
 
   @Override
   public long getLsn(I id, K key) {
@@ -53,7 +50,8 @@ public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
   }
 
   @Override
-  public void updateLowestLsn() {
+  public long getLowestLsn() {
+      return -1;
   }
 
   @Override

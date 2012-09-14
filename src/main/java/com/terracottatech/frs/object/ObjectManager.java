@@ -8,17 +8,8 @@ package com.terracottatech.frs.object;
  * @author cdennis
  */
 public interface ObjectManager<I, K, V> {
-
-  /**
-   * Returns an estimate of the lowest live lsn in the system.
-   * <p>
-   * It is acceptable to underestimate this value but not to overestimate it.
-   * Since the estimated quantity is monotonically increasing this means it is
-   * acceptable to return an out-of-date estimate here.
-   *
-   * @return an estimate of the oldest live lsn, {@code -1} if none.
-   */
-  long getLowestLsn();
+   
+   public static final long ISEMPTY_LSN = -1;
   
   long getLsn(I id, K key);
   
@@ -73,6 +64,14 @@ public interface ObjectManager<I, K, V> {
    * @return size in bytes
    */
   long sizeInBytes();
-
-  void updateLowestLsn();
+  /**
+   * Returns an estimate of the lowest live lsn in the system.
+   * <p>
+   * It is acceptable to underestimate this value but not to overestimate it.
+   * Since the estimated quantity is monotonically increasing this means it is
+   * acceptable to return an out-of-date estimate here.
+   *
+   * @return an estimate of the oldest live lsn, {@code -1} if no objects are available for query.
+   */
+  long getLowestLsn();
 }

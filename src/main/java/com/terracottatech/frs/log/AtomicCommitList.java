@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * @author mscott
  */
 public class AtomicCommitList implements CommitList {
-    private static final LogRecord DUMMY_RECORD = new LogRecordImpl(0, null, null);
+    private static final LogRecord DUMMY_RECORD = new LogRecordImpl(null, null);
 
     private final Object guard = new Object();
     private final AtomicReferenceArray<LogRecord> regions;

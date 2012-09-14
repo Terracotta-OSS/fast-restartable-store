@@ -55,7 +55,7 @@ public class IntegrityToolTest {
     
     private void writeChunkWithMarkers(int size) throws Exception {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
-        list.add(new LogRecordImpl(current, new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
+        list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
         manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
     }
         

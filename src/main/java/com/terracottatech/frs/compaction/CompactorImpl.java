@@ -111,8 +111,18 @@ public class CompactorImpl implements Compactor {
       while (alive) {
         try {
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
-
-          objectManager.updateLowestLsn();
+          // Flush in a dummy record to make sure everything for the updated lowest lsn
+          // is on disk prior to cleaning up to the new lowest lsn.
+          // If ObjectManager is empty, use the barrier lsn to invalidate the log
+          
+          NullAction barrier = new NullAction();
+          actionManager.happened(barrier).get();
+          
+          long lowLsn = objectManager.getLowestLsn();
+          
+          if ( lowLsn == ObjectManager.ISEMPTY_LSN ) {
+              lowLsn = barrier.getLsn();
+          }
 
           if (policy.startCompacting() && alive) {
             try {
@@ -122,11 +132,7 @@ public class CompactorImpl implements Compactor {
             }
           }
 
-          // Flush in a dummy record to make sure everything for the updated lowest lsn
-          // is on disk prior to cleaning up to the new lowest lsn.
-          actionManager.happened(new NullAction()).get();
-
-          logManager.updateLowestLsn(objectManager.getLowestLsn());
+          logManager.updateLowestLsn(lowLsn);
 
           // Flush the new lowest LSN with a dummy record
           actionManager.syncHappened(new NullAction()).get();
@@ -182,7 +188,6 @@ public class CompactorImpl implements Compactor {
         objectManager.releaseCompactionEntry(compactionEntry);
       }
     }
-    objectManager.updateLowestLsn();
   }
 
   @Override

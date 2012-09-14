@@ -20,11 +20,6 @@ public class DummyLogRegion implements LogRegion {
     public DummyLogRegion(List<LogRecord> records) {
         this.records = records;
     }
-    
-    @Override
-    public long getLowestLsn() {
-        return -1;
-    }
 
     @Override
     public Iterator<LogRecord> iterator() {

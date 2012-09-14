@@ -10,6 +10,5 @@ package com.terracottatech.frs.log;
  */
 public interface LogRegion extends Iterable<LogRecord> {
 
-  long getLowestLsn();
  
 }

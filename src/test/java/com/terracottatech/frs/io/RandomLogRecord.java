@@ -69,15 +69,6 @@ public class RandomLogRecord implements LogRecord  {
     }
 
     @Override
-    public long getLowestLsn() {
-        return 5;
-    }
-    
-    public void setLowestLsn(long lsn) {
-        
-    }
-
-    @Override
     public long getLsn() {
         return lsn;
     }

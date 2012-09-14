@@ -16,33 +16,23 @@ import java.nio.ByteBuffer;
  */
 public class MockLogRecord implements LogRecord, Serializable {
 
-  private long lowestLsn;
   private final Action action;
   
   private long lsn = -1;
   
-  MockLogRecord(Action action, long lowestLsn) {
+  MockLogRecord(Action action) {
     this.action = action;
-    this.lowestLsn = lowestLsn;
   }
 
   public long getLsn() {
     return lsn;
   }
 
-  public long getLowestLsn() {
-    return lowestLsn;
-  }
-  
-  public void setLowestLsn(long lsn) {
-      lowestLsn = lsn;
-  }
-
   public String toString() {
     String actionOut = action.toString();
     actionOut = "\t" + actionOut.replace("\n", "\n\t");
     
-    return "LogRecord[lowest-lsn=" + getLowestLsn() + ", lsn=" + getLsn() + " {\n"
+    return "LogRecord[lsn=" + getLsn() + " {\n"
             + actionOut + "\n"
             + "}";
   }

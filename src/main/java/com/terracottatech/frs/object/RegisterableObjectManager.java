@@ -33,4 +33,10 @@ public class RegisterableObjectManager<I, K, V> extends AbstractObjectManager<I,
       throw new AssertionError(id + " already mapped");
     }
   }
+  
+  public void unregisterStripe(I id) {
+    if (stripes.remove(id) == null) {
+      throw new AssertionError(id + " not mapped");
+    } 
+  }
 }

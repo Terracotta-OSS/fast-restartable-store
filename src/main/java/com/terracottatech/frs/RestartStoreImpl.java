@@ -104,6 +104,19 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     return new AutoCommitTransaction(synchronous);
   }
 
+  @Override
+  public synchronized Snapshot snapshot() throws RestartStoreException {
+    checkReadyState();
+    compactor.pause();
+    try {
+      return logManager.snapshot();
+    } catch (Exception e) {
+      throw new RestartStoreException(e);
+    } finally {
+      compactor.unpause();
+    }
+  }
+
   private void checkReadyState() {
     if (state != State.RUNNING && state != State.RECOVERING) {
       throw new IllegalStateException("RestartStore is not ready for mutations. Current state " + state);

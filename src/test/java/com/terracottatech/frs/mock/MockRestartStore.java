@@ -4,22 +4,24 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.RestartStore;
+import com.terracottatech.frs.RestartStoreException;
+import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.mock.action.MockActionManager;
+import com.terracottatech.frs.mock.compaction.MockCompactor;
 import com.terracottatech.frs.mock.log.MockLogManager;
 import com.terracottatech.frs.mock.object.MockObjectManager;
 import com.terracottatech.frs.mock.recovery.MockRecoveryManager;
 import com.terracottatech.frs.mock.transaction.MockTransactionManager;
+import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.RecoveryException;
 import com.terracottatech.frs.recovery.RecoveryManager;
-import com.terracottatech.frs.RestartStore;
-import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.transaction.TransactionManager;
-import com.terracottatech.frs.mock.compaction.MockCompactor;
-import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.NullFuture;
 
 import java.util.concurrent.Future;
@@ -78,5 +80,10 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   
   public void compact() {
     compactor.compactNow();
+  }
+
+  @Override
+  public Snapshot snapshot() throws RestartStoreException {
+    throw new UnsupportedOperationException();
   }
 }

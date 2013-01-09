@@ -4,12 +4,28 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.Exchanger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.terracottatech.frs.io.BufferBuilder;
+import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.CachingBufferSource;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.ManualBufferSource;
+import com.terracottatech.frs.io.Stream;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Exchanger;
 
 /**
  * NIO implementation of Log Stream.
@@ -271,14 +287,7 @@ class NIOStreamImpl implements Stream {
         long w = writeHead.append(c, marker);
         currentMarker = marker;
         if (writeHead.length() > segmentSize) {
-            writeHead.prepareForClose();
-//            debugIn += writeHead.close();
-            if ( syncer != null ) {
-                syncer.pivot(writeHead);
-            } else {
-                writeHead.close();
-                lowestMarkerOnDisk = writeHead.getMinimumMarker();
-            }
+            closeCurrentSegment();
         }
         return w;
 
@@ -485,5 +494,20 @@ class NIOStreamImpl implements Stream {
                 throw new UnsupportedOperationException("Not supported yet.");
             }
         };
+    }
+
+    List<File> fileList() {
+        return new ArrayList<File>(segments);
+    }
+
+    @Override
+    public void closeCurrentSegment() throws IOException {
+        writeHead.prepareForClose();
+        if ( syncer != null ) {
+          syncer.pivot(writeHead);
+        } else {
+          writeHead.close();
+          lowestMarkerOnDisk = writeHead.getMinimumMarker();
+        }
     }
 }

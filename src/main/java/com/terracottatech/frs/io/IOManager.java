@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.io;
 
+import com.terracottatech.frs.Snapshot;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Future;
@@ -15,6 +17,8 @@ import java.util.concurrent.Future;
 public interface IOManager extends Closeable {
   
   long write(Chunk region, long marker) throws IOException;
+
+  void closeCurrentSegment() throws IOException;
   
   void setMinimumMarker(long marker) throws IOException;
   long getMinimumMarker() throws IOException;
@@ -29,6 +33,8 @@ public interface IOManager extends Closeable {
   Future<Void> clean(long timeout) throws IOException;
   
   IOStatistics getStatistics() throws IOException;
+
+  Snapshot snapshot();
   
   public enum Seek {
     BEGINNING (0),

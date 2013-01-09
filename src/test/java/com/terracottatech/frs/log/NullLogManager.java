@@ -4,8 +4,11 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Snapshot;
+
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 /**
@@ -47,5 +50,10 @@ public class NullLogManager implements LogManager {
 
   private Iterator<LogRecord> reader() {
     return Collections.<LogRecord>emptyList().iterator();
+  }
+
+  @Override
+  public Snapshot snapshot() throws ExecutionException, InterruptedException {
+    return null;
   }
 }

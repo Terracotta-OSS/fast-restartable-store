@@ -4,21 +4,31 @@
  */
 package com.terracottatech.frs.log;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.ManualBufferSource;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Formatter;
 import java.util.Iterator;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -280,8 +290,10 @@ public class StagingLogManager implements LogManager {
                 buffers.returnBuffer(giveBack);
             }
 
-            if ( packer.doSync() ) {
-              io.sync();
+            if (packer.doClose()) {
+                io.closeCurrentSegment();
+            } else if ( packer.doSync() ) {
+                io.sync();
             }
             
             highestOnDisk.set(packer.endLsn());
@@ -426,7 +438,7 @@ public class StagingLogManager implements LogManager {
         state = state.idle();
     }
     
-    private CommitList _append(LogRecord record, boolean sync) {
+    private CommitList _append(LogRecord record, boolean sync, boolean closeFile) {
         if ( !state.acceptRecords() ) {
             if ( blockingException != null ) {
                 throw new LogWriteError(blockingException);
@@ -454,7 +466,7 @@ public class StagingLogManager implements LogManager {
             int spincount = 0;
   //  if we hit this, try and spread out
             int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
-            while ( !mine.append(record,sync) ) {
+            while ( !mine.append(record,sync, closeFile) ) {
                 if ( spincount++ > waitspin ) {
                     try {                      
                         mine.get();
@@ -475,13 +487,31 @@ public class StagingLogManager implements LogManager {
 
     @Override
     public Future<Void> append(LogRecord record) {
-        return _append(record,false);
+        return _append(record,false, false);
     }
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        Future<Void> w = _append(record,true);
+        Future<Void> w = _append(record,true, false);
         return w;
+    }
+
+    @Override
+    public Snapshot snapshot() throws ExecutionException {
+        boolean interrupted = false;
+        Future<Void> write = _append(new LogRecordImpl(new ByteBuffer[0], null), true, true);
+        while (true) {
+          try {
+            write.get();
+            break;
+          } catch (InterruptedException e) {
+            interrupted = true;
+          }
+        }
+        if (interrupted) {
+          Thread.currentThread().interrupt();
+        }
+        return io.snapshot();
     }
 
     static class WritingPackage implements Runnable {
@@ -513,6 +543,10 @@ public class StagingLogManager implements LogManager {
         
         public boolean doSync() {
             return list.isSyncRequested();
+        }
+
+        public boolean doClose() {
+            return list.isSegmentCloseRequested();
         }
 
         public void written() {

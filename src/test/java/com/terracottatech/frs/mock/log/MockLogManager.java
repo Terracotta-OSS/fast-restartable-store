@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.mock.log;
 
+import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
@@ -13,7 +14,12 @@ import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionFactory;
 import com.terracottatech.frs.mock.MockFuture;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
@@ -173,5 +179,10 @@ public class MockLogManager implements LogManager {
                 throw new RuntimeException(ioe);
             }
         }
+    }
+
+    @Override
+    public Snapshot snapshot() throws ExecutionException, InterruptedException {
+        throw new UnsupportedOperationException();
     }
 }

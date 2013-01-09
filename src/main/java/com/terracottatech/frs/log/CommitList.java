@@ -11,10 +11,11 @@ import java.util.concurrent.Future;
  * @author mscott
  */
 public interface CommitList extends Iterable<LogRecord>,Future<Void> {
-    boolean append(LogRecord record,boolean sync);
+    boolean append(LogRecord record, boolean sync, boolean closeFile);
     boolean close(long lsn);
     void waitForContiguous() throws InterruptedException;
     CommitList next();
+    boolean isSegmentCloseRequested();
     boolean isSyncRequested();
     boolean isEmpty();
     long getEndLsn();

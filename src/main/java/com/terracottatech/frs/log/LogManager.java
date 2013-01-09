@@ -4,7 +4,10 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Snapshot;
+
 import java.util.Iterator;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 /**
@@ -28,4 +31,6 @@ public interface LogManager {
   Future<Void> append(LogRecord record);
   
   Future<Void> appendAndSync(LogRecord record);
+
+  Snapshot snapshot() throws ExecutionException, InterruptedException;
 }

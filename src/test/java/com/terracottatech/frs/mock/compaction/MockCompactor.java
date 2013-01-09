@@ -77,4 +77,14 @@ public class MockCompactor<I, K, V> implements Compactor {
       }
     }
   }
+
+  @Override
+  public void pause() {
+    throw new UnsupportedOperationException("Implement me!");
+  }
+
+  @Override
+  public void unpause() {
+    throw new UnsupportedOperationException("Implement me!");
+  }
 }

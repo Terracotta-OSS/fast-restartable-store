@@ -12,6 +12,16 @@ package com.terracottatech.frs.compaction;
 public interface Compactor {
 
   /**
+   * Temporarily pause the compactor
+   */
+  void pause();
+
+  /**
+   * Unpause the compactor if paused.
+   */
+  void unpause();
+
+  /**
    * Startup the compactor.
    */
   void startup();

@@ -5,7 +5,10 @@
 package com.terracottatech.frs.log;
 
 import java.util.Iterator;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -29,6 +32,7 @@ public class AtomicCommitList implements CommitList {
     private volatile CommitList next;
     private final int      wait;
     private volatile boolean        atHead = false;
+    private volatile boolean requestFileClose = false;
 
     public AtomicCommitList(long startLsn, int maxSize,int waitTime) {
         baseLsn = startLsn;
@@ -39,7 +43,7 @@ public class AtomicCommitList implements CommitList {
     }
     
     @Override
-    public boolean append(LogRecord record, boolean sync) {
+    public boolean append(LogRecord record, boolean sync, boolean closeFile) {
         if ( record == null ) return true;
         
         assert (record.getLsn() >= baseLsn);
@@ -61,6 +65,9 @@ public class AtomicCommitList implements CommitList {
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
             goLatch.countDown();
+            if (closeFile) {
+                requestFileClose = true;
+            }
             if ( atHead && sync ) {
                 checkForClosed();
             }
@@ -150,7 +157,7 @@ public class AtomicCommitList implements CommitList {
             } else {
                 CommitList nnext = cnext;
         //  TODO: is this check necessary?  
-                while ( !nnext.append(record, syncRequest.get() >= record.getLsn()) ) {
+                while ( !nnext.append(record, syncRequest.get() >= record.getLsn(), requestFileClose) ) {
                     nnext = nnext.next();
                 }
             }
@@ -158,6 +165,11 @@ public class AtomicCommitList implements CommitList {
     }
 
     @Override
+    public boolean isSegmentCloseRequested() {
+        return requestFileClose;
+    }
+
+  @Override
     public boolean isSyncRequested() {
         return syncRequest.get() > 0;
     }

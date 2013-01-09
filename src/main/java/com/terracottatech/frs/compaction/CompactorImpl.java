@@ -4,6 +4,9 @@
  */
 package com.terracottatech.frs.compaction;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.NullAction;
@@ -13,8 +16,6 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
@@ -22,7 +23,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import static com.terracottatech.frs.config.FrsProperty.*;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RETRY_INTERVAL;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RUN_INTERVAL;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_START_THRESHOLD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_THROTTLE_AMOUNT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -42,7 +47,10 @@ public class CompactorImpl implements Compactor {
   private final long retryIntervalSeconds;
   private final long compactActionThrottle;
   private final int startThreshold;
-  private final CompactorThread compactorThread;
+
+  private CompactorThread compactorThread;
+  private volatile boolean signalPause;
+  private boolean paused;
 
 
   CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -58,7 +66,6 @@ public class CompactorImpl implements Compactor {
     this.retryIntervalSeconds = retryIntervalSeconds;
     this.compactActionThrottle = compactActionThrottle;
     this.startThreshold = startThreshold;
-    this.compactorThread = new CompactorThread();
   }
 
   public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -89,15 +96,20 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public void startup() {
-    alive = true;
-    compactorThread.start();
+    if (!alive) {
+      alive = true;
+      compactorThread = new CompactorThread();
+      compactorThread.start();
+    }
   }
 
   @Override
   public void shutdown() throws InterruptedException {
-    alive = false;
-    compactorThread.interrupt();
-    compactorThread.join();
+    if (alive) {
+      alive = false;
+      compactorThread.interrupt();
+      compactorThread.join();
+    }
   }
 
   private class CompactorThread extends Thread {
@@ -111,6 +123,11 @@ public class CompactorImpl implements Compactor {
       while (alive) {
         try {
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
+
+          if (checkForPause()) {
+            continue;
+          }
+
           // Flush in a dummy record to make sure everything for the updated lowest lsn
           // is on disk prior to cleaning up to the new lowest lsn.
           // If ObjectManager is empty, use the barrier lsn to invalidate the log
@@ -157,7 +174,7 @@ public class CompactorImpl implements Compactor {
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     long liveSize = objectManager.size();
     long compactedCount = 0;
-    while (compactedCount < liveSize) {
+    while (compactedCount < liveSize && !signalPause) {
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
       if (compactionEntry == null) {
         return;
@@ -198,5 +215,48 @@ public class CompactorImpl implements Compactor {
   @Override
   public void compactNow() {
     compactionCondition.release(startThreshold);
+  }
+
+  private synchronized boolean checkForPause() throws InterruptedException {
+    boolean wasPaused = false;
+    if (signalPause) {
+      signalPause = false;
+      paused = true;
+      notifyAll();
+      while (paused) {
+        wasPaused = true;
+        wait();
+      }
+    }
+    return wasPaused;
+  }
+
+  @Override
+  public synchronized void pause() {
+    if (paused) {
+      return;
+    }
+    signalPause = true;
+    compactNow();
+    boolean interrupted = false;
+    while (!paused) {
+      try {
+        wait();
+      } catch (InterruptedException e) {
+        interrupted = true;
+      }
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  @Override
+  public synchronized void unpause() {
+    if (!paused) {
+      return;
+    }
+    paused = false;
+    notifyAll();
   }
 }

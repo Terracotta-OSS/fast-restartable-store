@@ -4,26 +4,28 @@
  */
 package com.terracottatech.frs.log;
 
-import java.io.IOException;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import org.hamcrest.Matchers;
 import static org.hamcrest.core.Is.is;
+import static org.hamcrest.number.OrderingComparison.lessThan;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.junit.Assert.fail;
-import static org.hamcrest.number.OrderingComparison.lessThan;
 
 /**
  * @author tim
@@ -39,12 +41,12 @@ public class AtomicCommitListTest {
   @Test
   public void testBasicAppend() throws Exception {
     LogRecord record0 = record(10);
-    assertThat(commitList.append(record0,false), is(true));
+    assertThat(commitList.append(record0,false, false), is(true));
     // Test re-append
-    assertThat(commitList.append(record0,false), is(false));
+    assertThat(commitList.append(record0,false, false), is(false));
 
     // Test outside of range
-    assertThat(commitList.append(record(21),false), is(false));
+    assertThat(commitList.append(record(21),false, false), is(false));
 
     commitList.close(10);
     for (LogRecord record : commitList) {
@@ -63,7 +65,7 @@ public class AtomicCommitListTest {
             } catch ( InterruptedException ie ) {
                 
             }
-            commitList.append(record(10), true);
+            commitList.append(record(10), true, false);
           }
       }.start();
     commitList.waitForContiguous();
@@ -75,9 +77,9 @@ public class AtomicCommitListTest {
   @Test
   public void testBasicClose() throws Exception {
     LogRecord record0 = record(10);
-    assertThat(commitList.append(record0,false), is(true));
+    assertThat(commitList.append(record0,false, false), is(true));
     LogRecord record1 = record(11);
-    assertThat(commitList.append(record1,false), is(true));
+    assertThat(commitList.append(record1,false, false), is(true));
 
     assertThat(commitList.close(10), is(true));
     assertThat(commitList.isSyncRequested(), is(false));
@@ -86,7 +88,7 @@ public class AtomicCommitListTest {
     }
     
     LogRecord record2 = record(12);
-    assertThat(commitList.append(record2,true), is(false));
+    assertThat(commitList.append(record2,true, false), is(false));
     assertThat(commitList.isSyncRequested(), is(false));
    
     commitList.next().close(11);
@@ -97,7 +99,7 @@ public class AtomicCommitListTest {
 
   @Test
   public void testWaitForContiguous() throws Exception {
-    assertThat(commitList.append(record(15),false), is(true));
+    assertThat(commitList.append(record(15),false, false), is(true));
     assertThat(commitList.close(15), is(true));
 
     final AtomicReference<Exception> error = new AtomicReference<Exception>();
@@ -119,15 +121,15 @@ public class AtomicCommitListTest {
 
     for (int i = 16; i < 21; i++) {
       // Try appending a few records that land in the next link
-      assertThat(commitList.append(record(i),false), is(false));
-      assertThat(commitList.next().append(record(i),false), is(true));
+      assertThat(commitList.append(record(i),false, false), is(false));
+      assertThat(commitList.next().append(record(i),false, false), is(true));
     }
 
     waiter.join(5 * 1000); // Should still not be done waiting.
     assertThat(waitComplete.get(), is(false));
 
     for (int i = 10; i < 15; i++) {
-      assertThat(commitList.append(record(i),false), is(true));
+      assertThat(commitList.append(record(i),false, false), is(true));
     }
 
     waiter.join(5 * 1000);
@@ -197,7 +199,7 @@ public class AtomicCommitListTest {
 
   private void append(LogRecord record) {
     CommitList l = commitList;
-    while (!l.append(record,false)) {
+    while (!l.append(record,false, false)) {
       l = l.next();
     }
   }

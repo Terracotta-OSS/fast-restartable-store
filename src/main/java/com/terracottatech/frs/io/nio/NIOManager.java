@@ -4,12 +4,18 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.config.Configuration;
-import com.terracottatech.frs.config.FrsProperty;
-import com.terracottatech.frs.io.*;
-import com.terracottatech.frs.util.NullFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
+import com.terracottatech.frs.io.BufferBuilder;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.util.NullFuture;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -18,6 +24,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.Formatter;
+import java.util.Iterator;
 import java.util.concurrent.Future;
 
 
@@ -46,6 +53,8 @@ public class NIOManager implements IOManager {
     private long writeTime = 1;
     private long parts = 1;
     private long requests = 1;
+
+    private int snapshots = 0;
     
     private volatile boolean readOpsAllowed = true;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
@@ -243,7 +252,12 @@ public class NIOManager implements IOManager {
     }
     
     @Override
-    public synchronized Future<Void> clean(long timeout) throws IOException {  
+    public synchronized Future<Void> clean(long timeout) throws IOException {
+        if (snapshots > 0) {
+            LOGGER.debug("Live snapshots are still around. Delaying cleaning until all snapshots are released.");
+            return NullFuture.INSTANCE;
+        }
+
         if (backend == null) {
             throw new IOException("stream is closed");
         }
@@ -281,5 +295,56 @@ public class NIOManager implements IOManager {
             LOGGER.debug("POST-clean " + this.getStatistics());
         }
         return NullFuture.INSTANCE;
+    }
+
+    @Override
+    public void closeCurrentSegment() throws IOException {
+        backend.closeCurrentSegment();
+    }
+
+    @Override
+    public synchronized Snapshot snapshot() {
+        return new NIOSnapshot();
+    }
+
+    private class NIOSnapshot implements Snapshot {
+        private boolean live = true;
+        private final Iterator<File> iterator;
+
+        NIOSnapshot() {
+          snapshots++;
+          iterator = backend.fileList().iterator();
+        }
+
+        @Override
+        public boolean hasNext() {
+          if (!live) {
+            throw new IllegalStateException("snapshot is already released");
+          }
+          return iterator.hasNext();
+        }
+
+        @Override
+        public File next() {
+          if (!live) {
+            throw new IllegalStateException("snapshot is already released");
+          }
+          return iterator.next();
+        }
+
+        @Override
+        public void remove() {
+          throw new UnsupportedOperationException("Remove is not supported");
+        }
+
+        @Override
+        public void close() throws IOException {
+          if (live) {
+            live = false;
+            synchronized (NIOManager.this) {
+              snapshots--;
+            }
+          }
+        }
     }
 }

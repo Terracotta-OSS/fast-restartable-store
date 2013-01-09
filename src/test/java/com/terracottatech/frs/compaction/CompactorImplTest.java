@@ -4,25 +4,33 @@
  */
 package com.terracottatech.frs.compaction;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
-import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.action.NullActionManager;
 import com.terracottatech.frs.log.LogManager;
-import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -108,6 +116,34 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(0);
+    verify(policy).stoppedCompacting();
+    verify(logManager).updateLowestLsn(anyLong());
+    compactor.shutdown();
+  }
+
+  @Test
+  public void testPausing() throws Exception {
+    policy.compactCount = 1000;
+
+    doReturn(100L).when(objectManager).size();
+
+    compactor.startup();
+
+    compactor.pause();
+
+    compactor.compactNow();
+
+    verifyCompactedTimes(0);
+
+    compactor.unpause();
+
+    compactor.compactNow();
+
+    SECONDS.sleep(1);
+
+    policy.waitForCompactionComplete();
+
+    verifyCompactedTimes(100);
     verify(policy).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();

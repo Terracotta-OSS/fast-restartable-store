@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.log;
 
-import com.terracottatech.frs.io.Chunk;
-import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +31,8 @@ public class StackingCommitList implements CommitList {
     private final Object guard = new Object();
     private volatile CommitList next;
     private int wait;
+
+    private boolean closeRequested = false;
     
     public StackingCommitList(long startLsn, int maxSize, int wait) {
         baseLsn = startLsn;
@@ -42,7 +42,7 @@ public class StackingCommitList implements CommitList {
     }
 
      @Override
-   public boolean append(LogRecord record, boolean sync) {
+   public boolean append(LogRecord record, boolean sync, boolean close) {
         assert (record.getLsn() >= baseLsn);
 
         if (record.getLsn() >= regions.length + baseLsn) {
@@ -52,6 +52,9 @@ public class StackingCommitList implements CommitList {
         regions[(int) (record.getLsn() - baseLsn)] = record;
 
         if (!countRecord(record.getLsn(),sync)) {
+            if (close) {
+              closeRequested = true;
+            }
             regions[(int) (record.getLsn() - baseLsn)] = null; //  just to be clean;
             return false;
         }
@@ -251,5 +254,9 @@ public class StackingCommitList implements CommitList {
             }
         };
     }
-    
+
+    @Override
+    public boolean isSegmentCloseRequested() {
+        return closeRequested;
+    }
 }

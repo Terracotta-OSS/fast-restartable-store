@@ -18,6 +18,8 @@ import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
  * @author tim
  */
 public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
+  private static final ActionID NULL_ACTION_ID = new ActionID(-1, -1);
+
   private final Map<Class<? extends Action>, ActionID> classToId =
           new ConcurrentHashMap<Class<? extends Action>, ActionID>();
   private final Map<ActionID, ActionFactory<I, K, V>> idToFactory =
@@ -26,24 +28,27 @@ public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
 
   public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
     this.objectManager = objectManager;
-    registerAction(-1, -1, NullAction.class, NullAction.<I, K, V>factory());
+    registerAction(NULL_ACTION_ID, NullAction.class, NullAction.<I, K, V>factory());
+  }
+
+  private synchronized void registerAction(ActionID id, Class<? extends Action> actionClass, ActionFactory<I, K, V> actionFactory) {
+    if (classToId.containsKey(actionClass)) {
+      throw new IllegalArgumentException(
+          "Action class " + actionClass + " already registered to id " + classToId.get(
+              actionClass));
+    }
+    if (idToFactory.containsKey(id)) {
+      throw new IllegalArgumentException(
+          "Id " + id + " already registered to action class " + idToFactory.get(id));
+    }
+    classToId.put(actionClass, id);
+    idToFactory.put(id, actionFactory);
   }
 
   @Override
   public synchronized void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
                              ActionFactory<I, K, V> actionFactory) {
-    ActionID id = new ActionID(collectionId, actionId);
-    if (classToId.containsKey(actionClass)) {
-      throw new IllegalArgumentException(
-              "Action class " + actionClass + " already registered to id " + classToId.get(
-                      actionClass));
-    }
-    if (idToFactory.containsKey(id)) {
-      throw new IllegalArgumentException(
-              "Id " + id + " already registered to action class " + idToFactory.get(id));
-    }
-    classToId.put(actionClass, id);
-    idToFactory.put(id, actionFactory);
+    registerAction(new ActionID(collectionId, actionId), actionClass, actionFactory);
   }
 
   @Override
@@ -76,7 +81,11 @@ public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
     }
 
     static ActionID withByteBuffers(ByteBuffer[] buffers) {
-      return new ActionID(getInt(buffers), getInt(buffers));
+      if (buffers.length == 0) {
+        return NULL_ACTION_ID;
+      } else {
+        return new ActionID(getInt(buffers), getInt(buffers));
+      }
     }
 
     ByteBuffer toByteBuffer() {

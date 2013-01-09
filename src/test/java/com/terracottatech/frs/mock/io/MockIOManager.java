@@ -4,10 +4,15 @@
  */
 package com.terracottatech.frs.mock.io;
 
-import com.terracottatech.frs.io.*;
+import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.io.WrappingChunk;
+import com.terracottatech.frs.log.FormatException;
 import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRegionFactory;
-import com.terracottatech.frs.log.FormatException;
 import com.terracottatech.frs.mock.MockFuture;
 
 import java.io.ByteArrayOutputStream;
@@ -16,7 +21,10 @@ import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.ListIterator;
 import java.util.concurrent.Future;
 
 /**
@@ -177,6 +185,14 @@ public class MockIOManager implements IOManager {
     public IOStatistics getStatistics() throws IOException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-    
-    
+
+    @Override
+    public void closeCurrentSegment() throws IOException {
+        throw new UnsupportedOperationException("Implement me!");
+    }
+
+    @Override
+    public Snapshot snapshot() {
+       throw new UnsupportedOperationException("Implement me!");
+    }
 }

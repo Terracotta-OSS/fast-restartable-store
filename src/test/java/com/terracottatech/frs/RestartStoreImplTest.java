@@ -4,6 +4,9 @@
  */
 package com.terracottatech.frs;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
@@ -13,8 +16,6 @@ import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -23,7 +24,13 @@ import java.util.concurrent.Future;
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author tim
@@ -215,5 +222,13 @@ public class RestartStoreImplTest {
     Transaction transaction = restartStore.beginAutoCommitTransaction(true);
     transaction.commit();
     verify(transactionManager, never()).commit(handle, true);
+  }
+
+  @Test
+  public void testSnapshot() throws Exception {
+    restartStore.snapshot();
+    verify(logManager).snapshot();
+    verify(compactor).shutdown();
+    verify(compactor, times(2)).startup();
   }
 }

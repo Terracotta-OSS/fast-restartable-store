@@ -4,28 +4,45 @@
  */
 package com.terracottatech.frs.log;
 
+import org.junit.Before;
+import org.junit.Test;
+
+import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import junit.framework.Assert;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.number.OrderingComparison.greaterThan;
-import static org.mockito.Mockito.*;
 import static org.junit.Assert.fail;
-import org.junit.Ignore;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author mscott
@@ -44,7 +61,15 @@ public class StagingLogManagerTest {
         logManager = new StagingLogManager(ioManager);
     }
 
-    /**
+  @Test
+  public void testSnapshot() throws Exception {
+    logManager.startup();
+    logManager.snapshot();
+    verify(ioManager).closeCurrentSegment();
+    verify(ioManager).snapshot();
+  }
+
+  /**
      * Test of appendAndSync method, of class StagingLogManager.
      */
     @Test
@@ -417,6 +442,15 @@ public class StagingLogManagerTest {
 
         @Override
         public void close() throws IOException {
+        }
+
+        @Override
+        public void closeCurrentSegment() throws IOException {
+        }
+
+        @Override
+        public Snapshot snapshot() {
+            return null;
         }
     }
 }

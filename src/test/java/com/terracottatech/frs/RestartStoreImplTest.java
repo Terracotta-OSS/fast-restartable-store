@@ -29,7 +29,6 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -228,7 +227,7 @@ public class RestartStoreImplTest {
   public void testSnapshot() throws Exception {
     restartStore.snapshot();
     verify(logManager).snapshot();
-    verify(compactor).shutdown();
-    verify(compactor, times(2)).startup();
+    verify(compactor).pause();
+    verify(compactor).unpause();
   }
 }

@@ -5,8 +5,9 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MAX_LOAD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_WINDOW_SIZE;
 
 /**
  * @author tim
@@ -16,9 +17,12 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
   private final LogManager logManager;
   private final double minLoad;
   private final double maxLoad;
+  private final int windowSize;
 
   private long compactedCount;
-  private long compactionStopCount;
+  private long liveSize;
+  private long currentLsn;
+  private int windowCount;
   private boolean isCompacting = false;
 
   public LSNGapCompactionPolicy(ObjectManager<?, ?, ?> objectManager, LogManager logManager,
@@ -27,6 +31,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
     this.logManager = logManager;
     this.minLoad = configuration.getDouble(COMPACTOR_LSNGAP_MIN_LOAD);
     this.maxLoad = configuration.getDouble(COMPACTOR_LSNGAP_MAX_LOAD);
+    this.windowSize = configuration.getInt(COMPACTOR_LSNGAP_WINDOW_SIZE);
   }
 
   protected float calculateRatio(long liveEntries, long totalEntries) {
@@ -36,15 +41,15 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
   @Override
   public boolean startCompacting() {
     if (isCompacting) {
-      throw new AssertionError("Compaction is already started.");
+      throw new IllegalStateException("Compaction is already started.");
     }
-    long liveSize = objectManager.size();
-    long currentLsn = logManager.currentLsn();
+    liveSize = objectManager.size();
+    currentLsn = logManager.currentLsn();
     long lowestLsn = objectManager.getLowestLsn();
     float ratio = calculateRatio(liveSize, currentLsn - lowestLsn);
     if (ratio <= minLoad) {
-      compactionStopCount = ((long) (liveSize / maxLoad)) - currentLsn;
       compactedCount = 0;
+      windowCount = 0;
       isCompacting = true;
       return true;
     } else {
@@ -54,21 +59,47 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
 
   public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
     if (!isCompacting) {
-      throw new AssertionError("Compaction is not running.");
+      throw new IllegalStateException("Compaction is not running.");
     }
     compactedCount++;
+    if (compactedCount >= liveSize) {
+      return false;
+    }
     // The way this termination condition works is by checking the approximate length
     // of the LSN span against the live object count. As entries are compacted over, the
     // window shrinks in length until it equals the live object count.
     // Calculation is simplified from:
     // liveSize / (currentLsn + compactedCount - entry.getLsn()) <= ratio
-    return compactionStopCount <= compactedCount - entry.getLsn();
+
+    double estimatedRatio = estimateRatio(entry.getLsn());
+    if (estimatedRatio <= maxLoad || estimatedRatio > 1.0) {
+      windowCount = 0;
+      return true;
+    } else {
+      if (++windowCount >= windowSize) {
+        long officialLowestLsn = objectManager.getLowestLsn();
+        logManager.updateLowestLsn(officialLowestLsn); // might as well send it through to the log manager.
+        estimatedRatio = estimateRatio(officialLowestLsn);
+        if (estimatedRatio <= maxLoad) {
+          windowCount = 0;
+          return true;
+        } else {
+          return false;
+        }
+      } else {
+        return true;
+      }
+    }
+  }
+
+  private double estimateRatio(long minLsn) {
+    return ((double) liveSize) / (compactedCount + currentLsn - minLsn);
   }
 
   @Override
   public void stoppedCompacting() {
     if (!isCompacting) {
-      throw new AssertionError("Compaction is not running.");
+      throw new IllegalStateException("Compaction is not running.");
     }
     isCompacting = false;
   }

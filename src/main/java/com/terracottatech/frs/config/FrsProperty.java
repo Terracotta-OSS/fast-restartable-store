@@ -26,6 +26,7 @@ public enum FrsProperty {
 
   COMPACTOR_LSNGAP_MIN_LOAD("compactor.lsnGap.minLoad", Type.DOUBLE, 0.30),
   COMPACTOR_LSNGAP_MAX_LOAD("compactor.lsnGap.maxLoad", Type.DOUBLE, 0.60),
+  COMPACTOR_LSNGAP_WINDOW_SIZE("compactor.lsnGap.windowSize", Type.INTEGER, 20),
 
   COMPACTOR_SIZEBASED_THRESHOLD("compactor.sizeBased.threshold", Type.DOUBLE, 0.50),
   COMPACTOR_SIZEBASED_AMOUNT("compactor.sizeBased.amount", Type.DOUBLE, 0.05);

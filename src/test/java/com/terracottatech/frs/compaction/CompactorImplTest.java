@@ -96,7 +96,7 @@ public class CompactorImplTest {
     verifyCompactedTimes(1100);
     verify(policy).stoppedCompacting();
     verify(future, atLeastOnce()).get();
-    verify(logManager).updateLowestLsn(anyLong());
+    verify(logManager, times(2)).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 

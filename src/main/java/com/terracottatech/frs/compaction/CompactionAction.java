@@ -17,7 +17,7 @@ class CompactionAction extends PutAction {
   private final ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry;
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
 
-  private Long lsn;
+  private volatile Long lsn;
 
   CompactionAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
     super(objectManager, null, entry.getId(), entry.getKey(), entry.getValue(), entry.getLsn());
@@ -27,25 +27,14 @@ class CompactionAction extends PutAction {
 
   @Override
   public void record(long lsn) {
-    synchronized (this) {
-      this.lsn = lsn;
-      notifyAll();
-    }
+    this.lsn = lsn;
   }
 
-  synchronized void updateObjectManager() {
-    boolean interrupted = false;
+  void updateObjectManager() {
     while (lsn == null) {
-      try {
-        wait();
-      } catch (InterruptedException e) {
-        interrupted = true;
-      }
+      // Just spin, this shouldn't take long.
     }
     objectManager.updateLsn(entry, lsn);
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   @Override

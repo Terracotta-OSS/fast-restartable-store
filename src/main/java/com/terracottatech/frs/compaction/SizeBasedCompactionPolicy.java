@@ -7,8 +7,8 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
 
 import java.io.IOException;
 
-import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_AMOUNT;
+import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD;
 
 /**
  * @author tim
@@ -33,33 +33,46 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
 
   @Override
   public boolean startCompacting() {
-    float ratio;
-    try {
-      ratio = objectManager.sizeInBytes() / ioManager.getStatistics().getLiveSize();
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to get log size.", e);
+    if (isCompacting) {
+      throw new IllegalStateException("Already compacting");
     }
-    if (ratio <= sizeThreshold) {
+    return internalStartCompacting();
+  }
+
+  private boolean internalStartCompacting() {
+    if (getRatio() <= sizeThreshold) {
       isCompacting = true;
-      entriesToCompact = (long) (objectManager.size() * compactionPercentage);
+      entriesToCompact = calculateEntriesToCompact();
       return true;
     } else {
       return false;
     }
   }
 
+  private long calculateEntriesToCompact() {
+    return (long) (objectManager.size() * compactionPercentage);
+  }
+
+  private float getRatio() {
+    try {
+      return objectManager.sizeInBytes() / ioManager.getStatistics().getLiveSize();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to get log size.", e);
+    }
+  }
+
   @Override
   public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
     if (!isCompacting) {
-      throw new AssertionError("Compaction is not started.");
+      throw new IllegalStateException("Compaction is not started.");
     }
-    return entriesToCompact-- > 0;
+    return --entriesToCompact > 0 || internalStartCompacting();
   }
 
   @Override
   public void stoppedCompacting() {
     if (!isCompacting) {
-      throw new AssertionError("Compaction is not started.");
+      throw new IllegalStateException("Compaction is not started.");
     }
     isCompacting = false;
   }

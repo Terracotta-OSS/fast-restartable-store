@@ -1,6 +1,5 @@
 package com.terracottatech.frs.compaction;
 
-import org.junit.Rule;
 import org.junit.Test;
 
 import com.terracottatech.frs.config.Configuration;
@@ -8,10 +7,8 @@ import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
-import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.nio.ByteBuffer;
-import java.util.Properties;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
@@ -22,21 +19,23 @@ import static org.mockito.Mockito.when;
  * @author tim
  */
 public class LSNGapCompactionPolicyTest {
-  @Rule
-  public JUnitTestFolder tempDir = new JUnitTestFolder();
-
   private LSNGapCompactionPolicy policy;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private LogManager logManager;
 
-  private void createPolicy(int windowSize, double minLoad, double maxLoad) throws Exception{
-    Properties properties = new Properties();
-    properties.setProperty(FrsProperty.COMPACTOR_LSNGAP_WINDOW_SIZE.shortName(), Integer.toString(windowSize));
-    properties.setProperty(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD.shortName(), Double.toString(minLoad));
-    properties.setProperty(FrsProperty.COMPACTOR_LSNGAP_MAX_LOAD.shortName(), Double.toString(maxLoad));
+  private void createPolicy(int windowSize, double minLoad, double maxLoad) throws Exception {
+    Configuration configuration = createConfiguration(windowSize, minLoad, maxLoad);
     objectManager = mock(ObjectManager.class);
     logManager = mock(LogManager.class);
-    policy = new LSNGapCompactionPolicy(objectManager, logManager, Configuration.getConfiguration(tempDir.newFolder(), properties));
+    policy = new LSNGapCompactionPolicy(objectManager, logManager, configuration);
+  }
+
+  private Configuration createConfiguration(int windowSize, double minLoad, double maxLoad) {
+    Configuration configuration = mock(Configuration.class);
+    when(configuration.getInt(FrsProperty.COMPACTOR_LSNGAP_WINDOW_SIZE)).thenReturn(windowSize);
+    when(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD)).thenReturn(minLoad);
+    when(configuration.getDouble(FrsProperty.COMPACTOR_LSNGAP_MAX_LOAD)).thenReturn(maxLoad);
+    return configuration;
   }
 
   @Test(expected = IllegalStateException.class)

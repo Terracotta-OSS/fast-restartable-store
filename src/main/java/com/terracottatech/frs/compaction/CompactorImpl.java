@@ -180,31 +180,32 @@ public class CompactorImpl implements Compactor {
         return;
       }
       compactedCount++;
+      Future<Void> written;
       try {
         CompactionAction compactionAction =
                 new CompactionAction(objectManager, compactionEntry);
-        Future<Void> written = actionManager.happened(compactionAction);
+        written = actionManager.happened(compactionAction);
         // We can't update the object manager on Action.record() because the compactor
         // is holding onto the segment lock. Since we want to wait for the action to be
         // sequenced anyways so we don't keep getting the same compaction keys, we may as
         // well just do the object manager update here.
         compactionAction.updateObjectManager();
-
-        // To prevent filling up the write queue with compaction junk, risking crowding
-        // out actual actions, we throttle a bit after some set number of compaction
-        // actions by just waiting until the latest compaction action is written to disk.
-        if (compactedCount % compactActionThrottle == 0) {
-          // While we're waiting, might as well update the lowest lsn so compaction provides continuous benefit.
-          logManager.updateLowestLsn(objectManager.getLowestLsn());
-          written.get();
-        }
-
-        // Check with the policy if we need to stop.
-        if (!policy.compacted(compactionEntry)) {
-          break;
-        }
       } finally {
         objectManager.releaseCompactionEntry(compactionEntry);
+      }
+
+      // Check with the policy if we need to stop.
+      if (!policy.compacted(compactionEntry)) {
+        break;
+      }
+
+      // To prevent filling up the write queue with compaction junk, risking crowding
+      // out actual actions, we throttle a bit after some set number of compaction
+      // actions by just waiting until the latest compaction action is written to disk.
+      if (compactedCount % compactActionThrottle == 0) {
+        // While we're waiting, might as well update the lowest lsn so compaction provides continuous benefit.
+        logManager.updateLowestLsn(objectManager.getLowestLsn());
+        written.get();
       }
     }
   }

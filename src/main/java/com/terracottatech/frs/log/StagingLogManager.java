@@ -29,6 +29,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  *
@@ -58,6 +59,8 @@ public class StagingLogManager implements LogManager {
     private IOException                                 blockingException;
     
     private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
+
+    private final ReentrantReadWriteLock appendLock = new ReentrantReadWriteLock();
     
     public StagingLogManager(IOManager io) {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
@@ -487,17 +490,29 @@ public class StagingLogManager implements LogManager {
 
     @Override
     public Future<Void> append(LogRecord record) {
+      appendLock.readLock().lock();
+      try {
         return _append(record,false, false);
+      } finally {
+        appendLock.readLock().unlock();
+      }
     }
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
+      appendLock.readLock().lock();
+      try {
         Future<Void> w = _append(record,true, false);
         return w;
+      } finally {
+        appendLock.readLock().unlock();
+      }
     }
 
     @Override
     public Snapshot snapshot() throws ExecutionException {
+      appendLock.writeLock().lock();
+      try {
         boolean interrupted = false;
         Future<Void> write = _append(new LogRecordImpl(new ByteBuffer[0], null), true, true);
         while (true) {
@@ -512,6 +527,9 @@ public class StagingLogManager implements LogManager {
           Thread.currentThread().interrupt();
         }
         return io.snapshot();
+      } finally {
+        appendLock.writeLock().unlock();
+      }
     }
 
     static class WritingPackage implements Runnable {

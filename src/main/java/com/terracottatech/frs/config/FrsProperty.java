@@ -1,3 +1,5 @@
+
+
 package com.terracottatech.frs.config;
 
 public enum FrsProperty {
@@ -17,7 +19,7 @@ public enum FrsProperty {
   RECOVERY_MIN_THREAD_COUNT("recovery.minThreadCount", Type.INTEGER, 1),
   RECOVERY_MAX_THREAD_COUNT("recovery.maxThreadCount", Type.INTEGER, 64),
   RECOVERY_REPLAY_BATCH_SIZE("recovery.replayBatchSize", Type.INTEGER, 1024),
-	
+  
   COMPACTOR_POLICY("compactor.policy", Type.STRING, "LSNGapCompactionPolicy"),
   COMPACTOR_THROTTLE_AMOUNT("compactor.throttleAmount", Type.LONG,  1000L),
   COMPACTOR_RUN_INTERVAL("compactor.runInterval", Type.LONG, 300L),
@@ -57,8 +59,8 @@ public enum FrsProperty {
 
   public Object defaultValue() {
     return defaultValue;
-  }	
-	
+  }
+
   enum Type {
     STRING {
       @Override

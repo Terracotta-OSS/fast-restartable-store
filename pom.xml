@@ -4,7 +4,7 @@
   <parent>
     <artifactId>forge-parent-ee</artifactId>
     <groupId>org.terracotta.forge</groupId>
-    <version>2.4</version>
+    <version>3.0</version>
   </parent>
   <scm>
     <connection>scm:git:git@github.softwareag.com:Terracotta-Legacy/fast-restartable-store.git</connection>

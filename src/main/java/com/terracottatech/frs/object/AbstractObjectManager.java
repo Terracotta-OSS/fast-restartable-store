@@ -93,10 +93,10 @@ public abstract class AbstractObjectManager<I, K, V> implements ObjectManager<I,
     for (ObjectManagerStripe<I, K, V> stripe : getStripes()) {
       Long lowestInStripe = stripe.getLowestLsn();
       if (lowestInStripe != null) {
-	    if (lowest < 0 || lowestInStripe < lowest) {
-	      lowest = lowestInStripe;
-	    }
-	  }
+        if (lowest < 0 || lowestInStripe < lowest) {
+          lowest = lowestInStripe;
+        }
+      }
     }
     return lowest;
   }

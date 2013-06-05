@@ -91,7 +91,17 @@
     </plugins>
   </reporting>
 
-  <profiles>
+  <profiles>    
+    <profile>
+      <id>release</id>
+      <distributionManagement>
+        <repository>
+          <id>terracotta-ee-releases</id>
+          <name>Terracotta Releases Repository</name>
+          <url>${terracotta-ee-releases-url}</url>
+        </repository>
+      </distributionManagement>
+    </profile>
     <profile>
       <id>code-coverage</id>
       <reporting>

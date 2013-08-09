@@ -13,5 +13,5 @@ import java.nio.channels.FileChannel;
  * @author mscott
  */
 public interface BufferBuilder {
-    FileBuffer createBuffer(FileChannel channel,ByteBuffer buffer) throws IOException;
+    FileBuffer createBuffer(FileChannel channel,BufferSource source, int size) throws IOException;
 }

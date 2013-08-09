@@ -24,6 +24,8 @@ public interface IOManager extends Closeable {
   
   Chunk read(Direction dir) throws IOException;
   
+  Chunk scan(long marker) throws IOException;
+  
   long seek(long marker) throws IOException;
   
   void sync() throws IOException;

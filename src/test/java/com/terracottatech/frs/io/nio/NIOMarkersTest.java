@@ -65,7 +65,7 @@ public class NIOMarkersTest {
 //  make sure files were deleted
         File first = list.getBeginningFile();
         System.err.println(first.getName());
-        int seg = new NIOSegmentImpl(null,list.getBeginningFile()).getSegmentId();
+        int seg = new NIOSegment(null,list.getBeginningFile()).getSegmentId();
         System.out.println(seg);
         assert(seg != 0);        
         
@@ -94,7 +94,7 @@ public class NIOMarkersTest {
 //  make sure files were deleted
         File first = list.getBeginningFile();
         System.err.println(first.getName());
-        int seg = new NIOSegmentImpl(null,list.getBeginningFile()).getSegmentId();
+        int seg = new NIOSegment(null,list.getBeginningFile()).getSegmentId();
         System.out.println(seg);
         assert(seg != 0);           
         

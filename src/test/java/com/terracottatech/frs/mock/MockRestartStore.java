@@ -8,6 +8,7 @@ import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.Transaction;
+import com.terracottatech.frs.Tuple;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.io.IOManager;
@@ -80,6 +81,11 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   
   public void compact() {
     compactor.compactNow();
+  }
+
+  @Override
+  public Tuple<Long, String, String> get(long marker) {
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override

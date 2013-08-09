@@ -16,6 +16,7 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.io.RandomAccess;
 import com.terracottatech.frs.util.NullFuture;
 
 import java.io.File;
@@ -50,6 +51,7 @@ public class NIOManager implements IOManager {
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     
     private NIOStreamImpl backend;
+    private RandomAccess  reader;
     private long written = 1;
     private long read = 1;
     private long writeTime = 1;
@@ -58,7 +60,6 @@ public class NIOManager implements IOManager {
 
     private int snapshots = 0;
     
-    private volatile boolean readOpsAllowed = true;
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
@@ -171,9 +172,16 @@ public class NIOManager implements IOManager {
     }
     
     @Override
-    public Chunk read(Direction dir) throws IOException { 
-        assert(readOpsAllowed);
+    public Chunk scan(long marker) throws IOException {
+        if (backend == null) {
+            throw new IOException("stream is closed");
+        }    
         
+        return this.reader.scan(marker);
+    }
+    
+    @Override
+    public Chunk read(Direction dir) throws IOException {         
         if (backend == null) {
             throw new IOException("stream is closed");
         }
@@ -229,6 +237,8 @@ public class NIOManager implements IOManager {
         backupLockFile.createNewFile();
 
         backend.open();
+        
+        reader = backend.createRandomAccess();
     }
 
     @Override
@@ -246,12 +256,7 @@ public class NIOManager implements IOManager {
             throw new IOException("stream is closed");
         }
         
-        readOpsAllowed = false;
-        try {
-            return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogTail(), written, read);
-        } finally {
-            readOpsAllowed = true;
-        }
+        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogTail(), written, read);
     }
     
     @Override
@@ -269,7 +274,6 @@ public class NIOManager implements IOManager {
             LOGGER.debug("PRE-clean " + this.getStatistics());
         }
         
-        readOpsAllowed = false;
         FileOutputStream fos = new FileOutputStream(backupLockFile);
         FileChannel channel = fos.getChannel();
         FileLock backupLock = null;
@@ -291,7 +295,6 @@ public class NIOManager implements IOManager {
                 backupLock.release();
             }
             fos.close();
-            readOpsAllowed = true;
         }
         
         if ( LOGGER.isDebugEnabled() ) {

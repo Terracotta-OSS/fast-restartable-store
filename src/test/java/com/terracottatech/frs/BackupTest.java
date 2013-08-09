@@ -270,6 +270,7 @@ public class BackupTest {
       for (int i = 0; i < 1000; i++) {
         map.put(Integer.toString(i), Integer.toString(i));
       }
+      
       Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
 
       restartStore.shutdown();

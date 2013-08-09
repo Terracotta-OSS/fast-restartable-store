@@ -1,0 +1,327 @@
+/*
+ * All content copyright (c) 2013 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
+ */
+package com.terracottatech.frs.io.nio;
+
+import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.util.ByteBufferUtils;
+import java.io.Closeable;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ *
+ * @author mscott
+ */
+class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
+
+    private FileBuffer buffer;
+    private static final short IMPL_NUMBER = 02;
+    private long maxMarker;
+    private List<Long> writeJumpList;
+    private long totalWrite;
+    private boolean existingFile = false;
+
+    WritingSegment(NIOStreamImpl p, File file) {
+        super(p, file);
+        if ( file.exists() ) {
+            existingFile = true;
+        } 
+    }
+
+    long getMaximumMarker() {
+        return maxMarker;
+    }
+    
+    long getTotalWritten() {
+        return totalWrite;
+    }
+
+    @Override
+    void insertFileHeader(long lowestMarker, long marker) throws IOException {
+        super.insertFileHeader(lowestMarker, marker);
+
+        buffer.clear();
+
+        buffer.put(SegmentHeaders.LOG_FILE.getBytes());
+        buffer.putShort(IMPL_NUMBER);
+        buffer.putInt(super.getSegmentId());
+        buffer.putLong(super.getStreamId().getMostSignificantBits());
+        buffer.putLong(super.getStreamId().getLeastSignificantBits());
+        buffer.putLong(super.getMinimumMarker());
+        buffer.putLong(super.getBaseMarker());
+
+        buffer.write(1);
+    }
+
+    //  open and write the header.
+    synchronized WritingSegment open(BufferSource pool) throws IOException, HeaderException {
+        while (buffer == null) {
+            buffer = createFileBuffer(512 * 1024, pool);
+        }
+
+        if ( existingFile ) {
+            try {
+                buffer.partition(FILE_HEADER_SIZE);
+                buffer.read(1);
+                readFileHeader(buffer);
+            } catch ( HeaderException header ) {
+                throw new IOException(header);
+            } catch ( EOFException eof ) {
+                throw new HeaderException("truncated header",this);
+            }
+        } else {
+            this.writeJumpList = new ArrayList<Long>();
+        }
+        
+        return this;
+    }
+    @Override
+    FileBuffer createFileBuffer(int bufferSize, BufferSource source) throws IOException {
+        buffer = super.createFileBuffer(bufferSize, source); //To change body of generated methods, choose Tools | Templates.
+        return buffer;
+    }
+    
+    @Override
+    FileChannel createFileChannel() throws IOException {
+        if ( existingFile ) {
+            return new RandomAccessFile(getFile(), "rw").getChannel();
+        } else {
+            return new FileOutputStream(getFile()).getChannel();
+        }
+    }
+    
+    void setJumpList(List<Long> jumps) {
+        this.writeJumpList = jumps;
+    }
+    
+    void setMaximumMarker(long max) {
+        this.maxMarker = max;
+    }
+
+    private long piggybackBufferOptimization(ByteBuffer used) throws IOException {
+        long amt = used.remaining();
+        int estart = used.limit();
+        int position = used.position() - (ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
+//  expand buffer
+        used.position(position);
+        used.limit(estart + (2 * ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE);
+//  place header            
+        used.putInt(position, SegmentHeaders.CHUNK_START.getIntValue());
+        used.putLong(position + ByteBufferUtils.INT_SIZE, amt);
+//  place footer          
+        used.putLong(estart, amt);
+        used.putLong(estart + ByteBufferUtils.LONG_SIZE, this.getMaximumMarker());
+        used.putInt(estart + (2 * ByteBufferUtils.LONG_SIZE), SegmentHeaders.FILE_CHUNK.getIntValue());
+//   write it all out
+        amt = buffer.writeFully(used);
+
+        writeJumpList.add(buffer.offset());
+        return amt;
+    }
+
+    public long append(Chunk c, long maxMarker) throws IOException {
+        int writeCount = 0;
+        buffer.clear();
+        this.maxMarker = maxMarker;
+        ByteBuffer[] raw = c.getBuffers();
+        if ( //  very specfic optimization to write out buffers as quickly as possible by using extra space in 
+                //    passed in buffer creating one large write rather than small header writes
+                raw.length == 1 && !raw[0].isReadOnly() && raw[0].isDirect()
+                && raw[0].position() > ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE && //  header is a long size and an int chunk marker
+                raw[0].capacity() - raw[0].limit() > (2 * ByteBufferUtils.LONG_SIZE) + ByteBufferUtils.INT_SIZE //  footer is a long size for marker long for size and an int chunk marker
+                ) {
+            return piggybackBufferOptimization(raw[0]);
+        } else {
+            buffer.clear();
+            buffer.partition(ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE);
+            long amt = c.remaining();
+            buffer.put(SegmentHeaders.CHUNK_START.getBytes());
+            buffer.putLong(amt);
+            buffer.insert(raw, 1, false);
+            buffer.putLong(amt);
+            buffer.putLong(maxMarker);
+            buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
+            writeCount = raw.length + 2;
+            try {
+                return buffer.write(writeCount);
+            } finally {
+                writeJumpList.add(buffer.offset());
+            }
+        }
+    }
+
+    void prepareForClose() throws IOException {
+        if (buffer != null) {
+            buffer.clear();
+            buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
+            writeJumpList(buffer);
+            buffer.write(1);
+        }
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
+        totalWrite = 0;
+        //  don't need any memory buffers anymore       
+        totalWrite = buffer.getTotal();
+        if ( buffer.isOpen() ) {
+            buffer.sync();
+            buffer.close();
+        }
+
+        buffer = null;
+    }
+
+    public boolean isClosed() {
+        return (buffer == null);
+    }
+
+    @Override
+    public long size() {
+        try {
+            return buffer.size();
+        } catch (IOException ioe) {
+            return -1;
+        }
+    }
+
+    @Override
+    public Iterator<Chunk> iterator() {
+        final IntegrityReadbackStrategy reader = new IntegrityReadbackStrategy(buffer);
+        try {
+            buffer.clear();
+            buffer.position(FILE_HEADER_SIZE);
+        } catch ( IOException ioe ) {
+            return null;
+        }
+        return new Iterator<Chunk>() {
+
+            @Override
+            public boolean hasNext() {
+                try {
+                    return reader.hasMore(Direction.FORWARD);
+                } catch ( IOException ioe ) {
+                    return false;
+                }
+            }
+
+            @Override
+            public Chunk next() {
+                try {
+                    return reader.iterate(Direction.FORWARD);
+                } catch ( IOException ioe ) {
+                    return null;
+                }
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+        };
+    }
+
+    private void writeJumpList(FileBuffer target) throws IOException {
+        target.clear();
+        target.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        for (long jump : writeJumpList) {
+            if (target.remaining() < ByteBufferUtils.LONG_SIZE
+                    + ByteBufferUtils.SHORT_SIZE
+                    + ByteBufferUtils.INT_SIZE) {
+                target.write(1);
+                target.clear();
+            }
+            target.putLong(jump);
+        }
+        if (writeJumpList.size() < Short.MAX_VALUE) {
+            target.putShort((short) writeJumpList.size());
+        } else {
+            target.putShort((short) -1);
+        }
+        target.put(SegmentHeaders.JUMP_LIST.getBytes());
+    }
+
+    public long position() throws IOException {
+        return (buffer == null) ? 0 : buffer.position();
+    }
+
+//  assume single threaded
+    public long fsync() throws IOException {
+        if ( buffer == null ) {
+            throw new IOException("segment is closed");
+        }
+        long pos = buffer.offset();
+        buffer.sync();
+        return pos;
+    }
+    
+    protected void limit(long pos) throws IOException {
+        if ( buffer == null ) {
+            throw new IOException("segment is closed");
+        }
+        buffer.position(pos);
+        
+        buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        writeJumpList(buffer);
+        buffer.write(1);
+        buffer.sync();
+    }    
+        
+    boolean last() throws IOException {
+        if ( buffer == null ) {
+            throw new IOException("segment is closed");
+        }
+        buffer.clear();
+        buffer.position(FILE_HEADER_SIZE);
+        IntegrityReadbackStrategy find = new IntegrityReadbackStrategy(buffer);
+        int count = 0;
+        try {
+            while (find.hasMore(Direction.FORWARD)) {
+                try {
+                    find.iterate(Direction.FORWARD);
+                    count += 1;
+                } catch (IOException ioe) {
+                    break;
+                }
+            }
+        } finally {
+            buffer.clear();
+            maxMarker = find.getLastValidMarker();           
+            buffer.position(find.getLastValidPosition());
+            setJumpList(find.getJumpList());
+        }
+        
+        if ( count == 0 ) {
+            return false;
+        }
+        
+        if ( !find.wasClosed() && verifyChunkMark(this.position()) ) {
+            this.limit(this.position());
+        }
+        
+        return true;
+    }
+    
+    private boolean verifyChunkMark(long pos) throws IOException {
+        buffer.clear();
+        buffer.position(pos - ByteBufferUtils.INT_SIZE);
+        buffer.partition(4);
+        buffer.read(1);
+        byte[] code = new byte[4];
+        buffer.get(code);
+        return SegmentHeaders.FILE_CHUNK.validate(code);
+    }    
+}

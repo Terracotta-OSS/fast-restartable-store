@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.transaction;
 
+import com.terracottatech.frs.GettableAction;
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
@@ -20,7 +22,7 @@ import static com.terracottatech.frs.util.ByteBufferUtils.get;
 /**
  * @author tim
  */
-class TransactionalAction implements InvalidatingAction, TransactionAction {
+class TransactionalAction implements InvalidatingAction, TransactionAction, GettableAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -76,6 +78,30 @@ class TransactionalAction implements InvalidatingAction, TransactionAction {
 
   Action getAction() {
     return action;
+  }
+
+  @Override
+  public ByteBuffer getIdentifier() {
+    if ( action instanceof GettableAction ) {
+      return ((GettableAction)action).getIdentifier();
+    }
+    return null;
+  }
+
+  @Override
+  public ByteBuffer getKey() {
+    if ( action instanceof GettableAction ) {
+      return ((GettableAction)action).getKey();
+    }
+    return null;
+  }
+
+  @Override
+  public ByteBuffer getValue() {
+    if ( action instanceof GettableAction ) {
+      return ((GettableAction)action).getValue();
+    }
+    return null;
   }
 
   @Override

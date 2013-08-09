@@ -11,6 +11,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
@@ -38,6 +39,7 @@ public class RestartStoreImplTest {
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>  restartStore;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionManager                                     actionManager;
+  private ReadManager                                     readManager;
   private Compactor                                         compactor;
   private TransactionManager                                transactionManager;
   private TransactionHandle                                 handle;
@@ -56,6 +58,7 @@ public class RestartStoreImplTest {
     actionManager = mock(ActionManager.class);
     syncHappenedFuture = mock(Future.class);
     doReturn(syncHappenedFuture).when(actionManager).syncHappened(any(Action.class));
+    readManager = mock(ReadManager.class);
     compactor = mock(Compactor.class);
     logManager = spy(new NullLogManager());
     restartStore = createStore();
@@ -65,7 +68,7 @@ public class RestartStoreImplTest {
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
     return new RestartStoreImpl(objectManager, transactionManager, logManager,
-                                actionManager, compactor, configuration);
+                                actionManager, readManager, compactor, configuration);
   }
 
   @Test

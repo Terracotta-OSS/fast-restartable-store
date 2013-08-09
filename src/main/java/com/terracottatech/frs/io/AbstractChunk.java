@@ -287,6 +287,18 @@ public abstract class AbstractChunk implements Chunk {
     }
     
     @Override
+    public long position() {
+        long position = 0;
+        for ( ByteBuffer buf : getBuffers() ) {
+            position += buf.position();
+            if ( buf.hasRemaining() ) {
+                break;
+            } 
+        }
+        return position;
+    }
+
+    @Override
     public boolean hasRemaining()  {
         for ( ByteBuffer buf : getBuffers() ) {
             if ( buf.hasRemaining() ) return true;

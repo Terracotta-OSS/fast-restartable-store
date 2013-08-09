@@ -369,6 +369,11 @@ public class StagingLogManagerTest {
             }
         }
         
+        @Override
+        public Chunk scan(long marker) throws IOException {
+            return null;
+        }
+        
         
     @Override
     public void setMinimumMarker(long lsn) throws IOException {
@@ -453,5 +458,6 @@ public class StagingLogManagerTest {
         }
             return false;
     }
+
 }
 }

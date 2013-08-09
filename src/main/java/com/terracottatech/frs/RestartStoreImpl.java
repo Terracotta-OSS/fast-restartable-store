@@ -9,8 +9,10 @@ import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.compaction.CompactorImpl;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
+import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.RecoveryException;
 import com.terracottatech.frs.recovery.RecoveryListener;
@@ -37,27 +39,29 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final Compactor compactor;
   private final LogManager logManager;
   private final ActionManager actionManager;
+  private final ReadManager readManager;
   private final Configuration configuration;
 
   private volatile State state = State.INIT;
 
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                    TransactionManager transactionManager, LogManager logManager,
-                   ActionManager actionManager, Compactor compactor,
+                   ActionManager actionManager, ReadManager read, Compactor compactor,
                    Configuration configuration) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
     this.logManager = logManager;
     this.actionManager = actionManager;
+    this.readManager = read;
     this.compactor = compactor;
     this.configuration = configuration;
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                           TransactionManager transactionManager, LogManager logManager,
-                          ActionManager actionManager, IOManager ioManager,
+                          ActionManager actionManager, ReadManager read, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
-    this(objectManager, transactionManager, logManager, actionManager,
+    this(objectManager, transactionManager, logManager, actionManager, read, 
          new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration,
                            actionManager),
          configuration);
@@ -102,6 +106,17 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> beginAutoCommitTransaction(boolean synchronous) {
     checkReadyState();
     return new AutoCommitTransaction(synchronous);
+  }
+
+  @Override
+  public Tuple<ByteBuffer, ByteBuffer, ByteBuffer> get(long marker) {
+    LogRecord c = readManager.get(marker);
+    Action a = actionManager.extract(c);
+    if ( a instanceof GettableAction ) {
+      return (GettableAction)a;
+    } else {
+      throw new AssertionError("action is not a gettable event");
+    }
   }
 
   @Override

@@ -6,7 +6,6 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.AbstractChunk;
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.nio.NIOSegmentImpl;
 import com.terracottatech.frs.io.nio.NIOStreamImpl;
 import com.terracottatech.frs.util.JUnitTestFolder;
 

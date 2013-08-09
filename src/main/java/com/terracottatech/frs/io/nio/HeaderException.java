@@ -23,7 +23,8 @@ public class HeaderException extends Exception {
      *
      * @param msg the detail message.
      */
-    public HeaderException(String msg, NIOSegmentImpl segment) {
+    
+    public HeaderException(String msg, NIOSegment segment) {
         super(msg + " in segment " + segment.getFile().getAbsolutePath());
     }
 }

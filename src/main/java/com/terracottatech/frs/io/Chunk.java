@@ -17,6 +17,7 @@ public interface Chunk {
     
     ByteBuffer[] getBuffers();
     
+    long position();
     long length();
     long remaining();
     

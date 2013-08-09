@@ -8,8 +8,6 @@ import com.terracottatech.frs.io.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileChannel.MapMode;
 import java.util.*;
 
 /**
@@ -18,9 +16,9 @@ import java.util.*;
  */
 class MappedReadbackStrategy extends AbstractReadbackStrategy {
 
-    private final   MappedByteBuffer    src;
+    private final   MappedByteBuffer        src;
     private final ListIterator<Chunk>       chunks;
-    private final Direction             queueDirection;
+    private final Direction                 queueDirection;
         
     public MappedReadbackStrategy(MappedByteBuffer data,Direction direction) throws IOException {
         src = data;
@@ -38,7 +36,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
             }
             
         } else {
-            Long last = Long.valueOf(NIOSegmentImpl.FILE_HEADER_SIZE);
+            Long last = Long.valueOf(NIOSegment.FILE_HEADER_SIZE);
             for ( Long next : jumps ) {
                 try {
                     src.clear().position(last.intValue() + 12).limit(next.intValue() - 20);
@@ -49,14 +47,14 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
                 }
                 last = next;
             }
-            src.position(NIOSegmentImpl.FILE_HEADER_SIZE);
+            src.position(NIOSegment.FILE_HEADER_SIZE);
         }
         chunks = list.listIterator();
     }
     
     private boolean checkQueue(List<Chunk> got) throws IOException {
         List<Chunk> list = new ArrayList<Chunk>();
-        src.clear().position(NIOSegmentImpl.FILE_HEADER_SIZE);
+        src.clear().position(NIOSegment.FILE_HEADER_SIZE);
         Chunk buf = getBuffer();
         ByteBuffer[] chunk = readChunk(buf);
 
@@ -94,6 +92,39 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
         return new WrappingChunk(src);
     }
     
+    @Override
+    public long size() {
+        return src.capacity();
+    }
+
+    private int offset(long marker) {
+        int move = 0;
+        try {
+            while ( this.hasMore(queueDirection) ) {
+                Chunk c = iterate(queueDirection);
+                long mark = c.getLong(c.length() - 12);
+                if ( queueDirection == Direction.REVERSE && mark >= marker ) {
+                    chunks.next();
+                    return move;
+                } else if ( queueDirection == Direction.FORWARD && mark <= marker ) {
+                    chunks.previous();
+                    return move;
+                }
+           }
+        } catch ( IOException ioe ) {
+            return -1;
+        }
+        return -1;
+    }
+
+    @Override
+    public Chunk scan(long marker) throws IOException {
+        if ( offset(marker) >= 0 ) {
+            return iterate(queueDirection);
+        }
+        return null;
+    }
+
     @Override
     public boolean hasMore(Direction dir) throws IOException {
         if ( dir == queueDirection && chunks.hasNext() ) return true;

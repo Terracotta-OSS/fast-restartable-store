@@ -107,7 +107,7 @@ public class AbstractReadbackStrategyTest {
             File file = fi.next();
             final FileBuffer  buffer = new FileBuffer(new FileInputStream(file).getChannel(), ByteBuffer.allocate((int)file.length()));
             buffer.read(1);
-            buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
+            buffer.skip(NIOSegment.FILE_HEADER_SIZE);
             rs = new MockReadbackStrategy(buffer);
 
             jumps = rs.readJumpList(buffer);
@@ -134,7 +134,7 @@ public class AbstractReadbackStrategyTest {
             File file = fi.next();
             final FileBuffer  buffer = new FileBuffer(new FileInputStream(file).getChannel(), ByteBuffer.allocate((int)file.length()));
             buffer.read(1);
-            buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
+            buffer.skip(NIOSegment.FILE_HEADER_SIZE);
             MockReadbackStrategy rs = new MockReadbackStrategy(buffer);
 
             ArrayList<Long> jumps = rs.readJumpList(buffer);
@@ -158,7 +158,7 @@ public class AbstractReadbackStrategyTest {
         NIOSegmentList list = new NIOSegmentList(workArea);
         final FileBuffer  buffer = new FileBuffer(new FileInputStream(list.getEndFile()).getChannel(), ByteBuffer.allocate((int)list.getEndFile().length()));
         buffer.read(1);
-        buffer.skip(NIOSegmentImpl.FILE_HEADER_SIZE);
+        buffer.skip(NIOSegment.FILE_HEADER_SIZE);
         ReadbackStrategy rs = new MockReadbackStrategy(buffer);
         
         while (rs.hasMore(Direction.FORWARD)) {
@@ -180,7 +180,16 @@ public class AbstractReadbackStrategyTest {
                 buffer = src;
             }
             
+            @Override
+            public long size() {
+                return buffer.length();
+            }
 
+            @Override
+            public Chunk scan(long marker) throws IOException {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+            
             @Override
             public Chunk iterate(Direction dir) throws IOException {
                 try {

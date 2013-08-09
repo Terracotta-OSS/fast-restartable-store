@@ -5,11 +5,11 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.BufferBuilder;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.FileBuffer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.regex.Pattern;
 
 /**
  *
@@ -26,8 +26,8 @@ public class CorruptionBuilder implements BufferBuilder {
     }
 
     @Override
-    public FileBuffer createBuffer(final FileChannel channel, final ByteBuffer buffer) throws IOException {
-        return new FileBuffer(channel, buffer) {
+    public FileBuffer createBuffer(final FileChannel channel, final BufferSource buffer, int size) throws IOException {
+        return new FileBuffer(channel, buffer.getBuffer(size)) {
 
             @Override
             public long writeFully(ByteBuffer buffer) throws IOException {

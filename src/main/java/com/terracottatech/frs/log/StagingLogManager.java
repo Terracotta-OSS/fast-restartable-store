@@ -508,6 +508,7 @@ public class StagingLogManager implements LogManager {
             interrupted = true;
           }
         }
+        
         if (interrupted) {
           Thread.currentThread().interrupt();
           return null;

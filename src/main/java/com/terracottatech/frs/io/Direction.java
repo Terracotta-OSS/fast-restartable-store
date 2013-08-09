@@ -9,7 +9,7 @@ package com.terracottatech.frs.io;
  * @author mscott
  */
 public enum Direction {
-    FORWARD,REVERSE;
+    FORWARD,REVERSE,RANDOM;
     
     public static Direction getDefault() {
         return REVERSE;

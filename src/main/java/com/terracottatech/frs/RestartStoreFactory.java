@@ -10,6 +10,8 @@ import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.flash.ReadManager;
+import com.terracottatech.frs.flash.ReadManagerImpl;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.LogManager;
@@ -47,13 +49,14 @@ public abstract class RestartStoreFactory {
           File dbHome, Properties properties) throws IOException, RestartStoreException {
     Configuration configuration = Configuration.getConfiguration(dbHome, properties);
     IOManager ioManager = new NIOManager(configuration);
+    ReadManager readManager = new ReadManagerImpl(ioManager);
     LogManager logManager = new StagingLogManager(ioManager,configuration);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager),
                                                         new MasterLogRecordFactory());
     TransactionManager transactionManager = new TransactionManagerImpl(actionManager);
     return new RestartStoreImpl(objectManager, transactionManager, logManager,
-                                actionManager, ioManager, configuration);
+                                actionManager, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

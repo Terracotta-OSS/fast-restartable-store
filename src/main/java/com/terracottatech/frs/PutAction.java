@@ -19,7 +19,7 @@ import java.util.Set;
 /**
  * @author tim
  */
-public class PutAction implements InvalidatingAction {
+public class PutAction implements InvalidatingAction, GettableAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -66,15 +66,18 @@ public class PutAction implements InvalidatingAction {
     this.invalidatedLsn = invalidatedLsn;
   }
 
-  protected ByteBuffer getId() {
+  @Override
+  public ByteBuffer getIdentifier() {
     return id;
   }
 
-  protected ByteBuffer getKey() {
+  @Override
+  public ByteBuffer getKey() {
     return key;
   }
 
-  protected ByteBuffer getValue() {
+  @Override
+  public ByteBuffer getValue() {
     return value;
   }
 
@@ -85,7 +88,7 @@ public class PutAction implements InvalidatingAction {
 
   @Override
   public void record(long lsn) {
-    objectManager.put(getId(), getKey(), getValue(), lsn);
+    objectManager.put(getIdentifier(), getKey(), getValue(), lsn);
     if (invalidatedLsn != -1) {
       compactor.generatedGarbage(invalidatedLsn);
     }
@@ -93,7 +96,7 @@ public class PutAction implements InvalidatingAction {
 
   @Override
   public void replay(long lsn) {
-    objectManager.replayPut(getId(), getKey(), getValue(), lsn);
+    objectManager.replayPut(getIdentifier(), getKey(), getValue(), lsn);
   }
 
   @Override

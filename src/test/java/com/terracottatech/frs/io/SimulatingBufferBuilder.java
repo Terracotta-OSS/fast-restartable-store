@@ -18,8 +18,8 @@ public class SimulatingBufferBuilder implements BufferBuilder {
     }
 
     @Override
-    public FileBuffer createBuffer(FileChannel channel, ByteBuffer buffer) throws IOException {
-        return new SimulationFileBuffer(channel,buffer);
+    public FileBuffer createBuffer(FileChannel channel, BufferSource buffer, int size) throws IOException {
+        return new SimulationFileBuffer(channel,buffer.getBuffer(size));
     }
     
 }

@@ -48,6 +48,8 @@ public interface RestartStore<I, K, V> {
    */
   Transaction<I, K, V> beginAutoCommitTransaction(boolean synchronous);
 
+  Tuple<I, K, V> get(long marker);
+
   /**
    * Take a snapshot of this {@link RestartStore} for backup purposes. All transactions that have already been committed
    * prior to the snapshot call are guaranteed to be in the snapshot. Changes made while the snapshot is taken may or may

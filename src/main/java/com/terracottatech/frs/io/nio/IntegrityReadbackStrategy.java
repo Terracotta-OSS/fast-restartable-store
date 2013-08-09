@@ -35,6 +35,11 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         buffer = src;
     }
 
+    public FileBuffer getFileBuffer() {
+        buffer.clear();
+        return buffer;
+    }
+
     @Override
     public boolean hasMore(Direction dir) throws IOException {
         if (done) {
@@ -129,7 +134,21 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         return jumpList;
     }
 
+    void clear() {
+        buffer.clear();
+    }
+
     boolean wasClosed() {
         return SegmentHeaders.CLOSE_FILE.validate(exitStatus);
+    }
+
+    @Override
+    public long size() throws IOException {
+        return buffer.size();
+    }
+
+    @Override
+    public Chunk scan(long marker) throws IOException {
+        return null;
     }
 }

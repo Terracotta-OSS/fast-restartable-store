@@ -19,6 +19,7 @@ import java.util.Arrays;
 public class FileBuffer extends AbstractChunk implements Closeable {
 
     protected final FileChannel channel;
+    protected final BufferSource source;
     protected final ByteBuffer base;
     protected ByteBuffer[] ref;
     private int mark = 0;
@@ -34,9 +35,18 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         }
         this.channel = channel;
         this.base = src;
+        this.source = null;
         this.ref = new ByteBuffer[]{base.duplicate()};
         this.offset = 0;
     }
+
+    public FileBuffer(FileChannel channel, BufferSource src, int size) throws IOException {
+        this.channel = channel;
+        this.source = src;
+        this.base = src.getBuffer(size);
+        this.ref = new ByteBuffer[]{base.duplicate()};
+        this.offset = 0;
+    }    
 
     public long getTotal() {
         return total;
@@ -47,8 +57,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return ref;
     }
 
+    @Override
     public long position() {
-        return offset + (length() - remaining());
+        return offset + super.position();
     }
 
     public long offset() {
@@ -75,9 +86,8 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         } else {
             channel.position(pos);
         }
-        offset = channel.position();
+        offset = channel.position() - super.position();
         return this;
-
     }
 
     public FileBuffer partition(int... pos) {
@@ -88,7 +98,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
             if (p > target.limit()) {
                 throw new BufferUnderflowException();
             } else {
-                target.limit(p - target.position());
+                target.limit(p + target.position());
                 sections.add(target.slice());
                 target.clear().position(target.position() + p);
             }
@@ -108,7 +118,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
 
     public long read(int count) throws IOException {
         long lt = 0;
-        offset = channel.position();
+        if ( mark == 0 ) offset = channel.position();
         for (int x = mark; x < mark + count; x++) {
             if (ref[x].isReadOnly()) {
                 ref[x] = ref[x].duplicate();
@@ -261,6 +271,9 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     @Override
     public void close() throws IOException {
         channel.close();
+        if ( source != null ) {
+            source.returnBuffer(base);
+        }
         ref = null;
     }
     
@@ -277,5 +290,8 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return "FileBuffer{" + "channel=" + channel.toString() + '}';
     }
     
+    public FileChannel getFileChannel() {
+        return channel;
+    }
     
 }

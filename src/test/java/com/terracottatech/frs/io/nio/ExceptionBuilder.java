@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.BufferBuilder;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.FileBuffer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,8 +24,8 @@ public class ExceptionBuilder implements BufferBuilder {
     }
 
     @Override
-    public FileBuffer createBuffer(FileChannel channel, ByteBuffer buffer) throws IOException {
-        return new FileBuffer(channel, buffer) {
+    public FileBuffer createBuffer(FileChannel channel, BufferSource buffer, int size) throws IOException {
+        return new FileBuffer(channel, buffer.getBuffer(size)) {
 
             @Override
             public long writeFully(ByteBuffer buffer) throws IOException {

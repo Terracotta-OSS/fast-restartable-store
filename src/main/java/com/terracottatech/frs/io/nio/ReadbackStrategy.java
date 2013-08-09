@@ -16,4 +16,6 @@ public interface ReadbackStrategy {
     Chunk iterate(Direction dir) throws IOException;
     boolean hasMore(Direction dir) throws IOException;
     boolean isConsistent();
+    long size() throws IOException;
+    Chunk scan(long marker) throws IOException;
 }

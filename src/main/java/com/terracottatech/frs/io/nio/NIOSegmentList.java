@@ -17,8 +17,9 @@ import java.util.*;
 class NIOSegmentList extends AbstractList<File> {
     private final List<File>              segments;
     private final File                    directory;
-    private File                    readHead;
-    private int                     position;
+    private File                          readHead;
+    private int                           position;
+    private int                           segmentId;
 
     NIOSegmentList(File directory) throws IOException {
         this.directory = directory;  
@@ -26,7 +27,11 @@ class NIOSegmentList extends AbstractList<File> {
         if ( list == null ) list = new File[0];
         segments = new LinkedList<File>(Arrays.asList(list));
         Collections.sort(segments, NIOConstants.SEGMENT_FILE_COMPARATOR);
-        
+        if ( segments.isEmpty() ) {
+          segmentId = 0;
+        } else {
+          segmentId = NIOConstants.convertSegmentNumber(segments.get(0));
+        }
         position = -1;
     }   
     
@@ -39,8 +44,7 @@ class NIOSegmentList extends AbstractList<File> {
     }
     
     synchronized File appendFile() throws IOException {
-        int seg = (segments.isEmpty() ) ? 0 : NIOConstants.convertSegmentNumber(
-                segments.get(segments.size() - 1)) + 1;
+        int seg = segmentId + segments.size();
 
         StringBuilder fn = new StringBuilder();
         Formatter pfn = new Formatter(fn);
@@ -58,13 +62,13 @@ class NIOSegmentList extends AbstractList<File> {
         return segments.isEmpty();
     }
     
-    synchronized void setReadPosition(long pos) {
+    synchronized void setReadPosition(int pos) {
         if ( segments.isEmpty() || pos == 0 ) {
             position = -1;
         } else if ( pos < 0 || pos > segments.size()-1) {
-            position = segments.size();
+            position = segmentId + segments.size();
         } else {
-            position = (int)pos;
+            position = (int)pos - segmentId;
         }
         
     }
@@ -73,16 +77,24 @@ class NIOSegmentList extends AbstractList<File> {
         readHead = null;
         if ( dir == Direction.REVERSE ) {
             position -= 1;
-        } else {  //  Direction.FORWARD
+        } else {  //  Direction.FORWARD or RANDOM
             position += 1;
         }  
-        if ( position < 0 || position >= segments.size() ) {
+        if ( position < segmentId || position >= segmentId + segments.size() ) {
             readHead = null;
         } else {
-            readHead = segments.get(position);
+            readHead = segments.get(position - segmentId);
         }
         
         return readHead;
+    }
+    
+    int getFilePosition() {
+      return segmentId + position;
+    }
+    
+    int getBeginningSegmentId() {
+      return segmentId;
     }
     
     synchronized long removeFilesFromTail() throws IOException {
@@ -94,17 +106,20 @@ class NIOSegmentList extends AbstractList<File> {
             if ( !f.delete() ) {
                 size -= f.length();
                 segments.add(0,f);
-                return size;
+                break;
             }
             count++;
+            segmentId++;
         }
-        assert(segments.get(0).equals(readHead));
+        if (!segments.get(0).equals(readHead) || segmentId != NIOConstants.convertSegmentNumber(segments.get(0)) ) {
+            throw new AssertionError("bad segment deletion");
+        }
         return size;
     }
     
     synchronized long removeFilesFromHead() throws IOException {
         long size = 0;
-        while ( position+1 < segments.size()) {
+        while ( position+1 < segmentId + segments.size()) {
             File f = segments.remove(segments.size()-1);
             size += f.length();
             if ( !f.delete() ) {
@@ -123,6 +138,10 @@ class NIOSegmentList extends AbstractList<File> {
     
     synchronized File getEndFile() throws IOException {
         return segments.get(segments.size()-1);
+    }
+    
+    synchronized File getFile(int segmentId) {
+        return segments.get(segmentId - this.segmentId);
     }
     
     synchronized boolean currentIsHead() throws IOException {

@@ -8,12 +8,14 @@ import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.GCBufferSource;
+import com.terracottatech.frs.io.ManualBufferSource;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.log.Signature;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -81,16 +83,17 @@ public class IntegrityTool {
             throw new IOException("segment is not part of the current stream");
         }
         BufferSource src = new GCBufferSource();
-        NIOSegmentImpl segment = new NIOSegmentImpl(null, f);
-        segment.openForReading(src);
+        WritingSegment segment = new WritingSegment(null, f).open(new ManualBufferSource(512 * 1024));
         int count = 0;
         int size = 0;
         int records = 0;
         int rsize = 0;
-        while ( segment.hasMore(Direction.REVERSE) ) {
-            Chunk c = segment.next(Direction.REVERSE);
+        long lastpos = segment.position();
+        Iterator<Chunk> checker = segment.iterator();
+        while ( checker.hasNext() ) {
+            Chunk c = checker.next();
             count++;
-            size += c.remaining();
+            size += segment.position() - lastpos;
             try {
                 List<LogRecord> list = LogRegionPacker.unpack(Signature.ADLER32, c);
                 records += list.size();
@@ -104,7 +107,7 @@ public class IntegrityTool {
                 System.out.println("!!!!! " + f.getName() + " " + exp.getMessage() + " for chunk " + count + " from the end of size " + size + " !!!!!");
             }
         }
-        segment.openForHeader(src);
+
         boolean closed = segment.last();
         
         int thisSegment = segment.getSegmentId();

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferBuilder;
@@ -25,6 +26,7 @@ import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.Formatter;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Future;
 
 
@@ -113,6 +115,9 @@ public class NIOManager implements IOManager {
         
         long blit = System.nanoTime();
         long w = backend.append(region, marker);
+        if ( region instanceof SnapshotRequest ) {
+            ((SnapshotRequest)region).setSnapshot(new NIOSnapshot());
+        }
         blit = System.nanoTime() - blit;
         written += w;
         writeTime += blit;
@@ -157,8 +162,6 @@ public class NIOManager implements IOManager {
     
     @Override
     public long seek(long marker) throws IOException {
-        assert(readOpsAllowed);
-
         if (backend == null) {
             throw new IOException("stream is closed");
         }    
@@ -297,45 +300,19 @@ public class NIOManager implements IOManager {
         return NullFuture.INSTANCE;
     }
 
-    @Override
-    public void closeCurrentSegment() throws IOException {
-        backend.closeCurrentSegment();
-    }
-
-    @Override
-    public synchronized Snapshot snapshot() {
-        return new NIOSnapshot();
-    }
-
     private class NIOSnapshot implements Snapshot {
         private boolean live = true;
-        private final Iterator<File> iterator;
+        private final List<File> files;
 
         NIOSnapshot() {
           snapshots++;
-          iterator = backend.fileList().iterator();
+          files = backend.fileList();
         }
 
         @Override
-        public boolean hasNext() {
-          if (!live) {
-            throw new IllegalStateException("snapshot is already released");
+        public Iterator<File> iterator() {
+            return files.iterator();
           }
-          return iterator.hasNext();
-        }
-
-        @Override
-        public File next() {
-          if (!live) {
-            throw new IllegalStateException("snapshot is already released");
-          }
-          return iterator.next();
-        }
-
-        @Override
-        public void remove() {
-          throw new UnsupportedOperationException("Remove is not supported");
-        }
 
         @Override
         public void close() throws IOException {

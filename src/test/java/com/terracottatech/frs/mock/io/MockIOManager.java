@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.mock.io;
 
-import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
@@ -185,14 +184,5 @@ public class MockIOManager implements IOManager {
     public IOStatistics getStatistics() throws IOException {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-
-    @Override
-    public void closeCurrentSegment() throws IOException {
-        throw new UnsupportedOperationException("Implement me!");
+    
     }
-
-    @Override
-    public Snapshot snapshot() {
-       throw new UnsupportedOperationException("Implement me!");
-    }
-}

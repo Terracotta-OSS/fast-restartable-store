@@ -20,11 +20,11 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -34,6 +34,56 @@ import static org.hamcrest.Matchers.nullValue;
 public class SnapshotTest {
   @Rule
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
+
+  @Test
+  public void testMultipleSnapshots() throws Exception {
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = createStore(tempFolder.newFolder(), objectManager);
+
+      Map<String, String> map = createMap(restartStore, objectManager);
+
+      restartStore.startup().get();
+
+      for (int i = 0; i < 1000; i++) {
+        map.put(Integer.toString(i), "foo");
+      }
+
+      ExecutorService svr = Executors.newFixedThreadPool(25);
+      Runnable rb = new Runnable() {
+          public void run() {
+              try {
+                Snapshot snapshot = restartStore.snapshot();
+                for ( File f : snapshot ) {
+                    System.out.println(f);
+                }
+                snapshot.close();
+              } catch ( IOException ioe ) {
+                  ioe.printStackTrace();
+              } catch ( RestartStoreException re ) {
+                  re.printStackTrace();
+              } catch ( Throwable t ) {
+                  t.printStackTrace();
+              }
+          }
+      };
+      
+     for (int x = 0;x<100;x++) {
+         svr.execute(rb);
+     }
+     svr.shutdown();
+     svr.awaitTermination(5, TimeUnit.DAYS);
+
+      for (int i = 1000; i < 2000; i++) {
+        map.put(Integer.toString(i), "foo");
+      }
+
+      map.clear();
+
+
+      restartStore.shutdown();
+    }
+  }
 
   @Test
   public void testSimpleBackup() throws Exception {
@@ -58,8 +108,8 @@ public class SnapshotTest {
 
       map.clear();
 
-      while (snapshot.hasNext()) {
-        FileUtils.copyFileToDirectory(snapshot.next(), backupTo);
+      for ( File f : snapshot ) {
+        FileUtils.copyFileToDirectory(f, backupTo);
       }
       snapshot.close();
 
@@ -125,16 +175,12 @@ public class SnapshotTest {
         future.get();
       }
 
-      List<File> files = new ArrayList<File>();
-      while (snapshot1.hasNext()) {
-        files.add(snapshot1.next());
-      }
-      copySnapshotTo(files.iterator(), backup1);
+      copySnapshotTo(snapshot1.iterator(), backup1);
 
       for (int i = 0; i < 1000; i++) {
         map1.put("main-" + i, "a");
       }
-      copySnapshotTo(files.iterator(), backup2);
+      copySnapshotTo(snapshot1.iterator(), backup2);
 
       snapshot1.close();
 

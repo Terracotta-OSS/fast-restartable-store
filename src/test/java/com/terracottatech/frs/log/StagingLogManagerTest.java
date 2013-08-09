@@ -4,10 +4,11 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.SnapshotRequest;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
@@ -64,9 +65,8 @@ public class StagingLogManagerTest {
   @Test
   public void testSnapshot() throws Exception {
     logManager.startup();
-    logManager.snapshot();
-    verify(ioManager).closeCurrentSegment();
-    verify(ioManager).snapshot();
+    Snapshot s = logManager.snapshot();
+    Assert.assertTrue(ioManager.snapshotWasSeen());
   }
 
   /**
@@ -444,13 +444,14 @@ public class StagingLogManagerTest {
         public void close() throws IOException {
         }
 
-        @Override
-        public void closeCurrentSegment() throws IOException {
+        public boolean snapshotWasSeen() {
+            Iterator<Chunk> c  = chunks.iterator();
+            while ( c.hasNext() ) {
+                if ( c.next() instanceof SnapshotRequest ) {
+                    return true;
         }
-
-        @Override
-        public Snapshot snapshot() {
-            return null;
         }
+            return false;
     }
+}
 }

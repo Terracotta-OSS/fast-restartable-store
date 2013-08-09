@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.SnapshotRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +35,7 @@ import java.util.concurrent.Exchanger;
  */
 class NIOStreamImpl implements Stream {
 
-    private static final String BAD_STREAM_ID = "mis-aligned streams";
+    static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
     private final long segmentSize;
     private final NIOSegmentList segments;
@@ -50,11 +51,11 @@ class NIOStreamImpl implements Stream {
     private BufferBuilder createBuffer;
     private HashMap<String, Integer> strategies;
     
-    public NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
+    NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
         this(filePath,recommendedSize, recommendedSize);
     }
     
-    public NIOStreamImpl(File filePath, long recommendedSize, long memorySize) throws IOException {
+    NIOStreamImpl(File filePath, long recommendedSize, long memorySize) throws IOException {
         directory = filePath;
 
         if ( LOGGER.isDebugEnabled() ) {
@@ -286,7 +287,7 @@ class NIOStreamImpl implements Stream {
 
         long w = writeHead.append(c, marker);
         currentMarker = marker;
-        if (writeHead.length() > segmentSize) {
+        if (writeHead.length() > segmentSize || c instanceof SnapshotRequest ) {
             closeCurrentSegment();
         }
         return w;

@@ -18,8 +18,6 @@ public interface IOManager extends Closeable {
   
   long write(Chunk region, long marker) throws IOException;
 
-  void closeCurrentSegment() throws IOException;
-  
   void setMinimumMarker(long marker) throws IOException;
   long getMinimumMarker() throws IOException;
   long getCurrentMarker() throws IOException;
@@ -34,8 +32,6 @@ public interface IOManager extends Closeable {
   
   IOStatistics getStatistics() throws IOException;
 
-  Snapshot snapshot();
-  
   public enum Seek {
     BEGINNING (0),
     END (-1);

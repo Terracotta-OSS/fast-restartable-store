@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.nio.ByteBuffer;
@@ -11,6 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.Adler32;
@@ -42,8 +44,41 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }   
     
     @Override
-    public Chunk pack(Iterable<LogRecord> payload) {
-        return writeRecords(payload);
+    public Chunk pack(final Iterable<LogRecord> payload) {
+       final List<SnapshotRequest> holder = new LinkedList<SnapshotRequest>();
+       Chunk c = writeRecords(new Iterable<LogRecord>() {
+               @Override
+               public Iterator<LogRecord> iterator() {
+
+                   return new Iterator<LogRecord>() {
+                       Iterator<LogRecord> delegate = payload.iterator();
+                       @Override
+                       public boolean hasNext() {
+                           return delegate.hasNext();
+    }
+    
+                       @Override
+                       public LogRecord next() {
+                           LogRecord lr = delegate.next();
+                           if ( lr instanceof SnapshotRequest ) {
+                               holder.add((SnapshotRequest)lr);
+                           }
+                           return lr;
+                       }
+
+                       @Override
+                       public void remove() {
+                           delegate.remove();
+                       }
+                   };
+               }
+           });
+
+        if ( !holder.isEmpty() ) {
+            return new SnapshotBufferList(c.getBuffers(),holder);
+        } else {
+            return c;
+        }
     }
     
     public static List<LogRecord> unpack(Signature type, Chunk data) throws FormatException {

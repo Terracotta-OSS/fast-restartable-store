@@ -193,6 +193,8 @@ public class BackupTest {
       registerableObjectManager.registerObject(restartableMap);
       restartStore.startup().get();
 
+      assertThat(restartableMap.size(), is(100));
+      
       final AtomicBoolean done = new AtomicBoolean();
       final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
       Thread garbageGeneration = new Thread() {

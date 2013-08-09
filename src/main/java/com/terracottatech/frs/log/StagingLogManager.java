@@ -29,7 +29,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  *
@@ -60,8 +59,6 @@ public class StagingLogManager implements LogManager {
     
     private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
 
-    private final ReentrantReadWriteLock appendLock = new ReentrantReadWriteLock();
-    
     public StagingLogManager(IOManager io) {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
     }
@@ -293,9 +290,7 @@ public class StagingLogManager implements LogManager {
                 buffers.returnBuffer(giveBack);
             }
 
-            if (packer.doClose()) {
-                io.closeCurrentSegment();
-            } else if ( packer.doSync() ) {
+            if ( packer.doSync() ) {
                 io.sync();
             }
             
@@ -441,7 +436,7 @@ public class StagingLogManager implements LogManager {
         state = state.idle();
     }
     
-    private CommitList _append(LogRecord record, boolean sync, boolean closeFile) {
+    private CommitList _append(LogRecord record, boolean sync) {
         if ( !state.acceptRecords() ) {
             if ( blockingException != null ) {
                 throw new LogWriteError(blockingException);
@@ -469,7 +464,7 @@ public class StagingLogManager implements LogManager {
             int spincount = 0;
   //  if we hit this, try and spread out
             int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
-            while ( !mine.append(record,sync, closeFile) ) {
+            while ( !mine.append(record,sync) ) {
                 if ( spincount++ > waitspin ) {
                     try {                      
                         mine.get();
@@ -490,31 +485,21 @@ public class StagingLogManager implements LogManager {
 
     @Override
     public Future<Void> append(LogRecord record) {
-      appendLock.readLock().lock();
-      try {
-        return _append(record,false, false);
-      } finally {
-        appendLock.readLock().unlock();
+        return _append(record,false);
       }
-    }
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-      appendLock.readLock().lock();
-      try {
-        Future<Void> w = _append(record,true, false);
+        Future<Void> w = _append(record,true);
         return w;
-      } finally {
-        appendLock.readLock().unlock();
       }
-    }
 
     @Override
     public Snapshot snapshot() throws ExecutionException {
-      appendLock.writeLock().lock();
-      try {
+        SnapshotRecord snapshot = new SnapshotRecord();
         boolean interrupted = false;
-        Future<Void> write = _append(new LogRecordImpl(new ByteBuffer[0], null), true, true);
+        Future<Void> write = this.append(snapshot);
+
         while (true) {
           try {
             write.get();
@@ -525,12 +510,11 @@ public class StagingLogManager implements LogManager {
         }
         if (interrupted) {
           Thread.currentThread().interrupt();
+          return null;
         }
-        return io.snapshot();
-      } finally {
-        appendLock.writeLock().unlock();
+        
+        return snapshot;
       }
-    }
 
     static class WritingPackage implements Runnable {
         private final CommitList                list;
@@ -546,9 +530,11 @@ public class StagingLogManager implements LogManager {
         public void run() {
             if ( data == null ) {
                 synchronized (list) {
-                    if ( data == null ) data = factory.pack(list);
+                    if ( data == null ) {
+                        data = factory.pack(list);
                }
             }
+        }
         }
 
         public long endLsn() {
@@ -561,10 +547,6 @@ public class StagingLogManager implements LogManager {
         
         public boolean doSync() {
             return list.isSyncRequested();
-        }
-
-        public boolean doClose() {
-            return list.isSegmentCloseRequested();
         }
 
         public void written() {

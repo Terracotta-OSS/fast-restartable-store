@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.Collections;
 import java.util.Formatter;
 import java.util.Iterator;
 import java.util.List;
@@ -309,7 +310,7 @@ public class NIOManager implements IOManager {
 
         NIOSnapshot() {
           snapshots++;
-          files = backend.fileList();
+          files = Collections.unmodifiableList(backend.fileList());
         }
 
         @Override

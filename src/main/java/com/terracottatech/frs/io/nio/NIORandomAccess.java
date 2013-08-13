@@ -49,9 +49,24 @@ class NIORandomAccess implements RandomAccess {
         return c;
     }
     
+    private void cleanCache() throws IOException {
+        Map.Entry<Long,Integer> first = this.fileIndex.firstEntry();
+// go backwards until you don't find an entry
+        for (int x=first.getValue()-1;x>=0;x++) {
+            ReadOnlySegment seg = this.fileCache.remove(x);
+            if ( seg == null ) {
+                break;
+            } else {
+                seg.close();
+            }
+        }
+    }
+    
      synchronized ReadOnlySegment createSegment(int segId) throws IOException {
         ReadOnlySegment seg = fileCache.get(segId);
         if ( seg == null ) {
+            // first clear any old caches not needed anymore
+            cleanCache();
             try {
                 File f = segments.getFile(segId);
                 if ( f == null ) {

@@ -80,11 +80,15 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
     
     @Override
     public void close() throws IOException {
+        if ( isClosed() ) {
+            return;
+        }
         source.close();
         if ( strategy instanceof Closeable ) {
             ((Closeable)strategy).close();
         }
         strategy = null;
+        source = null;
     }
 
     public Chunk next(Direction dir) throws IOException {

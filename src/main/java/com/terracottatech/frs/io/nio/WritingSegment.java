@@ -135,6 +135,9 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     public long append(Chunk c, long maxMarker) throws IOException {
         int writeCount = 0;
         buffer.clear();
+        if ( this.maxMarker == maxMarker ) {
+            throw new IllegalArgumentException("writing the same marker to the log");
+        }
         this.maxMarker = maxMarker;
         ByteBuffer[] raw = c.getBuffers();
         if ( //  very specfic optimization to write out buffers as quickly as possible by using extra space in 

@@ -49,6 +49,7 @@ class NIOStreamImpl implements Stream {
     private volatile long lowestMarker = 99;
     private volatile long lowestMarkerOnDisk = 0;
     private long currentMarker = 99;  //  init lsn is 100
+    private int  markerWaiters = 0;
     private WritingSegment writeHead;
     private ReadOnlySegment readHead;
     private long offset = 0;
@@ -165,7 +166,7 @@ class NIOStreamImpl implements Stream {
                     throw new IOException(BAD_STREAM_ID);
                 }
                 if ( seg.last() ) {
-                    this.currentMarker = seg.getMaximumMarker();
+                    updateCurrentMarker(seg.getMaximumMarker());
                     this.lowestMarker = seg.getMinimumMarker();
                     this.lowestMarkerOnDisk = this.lowestMarker;
                     return true;                    
@@ -312,7 +313,7 @@ class NIOStreamImpl implements Stream {
         }
 
         long w = writeHead.append(c, marker);
-        currentMarker = marker;
+        updateCurrentMarker(marker);
         if (writeHead.size() > segmentSize || c instanceof SnapshotRequest ) {
             closeCurrentSegment();
         }
@@ -466,6 +467,27 @@ class NIOStreamImpl implements Stream {
         }
 
         return readHead.next(dir);
+    }
+    
+    synchronized void waitForMarker(long lsn) throws InterruptedException {
+        markerWaiters += 1;
+        try {
+            while (lsn > this.currentMarker ) {
+                this.wait();
+            }
+        } finally {
+            markerWaiters -= 1;        
+        }
+    }
+//  mostly called by the IO thread and should not be too expensive so ok to synchronize  
+    private synchronized void updateCurrentMarker(long lsn) {
+        if ( lsn < currentMarker ) {
+            throw new IllegalArgumentException("markers must always be increasing");
+        }
+        currentMarker = lsn;
+        if ( markerWaiters > 0 ) {
+            this.notifyAll();
+        }
     }
 
     void checkStreamId(NIOSegment segment) throws IOException {

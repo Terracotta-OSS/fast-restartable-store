@@ -94,7 +94,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
                 if (SegmentHeaders.FILE_CHUNK.validate(buffer.getInt())) {
                     lastGood = buffer.position();
                 }
-                jumpList.add(buffer.position());
+                jumpList.add(lastGood);
             } else {
                 throw new IOException(new String(check));
             }

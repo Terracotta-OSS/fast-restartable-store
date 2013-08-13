@@ -37,6 +37,7 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         int toRead = (int)Math.min(data.capacity(), data.size());
         data.partition(toRead);
         data.read(1);
+        data.limit(toRead);
         List<Long> jumps = readJumpList(data);
         if ( jumps == null )  {
             data.position(NIOSegment.FILE_HEADER_SIZE);
@@ -80,15 +81,24 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
             data.read(1);
             long len = data.getLong();
             data.position(data.position() + len);
-            data.partition(20,8);
+            data.partition(20,4,8);
             data.read(1);
             if ( len != data.getLong() ) {
                 throw new IOException("chunk corruption - head and tail lengths do not match");
             }
             long marker = data.getLong();
             boundaries.put(marker,new Marker(start, marker));
-            start = data.position();
-            cs = data.getInt();
+            if ( !SegmentHeaders.FILE_CHUNK.validate(data.getInt()) ) {
+                throw new IOException("chunk corruption - file chunk magic is missing");
+            } else {
+                start = data.position();
+            }
+            if ( data.position() < data.size() ) {
+                data.read(1);
+                cs = data.getInt();
+            } else {
+                break;
+            }
         }
         length = data.size();
     }     
@@ -192,7 +202,7 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
 
         value = refreshCache();
         
-        return new WrappingChunk(value);
+        return new WrappingChunk(value.duplicate());
       }
       
       private synchronized ByteBuffer refreshCache() throws IOException {

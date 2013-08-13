@@ -36,9 +36,10 @@ class NIORandomAccess implements RandomAccess {
         int segId = ( cacheId != null ) ? cacheId.getValue() : segments.getBeginningSegmentId();
         Chunk c = null;
         while ( c == null ) {
-            ReadOnlySegment seg = fileCache.get(segId);
+            int getId = segId++;
+            ReadOnlySegment seg = fileCache.get(getId);
             if ( seg == null ) {
-                seg = createSegment(segId++);
+                seg = createSegment(getId);
             }
             if ( seg == null ) {
                 return null;

@@ -25,7 +25,7 @@ public class ReadManagerImpl implements ReadManager {
   }
 
   @Override
-  public synchronized LogRecord get(long marker) {
+  public LogRecord get(long marker) throws IOException {
     try {
       Chunk c = ioManager.scan(marker);
       List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, c);
@@ -34,11 +34,9 @@ public class ReadManagerImpl implements ReadManager {
           return r;
         }
       }
-    } catch ( IOException ioe ) {
-      
     } catch ( FormatException form ) {
-      
-    }
+        throw new IOException(form);
+    } 
     return null;
   }
   

@@ -47,7 +47,15 @@ public interface RestartStore<I, K, V> {
    * @return an auto-commit transaction context.
    */
   Transaction<I, K, V> beginAutoCommitTransaction(boolean synchronous);
-
+  
+  /**
+   * randomly access a record from the log at a user provided marker
+   *
+   * @param marker the marker which was provided at put time
+   * @return a tuple representing the action placed in the log, null if the action represented at
+   *      the requested marker is not gettable or the marker does not exist in the log
+   * 
+   */
   Tuple<I, K, V> get(long marker);
 
   /**

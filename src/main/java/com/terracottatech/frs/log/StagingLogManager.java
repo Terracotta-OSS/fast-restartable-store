@@ -215,7 +215,11 @@ public class StagingLogManager implements LogManager {
             }
             
             WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
-            wp.run();
+            if ( wp.isEmpty() ) {
+                continue;
+            } else {
+                wp.run();                
+            }
 
             while ( !queue.offer(wp,200,TimeUnit.MICROSECONDS) ) {
                 if ( stopped ) break;
@@ -536,6 +540,10 @@ public class StagingLogManager implements LogManager {
                }
             }
         }
+        }
+        
+        boolean isEmpty() {
+            return list.isEmpty();
         }
 
         public long endLsn() {

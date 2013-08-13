@@ -20,6 +20,8 @@ import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.recovery.RecoveryManagerImpl;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
+import java.io.IOException;
+import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
@@ -110,12 +112,22 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   @Override
   public Tuple<ByteBuffer, ByteBuffer, ByteBuffer> get(long marker) {
-    LogRecord c = readManager.get(marker);
-    Action a = actionManager.extract(c);
-    if ( a instanceof GettableAction ) {
-      return (GettableAction)a;
-    } else {
-      throw new AssertionError("action is not a gettable event");
+    try {
+        LogRecord c = readManager.get(marker);
+        if ( c == null ) {
+            return null;
+        }
+        Action a = actionManager.extract(c);
+        if ( a instanceof GettableAction ) {
+          return (GettableAction)a;
+        } else {
+          throw new IllegalArgumentException("action is not a gettable event");
+        }
+    } catch ( InterruptedIOException ioe ) {
+        Thread.currentThread().interrupt();
+        return null;
+    } catch ( IOException ioe ) {
+        throw new RuntimeException("unrecoverable", ioe);
     }
   }
 

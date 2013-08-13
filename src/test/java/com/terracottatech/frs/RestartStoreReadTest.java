@@ -85,7 +85,7 @@ public class RestartStoreReadTest  {
     Assert.assertTrue(tuple.getValue().getInt() == 6);
   }
   
-    @Test
+  @Test
   public void testLoop() throws Throwable {
     int x = 0;
     while (x<100) {

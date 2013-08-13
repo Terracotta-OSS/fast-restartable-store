@@ -22,6 +22,7 @@ import com.terracottatech.frs.util.NullFuture;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
@@ -177,8 +178,28 @@ public class NIOManager implements IOManager {
         if (backend == null) {
             throw new IOException("stream is closed");
         }    
-        
-        return this.reader.scan(marker);
+        try {
+            if ( marker > this.backend.getMarker() ) {
+     //  this does not need to be synchronized,
+     //  it's ok if this is a stale value.  It should always be increasing 
+                this.backend.waitForMarker(marker);
+            }
+            return this.reader.scan(marker);
+        } catch ( InterruptedIOException ioe ) {
+            Thread.currentThread().interrupt();
+            if ( this.isClosed() ) {
+                throw new IllegalStateException("closed during get operation");
+            } else {
+                throw new InterruptedIOException("random access interrupted");
+            }
+        } catch ( InterruptedException ie ) {
+            Thread.currentThread().interrupt();
+            if ( this.isClosed() ) {
+                throw new IllegalStateException("closed during get operation");
+            } else {
+                throw new InterruptedIOException("random access interrupted");
+            }
+        }
     }
     
     @Override

@@ -40,7 +40,7 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         data.partition(toRead);
         data.read(1);
         data.limit(toRead);
-        List<Long> jumps = readJumpList(data);
+        List<Long> jumps = readJumpList(data.getBuffers()[0]);
         if ( jumps == null )  {
             length = NIOSegment.FILE_HEADER_SIZE;
             updateIndex();

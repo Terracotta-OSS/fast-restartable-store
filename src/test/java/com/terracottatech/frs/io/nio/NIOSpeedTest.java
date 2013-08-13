@@ -99,9 +99,10 @@ public class NIOSpeedTest {
         Chunk c = new WrappingChunk(buf);
         long w = 0;
         long n = System.nanoTime();
+        long marker = 100;
         while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
-            w += stream.append(c,100);
+            w += stream.append(c,marker+=100);
 //            stream.sync();
         }
         stream.seek(IOManager.Seek.BEGINNING.getValue());

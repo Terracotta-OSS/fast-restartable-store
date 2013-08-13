@@ -29,7 +29,7 @@ import org.junit.*;
 public class AbstractReadbackStrategyTest {
     File workArea;
     NIOManager manager; 
-    long current;
+    long current = 100;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder(); 
@@ -61,13 +61,15 @@ public class AbstractReadbackStrategyTest {
     private void writeChunkWithMarkers(int size) throws Exception {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
         list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
-        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
+        current += size;
+        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current);
     }
     
     private void writePunyChunkWithMarkers(int size) throws Exception {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
         list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1)}, null));
-        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
+        current+=size;
+        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current);
     }   
         
     
@@ -96,7 +98,7 @@ public class AbstractReadbackStrategyTest {
         File end = list.getEndFile();
         final FileBuffer  endbuffer = new FileBuffer(new FileInputStream(end).getChannel(), ByteBuffer.allocate((int)end.length()));
         AbstractReadbackStrategy rs = new MockReadbackStrategy(endbuffer);
-        ArrayList<Long> jumps = rs.readJumpList(endbuffer);
+        ArrayList<Long> jumps = rs.readJumpList(endbuffer.getBuffers()[0]);
         assert(jumps == null);
         
         manager.close();
@@ -110,7 +112,7 @@ public class AbstractReadbackStrategyTest {
             buffer.skip(NIOSegment.FILE_HEADER_SIZE);
             rs = new MockReadbackStrategy(buffer);
 
-            jumps = rs.readJumpList(buffer);
+            jumps = rs.readJumpList(buffer.getBuffers()[0]);
             count += jumps.size();
             buffer.close();
         }
@@ -137,7 +139,7 @@ public class AbstractReadbackStrategyTest {
             buffer.skip(NIOSegment.FILE_HEADER_SIZE);
             MockReadbackStrategy rs = new MockReadbackStrategy(buffer);
 
-            ArrayList<Long> jumps = rs.readJumpList(buffer);
+            ArrayList<Long> jumps = rs.readJumpList(buffer.getBuffers()[0]);
             if ( jumps == null ) {
                 final long LAST_INT_WORD_IN_CHUNK = buffer.length()-ByteBufferUtils.INT_SIZE;
                 final long LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;

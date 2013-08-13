@@ -98,11 +98,11 @@ public class NIOManagerTest {
         int lastSync = -1;
         long lastLen = 0;
         long total = System.nanoTime();
-
+        long marker = 100;
         for ( int x=0;x<count;x++) {
             Chunk test = createLogRegion();
             long start = System.nanoTime();
-            tb +=manager.write(test,100);
+            tb +=manager.write(test,marker+=100);
 //            System.out.format("Log Region write time: %dms\n", NANOSECONDS.toMillis(System.nanoTime() - start));
             
             if ( Math.random() * 10 < 1 ) {
@@ -238,9 +238,10 @@ public class NIOManagerTest {
         GlobalFilters.addFilter(new TimebombFilter(1, TimeUnit.SECONDS));
         int count =0;
         DecimalFormat df = new DecimalFormat("0000000000");
+        long marker = 100;
         try {
             while ( true ) {
-                manager.write(new WrappingChunk(ByteBuffer.wrap(df.format(count++).getBytes())),100);
+                manager.write(new WrappingChunk(ByteBuffer.wrap(df.format(count++).getBytes())),marker+=100);
                 if ( count % 10000 == 0 ) manager.sync();
             }
         } catch ( IOException ioe ) {

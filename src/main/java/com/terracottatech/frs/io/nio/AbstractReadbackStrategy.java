@@ -66,9 +66,9 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
     }    
     
         
-    protected ArrayList<Long> readJumpList(Chunk buffer) throws IOException {
-        final long LAST_INT_WORD_IN_CHUNK = buffer.remaining()-ByteBufferUtils.INT_SIZE;
-        final long LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
+    protected ArrayList<Long> readJumpList(ByteBuffer buffer) throws IOException {
+        final int LAST_INT_WORD_IN_CHUNK = buffer.position()+buffer.remaining()-ByteBufferUtils.INT_SIZE;
+        final int LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
         
         int jump = buffer.getInt(LAST_INT_WORD_IN_CHUNK);
         if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {
@@ -78,7 +78,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             }
             
             int reach = numberOfChunks * ByteBufferUtils.LONG_SIZE;
-            final long EXPECTED_CLOSE_POSITION = LAST_SHORT_WORD_BEFORE_JUMP_MARK - reach - ByteBufferUtils.INT_SIZE;
+            final int EXPECTED_CLOSE_POSITION = LAST_SHORT_WORD_BEFORE_JUMP_MARK - reach - ByteBufferUtils.INT_SIZE;
             if ( EXPECTED_CLOSE_POSITION < 0 ) {
                 return null;
             }

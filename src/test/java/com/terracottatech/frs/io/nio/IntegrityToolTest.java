@@ -23,7 +23,7 @@ import static org.junit.Assert.*;
 public class IntegrityToolTest {
     File workArea;
     NIOManager manager; 
-    long current;
+    long current = 100;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder(); 

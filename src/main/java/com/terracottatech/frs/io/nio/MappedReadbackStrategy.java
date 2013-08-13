@@ -23,7 +23,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
     public MappedReadbackStrategy(MappedByteBuffer data,Direction direction) throws IOException {
         src = data;
         queueDirection = direction;
-        List<Long> jumps = readJumpList(new WrappingChunk(src));
+        List<Long> jumps = readJumpList(src);
         LinkedList<Chunk> list = new LinkedList<Chunk>();
         if ( jumps == null )  {
             Chunk buf = new WrappingChunk(data);

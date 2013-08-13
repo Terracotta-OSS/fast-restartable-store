@@ -54,11 +54,11 @@ public class NIOStreamImplTest {
     assertThat(stream.append(newChunk(1),100), is(CHUNK_OVERHEAD + 1));
     assertThat(listFiles().length, is(1));
 
-    assertThat(stream.append(newChunk(MAX_SEGMENT_SIZE - 2),100),
+    assertThat(stream.append(newChunk(MAX_SEGMENT_SIZE - 2),200),
                is(CHUNK_OVERHEAD + MAX_SEGMENT_SIZE - 2));
     assertThat(listFiles().length, is(1));
 
-    assertThat(stream.append(newChunk(1),100), is(CHUNK_OVERHEAD + 1));
+    assertThat(stream.append(newChunk(1),300), is(CHUNK_OVERHEAD + 1));
     assertThat(listFiles().length, is(2));
   }
 
@@ -66,9 +66,10 @@ public class NIOStreamImplTest {
   public void testRead() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
+    long marker = 100;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s),100);
+      stream.append(newChunk(s),marker+=100);
       size -= s;
       numChunks++;
     }
@@ -88,9 +89,10 @@ public class NIOStreamImplTest {
   public void testConstrainedMemoryRead() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
+    long marker = 100;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s),100);
+      stream.append(newChunk(s),marker+=100);
       size -= s;
       numChunks++;
     }
@@ -141,9 +143,10 @@ public class NIOStreamImplTest {
   public void testOpen() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
+    long marker = 100;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
-      stream.append(newChunk(s),100);
+      stream.append(newChunk(s),marker += 100);
       size -= s;
       numChunks++;
     }

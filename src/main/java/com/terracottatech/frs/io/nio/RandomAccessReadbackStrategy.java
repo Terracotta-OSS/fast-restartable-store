@@ -41,7 +41,7 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
     }
     
     private void createIndex() throws IOException {
-        List<Long> jumps = readJumpList(data);
+        List<Long> jumps = readJumpList(data.getBuffers()[0]);
         if ( jumps == null )  {
             long start = data.position();
             ByteBuffer[] chunk = readChunk(data);

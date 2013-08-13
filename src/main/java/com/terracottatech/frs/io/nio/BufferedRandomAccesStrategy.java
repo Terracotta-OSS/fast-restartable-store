@@ -84,32 +84,37 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         data.read(1);
         int cs = data.getInt();
         while (SegmentHeaders.CHUNK_START.validate(cs)) {
-            data.read(1);
-            long len = data.getLong();
-            data.position(data.position() + len);
-            data.partition(20,4,8);
-            data.read(1);
-            if ( len != data.getLong() ) {
-                throw new IOException("chunk corruption - head and tail lengths do not match");
-            }
-            long marker = data.getLong();
-            boundaries.put(marker,new Marker(start, marker));
-            if ( !SegmentHeaders.FILE_CHUNK.validate(data.getInt()) ) {
-                throw new IOException("chunk corruption - file chunk magic is missing");
-            } else {
-                start = data.position();
-            }
-            if ( data.position() < data.size() ) {
+            try {
                 data.read(1);
-                cs = data.getInt();
-            } else {
-                break;
+                long len = data.getLong();
+                data.position(data.position() + len);
+                data.partition(20,4,8);
+                data.read(1);
+                if ( len != data.getLong() ) {
+                    throw new IOException("chunk corruption - head and tail lengths do not match");
+                }
+                long marker = data.getLong();
+                boundaries.put(marker,new Marker(start, marker));
+                if ( !SegmentHeaders.FILE_CHUNK.validate(data.getInt()) ) {
+                    throw new IOException("chunk corruption - file chunk magic is missing");
+                } else {
+                    start = data.position();
+                }
+                if ( data.position() < data.size() ) {
+                    data.read(1);
+                    cs = data.getInt();
+                } else {
+                    break;
+                }
+            } catch ( IOException ioe ) {
+//  probably due to partial write completion, defer this marker until next round
+                length = start;
             }
         }
         if ( SegmentHeaders.CLOSE_FILE.validate(cs) ) {
             sealed = true;
         }
-        length = data.size();
+        length = start;
     }     
 
     @Override

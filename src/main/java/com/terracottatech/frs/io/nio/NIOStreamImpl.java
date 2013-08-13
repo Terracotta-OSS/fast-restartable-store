@@ -280,7 +280,9 @@ class NIOStreamImpl implements Stream {
             File last = segments.getCurrentReadFile();
             assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
-                return segments.removeFilesFromTail();
+                long size = segments.removeFilesFromTail();
+                trimFileIndex();
+                return size;
             }
         }
         return 0;

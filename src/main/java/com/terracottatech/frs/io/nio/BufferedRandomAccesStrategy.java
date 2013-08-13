@@ -19,18 +19,20 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
 
     private final   FileBuffer buffer;
     private final   NavigableMap<Long,Marker>              boundaries;
+    private volatile boolean sealed;
     private long offset = 0;
     private long length = 0;
+    
     
         
     public BufferedRandomAccesStrategy(long startMark, FileBuffer buffer) throws IOException {
         this.buffer = buffer;
         this.offset = startMark;
         boundaries = new TreeMap<Long,Marker>();
-        createIndex();
+        sealed = createIndex();
     }
     
-    private synchronized void createIndex() throws IOException {
+    private synchronized boolean createIndex() throws IOException {
         FileBuffer data = getFileBuffer();
         int position = (int)Math.max(0,data.size() - data.capacity());
         data.position(position);
@@ -40,8 +42,9 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         data.limit(toRead);
         List<Long> jumps = readJumpList(data);
         if ( jumps == null )  {
-            data.position(NIOSegment.FILE_HEADER_SIZE);
+            length = NIOSegment.FILE_HEADER_SIZE;
             updateIndex();
+            return false;
         } else {
             Long last = Long.valueOf(NIOSegment.FILE_HEADER_SIZE);
             for ( Long next : jumps ) {
@@ -56,12 +59,13 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
                 }
                 last = next;
             }
+            length = data.size();
+            return true;
         }
-        length = data.size();
 //        data.skip(NIOSegment.FILE_HEADER_SIZE);
     }   
     
-    public FileBuffer getFileBuffer() {
+    private FileBuffer getFileBuffer() {
         buffer.clear();
         return this.buffer;
     }
@@ -71,6 +75,8 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         FileBuffer data = getFileBuffer();
         if ( length == data.size() ) {
             return;
+        } else {
+            data.position(length);
         }
         data.clear();
         long start = data.position();
@@ -100,6 +106,9 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
                 break;
             }
         }
+        if ( SegmentHeaders.CLOSE_FILE.validate(cs) ) {
+            sealed = true;
+        }
         length = data.size();
     }     
 
@@ -128,9 +137,7 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
     
     @Override
     public Chunk scan(long marker) throws IOException {
-        FileBuffer data = getFileBuffer();
-        if ( data.size() != length ) {
-            data.position(length);
+        if ( !sealed ) {
             updateIndex();
         }
         Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
@@ -167,12 +174,12 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
     }    
     
     @Override
-    public long size() throws IOException {
+    public synchronized long size() throws IOException {
         return getFileBuffer().size();
     }
     
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
         getFileBuffer().close();
     }
        
@@ -197,12 +204,12 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
       public Chunk getChunk() throws IOException {
         ByteBuffer value = ( cache != null ) ? cache.get() : null;
         if ( value != null ) {
-            return new WrappingChunk(value.duplicate());
+            return new WrappingChunk(value.asReadOnlyBuffer());
         }
 
         value = refreshCache();
         
-        return new WrappingChunk(value.duplicate());
+        return new WrappingChunk(value.asReadOnlyBuffer());
       }
       
       private synchronized ByteBuffer refreshCache() throws IOException {

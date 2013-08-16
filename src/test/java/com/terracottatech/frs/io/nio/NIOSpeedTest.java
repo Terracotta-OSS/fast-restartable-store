@@ -5,13 +5,11 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -75,7 +73,7 @@ public class NIOSpeedTest {
         System.out.format("read null %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
      }    
     
-    @Test
+    @Test @Ignore
     public void rawSpeed() throws IOException {
         File nf = folder.newFile();
         FileChannel fc = new FileOutputStream(nf).getChannel();
@@ -93,7 +91,7 @@ public class NIOSpeedTest {
         System.out.format("write raw %d MB in %.6f sec %.2f MB/s\n",w/(1024*1024),n/1e9,(w/(1024*1024))/(n/1e9));
      }
     
-    @Test
+    @Test @Ignore
     public void speedTest() throws IOException {
         ByteBuffer buf = ByteBuffer.allocateDirect(512 * 1024);
         Chunk c = new WrappingChunk(buf);
@@ -112,7 +110,7 @@ public class NIOSpeedTest {
     }
     
      
-    @Test
+    @Test @Ignore
     public void speedTiny() throws IOException {
         File nf = folder.newFile();
         FileChannel fc = new FileOutputStream(nf).getChannel();

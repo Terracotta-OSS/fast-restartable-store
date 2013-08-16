@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -15,15 +16,13 @@ import java.util.*;
  *
  * @author mscott
  */
-class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
+class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
 
     
     private final FileChannel source;
     private final   AppendableChunk                        data;
-    
     private final   NavigableMap<Long,Marker>              boundaries;
     private long offset = 0;
-    private volatile long length = 0;
     
         
     public RandomAccessReadbackStrategy(long startMark, FileChannel src, Direction direction) throws IOException {
@@ -51,6 +50,9 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
                 start = data.position();
                 chunk = readChunk(data);
             }
+            if ( this.isConsistent() ) {
+                source.close();
+            }
         } else {
             Long last = Long.valueOf(NIOSegment.FILE_HEADER_SIZE);
             for ( Long next : jumps ) {
@@ -62,9 +64,9 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
                 }
                 last = next;
             }
+            source.close();
         }
         data.clear();
-        length = data.length();
 //        data.skip(NIOSegment.FILE_HEADER_SIZE);
     }
     
@@ -77,10 +79,13 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
             start = data.position();
             chunk = readChunk(data);
         }
+        if ( this.isConsistent() ) {
+            source.close();
+        }
     }    
     
     private synchronized void addData() throws IOException {
-        if ( data.length() == source.size() ) {
+        if ( this.isConsistent() || data.length() == source.size() ) {
             return;
         }
         long len = data.length();
@@ -105,11 +110,6 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
     public boolean hasMore(Direction dir) throws IOException {
       return ( boundaries.lastKey() >= offset );
     }
-
-    @Override
-    public boolean isConsistent() {
-      return true;
-    }
     
     public Chunk getBuffer() {
         return data.copy();
@@ -119,9 +119,17 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
         return boundaries.lastKey();
     }
     
+    public synchronized void close() throws IOException {
+        if ( source.isOpen() ) {
+            source.close();
+        }
+        boundaries.clear();
+        data.destroy();
+    }
+    
     @Override
     public Chunk scan(long marker) throws IOException {
-        if ( data.length() != source.size() ) {
+        if ( !this.isConsistent() ) {
             addData();
         }
         Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
@@ -135,10 +143,6 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy {
     @Override
     public long size() {
         return data.length();
-    }
-    
-    public void close() {
-
     }
        
     private class Marker {

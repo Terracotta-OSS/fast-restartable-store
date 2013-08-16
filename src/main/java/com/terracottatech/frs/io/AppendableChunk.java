@@ -41,5 +41,9 @@ public class AppendableChunk extends AbstractChunk {
     public ByteBuffer[] getBuffers() {
         return buffers;
     }
+    
+    public void destroy() {
+        buffers = null;
+    }
 
 }

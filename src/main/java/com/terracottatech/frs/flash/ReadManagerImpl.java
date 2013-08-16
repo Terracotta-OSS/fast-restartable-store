@@ -28,6 +28,7 @@ public class ReadManagerImpl implements ReadManager {
   public LogRecord get(long marker) throws IOException {
     try {
       Chunk c = ioManager.scan(marker);
+// maybe try and cache this
       List<LogRecord> records = LogRegionPacker.unpack(Signature.ADLER32, c);
       for ( LogRecord r : records ) {
         if ( r.getLsn() == marker ) {

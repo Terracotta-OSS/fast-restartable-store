@@ -58,16 +58,16 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
             throw new HeaderException("bad header", this);
         }
 
-//        RandomAccessReadbackStrategy rr = new RandomAccessReadbackStrategy(this.getBaseMarker(), source, Direction.RANDOM); 
-//        readFileHeader(rr.getBuffer());
-//        return rr;
+        RandomAccessReadbackStrategy rr = new RandomAccessReadbackStrategy(this.getBaseMarker(), source, Direction.RANDOM); 
+        readFileHeader(rr.getBuffer());
+        return rr;
         
-        FileBuffer buffer = new FileBuffer(source, ByteBuffer.allocate(1024));
-        buffer.partition(FILE_HEADER_SIZE);
-        buffer.read(1);
-        readFileHeader(buffer);
-
-        return new BufferedRandomAccesStrategy(this.getBaseMarker(),buffer);
+//        FileBuffer buffer = new FileBuffer(source, ByteBuffer.allocate(1024));
+//        buffer.partition(FILE_HEADER_SIZE);
+//        buffer.read(1);
+//        readFileHeader(buffer);
+//
+//        return new BufferedRandomAccesStrategy(this.getBaseMarker(),buffer);
     }    
      
     public Chunk scan(long marker) throws IOException {

@@ -88,6 +88,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
                 for (int x=0;x<numberOfChunks;x++) {
                     jumps.add(buffer.getLong(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.LONG_SIZE)));
                 }
+                consistent = true;
                 return jumps;
             }
         }

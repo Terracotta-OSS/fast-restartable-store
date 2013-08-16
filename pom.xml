@@ -114,5 +114,24 @@
         </plugins>
       </reporting>
     </profile>
+    <profile>
+      <id>check-short</id>
+      <properties>
+        <should_skip_tests>false</should_skip_tests>
+      </properties>      
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.terracotta</groupId>
+            <artifactId>maven-forge-plugin</artifactId>
+            <configuration>
+              <__TC_listFile>${basedir}/checkshort.txt</__TC_listFile>
+              <failIfNoTests>false</failIfNoTests>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile> 
   </profiles>
+
 </project>

@@ -302,7 +302,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
             }
         } finally {
             buffer.clear();
-            maxMarker = find.getLastValidMarker();           
+            maxMarker = find.getMaximumMarker();           
             buffer.position(find.getLastValidPosition());
             setJumpList(find.getJumpList());
         }

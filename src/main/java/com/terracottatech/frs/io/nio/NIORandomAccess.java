@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  *
@@ -23,10 +24,11 @@ class NIORandomAccess implements RandomAccess {
     private final NavigableMap<Long,Integer> fileIndex;
     private final Map<Integer,ReadOnlySegment> fileCache;
 
-    NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments, NavigableMap<Long,Integer> fileIndex) {
+
+    NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments) {
         this.stream = stream;
         this.segments = segments;
-        this.fileIndex = fileIndex;
+        this.fileIndex = new ConcurrentSkipListMap<Long, Integer>();
         this.fileCache = new ConcurrentHashMap<Integer,ReadOnlySegment>();
     }
 
@@ -49,17 +51,40 @@ class NIORandomAccess implements RandomAccess {
         return c;
     }
     
-    private void cleanCache() throws IOException {
-        Map.Entry<Long,Integer> first = this.fileIndex.firstEntry();
-// go backwards until you don't find an entry
-        for (int x=first.getValue()-1;x>=0;x++) {
-            ReadOnlySegment seg = this.fileCache.remove(x);
+    ReadOnlySegment seek(long marker) throws IOException {
+        Map.Entry<Long,Integer> cacheId = fileIndex.floorEntry(marker);
+        int segId = ( cacheId != null ) ? cacheId.getValue() : segments.getBeginningSegmentId();
+        ReadOnlySegment seg = null;
+        while ( seg == null ) {
+            int getId = segId++;
+            seg = fileCache.get(getId);
             if ( seg == null ) {
+                seg = createSegment(getId);
+            }
+            if ( seg != null && seg.getMaximumMarker() >= marker ) {
                 break;
             } else {
-                seg.close();
+                seg = null;
             }
         }
+        return seg;
+    }    
+    
+    private void cleanCache() throws IOException {
+        int fid = segments.getBeginningSegmentId();
+        
+        Map.Entry<Long,Integer> first = this.fileIndex.firstEntry();
+        
+        while (first != null && fid > first.getValue()) {
+            ReadOnlySegment ro = fileCache.remove(fileIndex.remove(first.getKey()));
+            if ( ro != null ) {
+                ro.close();
+            }
+        }
+    }
+    
+    void hint(long marker, int segment) {
+        fileIndex.put(marker, segment);
     }
     
      synchronized ReadOnlySegment createSegment(int segId) throws IOException {
@@ -79,5 +104,5 @@ class NIORandomAccess implements RandomAccess {
             }
         }
         return seg;
-    }
+    }     
 }

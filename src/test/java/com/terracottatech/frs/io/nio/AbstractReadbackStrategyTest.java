@@ -187,6 +187,12 @@ public class AbstractReadbackStrategyTest {
                 return buffer.length();
             }
 
+        @Override
+        public long getMaximumMarker() {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+            
             @Override
             public Chunk scan(long marker) throws IOException {
                 throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.

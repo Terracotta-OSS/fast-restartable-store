@@ -18,6 +18,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
 
     private final   MappedByteBuffer        src;
     private final ListIterator<Chunk>       chunks;
+    private final long                      lastMarker;
     private final Direction                 queueDirection;
         
     public MappedReadbackStrategy(MappedByteBuffer data,Direction direction) throws IOException {
@@ -49,7 +50,18 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy {
             }
             src.position(NIOSegment.FILE_HEADER_SIZE);
         }
+        if ( !list.isEmpty() ) {
+            Chunk lastChunk = list.getLast();
+            lastMarker = ( lastChunk.length() > 12 ) ? lastChunk.getLong(lastChunk.length() - 12) : -1;
+        } else {
+            lastMarker = -1;
+        }
         chunks = list.listIterator();
+    }
+
+    @Override
+    public long getMaximumMarker() {
+        return lastMarker;
     }
     
     private boolean checkQueue(List<Chunk> got) throws IOException {

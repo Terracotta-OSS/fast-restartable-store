@@ -73,6 +73,10 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
     public Chunk scan(long marker) throws IOException {
         return strategy.scan(marker);
     }   
+     
+    public long getMaximumMarker() throws IOException {
+        return strategy.getMaximumMarker();
+    }     
         
     public boolean isClosed() {
         return ( strategy == null );

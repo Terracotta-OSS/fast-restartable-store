@@ -41,6 +41,11 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     }
 
     @Override
+    public long getMaximumMarker() {
+        return lastMarker;
+    }
+
+    @Override
     public boolean hasMore(Direction dir) throws IOException {
         if (done) {
             return false;
@@ -115,7 +120,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         if ( LOGGER.isDebugEnabled() ) {
             try {
             LOGGER.debug(new Formatter(new StringBuilder()).format("io error checking integrity file: %s last valid pos: %d current pos: %d last valid marker: %d",buffer.toString(),
-                    this.getLastValidPosition(),this.buffer.position(),this.getLastValidMarker()).out().toString(),e);
+                    this.getLastValidPosition(),this.buffer.position(),this.getMaximumMarker()).out().toString(),e);
             } catch ( Throwable t ) {
                 LOGGER.debug("unexpected",t);
             }
@@ -124,10 +129,6 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
 
     long getLastValidPosition() {
         return lastGood;
-    }
-
-    long getLastValidMarker() {
-        return lastMarker;
     }
     
     List<Long> getJumpList() {

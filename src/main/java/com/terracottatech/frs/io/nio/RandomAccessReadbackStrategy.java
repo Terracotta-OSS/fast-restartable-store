@@ -38,7 +38,12 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
         data.skip(NIOSegment.FILE_HEADER_SIZE);
         createIndex();
     }
-    
+
+    @Override
+    public long getMaximumMarker() {
+        return boundaries.lastKey();
+    }
+
     private void createIndex() throws IOException {
         List<Long> jumps = readJumpList(data.getBuffers()[0]);
         if ( jumps == null )  {

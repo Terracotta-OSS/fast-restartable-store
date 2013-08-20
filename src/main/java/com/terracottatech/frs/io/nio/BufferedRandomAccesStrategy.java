@@ -69,6 +69,11 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
         buffer.clear();
         return this.buffer;
     }
+
+    @Override
+    public long getMaximumMarker() {
+        return boundaries.lastKey();
+    }
     
     
     private synchronized void updateIndex() throws IOException {

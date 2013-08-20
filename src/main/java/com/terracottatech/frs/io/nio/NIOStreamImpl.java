@@ -39,7 +39,7 @@ import java.util.concurrent.Exchanger;
 class NIOStreamImpl implements Stream {
 /*  concurrency needed for cloning */
     private final NIOSegmentList segments;
-    private final NavigableMap<Long,Integer> fileIndex;
+    private volatile NIORandomAccess      randomAccess;
 
     static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
@@ -79,7 +79,6 @@ class NIOStreamImpl implements Stream {
         manualPool = new ManualBufferSource(new CachingBufferSource(), memorySize);
 
         segments = new NIOSegmentList(directory);
-        fileIndex = new ConcurrentSkipListMap<Long,Integer>();
         if (segments.isEmpty()) {
             streamId = UUID.randomUUID();
         } else {
@@ -95,8 +94,21 @@ class NIOStreamImpl implements Stream {
         }
     }
     
-    RandomAccess createRandomAccess() {
-        return new NIORandomAccess(this, segments, fileIndex); 
+    NIORandomAccess createRandomAccess() {
+        if ( randomAccess == null ) {
+            synchronized ( this) {
+                if ( randomAccess == null ) {
+                    randomAccess = new NIORandomAccess(this, segments);
+                }
+            }
+        }
+        return randomAccess;
+    }
+    
+    private void hintRandomAccess(long marker, int segmentId) {
+        if ( randomAccess != null ) {
+            randomAccess.hint(marker, segmentId);
+        }
     }
     
     public void setBufferBuilder(BufferBuilder builder) {
@@ -281,21 +293,10 @@ class NIOStreamImpl implements Stream {
             assert(last!=null);
             if ( doubleCheck(last) ) {  //  make sure this is the right file, assert?!
                 long size = segments.removeFilesFromTail();
-                trimFileIndex();
                 return size;
             }
         }
         return 0;
-    }
-
-    private void trimFileIndex() {
-      int start = segments.getBeginningSegmentId();
-      Iterator<Map.Entry<Long,Integer>> ele = fileIndex.entrySet().iterator();
-      while ( ele.hasNext() ) {
-          if ( ele.next().getValue() < start ) {
-              ele.remove();
-          }
-      }
     }
 
     @Override
@@ -311,7 +312,7 @@ class NIOStreamImpl implements Stream {
             }
             
             writeHead.insertFileHeader(lowestMarker, currentMarker+1);
-            this.fileIndex.put(currentMarker,segments.getCount()-1);
+            hintRandomAccess(currentMarker+1, writeHead.getSegmentId());
         }
 
         long w = writeHead.append(c, marker);
@@ -439,9 +440,8 @@ class NIOStreamImpl implements Stream {
                 }
 
                 ReadOnlySegment nextHead = new ReadOnlySegment(this, f, dir);
-                
-                fileIndex.put(nextHead.getBaseMarker(), segments.getFilePosition());
-                
+                hintRandomAccess(nextHead.getBaseMarker(), nextHead.getSegmentId());
+                                
                 if ( readHead != null ) {
                     int expected = readHead.getSegmentId() + ((dir == Direction.REVERSE) ? -1 : +1);
                     if (nextHead.getSegmentId() != expected) {
@@ -502,16 +502,15 @@ class NIOStreamImpl implements Stream {
     public void seek(long loc) throws IOException {
         int segmentId;
         if ( loc > 0 ) {
-            Map.Entry<Long,Integer> file = fileIndex.floorEntry(loc);
+            segmentId = createRandomAccess().seek(loc).getSegmentId();
             offset = loc;
-            segmentId = file.getValue();
         } else {
             offset = -1;
             segmentId = (int)loc;  //  ( <= 0 )
         }
 
         if ( readHead != null ) {
-            if ( segmentId != segments.getFilePosition() ) {
+            if ( segmentId != segments.getSegmentPosition() ) {
                 readHead.close();
                 readHead = null;
             }

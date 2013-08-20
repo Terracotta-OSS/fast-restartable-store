@@ -89,7 +89,7 @@ class NIOSegmentList extends AbstractList<File> {
         return readHead;
     }
     
-    int getFilePosition() {
+    int getSegmentPosition() {
       return segmentId + position;
     }
     

@@ -9,6 +9,7 @@ import com.terracottatech.frs.Snapshot;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Iterator;
 
 /**
@@ -20,18 +21,29 @@ public class SnapshotRecord implements Snapshot, LogRecord, SnapshotRequest {
     private volatile Snapshot delegate;
 
     @Override
-    public void close() throws IOException {
-        delegate.close();
+    public synchronized void close() throws IOException {
+        if ( delegate != null ) {
+            delegate.close();
+        }
     }
 
     @Override
-    public Iterator<File> iterator() {
+    public synchronized Iterator<File> iterator() {
+        try {
+            while ( delegate == null ) {
+                this.wait();
+            }
+        } catch ( InterruptedException ie ) {
+            Thread.currentThread().interrupt();
+            return Collections.<File>emptyList().iterator();
+        }
         return delegate.iterator();
     }
     
     @Override
-    public void setSnapshot(Snapshot snap) {
+    public synchronized void setSnapshot(Snapshot snap) {
         this.delegate = snap;
+        this.notifyAll();
     }
 
     @Override

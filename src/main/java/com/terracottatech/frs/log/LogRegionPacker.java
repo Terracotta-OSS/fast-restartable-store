@@ -81,36 +81,46 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         }
     }
     
+    public static LogRecord extract(Signature type, Chunk data, long match) throws FormatException {
+        readRegionHeader(data,type == Signature.ADLER32);
+        
+        LogRecord target = null;
+        while ( target == null ) {
+            target = readRecord(data,match);
+        }
+        return target;
+    }
+    
     public static List<LogRecord> unpack(Signature type, Chunk data) throws FormatException {
-        readRegionHeader(data);
+        readRegionHeader(data,type == Signature.ADLER32);
         
         LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
-            queue.add(readRecord(data));
+            queue.add(readRecord(data,-1));
         }
         return queue;
     }
     
      public static List<LogRecord> unpackInReverse(Signature type, Chunk data) throws FormatException {
-        readRegionHeader(data);
+        readRegionHeader(data,type == Signature.ADLER32);
         
         LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
-            queue.push(readRecord(data));
+            queue.push(readRecord(data,-1));
         }
         return queue;
     }   
     
 
     public List<LogRecord> unpack(Chunk data) throws FormatException {
-        readRegionHeader(data);
+        readRegionHeader(data,false);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
                 
         while ( data.hasRemaining() ) {
-            queue.add(readRecord(data));
+            queue.add(readRecord(data,-1));
         }
         return queue;
     }
@@ -156,7 +166,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return cType == Signature.ADLER32;
     }
     
-    private static void readRegionHeader(Chunk data) throws FormatException {
+    private static void readRegionHeader(Chunk data, boolean checksum) throws FormatException {
         short region = data.getShort();
         long check = data.getLong();
         long check2 = data.getLong();
@@ -171,7 +181,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             throw new FormatException("log region has an unrecognized version code");
         }
         
-        if ( check != 0 ) {
+        if ( check != 0 && checksum ) {
             long value = checksum(Arrays.asList(data.getBuffers()));
             if (check != value ) {
                 throw new FormatException("Adler32 checksum is not correct",check,value,data.length());
@@ -238,16 +248,21 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         }
     }    
     
-    private static LogRecord readRecord(Chunk buffer) throws FormatException {
+    private static LogRecord readRecord(Chunk buffer,long match) throws FormatException {
 
         short format = buffer.getShort();
         long lsn = buffer.getLong();
         long len = buffer.getLong();
-
-        if ( format != LR_FORMAT ) throw new FormatException("log record has an unrecognized version code");
-        ByteBuffer[] payload = buffer.getBuffers(len);
-        LogRecord record = new LogRecordImpl(payload, null);
-        record.updateLsn(lsn);
-        return record;
+                
+        if ( match < 0 || match == lsn ) {
+            if ( format != LR_FORMAT ) throw new FormatException("log record has an unrecognized version code");
+            ByteBuffer[] payload = buffer.getBuffers(len);
+            LogRecord record = new LogRecordImpl(payload, null);
+            record.updateLsn(lsn);
+            return record;
+        } else {
+            buffer.skip(len);
+            return null;
+        }
     }
 }

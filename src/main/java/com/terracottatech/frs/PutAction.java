@@ -45,6 +45,7 @@ public class PutAction implements InvalidatingAction, GettableAction {
   private final ByteBuffer                                        value;
   private final Compactor                                         compactor;
 
+  private long                                                    markedLsn;
   private long                                                    invalidatedLsn;
 
   PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
@@ -81,6 +82,11 @@ public class PutAction implements InvalidatingAction, GettableAction {
     return value;
   }
 
+    @Override
+    public long getLsn() {
+        return markedLsn;
+    }
+
   @Override
   public Set<Long> getInvalidatedLsns() {
     return Collections.singleton(invalidatedLsn);
@@ -88,6 +94,7 @@ public class PutAction implements InvalidatingAction, GettableAction {
 
   @Override
   public void record(long lsn) {
+    markedLsn = lsn;
     objectManager.put(getIdentifier(), getKey(), getValue(), lsn);
     if (invalidatedLsn != -1) {
       compactor.generatedGarbage(invalidatedLsn);

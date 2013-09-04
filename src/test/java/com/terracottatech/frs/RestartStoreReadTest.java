@@ -3,6 +3,7 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.heap.HeapObjectManager;
 import java.io.File;
@@ -17,6 +18,7 @@ import org.junit.rules.TemporaryFolder;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import java.util.Arrays;
+import java.util.Properties;
 import junit.framework.Assert;
 
 /**
@@ -55,8 +57,10 @@ public class RestartStoreReadTest  {
 //    ReadManager rmgr = new ReadManagerImpl(iomgr);
 //    Compactor c = mock(Compactor.class);
 //    Configuration cfg = mock(Configuration.class);
-    
-    restart = RestartStoreFactory.createStore(omgr, temp, 4 * 1024 * 1024);
+    Properties props = new Properties();
+    props.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), "true");
+    props.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(4 * 1024));
+    restart = RestartStoreFactory.createStore(omgr, temp,props);
     restart.startup();
   }
   
@@ -88,7 +92,7 @@ public class RestartStoreReadTest  {
   @Test
   public void testLoop() throws Throwable {
     int x = 0;
-    while (x<100) {
+    while (x<10000) {
         int id = x++;
         int key = x++;
         int value = x++;

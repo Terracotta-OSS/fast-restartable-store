@@ -141,8 +141,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if (first) {
                 offerLsns(99, 99);
             }
-            cleanup();
-        } catch (InterruptedException i) {
+       } catch (InterruptedException i) {
             if ( !master.isDone() ) {
  //  unplanned interrupt
                 exceptionThrownInRecovery(i);
@@ -156,6 +155,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 exceptionThrownInRecovery(t);
             }
         } finally {
+            cleanup();
             ioDone = true;
         }
         if (LOGGER.isDebugEnabled()) {
@@ -165,12 +165,16 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         return totalRead;
     }
 
-    private void cleanup() throws IOException {
-        io.seek(IOManager.Seek.BEGINNING.getValue());
-        if (master.isDone()) {
-            queue.clear();
+    private void cleanup() {
+        try {
+            io.seek(IOManager.Seek.BEGINNING.getValue());
+            if (master.isDone()) {
+                queue.clear();
+            }
+            chunkProcessor.shutdown();
+        } catch ( IOException ioe ) {
+            LOGGER.info("unable to shutdown recovery",ioe);
         }
-        chunkProcessor.shutdown();
     }
 
     long getTotalRead() {

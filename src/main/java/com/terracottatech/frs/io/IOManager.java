@@ -4,8 +4,6 @@
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.Snapshot;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Future;

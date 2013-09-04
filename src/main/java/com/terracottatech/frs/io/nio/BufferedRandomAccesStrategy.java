@@ -20,14 +20,16 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
     private final   FileBuffer buffer;
     private final   NavigableMap<Long,Marker>              boundaries;
     private volatile boolean sealed;
+    private final boolean useCache;
     private long offset = 0;
     private long length = 0;
     
     
         
-    public BufferedRandomAccesStrategy(long startMark, FileBuffer buffer) throws IOException {
+    public BufferedRandomAccesStrategy(long startMark, boolean useCache, FileBuffer buffer) throws IOException {
         this.buffer = buffer;
         this.offset = startMark;
+        this.useCache = useCache;
         boundaries = new TreeMap<Long,Marker>();
         sealed = createIndex();
     }
@@ -124,16 +126,19 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
 
     @Override
     public Chunk iterate(Direction dir) throws IOException {
+      Long key = null;
       try {
-        return boundaries.ceilingEntry(offset).getValue().getChunk();     
+        Map.Entry<Long,Marker> e = ( dir == Direction.FORWARD ) ? boundaries.higherEntry(offset) : boundaries.lowerEntry(offset);
+        key = e.getKey();
+        return e.getValue().getChunk();
       } finally {
-        offset += dir == dir.REVERSE ? -1 : 1;
+        offset = key;
       }
     }
 
     @Override
     public boolean hasMore(Direction dir) throws IOException {
-      return ( boundaries.lastKey() >= offset );
+      return ( dir == Direction.FORWARD ) ? ( boundaries.lastKey() >= offset ) : (boundaries.firstKey() <= offset );
     }
 
     @Override
@@ -141,9 +146,9 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
       return true;
     }
     
-    public long getLastMarker() {
-        return boundaries.lastKey();
-    }
+//    public long getLastMarker() {
+//        return boundaries.lastKey();
+//    }
     
     @Override
     public Chunk scan(long marker) throws IOException {
@@ -224,7 +229,9 @@ class BufferedRandomAccesStrategy extends AbstractReadbackStrategy implements Cl
       
       private synchronized ByteBuffer refreshCache() throws IOException {
         ByteBuffer value = readChunk(start);
-        cache = new SoftReference<ByteBuffer>(value);  // cached value, ok to race?
+        if ( useCache ) {
+            cache = new SoftReference<ByteBuffer>(value);
+        }  // cached value, ok to race?
         return value;
       }
       

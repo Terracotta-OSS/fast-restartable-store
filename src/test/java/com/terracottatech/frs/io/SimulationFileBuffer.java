@@ -4,9 +4,6 @@
  */
 package com.terracottatech.frs.io;
 
-import com.terracottatech.frs.io.BufferSource;
-import com.terracottatech.frs.io.FileBuffer;
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;

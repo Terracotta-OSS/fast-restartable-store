@@ -140,7 +140,7 @@ public class ReadbackStrategyTest {
     @Test @Ignore
     public void testIntegrityReadbackOnAbort() throws Exception {
 //  testing abort close
-        buffer.sync();
+        buffer.sync(false);
         
         final AtomicInteger count = new AtomicInteger();
         final ByteBuffer[] list = new ByteBuffer[8192];

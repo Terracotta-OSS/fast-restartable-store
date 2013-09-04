@@ -48,6 +48,7 @@ public class NIOManager implements IOManager {
     private File                backupLockFile;
     private FileLock            lock;
     private final long          segmentSize;
+    private final boolean       randomAccess;
     private long                memorySize;
         
     private static final String LOCKFILE_ACTIVE = "lock file exists";
@@ -65,23 +66,30 @@ public class NIOManager implements IOManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
-        this(home,segmentSize,segmentSize * 4);
+        this(home,segmentSize,segmentSize * 4, false);
     }    
-    
+     
     public NIOManager(String home, long segmentSize, long memorySize) throws IOException {
+        this(home,segmentSize,memorySize,false);
+    }
+     
+    public NIOManager(String home, long segmentSize, long memorySize,boolean randomAccess) throws IOException {
         directory = new File(home);
                 
         this.segmentSize = segmentSize;
         
         this.memorySize = memorySize;
         
+        this. randomAccess = randomAccess;
         open();
     }
     
     public NIOManager(Configuration config) throws IOException {
         this(config.getDBHome().getAbsolutePath(),
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
-            config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE));
+            config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE),
+            config.getBoolean(FrsProperty.IO_RANDOM_ACCESS)
+        );
 
         String bufferBuilder = config.getString(FrsProperty.IO_NIO_BUFFER_BUILDER);
         if ( bufferBuilder != null ) {
@@ -260,7 +268,9 @@ public class NIOManager implements IOManager {
 
         backend.open();
         
-        reader = backend.createRandomAccess();
+        if ( randomAccess ) {
+            reader = backend.createRandomAccess();
+        }
     }
 
     @Override

@@ -103,6 +103,16 @@ class TransactionalAction implements InvalidatingAction, TransactionAction, Gett
     }
     return null;
   }
+  
+
+  @Override
+  public long getLsn() {
+    if ( action instanceof GettableAction ) {
+      return ((GettableAction)action).getLsn();
+    }
+    return 0;
+  }
+    
 
   @Override
   public Set<Long> getInvalidatedLsns() {

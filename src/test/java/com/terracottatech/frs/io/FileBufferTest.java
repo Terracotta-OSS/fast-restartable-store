@@ -14,6 +14,7 @@ import static org.junit.Assert.*;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doReturn;
 
 /**
  *
@@ -241,7 +242,8 @@ public class FileBufferTest {
     
     @Test
     public void overlapBufferMove() throws Exception {
-        FileBuffer buffer = new FileBuffer(mock(FileChannel.class), ByteBuffer.allocate(100 * 1024));
+        FileChannel channel = mock(FileChannel.class);
+        FileBuffer buffer = new FileBuffer(channel, ByteBuffer.allocate(100 * 1024));
         byte[] fill = new byte[128];
         for (int x = 0; x < fill.length; x++) {
             fill[x] = RandomGenerator.lessThan(Byte.MAX_VALUE);

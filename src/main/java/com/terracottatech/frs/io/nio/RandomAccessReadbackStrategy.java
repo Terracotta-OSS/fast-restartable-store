@@ -11,6 +11,10 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  *
@@ -22,6 +26,7 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
     private final FileChannel source;
     private final   AppendableChunk                        data;
     private final   NavigableMap<Long,Marker>              boundaries;
+    private final ReadWriteLock lock;
     private long offset = 0;
     
         
@@ -35,8 +40,15 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
         this.offset = startMark;
         boundaries = new TreeMap<Long,Marker>();
+//        boundaries = new ConcurrentSkipListMap<Long, Marker>();
         data.skip(NIOSegment.FILE_HEADER_SIZE);
         createIndex();
+        
+        if ( !this.isConsistent() ) {
+            lock = new ReentrantReadWriteLock();
+        } else {
+            lock = null;
+        }
     }
 
     @Override
@@ -57,6 +69,8 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
             }
             if ( this.isConsistent() ) {
                 source.close();
+            } else {
+                data.truncate(start);
             }
         } else {
             Long last = Long.valueOf(NIOSegment.FILE_HEADER_SIZE);
@@ -71,8 +85,6 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
             }
             source.close();
         }
-        data.clear();
-//        data.skip(NIOSegment.FILE_HEADER_SIZE);
     }
     
     private void updateIndex() throws IOException {
@@ -85,29 +97,44 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
             chunk = readChunk(data);
         }
         if ( this.isConsistent() ) {
+            data.destroy();
+            data.append(source.map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
+            if ( data.remaining() < boundaries.lastEntry().getValue().getStart() ) {
+                throw new AssertionError("bad boundaries " + data.remaining() + " " 
+                        + boundaries.lastEntry().getValue().getStart());
+            }
             source.close();
+        } else if ( data.hasRemaining() ) {
+            data.truncate(start);
+            if ( data.position() != start ) {
+                throw new AssertionError("bad truncation");
+            } 
+            if ( data.length() != start ) {
+                throw new AssertionError("bad truncation");
+            }
         }
     }    
     
-    private synchronized void addData() throws IOException {
-        if ( this.isConsistent() || data.length() == source.size() ) {
-            return;
+    private void addData() throws IOException {
+        if ( !this.isConsistent() && data.position() != source.size() ) {            
+            long len = data.position();
+            if ( data.hasRemaining() ) {
+                throw new AssertionError("bad tail");
+            }
+            MappedByteBuffer buffer = source.map(FileChannel.MapMode.READ_ONLY, len, source.size() - len);
+            data.append(buffer);
         }
-        long len = data.length();
-        MappedByteBuffer buffer = source.map(FileChannel.MapMode.READ_ONLY, len, source.size() - len);
-        data.append(buffer);
-        data.clear();
-        data.skip(len);
-        updateIndex();
-        data.clear();
     }
 
     @Override
     public Chunk iterate(Direction dir) throws IOException {
+      Long key = null;
       try {
-        return boundaries.ceilingEntry(offset).getValue().getChunk();     
+        Map.Entry<Long,Marker> e = ( dir == Direction.FORWARD ) ? boundaries.higherEntry(offset) : boundaries.lowerEntry(offset);
+        key = e.getKey();
+        return e.getValue().getChunk();
       } finally {
-        offset += dir == dir.REVERSE ? -1 : 1;
+        offset = key;
       }
     }
 
@@ -124,25 +151,48 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
         return boundaries.lastKey();
     }
     
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
         if ( source.isOpen() ) {
             source.close();
         }
         boundaries.clear();
         data.destroy();
     }
-    
+        
     @Override
     public Chunk scan(long marker) throws IOException {
-        if ( !this.isConsistent() ) {
-            addData();
+        Lock l = null;
+        if ( source.isOpen() && boundaries.lastKey() < marker ) {
+            l = lock.writeLock();
+            l.lock();
+            if ( boundaries.lastKey() < marker && this.source.isOpen() ) {
+                addData();
+                updateIndex();
+            } else {
+                l.unlock();
+                l = lock.readLock();
+                l.lock();
+            }
+            if ( boundaries.lastKey() < marker && !this.isConsistent() ) {
+                throw new AssertionError(boundaries.lastKey() + " < " + marker);
+            }
+        } else if ( lock != null ) {
+            l = lock.readLock();
+            l.lock();
         }
-        Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
-        if ( m == null ) {
-            return null;
-        } else {
-            return m.getValue().getChunk();
-        }      
+        
+        try {
+            Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
+            if ( m == null ) {
+                return null;
+            } else {
+                return m.getValue().getChunk();
+            } 
+        } finally {
+            if ( l != null ) {
+                l.unlock();
+            }
+        }
     }
     
     @Override
@@ -175,7 +225,14 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
           throw new AssertionError("not valid");
         }
         long len = value.getLong();
-        return value.getChunk(len);
+        Chunk rv = value.getChunk(len);
+        if ( value.getLong() != len ) {
+          throw new AssertionError("not valid");
+        }
+        if ( value.getLong() != mark ) {
+          throw new AssertionError("not valid");
+        }
+        return rv;
       }
       
     }

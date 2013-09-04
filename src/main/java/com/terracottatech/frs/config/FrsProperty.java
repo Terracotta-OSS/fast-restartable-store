@@ -4,6 +4,7 @@ package com.terracottatech.frs.config;
 
 public enum FrsProperty {
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
+  IO_RANDOM_ACCESS("io.randomAccess", Type.BOOLEAN, false),
   IO_COMMIT_QUEUE_SIZE("io.commitQueueSize", Type.INTEGER, 1024),
   IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 16),
   IO_COMMITLIST("io.commitList", Type.STRING, "ATOMIC"),

@@ -10,5 +10,5 @@ import java.nio.ByteBuffer;
  * @author mscott
  */
 public interface GettableAction extends Tuple<ByteBuffer,ByteBuffer,ByteBuffer> {
-  
+    long getLsn();
 }

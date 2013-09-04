@@ -24,8 +24,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author tim
@@ -193,7 +193,7 @@ public class AtomicCommitListTest {
   
   private LogRecord record(long lsn) {
     LogRecord record = mock(LogRecord.class);
-    doReturn(lsn).when(record).getLsn();
+    when(record.getLsn()).thenReturn(lsn);
     return record;
   }
 

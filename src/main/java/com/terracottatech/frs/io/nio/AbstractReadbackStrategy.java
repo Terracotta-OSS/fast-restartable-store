@@ -15,7 +15,7 @@ import java.util.*;
  * @author mscott
  */
 abstract class AbstractReadbackStrategy implements ReadbackStrategy {
-    private boolean                 consistent = false;
+    private volatile boolean                 consistent = false;
 
 
     public AbstractReadbackStrategy() {

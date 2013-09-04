@@ -281,8 +281,8 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return channel.isOpen();
     }
     
-    public void sync() throws IOException {
-        channel.force(false);
+    public void sync(boolean meta) throws IOException {
+        channel.force(meta);
     }
 
     @Override

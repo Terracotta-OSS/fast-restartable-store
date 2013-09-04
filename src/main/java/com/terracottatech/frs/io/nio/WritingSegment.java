@@ -106,10 +106,10 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     void setJumpList(List<Long> jumps) {
         this.writeJumpList = jumps;
     }
-    
-    void setMaximumMarker(long max) {
-        this.maxMarker = max;
-    }
+//    
+//    void setMaximumMarker(long max) {
+//        this.maxMarker = max;
+//    }
 
     private long piggybackBufferOptimization(ByteBuffer used) throws IOException {
         long amt = used.remaining();
@@ -166,8 +166,8 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         }
     }
 
-    void prepareForClose() throws IOException {
-        if (buffer != null) {
+    synchronized void prepareForClose() throws IOException {
+        if (buffer != null && buffer.isOpen()) {
             buffer.clear();
             buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
             writeJumpList(buffer);
@@ -181,7 +181,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         //  don't need any memory buffers anymore       
         totalWrite = buffer.getTotal();
         if ( buffer.isOpen() ) {
-            buffer.sync();
+            buffer.sync(true);
             buffer.close();
         }
 
@@ -262,12 +262,12 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     }
 
 //  assume single threaded
-    public long fsync() throws IOException {
+    public long fsync(boolean meta) throws IOException {
         if ( buffer == null ) {
             throw new IOException("segment is closed");
         }
         long pos = buffer.offset();
-        buffer.sync();
+        buffer.sync(meta);
         return pos;
     }
     
@@ -280,7 +280,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
         writeJumpList(buffer);
         buffer.write(1);
-        buffer.sync();
+        buffer.sync(true);
     }    
         
     boolean last() throws IOException {

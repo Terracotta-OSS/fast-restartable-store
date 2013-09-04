@@ -26,7 +26,7 @@ public class AppendableChunk extends AbstractChunk {
     public AppendableChunk copy() {
         ByteBuffer[] cb = Arrays.copyOf(buffers, buffers.length);
         for ( int x=0;x<cb.length;x++ ) {
-            cb[x] = cb[x].duplicate();
+            cb[x] = (ByteBuffer)cb[x].duplicate().clear();
         }
         return new AppendableChunk(cb);
     }
@@ -42,8 +42,51 @@ public class AppendableChunk extends AbstractChunk {
         return buffers;
     }
     
-    public void destroy() {
-        buffers = null;
+    public void truncate(long position) {
+        long len = 0;
+        for (int x=0;x<buffers.length;x++) {
+            len += buffers[x].limit();
+            if ( buffers[x].capacity() != buffers[x].limit()) {
+                throw new AssertionError("bad truncation");
+            }
+            if ( len > position ) {
+                buffers[x].position(buffers[x].limit() - (int)(len-position));
+                buffers[x].flip();
+                buffers[x] = buffers[x].slice();
+                buffers[x].position(buffers[x].limit());
+                if ( x+1 != buffers.length ) {
+                    buffers = Arrays.copyOf(buffers, x+1);
+                }
+                if ( this.hasRemaining() ) {
+                    throw new AssertionError("bad truncation");
+                }
+                return;
+            } else {
+                buffers[x].position(buffers[x].limit());
+            }
+        }
     }
-
+    
+    public void destroy() {
+        buffers = new ByteBuffer[0];
+    }
+    
+    public void mark() {
+        for ( ByteBuffer bb : buffers ) {
+            if ( bb.hasRemaining() ) {
+                bb.mark();
+                return;
+            }
+        }
+    }
+    
+    public void reset() {
+        for ( ByteBuffer bb : buffers ) {
+            if ( bb.hasRemaining() ) {
+                bb.reset();
+                return;
+            }
+        }
+    }
+    
 }

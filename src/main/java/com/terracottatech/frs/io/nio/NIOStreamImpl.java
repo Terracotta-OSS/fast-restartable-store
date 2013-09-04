@@ -15,7 +15,6 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.ManualBufferSource;
-import com.terracottatech.frs.io.RandomAccess;
 import com.terracottatech.frs.io.Stream;
 
 import java.io.File;
@@ -26,9 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Exchanger;
 
 /**
@@ -48,6 +45,7 @@ class NIOStreamImpl implements Stream {
     private UUID streamId;
     private volatile long lowestMarker = 99;
     private volatile long lowestMarkerOnDisk = 0;
+    private volatile long fsyncdMarker = 0;
     private long currentMarker = 99;  //  init lsn is 100
     private int  markerWaiters = 0;
     private WritingSegment writeHead;
@@ -231,22 +229,24 @@ class NIOStreamImpl implements Stream {
 
         try {
             segment.open(manualPool);
+
+            if (segment.getBaseMarker() > this.lowestMarkerOnDisk) {
+                return false;
+            }
+    //   gotta scan it
+            if (!segment.last()) {
+    //  not stable and closed, just exit
+                return false;
+            }
+            if (segment.getMaximumMarker() > this.lowestMarkerOnDisk) {
+                return true;
+            } else {
+                return false;
+            }
         } catch ( HeaderException header ) {
             throw new IOException(header);
-        }
-
-        if (segment.getBaseMarker() > this.lowestMarkerOnDisk) {
-            return false;
-        }
-//   gotta scan it
-        if (!segment.last()) {
-//  not stable and closed, just exit
-            return false;
-        }
-        if (segment.getMaximumMarker() > this.lowestMarkerOnDisk) {
-            return true;
-        } else {
-            return false;
+        } finally {
+            segment.close();
         }
     }  
     
@@ -301,7 +301,6 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public long append(Chunk c, long marker) throws IOException {
-
         if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
             
@@ -318,7 +317,7 @@ class NIOStreamImpl implements Stream {
         long w = writeHead.append(c, marker);
         updateCurrentMarker(marker);
         if (writeHead.size() > segmentSize || c instanceof SnapshotRequest ) {
-            closeCurrentSegment();
+            closeSegment(writeHead);
         }
         return w;
 
@@ -351,7 +350,7 @@ class NIOStreamImpl implements Stream {
                     } else if (seg.isClosed()) {
                         seg.close();
                     } else {
-                        seg.fsync();
+                        seg.fsync(false);
                     }
                     lowestMarkerOnDisk = seg.getMinimumMarker();
                     seg = pivot.exchange(seg);
@@ -374,7 +373,8 @@ class NIOStreamImpl implements Stream {
                 assert(check == writeHead);
                 return pos;
             } else {
-                pos = writeHead.fsync();
+                pos = writeHead.fsync(false);
+                this.fsyncdMarker = writeHead.getMaximumMarker();
                 this.lowestMarkerOnDisk = writeHead.getMinimumMarker();
             }
             return pos;
@@ -387,12 +387,7 @@ class NIOStreamImpl implements Stream {
     @Override
     public void close() throws IOException {
         if (writeHead != null && !writeHead.isClosed()) {
-            try {
-                writeHead.prepareForClose();
-            } catch ( IOException ioe ) {
-                //  silently fail, closing anyways
-            }
-            writeHead.close();
+            closeSegment(writeHead);
         }
         writeHead = null;
         if (readHead != null && !readHead.isClosed()) {
@@ -424,9 +419,7 @@ class NIOStreamImpl implements Stream {
     }
 
     @Override
-    public Chunk read(final Direction dir) throws IOException {
-        checkReadHead();
-      
+    public Chunk read(final Direction dir) throws IOException {      
         while (readHead == null || !readHead.hasMore(dir)) {
             if (readHead != null) {
                 readHead.close();
@@ -440,6 +433,7 @@ class NIOStreamImpl implements Stream {
                 }
 
                 ReadOnlySegment nextHead = new ReadOnlySegment(this, f, dir);
+                nextHead.load();
                 hintRandomAccess(nextHead.getBaseMarker(), nextHead.getSegmentId());
                                 
                 if ( readHead != null ) {
@@ -477,17 +471,29 @@ class NIOStreamImpl implements Stream {
             while (lsn > this.currentMarker ) {
                 this.wait();
             }
+ //  just make sure the current data is all the way down to disk before releasing
+            if ( lsn > this.fsyncdMarker && this.writeHead != null ) {
+                this.writeHead.fsync(true);
+                this.fsyncdMarker = this.currentMarker;
+            }
+        } catch ( IOException ioe ) {
+            throw new RuntimeException(ioe);
         } finally {
             markerWaiters -= 1;        
         }
     }
 //  mostly called by the IO thread and should not be too expensive so ok to synchronize  
-    private synchronized void updateCurrentMarker(long lsn) {
+    private synchronized void updateCurrentMarker(long lsn) throws IOException {
         if ( lsn < currentMarker ) {
             throw new IllegalArgumentException("markers must always be increasing");
         }
         currentMarker = lsn;
         if ( markerWaiters > 0 ) {
+            this.writeHead.fsync(true);
+            this.fsyncdMarker = this.currentMarker;
+            if ( this.currentMarker != writeHead.getMaximumMarker() ) {
+                throw new AssertionError("IO race");
+            }
             this.notifyAll();
         }
     }
@@ -569,22 +575,13 @@ class NIOStreamImpl implements Stream {
         return new ArrayList<File>(segments);
     }
 
-    private void checkReadHead() throws IOException {
-        if ( readHead != null && writeHead != null && readHead.getFile().equals(writeHead.getFile()) ) {
-            readHead.close();
-            readHead = null;
-        }
-    }
-
-    @Override
-    public void closeCurrentSegment() throws IOException {
-        checkReadHead();
-        writeHead.prepareForClose();
+    private void closeSegment(WritingSegment nio) throws IOException {
+        nio.prepareForClose();
         if ( syncer != null ) {
-          syncer.pivot(writeHead);
+          syncer.pivot(nio);
         } else {
-          writeHead.close();
-          lowestMarkerOnDisk = writeHead.getMinimumMarker();
+          nio.close();
+          lowestMarkerOnDisk = nio.getMinimumMarker();
         }
     }
 }

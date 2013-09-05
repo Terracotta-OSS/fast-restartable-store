@@ -66,11 +66,11 @@ public class NIOManager implements IOManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
-        this(home,segmentSize,segmentSize * 4, true);
+        this(home,segmentSize,segmentSize * 4, false);
     }    
      
     public NIOManager(String home, long segmentSize, long memorySize) throws IOException {
-        this(home,segmentSize,memorySize,true);
+        this(home,segmentSize,memorySize,false);
     }
      
     public NIOManager(String home, long segmentSize, long memorySize,boolean randomAccess) throws IOException {

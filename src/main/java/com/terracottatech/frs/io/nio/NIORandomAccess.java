@@ -145,7 +145,7 @@ class NIORandomAccess implements RandomAccess {
             throw new AssertionError("needs synchronization");
         }
         if ( fileCache.length <= ro.getSegmentId() - segmentOffset ) {
-            fileCache = Arrays.copyOf(fileCache, Math.abs(ro.getSegmentId() - fileCache[0].getSegmentId()) + fileCache.length);
+            fileCache = Arrays.copyOf(fileCache, Math.abs(ro.getSegmentId() - segmentOffset) + fileCache.length);
         }
         fileCache[ro.getSegmentId() - segmentOffset] = ro;
     }

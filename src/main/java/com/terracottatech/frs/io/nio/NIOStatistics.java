@@ -19,10 +19,10 @@ public class NIOStatistics implements IOStatistics {
     private final long dead;
     
     NIOStatistics(File directory, long used, long dead, long written, long reads) {
-        available = directory.getUsableSpace();
-        totalUsed = used;
-        totalWrites = written;
-        totalReads = reads;
+        this.available = directory.getUsableSpace();
+        this.totalUsed = used;
+        this.totalWrites = written;
+        this.totalReads = reads;
         this.dead = dead;
     }
 

@@ -151,6 +151,7 @@ class RandomAccessReadbackStrategy extends AbstractReadbackStrategy implements C
         return boundaries.lastKey();
     }
     
+    @Override
     public void close() throws IOException {
         if ( source.isOpen() ) {
             source.close();

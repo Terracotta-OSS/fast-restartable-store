@@ -132,6 +132,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             } catch ( IOException ioe ) {
 //  probably due to partial write completion, defer this marker until next round
                 length = start;
+                break;
             }
         }
         if ( SegmentHeaders.CLOSE_FILE.validate(cs) ) {

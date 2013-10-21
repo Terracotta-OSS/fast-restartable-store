@@ -18,7 +18,7 @@ public interface Stream extends Iterable<Chunk>,Closeable  {
     void seek(long loc) throws IOException;
     
     Chunk read(Direction dir) throws IOException;
-        
+            
 //    long write(Chunk c) throws IOException;
     
     /* close previous segment if any, provide a new segment for appending  */

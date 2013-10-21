@@ -214,7 +214,7 @@ public class NIOManagerTest {
        StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
        lm.startup();
        for (int x=0;x<1000;x++) {
-            DummyLogRecord lr1 = new DummyLogRecord(100,1024);
+           DummyLogRecord lr1 = new DummyLogRecord(100,1024);
            lm.append(lr1);
        }
 

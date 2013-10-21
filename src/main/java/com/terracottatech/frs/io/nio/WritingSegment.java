@@ -4,10 +4,10 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
+import static com.terracottatech.frs.io.nio.NIOSegment.FILE_HEADER_SIZE;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.EOFException;
@@ -67,9 +67,11 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     }
 
     //  open and write the header.
-    synchronized WritingSegment open(BufferSource pool) throws IOException, HeaderException {
+    synchronized WritingSegment open() throws IOException, HeaderException {
         while (buffer == null) {
-            buffer = createFileBuffer(512 * 1024, pool);
+            buffer = (getStream() != null ) ? 
+                getStream().createFileBuffer(createFileChannel(), 512 * 1024) :
+                new FileBuffer(createFileChannel(), ByteBuffer.allocate(512 * 1024));
         }
 
         if ( existingFile ) {
@@ -88,14 +90,8 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         
         return this;
     }
-    @Override
-    FileBuffer createFileBuffer(int bufferSize, BufferSource source) throws IOException {
-        buffer = super.createFileBuffer(bufferSize, source); //To change body of generated methods, choose Tools | Templates.
-        return buffer;
-    }
     
-    @Override
-    FileChannel createFileChannel() throws IOException {
+    private FileChannel createFileChannel() throws IOException {
         if ( existingFile ) {
             return new RandomAccessFile(getFile(), "rw").getChannel();
         } else {
@@ -106,10 +102,6 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     void setJumpList(List<Long> jumps) {
         this.writeJumpList = jumps;
     }
-//    
-//    void setMaximumMarker(long max) {
-//        this.maxMarker = max;
-//    }
 
     private long piggybackBufferOptimization(ByteBuffer used) throws IOException {
         long amt = used.remaining();

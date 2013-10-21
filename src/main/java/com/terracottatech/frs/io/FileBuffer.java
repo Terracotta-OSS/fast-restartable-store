@@ -71,7 +71,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     }
 
     public int capacity() {
-        return base.capacity();
+        return base.limit();
     }
 
     public void bufferMove(int src, int dest, int length) {
@@ -130,7 +130,7 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         while (ref[mark + count - 1].hasRemaining()) {
             long read = channel.read(ref, mark, count);
             if (read < 0) {
-                throw new EOFException();
+                throw new EOFException(lt + " " + read + " " + mark + " " + count);
             }
             lt += read;
         }
@@ -292,6 +292,10 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     
     public FileChannel getFileChannel() {
         return channel;
+    }
+    
+    public BufferSource getBufferSource() {
+        return source;
     }
     
 }

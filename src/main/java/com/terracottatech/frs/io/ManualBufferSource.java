@@ -36,7 +36,7 @@ public class ManualBufferSource implements BufferSource {
     }
 
     @Override
-    public synchronized ByteBuffer getBuffer(int size) {
+    public ByteBuffer getBuffer(int size) {
         if ( min > size ) min = size;
         if ( max < size ) max = size;
         
@@ -64,10 +64,12 @@ public class ManualBufferSource implements BufferSource {
            if ( base.remaining() != size ) {
                base.limit(size);
            }
-           BufferWrapper wrap = new BufferWrapper(base);
-           assert(!pool.contains(wrap));
-           pool.add(wrap);
-           usage += base.capacity();
+           synchronized (pool) {
+               BufferWrapper wrap = new BufferWrapper(base);
+               assert(!pool.contains(wrap));
+               pool.add(wrap);
+               usage += base.capacity();
+           }
         }
            
         return base;
@@ -76,7 +78,7 @@ public class ManualBufferSource implements BufferSource {
     protected ByteBuffer performAllocation(int size) {
         try {
             int allocate = Math.round(size * 1.05f);
-            if ( allocate < 64 * 1024 ) allocate = 64 * 1024;
+            if ( allocate < 8 * 1024 ) allocate = 8 * 1024;
             ByteBuffer base = ByteBuffer.allocateDirect(allocate);
             return base;
         } catch (OutOfMemoryError err) {
@@ -87,7 +89,7 @@ public class ManualBufferSource implements BufferSource {
     }
 
     @Override
-    public synchronized void reclaim() {
+    public void reclaim() {
         if ( parent != null ) parent.reclaim();
     }
     
@@ -100,15 +102,19 @@ public class ManualBufferSource implements BufferSource {
     }
 
     @Override
-    public synchronized void returnBuffer(ByteBuffer buffer) {
+    public void returnBuffer(ByteBuffer buffer) {
         assert(buffer != null);
-        
-        if ( pool.remove(new BufferWrapper(buffer)) ) {
-            assert(!pool.contains(new BufferWrapper(buffer)));
-            usage -= buffer.capacity();
-            assert(usage == calculateUsage());
-            parent.returnBuffer(buffer);
-        } 
+        if ( buffer.hasArray() ) {
+            return;
+        }
+        synchronized (pool) {
+            if ( pool.remove(new BufferWrapper(buffer)) ) {
+                assert(!pool.contains(new BufferWrapper(buffer)));
+                usage -= buffer.capacity();
+                assert(usage == calculateUsage());
+                parent.returnBuffer(buffer);
+            } 
+        }
     }
    
     public String toString() {

@@ -137,6 +137,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
 
     void clear() {
         buffer.clear();
+        primed = false;
     }
 
     boolean wasClosed() {
@@ -152,4 +153,11 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     public Chunk scan(long marker) throws IOException {
         return null;
     }
+
+    @Override
+    public boolean isConsistent() {
+        return SegmentHeaders.CLOSE_FILE.validate(exitStatus);
+    }
+    
+    
 }

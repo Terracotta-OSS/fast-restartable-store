@@ -4,11 +4,8 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.io.GCBufferSource;
-import com.terracottatech.frs.io.ManualBufferSource;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.log.Signature;
@@ -82,8 +79,8 @@ public class IntegrityTool {
         if ( dir != null && !f.getParentFile().equals(dir) ) {
             throw new IOException("segment is not part of the current stream");
         }
-        BufferSource src = new GCBufferSource();
-        WritingSegment segment = new WritingSegment(null, f).open(new ManualBufferSource(512 * 1024));
+
+        WritingSegment segment = new WritingSegment(null, f).open();
         int count = 0;
         int size = 0;
         int records = 0;

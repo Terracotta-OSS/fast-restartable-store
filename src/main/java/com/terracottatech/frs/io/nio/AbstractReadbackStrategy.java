@@ -32,7 +32,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( !buffer.hasRemaining() ) {
             return null;
         }
-        if ( buffer.remaining() < ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
+        if ( buffer.remaining() < ByteBufferUtils.INT_SIZE ) {
             return null;
         }
 
@@ -45,7 +45,11 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             }
             return null;
         }
-
+        
+        if ( buffer.remaining() < ByteBufferUtils.LONG_SIZE ) {
+            return null;
+        }
+        
         long length = buffer.getLong();
         if ( buffer.remaining() < length + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.LONG_SIZE + ByteBufferUtils.INT_SIZE ) {
             return null;
@@ -69,6 +73,10 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
     protected ArrayList<Long> readJumpList(ByteBuffer buffer) throws IOException {
         final int LAST_INT_WORD_IN_CHUNK = buffer.position()+buffer.remaining()-ByteBufferUtils.INT_SIZE;
         final int LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
+        
+        if ( !buffer.hasRemaining() ) {
+            return null;
+        }
         
         int jump = buffer.getInt(LAST_INT_WORD_IN_CHUNK);
         if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {

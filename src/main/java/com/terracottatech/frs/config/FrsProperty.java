@@ -15,6 +15,7 @@ public enum FrsProperty {
   IO_NIO_MEMORY_SPINS("io.nio.memorySpinsToFail", Type.INTEGER, 6),
   IO_NIO_MEMORY_TIMEOUT("io.nio.memoryTimeout", Type.LONG, 250L),
   IO_NIO_BUFFER_BUILDER("io.nio.bufferBuilder", Type.STRING, null),
+  IO_NIO_ACCESS_METHOD("io.nio.accessMethod", Type.STRING, "STREAM"),
   
   RECOVERY_COMPRESSED_SKIP_SET("recovery.compressedSkipSet", Type.BOOLEAN, true),
   RECOVERY_MIN_THREAD_COUNT("recovery.minThreadCount", Type.INTEGER, 1),

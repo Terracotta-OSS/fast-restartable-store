@@ -4,14 +4,15 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.Stream;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -49,22 +50,15 @@ public class NIOSegment {
     NIOStreamImpl getStream() {
         return parent;
     }
-    
-    FileBuffer createFileBuffer(int bufferSize, BufferSource source) throws IOException {         
-        FileChannel channel = createFileChannel();
-        FileBuffer created = ( parent != null && parent.getBufferBuilder() != null ) 
-                ? parent.getBufferBuilder().createBuffer(channel, source, bufferSize)
-                : new FileBuffer(channel, source, bufferSize);
-        
-        return created;
-    }    
-    
-    FileChannel createFileChannel() throws IOException {
+   
+    private FileChannel createFileChannel() throws IOException {
         return new FileInputStream(getFile()).getChannel();
     }
     
-    NIOSegment openForHeader(BufferSource reader) throws IOException, HeaderException {
-        FileBuffer buffer = createFileBuffer(FILE_HEADER_SIZE, reader);
+    NIOSegment openForHeader() throws IOException, HeaderException {
+        FileBuffer buffer = (parent != null ) ? 
+                parent.createFileBuffer(createFileChannel(), FILE_HEADER_SIZE) :
+                new FileBuffer(createFileChannel(), ByteBuffer.allocate(FILE_HEADER_SIZE));
         
         size = buffer.size();
 
@@ -117,8 +111,8 @@ public class NIOSegment {
         if ( lowestMarker < 99 || marker < 99 ) {
             throw new AssertionError("bad markers");
         }
-        
-        this.streamId = parent.getStreamId();
+ //  parent is null only in tests and read-only ops       
+        this.streamId = ( parent != null ) ? parent.getStreamId() : UUID.randomUUID();
     }
     
     public int getSegmentId() {

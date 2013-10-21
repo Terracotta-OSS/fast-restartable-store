@@ -287,7 +287,7 @@ public class StagingLogManager implements LogManager {
            
             Chunk c = packer.take();
             if (io.getCurrentMarker()+1 != packer.baseLsn()) {
-                throw new AssertionError("lsns not sequenced");
+                throw new AssertionError("lsns not sequenced " + io.getCurrentMarker()+1 + " != " + packer.baseLsn());
             }
             written += io.write(c,packer.endLsn());
             for ( ByteBuffer giveBack : c.getBuffers() ) {

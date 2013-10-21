@@ -7,6 +7,8 @@ package com.terracottatech.frs.log;
 import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -167,26 +169,38 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }
     
     private static void readRegionHeader(Chunk data, boolean checksum) throws FormatException {
-        short region = data.getShort();
-        long check = data.getLong();
-        long check2 = data.getLong();
-        byte[] rf = new byte[2];
-        data.get(rf);
+        Chunk header = data.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE + 2);
+        try {
+            short region = header.getShort();
+            long check = header.getLong();
+            long check2 = header.getLong();
+    //  ignore the region format for now
+    //        byte[] rf = new byte[2];
+    //        header.get(rf);
 
-        if ( check != check2 ) {
-            throw new FormatException("log region has mismatched checksums");
-        }
-        
-        if ( region != REGION_VERSION ) {
-            throw new FormatException("log region has an unrecognized version code");
-        }
-        
-        if ( check != 0 && checksum ) {
-            long value = checksum(Arrays.asList(data.getBuffers()));
-            if (check != value ) {
-                throw new FormatException("Adler32 checksum is not correct",check,value,data.length());
+            if ( check != check2 ) {
+                throw new FormatException("log region has mismatched checksums");
             }
-        }        
+
+            if ( region != REGION_VERSION ) {
+                throw new FormatException("log region has an unrecognized version code");
+            }
+
+            if ( check != 0 && checksum ) {
+                long value = checksum(Arrays.asList(data.getBuffers()));
+                if (check != value ) {
+                    throw new FormatException("Adler32 checksum is not correct",check,value,data.length());
+                }
+            }    
+        } finally {
+            if ( header instanceof Closeable ) {
+                try {
+                    ((Closeable)header).close();
+                } catch ( IOException ioe ) {
+                    throw new RuntimeException(ioe);
+                }
+            }
+        }
     }
     
     protected int formRegionHeader(long checksum, ByteBuffer header) {
@@ -249,20 +263,32 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }    
     
     private static LogRecord readRecord(Chunk buffer,long match) throws FormatException {
+        Chunk header = buffer.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE);
+        try {
+            short format = header.getShort();
+            long lsn = header.getLong();
+            long len = header.getLong();
 
-        short format = buffer.getShort();
-        long lsn = buffer.getLong();
-        long len = buffer.getLong();
-                
-        if ( match < 0 || match == lsn ) {
-            if ( format != LR_FORMAT ) throw new FormatException("log record has an unrecognized version code");
-            ByteBuffer[] payload = buffer.getBuffers(len);
-            LogRecord record = new LogRecordImpl(payload, null);
-            record.updateLsn(lsn);
-            return record;
-        } else {
-            buffer.skip(len);
-            return null;
+            if ( match < 0 || match == lsn ) {
+                if ( format != LR_FORMAT ) {
+                    throw new FormatException("log record has an unrecognized version code");
+                }
+                ByteBuffer[] payload = buffer.getBuffers(len);
+                LogRecord record = new LogRecordImpl(payload, null);
+                record.updateLsn(lsn);
+                return record;
+            } else {
+                buffer.skip(len);
+                return null;
+            }
+        } finally {
+            if ( header instanceof Closeable ) {
+                try {
+                    ((Closeable)header).close();
+                } catch ( IOException ioe ) {
+                    throw new RuntimeException(ioe);
+                }
+            }
         }
     }
 }

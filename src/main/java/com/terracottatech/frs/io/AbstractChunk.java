@@ -226,6 +226,9 @@ public abstract class AbstractChunk implements Chunk {
     @Override
     public void skip(long jump) {
         long count = 0;
+        if ( jump == 0 ) {
+            return;
+        }
         while ( count < jump ) {
             ByteBuffer target = findEnd(SHORT_SIZE,false);
             if ( jump - count > target.remaining() ) {

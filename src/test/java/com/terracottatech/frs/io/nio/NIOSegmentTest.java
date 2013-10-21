@@ -20,7 +20,7 @@ import static org.junit.Assert.assertEquals;
  *
  * @author mscott
  */
-public class NIOSegmentImplTest {
+public class NIOSegmentTest {
 
     NIOStreamImpl stream;
     File workarea;
@@ -29,7 +29,7 @@ public class NIOSegmentImplTest {
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();
 
-    public NIOSegmentImplTest() {
+    public NIOSegmentTest() {
     }
 
     @BeforeClass

@@ -66,26 +66,28 @@ public class NIOManager implements IOManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
     public NIOManager(String home, long segmentSize) throws IOException {
-        this(home,segmentSize,segmentSize * 4, false);
+        this(home,NIOAccessMethod.getDefault().toString(),segmentSize,segmentSize * 4, false);
     }    
      
     public NIOManager(String home, long segmentSize, long memorySize) throws IOException {
-        this(home,segmentSize,memorySize,false);
+        this(home,NIOAccessMethod.getDefault().toString(), segmentSize,memorySize,false);
     }
      
-    public NIOManager(String home, long segmentSize, long memorySize,boolean randomAccess) throws IOException {
+    public NIOManager(String home, String method, long segmentSize, long memorySize,boolean randomAccess) throws IOException {
         directory = new File(home);
                 
         this.segmentSize = segmentSize;
         
         this.memorySize = memorySize;
         
-        this. randomAccess = randomAccess;
-        open();
+        this.randomAccess = randomAccess;
+        
+        open(NIOAccessMethod.valueOf(method));
     }
     
     public NIOManager(Configuration config) throws IOException {
         this(config.getDBHome().getAbsolutePath(),
+            config.getString(FrsProperty.IO_NIO_ACCESS_METHOD),
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
             config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE),
             config.getBoolean(FrsProperty.IO_RANDOM_ACCESS)
@@ -106,17 +108,12 @@ public class NIOManager implements IOManager {
             }
         }
     }
-    
+// for tests
     void setBufferBuilder(BufferBuilder builder) {
         if ( backend != null ) {
             backend.setBufferBuilder(builder);
         }
     }
-    
-    BufferBuilder getBufferBuilder() {
-        if ( backend == null ) return null;
-        return backend.getBufferBuilder();
-    }    
 
     @Override
     public long write(Chunk region, long marker) throws IOException {
@@ -246,12 +243,12 @@ public class NIOManager implements IOManager {
         backend = null;
     }
     
-    private void open() throws IOException {        
+    private void open(NIOAccessMethod method) throws IOException {        
         if (!directory.exists() || !directory.isDirectory()) {
             throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
         }
         
-        backend = new NIOStreamImpl(directory, segmentSize, memorySize);
+        backend = new NIOStreamImpl(directory, method, segmentSize, memorySize);
 
         lockFile = new File(directory, "FRS.lck");
         boolean crashed = !lockFile.createNewFile();

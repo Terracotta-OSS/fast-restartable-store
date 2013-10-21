@@ -5,150 +5,254 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.*;
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  *
  * @author mscott
  */
-class MappedReadbackStrategy extends AbstractReadbackStrategy {
+class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
 
-    private final   MappedByteBuffer        src;
-    private final ListIterator<Chunk>       chunks;
-    private final long                      lastMarker;
-    private final Direction                 queueDirection;
+    private final FileChannel source;
+    private final   AppendableChunk                        data;
+    private final   NavigableMap<Long,Marker>              boundaries;
+    private final ReadWriteLock lock;
+    private long offset = 0;
+    
         
-    public MappedReadbackStrategy(MappedByteBuffer data,Direction direction) throws IOException {
-        src = data;
-        queueDirection = direction;
-        List<Long> jumps = readJumpList(src);
-        LinkedList<Chunk> list = new LinkedList<Chunk>();
-        if ( jumps == null )  {
-            Chunk buf = new WrappingChunk(data);
-            ByteBuffer[] chunk = readChunk(buf);
+    public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
+        this.source = src;
+        MappedByteBuffer mapped = source.map(FileChannel.MapMode.READ_ONLY,source.position(),(int)source.size());
 
-            while (chunk != null) {
-                if ( queueDirection == Direction.REVERSE ) list.push(new WrappingChunk(chunk));
-                else list.add(new WrappingChunk(chunk));
-                chunk = readChunk(buf);
-            }
-            
+        this.data = new AppendableChunk(new ByteBuffer[]{mapped});
+        boundaries = new TreeMap<Long,Marker>();
+//        boundaries = new ConcurrentSkipListMap<Long, Marker>();
+//        data.skip(NIOSegment.FILE_HEADER_SIZE);
+        createIndex();
+        
+        if ( !this.isConsistent() ) {
+            lock = new ReentrantReadWriteLock();
         } else {
-            Long last = Long.valueOf(NIOSegment.FILE_HEADER_SIZE);
+            lock = null;
+        }
+        
+        if ( boundaries.isEmpty() ) {
+            this.offset = Long.MIN_VALUE;
+        } else if ( dir == Direction.REVERSE ) {
+            this.offset = boundaries.lastKey();
+        } else if ( dir == Direction.FORWARD ) {
+            this.offset = boundaries.firstKey();
+        } else {
+            offset = Long.MIN_VALUE;
+        }
+    }
+
+    @Override
+    public long getMaximumMarker() {
+        try {
+            return boundaries.lastKey();
+        } catch ( NoSuchElementException no ) {
+            return Long.MIN_VALUE;
+        }
+    }
+
+    private void createIndex() throws IOException {
+        List<Long> jumps = readJumpList(data.getBuffers()[0]);
+        if ( jumps == null )  {
+            long start = data.position();
+            ByteBuffer[] chunk = readChunk(data);
+            while (chunk != null) {
+                long marker = data.getLong(data.position() - 12);
+                boundaries.put(marker,new Marker(start, marker));
+                start = data.position();
+                chunk = readChunk(data);
+            }
+            if ( this.isConsistent() ) {
+                source.close();
+            } else {
+                data.truncate(start);
+            }
+        } else {
+            Long last = 0L;
             for ( Long next : jumps ) {
                 try {
-                    src.clear().position(last.intValue() + 12).limit(next.intValue() - 20);
-                    if ( queueDirection == Direction.REVERSE ) list.push(new WrappingChunk(src.slice()));
-                    else list.add(new WrappingChunk(src.slice()));
+                  long marker = data.getLong(next.intValue() - 12);
+                  boundaries.put(marker,new Marker(last, marker));
                 } catch ( Throwable t ) {
                     throw new AssertionError(t);
                 }
                 last = next;
             }
-            src.position(NIOSegment.FILE_HEADER_SIZE);
+            source.close();
         }
-        if ( !list.isEmpty() ) {
-            Chunk lastChunk = list.getLast();
-            lastMarker = ( lastChunk.length() > 12 ) ? lastChunk.getLong(lastChunk.length() - 12) : -1;
-        } else {
-            lastMarker = -1;
-        }
-        chunks = list.listIterator();
-    }
-
-    @Override
-    public long getMaximumMarker() {
-        return lastMarker;
     }
     
-    private boolean checkQueue(List<Chunk> got) throws IOException {
-        List<Chunk> list = new ArrayList<Chunk>();
-        src.clear().position(NIOSegment.FILE_HEADER_SIZE);
-        Chunk buf = getBuffer();
-        ByteBuffer[] chunk = readChunk(buf);
-
+    private void updateIndex() throws IOException {
+        long start = data.position();
+        ByteBuffer[] chunk = readChunk(data);
         while (chunk != null) {
-            list.add(new WrappingChunk(chunk));
-            chunk = readChunk(buf);
+            long marker = data.getLong(data.position() - 12);
+            boundaries.put(marker,new Marker(start, marker));
+            start = data.position();
+            chunk = readChunk(data);
         }
-        
-        if ( got != null ) {
-            if ( got.size() != list.size() ) {
-                System.out.println(got.size() + " " + list.size());
-                return false;
+        if ( this.isConsistent() ) {
+            data.destroy();
+            data.append(source.map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
+            if ( data.remaining() < boundaries.lastEntry().getValue().getStart() ) {
+                throw new AssertionError("bad boundaries " + data.remaining() + " " 
+                        + boundaries.lastEntry().getValue().getStart());
             }
-            for (int x=0;x<got.size();x++) {
-                if ( got.get(x).remaining() != list.get(x).remaining()  ) {
-                    System.out.println(x + " " + got.get(x).remaining() + " " + list.get(x).remaining());
-                    return false;
-                }
+            source.close();
+        } else if ( data.hasRemaining() ) {
+            data.truncate(start);
+            if ( data.position() != start ) {
+                throw new AssertionError("bad truncation");
+            } 
+            if ( data.length() != start ) {
+                throw new AssertionError("bad truncation");
             }
         }
-        
-        return super.isConsistent();
-    }
-
-    @Override
-    public boolean isConsistent() {
-        try {
-            return checkQueue(null);
-        } catch ( IOException ioe ) {
-            return false;
-        }
-    }
-
-    public Chunk getBuffer() {
-        return new WrappingChunk(src);
-    }
+    }    
     
-    @Override
-    public long size() {
-        return src.capacity();
-    }
-
-    private int offset(long marker) {
-        int move = 0;
-        try {
-            while ( this.hasMore(queueDirection) ) {
-                Chunk c = iterate(queueDirection);
-                long mark = c.getLong(c.length() - 12);
-                if ( queueDirection == Direction.REVERSE && mark >= marker ) {
-                    chunks.next();
-                    return move;
-                } else if ( queueDirection == Direction.FORWARD && mark <= marker ) {
-                    chunks.previous();
-                    return move;
-                }
-           }
-        } catch ( IOException ioe ) {
-            return -1;
+    private boolean addData() throws IOException {
+        if ( !this.isConsistent() && data.position() != source.size() ) {            
+            long len = data.position();
+            if ( data.hasRemaining() ) {
+                throw new AssertionError("bad tail");
+            }
+            MappedByteBuffer buffer = source.map(FileChannel.MapMode.READ_ONLY, len, source.size() - len);
+            data.append(buffer);
+            return true;
         }
-        return -1;
-    }
-
-    @Override
-    public Chunk scan(long marker) throws IOException {
-        if ( offset(marker) >= 0 ) {
-            return iterate(queueDirection);
-        }
-        return null;
-    }
-
-    @Override
-    public boolean hasMore(Direction dir) throws IOException {
-        if ( dir == queueDirection && chunks.hasNext() ) return true;
-        if ( dir != queueDirection && chunks.hasPrevious() ) return true;
         return false;
     }
 
     @Override
     public Chunk iterate(Direction dir) throws IOException {
-        if ( dir == queueDirection && chunks.hasNext() ) return chunks.next();
-        if ( dir != queueDirection && chunks.hasPrevious() ) return chunks.previous();
-        return null;
+      Long key = null;
+      try {
+        Map.Entry<Long,Marker> e = ( dir == Direction.FORWARD ) ? boundaries.ceilingEntry(offset) : boundaries.floorEntry(offset);
+        key = e.getKey();
+        return e.getValue().getChunk();
+      } finally {
+        offset = ( dir == Direction.FORWARD ) ? key + 1 : key - 1;
+      }
+    }
+
+    @Override
+    public boolean hasMore(Direction dir) throws IOException {
+        try {
+            return ( dir == Direction.FORWARD ) ? ( boundaries.lastKey() >= offset ) : boundaries.firstKey() <= offset;
+        } catch ( NoSuchElementException no ) {
+            return false;
+        }
     }
     
+    public Chunk getBuffer() {
+        return data.copy();
+    }
+    
+    public long getLastMarker() {
+        return boundaries.lastKey();
+    }
+    
+    @Override
+    public void close() throws IOException {
+        if ( source.isOpen() ) {
+            source.close();
+        }
+        boundaries.clear();
+        data.destroy();
+    }
+        
+    @Override
+    public Chunk scan(long marker) throws IOException {
+        Lock l = null;
+        while ( !this.isConsistent() && boundaries.lastKey() < marker ) {
+            l = lock.writeLock();
+            try {
+                l.lock();
+                if ( addData() ) {
+                    updateIndex();
+                }
+            } finally {
+                l.unlock();
+            }
+        } 
+            
+        if ( lock != null ) {
+            l = lock.readLock();
+        }
+        
+        try {
+            if ( l != null ) {
+                l.lock();
+            }
+            Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
+            if ( m == null ) {
+                return null;
+            } else {
+                return m.getValue().getChunk();
+            } 
+        } finally {
+            if ( l != null ) {
+                l.unlock();
+            }
+        }
+    }
+    
+    @Override
+    public long size() throws IOException {
+        try {
+            return source.size();
+        } catch ( IOException ioe ) {
+            return data.length();
+        }
+    }
+       
+    private class Marker {
+      private final long start;
+      private final long mark;
+
+      public Marker(long start, long mark) {
+        this.start = start;
+        this.mark = mark;
+      }
+
+      public long getStart() {
+        return start;
+      }
+
+      public long getMark() {
+        return mark;
+      }
+      
+      public Chunk getChunk() {
+        Chunk value = data.copy();
+        value.skip(start);
+        int cs = value.getInt(); 
+        if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
+          throw new AssertionError("not valid");
+        }
+        long len = value.getLong();
+        Chunk rv = value.getChunk(len);
+        if ( value.getLong() != len ) {
+          throw new AssertionError("not valid");
+        }
+        if ( value.getLong() != mark ) {
+          throw new AssertionError("not valid");
+        }
+        return rv;
+      }
+      
+    }
 }

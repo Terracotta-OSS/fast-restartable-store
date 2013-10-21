@@ -32,7 +32,7 @@ public class NIOStreamImplTest {
   @Before
   public void setUp() throws Exception {
     workArea = folder.newFolder();
-    stream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
+    stream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
         stream.setMinimumMarker(100);
         
         long seed = System.currentTimeMillis();
@@ -75,7 +75,7 @@ public class NIOStreamImplTest {
     }
     stream.close();
 
-    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
+    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
     nioStream.seek(-1);
     int foundChunks = 0;
     while (nioStream.read(Direction.REVERSE) != null) {
@@ -98,7 +98,7 @@ public class NIOStreamImplTest {
     }
     stream.close();
 
-    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE / 2);
+    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE / 2);
     nioStream.seek(-1);
     int foundChunks = 0;
     while (nioStream.read(Direction.REVERSE) != null) {
@@ -151,12 +151,11 @@ public class NIOStreamImplTest {
       numChunks++;
     }
     stream.close();
-    BufferSource bufs = new ManualBufferSource(1024 * 1024);
     NIOSegmentList list = new NIOSegmentList(workArea);
     list.setReadPosition(-1);
-    new WritingSegment(stream,list.appendFile()).open(bufs).close();
-    new WritingSegment(stream,list.appendFile()).open(bufs).close();
-    new WritingSegment(stream,list.appendFile()).open(bufs).close();
+    new WritingSegment(stream,list.appendFile()).open().close();
+    new WritingSegment(stream,list.appendFile()).open().close();
+    new WritingSegment(stream,list.appendFile()).open().close();
     stream = new NIOStreamImpl(workArea, 10*1024*1024);
     stream.open();
     stream.seek(IOManager.Seek.END.getValue());
@@ -173,7 +172,7 @@ public class NIOStreamImplTest {
     NIOSegmentList list = new NIOSegmentList(workArea);
     list.setReadPosition(0);
     System.out.println("file length: " + list.getBeginningFile().length());
-    new ReadOnlySegment(stream,list.getBeginningFile(), Direction.REVERSE).load().close();
+    new ReadOnlySegment(stream,NIOAccessMethod.getDefault(), list.getBeginningFile(), Direction.REVERSE).load().close();
     stream = new NIOStreamImpl(workArea, 10*1024*1024);
     stream.open();
     stream.seek(IOManager.Seek.END.getValue());
@@ -191,7 +190,7 @@ public class NIOStreamImplTest {
     list.setReadPosition(0);
     System.out.println("file length: " + list.getBeginningFile().length());
     try {
-    new ReadOnlySegment(stream,list.getBeginningFile(),Direction.REVERSE).load().close();
+    new ReadOnlySegment(stream,NIOAccessMethod.getDefault(), list.getBeginningFile(),Direction.REVERSE).load().close();
     stream = new NIOStreamImpl(workArea, 10*1024*1024);
     stream.open();
     stream.seek(IOManager.Seek.END.getValue());

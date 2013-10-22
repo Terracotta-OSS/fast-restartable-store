@@ -184,4 +184,10 @@ class NIOSegmentList extends AbstractList<File> {
         f.delete();
         return f;
     }
+
+    @Override
+    public String toString() {
+        return "NIOSegmentList{" + "segments=" + segments + ", position=" + position + ", segmentId=" + segmentId + '}';
+    }
+       
 }

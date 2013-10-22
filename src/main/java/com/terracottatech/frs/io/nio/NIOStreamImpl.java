@@ -262,11 +262,13 @@ class NIOStreamImpl implements Stream {
     }  
     
     long findLogTail() throws IOException {
+        if ( readHead != null ) {
+            throw new AssertionError("read head still active");
+        }
         segments.setReadPosition(0);
         File f = segments.nextReadFile(Direction.FORWARD);
         long size = 0;
         while (f != null) {
-
             NIOSegment seg = new NIOSegment(this, f);
 
             try {
@@ -450,7 +452,10 @@ class NIOStreamImpl implements Stream {
                 if ( readHead != null ) {
                     int expected = readHead.getSegmentId() + ((dir == Direction.REVERSE) ? -1 : +1);
                     if (nextHead.getSegmentId() != expected) {
-                        throw new IOException("broken stream during readback");
+                        throw new IOException("broken stream during readback expected:" + expected + 
+                                " segment:" + segments.getSegmentPosition() + 
+                                " actual:" + nextHead.getSegmentId() + " file:"  + nextHead.getFile() + " list:" + 
+                                segments.toString());
                     }
                 }
 

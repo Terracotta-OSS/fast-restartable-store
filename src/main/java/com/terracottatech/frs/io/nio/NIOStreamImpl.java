@@ -10,8 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import com.terracottatech.frs.io.BufferBuilder;
 import com.terracottatech.frs.io.BufferSource;
-import com.terracottatech.frs.io.CachingBufferSource;
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.DirectBufferSource;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.IOManager;
@@ -19,7 +19,6 @@ import com.terracottatech.frs.io.ManualBufferSource;
 import com.terracottatech.frs.io.Stream;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -80,7 +79,7 @@ class NIOStreamImpl implements Stream {
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
         
-        manualPool = new ManualBufferSource(new CachingBufferSource(), memorySize);
+        manualPool = new ManualBufferSource(new DirectBufferSource(), memorySize);
 
         segments = new NIOSegmentList(directory);
         if (segments.isEmpty()) {

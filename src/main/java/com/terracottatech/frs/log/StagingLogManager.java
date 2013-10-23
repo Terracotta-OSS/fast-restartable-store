@@ -13,6 +13,7 @@ import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.ManualBufferSource;
 
 import java.io.IOException;
@@ -519,7 +520,50 @@ public class StagingLogManager implements LogManager {
         }
         
         return snapshot;
+    }
+
+    @Override
+    public IOStatistics getIOStatistics() {
+      try {
+        return io.getStatistics();
+      } catch ( IOException ioe ) {
+        LOGGER.error("error collecting io statistics",ioe);
+        return new IOStatistics() {
+
+          @Override
+          public long getTotalAvailable() {
+            return 0;
+          }
+
+          @Override
+          public long getTotalUsed() {
+            return 0;
+          }
+
+          @Override
+          public long getTotalWritten() {
+            return 0;
+          }
+
+          @Override
+          public long getTotalRead() {
+            return 0;
+          }
+
+          @Override
+          public long getLiveSize() {
+            return 0;
+          }
+
+          @Override
+          public long getExpiredSize() {
+            return 0;
+          }
+        };
       }
+    }
+    
+    
 
     static class WritingPackage implements Runnable {
         private final CommitList                list;

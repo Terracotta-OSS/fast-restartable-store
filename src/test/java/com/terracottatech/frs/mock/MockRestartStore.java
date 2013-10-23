@@ -7,6 +7,7 @@ package com.terracottatech.frs.mock;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.Statistics;
 import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.Tuple;
 import com.terracottatech.frs.action.ActionManager;
@@ -92,4 +93,11 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   public Snapshot snapshot() throws RestartStoreException {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public Statistics getStatistics() {
+    throw new UnsupportedOperationException();
+  }
+  
+  
 }

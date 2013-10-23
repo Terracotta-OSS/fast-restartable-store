@@ -23,7 +23,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
     private FileChannel source;
     private final NIOAccessMethod method;
     private ReadbackStrategy strategy;
-    private Direction dir;
+    private final Direction dir;
     private volatile long length = 0;
     
     ReadOnlySegment(NIOStreamImpl parent, NIOAccessMethod strat, File buffer, Direction dir) throws IOException, HeaderException {
@@ -70,7 +70,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         }
     }
     
-    private synchronized ReadbackStrategy openForRandomAccess() throws IOException, HeaderException {
+    private ReadbackStrategy openForRandomAccess() throws IOException, HeaderException {
         source = new FileInputStream(getFile()).getChannel();
         length = source.size();
 

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.concurrent.Future;
@@ -64,4 +65,12 @@ public interface RestartStore<I, K, V> {
    * not be in the snapshot. The snapshot must be released after it's used in order to release any held resources.
    */
   Snapshot snapshot() throws RestartStoreException;
+  
+  /**
+   * get statistics from the underlying implementation.  
+   * 
+   * 
+   * @return statistics from current log stream implementation 
+   */
+  Statistics getStatistics();
 }

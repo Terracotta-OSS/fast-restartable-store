@@ -8,6 +8,7 @@ import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
@@ -185,4 +186,11 @@ public class MockLogManager implements LogManager {
     public Snapshot snapshot() throws ExecutionException, InterruptedException {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public IOStatistics getIOStatistics() {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    
 }

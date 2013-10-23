@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.io.IOStatistics;
 
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
@@ -33,4 +34,6 @@ public interface LogManager {
   Future<Void> appendAndSync(LogRecord record);
 
   Snapshot snapshot() throws ExecutionException, InterruptedException;
+  
+  IOStatistics getIOStatistics();
 }

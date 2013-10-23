@@ -233,4 +233,10 @@ public class RestartStoreImplTest {
     verify(compactor).pause();
     verify(compactor).unpause();
   }
+  
+  @Test
+  public void testStatistics() throws Exception {
+    restartStore.getStatistics();
+    verify(logManager).getIOStatistics();
+  } 
 }

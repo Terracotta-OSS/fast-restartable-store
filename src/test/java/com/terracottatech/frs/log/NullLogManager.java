@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.Snapshot;
+import com.terracottatech.frs.io.IOStatistics;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -56,4 +57,11 @@ public class NullLogManager implements LogManager {
   public Snapshot snapshot() throws ExecutionException, InterruptedException {
     return null;
   }
+
+  @Override
+  public IOStatistics getIOStatistics() {
+      return null;      
+  }
+  
+  
 }

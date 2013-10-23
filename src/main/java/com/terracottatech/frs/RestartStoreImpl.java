@@ -11,6 +11,7 @@ import com.terracottatech.frs.compaction.CompactorImpl;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.ObjectManager;
@@ -142,6 +143,42 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     } finally {
       compactor.unpause();
     }
+  }
+
+  @Override
+  public Statistics getStatistics() {
+      return new Statistics() {
+        private final IOStatistics delegate = logManager.getIOStatistics();
+        @Override
+        public long getTotalAvailable() {
+          return delegate.getTotalAvailable();
+        }
+
+        @Override
+        public long getTotalUsed() {
+          return delegate.getTotalUsed();
+        }
+
+        @Override
+        public long getTotalWritten() {
+          return delegate.getTotalWritten();
+        }
+
+        @Override
+        public long getTotalRead() {
+          return delegate.getTotalRead();
+        }
+
+        @Override
+        public long getLiveSize() {
+          return delegate.getLiveSize();
+        }
+
+        @Override
+        public long getExpiredSize() {
+          return delegate.getExpiredSize();
+        }
+      };
   }
 
   private void checkReadyState() {

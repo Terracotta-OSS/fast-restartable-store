@@ -18,11 +18,12 @@ import org.junit.*;
  *
  * @author mscott
  */
-public class NIOMarkersTest {
+public abstract class NIOMarkersTest {
     File workArea;
     NIOManager manager;
     long current;
     long min;
+    NIOAccessMethod method;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();    
@@ -38,11 +39,11 @@ public class NIOMarkersTest {
     public static void tearDownClass() throws Exception {
     }
     
-    @Before
-    public void setUp() throws Exception {
+    protected void setUp(NIOAccessMethod method) throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
+        this.method = method;
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(), 1 * 1024 * 1024, 10 * 1024 * 1024, false);
         manager.setMinimumMarker(100);
     }
     
@@ -103,7 +104,7 @@ public class NIOMarkersTest {
     
     public void testRecovery() throws Exception {
         manager.close();
-        manager = new NIOManager(workArea.getAbsolutePath(), 1 * 1024 * 1024, 10 * 1024 * 1024);
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),1 * 1024 * 1024, 10 * 1024 * 1024, false);
         manager.seek(IOManager.Seek.END.getValue());
         Chunk c = manager.read(Direction.REVERSE);
         int count = 0;

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.nio.NIOAccessMethod;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
@@ -34,7 +35,7 @@ public class LogManagerThroughputTest {
 
     @Before
     public void setUp() throws Exception {
-        stream = new NIOManager(folder.getRoot().getAbsolutePath(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10);
+        stream = new NIOManager(folder.getRoot().getAbsolutePath(), NIOAccessMethod.NONE.toString(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10, false);
         mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( 100l, 64, 20),stream);
         mgr.startup();
     }
@@ -60,9 +61,4 @@ public class LogManagerThroughputTest {
     public void tearDown() {
         mgr.shutdown();
     }
-    // TODO add test methods here.
-    // The methods must be annotated with annotation @Test. For example:
-    //
-    // @Test
-    // public void hello() {}
 }

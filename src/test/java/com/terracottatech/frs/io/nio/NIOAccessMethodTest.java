@@ -64,7 +64,7 @@ public class NIOAccessMethodTest {
     @Test
     public void testGetDefault() {
         System.out.println("getDefault");
-        NIOAccessMethod expResult = NIOAccessMethod.STREAM;
+        NIOAccessMethod expResult = NIOAccessMethod.MAPPED;
         NIOAccessMethod result = NIOAccessMethod.getDefault();
         assertEquals(expResult, result);
     }

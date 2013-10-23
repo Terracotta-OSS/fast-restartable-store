@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 import org.junit.*;
 
 /**
@@ -46,11 +45,10 @@ public abstract class AbstractReadbackStrategyLegacyTest {
     public static void tearDownClass() throws Exception {
     }
     
-    @Before
-    public void setUp() throws Exception {
+    protected void setUp(NIOAccessMethod method) throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(), 4 * 1024 * 1024, 10 * 1024 * 1024);
+        manager = new NIOManager(workArea.getAbsolutePath(),method.toString(),  4 * 1024 * 1024, 10 * 1024 * 1024, false);
         manager.setMinimumMarker(100);
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {

@@ -12,6 +12,6 @@ public enum NIOAccessMethod {
     NONE,STREAM,MAPPED;
     
     public static NIOAccessMethod getDefault() {
-        return STREAM;
+        return MAPPED;
     }
 }

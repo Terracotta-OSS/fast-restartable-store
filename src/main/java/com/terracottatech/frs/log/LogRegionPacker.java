@@ -274,7 +274,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                     throw new FormatException("log record has an unrecognized version code");
                 }
                 ByteBuffer[] payload = buffer.getBuffers(len);
-                LogRecord record = new LogRecordImpl(payload, null);
+                LogRecord record = ( buffer instanceof Closeable ) ? 
+                        new DisposableLogRecordImpl((Closeable)buffer, payload) : 
+                        new LogRecordImpl(payload, null);
                 record.updateLsn(lsn);
                 return record;
             } else {

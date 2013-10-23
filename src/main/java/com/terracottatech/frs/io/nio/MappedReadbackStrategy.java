@@ -30,12 +30,11 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         
     public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
         this.source = src;
-        MappedByteBuffer mapped = source.map(FileChannel.MapMode.READ_ONLY,source.position(),(int)source.size());
+        MappedByteBuffer mapped = source.map(FileChannel.MapMode.READ_ONLY,0,(int)source.size());
 
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
+        this.data.skip(source.position());
         boundaries = new TreeMap<Long,Marker>();
-//        boundaries = new ConcurrentSkipListMap<Long, Marker>();
-//        data.skip(NIOSegment.FILE_HEADER_SIZE);
         createIndex();
         
         if ( !this.isConsistent() ) {
@@ -81,7 +80,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
                 data.truncate(start);
             }
         } else {
-            Long last = 0L;
+            Long last = data.position();
             for ( Long next : jumps ) {
                 try {
                   long marker = data.getLong(next.intValue() - 12);

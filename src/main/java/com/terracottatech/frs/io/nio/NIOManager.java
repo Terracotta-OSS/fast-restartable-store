@@ -64,14 +64,6 @@ public class NIOManager implements IOManager {
     private int snapshots = 0;
     
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
-
-    public NIOManager(String home, long segmentSize) throws IOException {
-        this(home,NIOAccessMethod.getDefault().toString(),segmentSize,segmentSize * 4, false);
-    }    
-     
-    public NIOManager(String home, long segmentSize, long memorySize) throws IOException {
-        this(home,NIOAccessMethod.getDefault().toString(), segmentSize,memorySize,false);
-    }
      
     public NIOManager(String home, String method, long segmentSize, long memorySize,boolean randomAccess) throws IOException {
         directory = new File(home);
@@ -188,6 +180,9 @@ public class NIOManager implements IOManager {
      //  this does not need to be synchronized,
      //  it's ok if this is a stale value.  It should always be increasing 
                 this.backend.waitForMarker(marker);
+            }
+            if ( reader == null ) {
+                this.reader = backend.createRandomAccess();
             }
             return this.reader.scan(marker);
         } catch ( InterruptedIOException ioe ) {

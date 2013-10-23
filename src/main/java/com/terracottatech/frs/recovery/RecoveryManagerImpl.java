@@ -5,6 +5,7 @@
 package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.DeleteFilter;
+import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.config.Configuration;
@@ -109,7 +110,6 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     @Override
     public boolean filter(Action element, long lsn, boolean filtered) {
-//      double currentProgress = progress(lsn);
       if (count-- <= 0 && position > 0) {
         LOGGER.info("Recovery progress " + (10 - position)*10 + "%");
         count = (lsn - lowestLsn)/position--;
@@ -120,10 +120,6 @@ public class RecoveryManagerImpl implements RecoveryManager {
       }
       return delegate(element, lsn, filtered);
     }
-
-//    private double progress(long current) {
-//      return (1.0 - ((double) current) / totalLsns);
-//    }
   }
 
   private static class ReplayFilter implements Filter<Action>, ThreadFactory {
@@ -156,6 +152,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
     @Override
     public boolean filter(final Action element, final long lsn, boolean filtered) {
       if (filtered) {
+          if ( element instanceof Disposable ) {
+              ((Disposable)element).dispose();
+          }
         return false;
       } else {
         replayed++;
@@ -221,6 +220,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
       void replay() {
         action.replay(lsn);
+        if ( action instanceof Disposable ) {
+            ((Disposable)action).dispose();
       }
     }
+}
 }

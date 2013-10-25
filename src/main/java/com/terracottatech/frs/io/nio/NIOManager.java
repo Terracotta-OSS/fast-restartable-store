@@ -55,11 +55,11 @@ public class NIOManager implements IOManager {
     
     private NIOStreamImpl backend;
     private RandomAccess  reader;
-    private long written = 1;
-    private long read = 1;
-    private long writeTime = 1;
-    private long parts = 1;
-    private long requests = 1;
+    private long written = 0;
+    private long read = 0;
+    private long writeTime = 0;
+    private long parts = 0;
+    private long requests = 0;
 
     private int snapshots = 0;
     
@@ -238,6 +238,10 @@ public class NIOManager implements IOManager {
         backend = null;
     }
     
+    File getHomeDirectory() {
+      return directory;
+    }
+    
     private void open(NIOAccessMethod method) throws IOException {        
         if (!directory.exists() || !directory.isDirectory()) {
             throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
@@ -280,7 +284,7 @@ public class NIOManager implements IOManager {
             throw new IOException("stream is closed");
         }
         
-        return new NIOStatistics(directory, backend.getTotalSize(), backend.findLogTail(), written, read);
+        return new LiveNIOStatistics(directory, backend, written, read);
     }
     
     @Override

@@ -308,6 +308,13 @@ public class StagingLogManagerTest {
         assertThat(logManager.lowestLsn(), greaterThan(99L));
     }
     
+    @Test
+    public void testGetIOStatistics() throws Exception {
+        IOStatistics stats = logManager.getIOStatistics();
+        
+        verify(ioManager).getStatistics();
+        org.junit.Assert.assertNotNull(stats);
+    }    
     
     @Test
     public void testSlowReader() throws Exception {
@@ -409,7 +416,7 @@ public class StagingLogManagerTest {
 
         @Override
         public IOStatistics getStatistics() throws IOException {
-            throw new UnsupportedOperationException("Not supported yet.");
+            throw new IOException();
         }
 
         @Override

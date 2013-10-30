@@ -9,6 +9,7 @@ import com.terracottatech.frs.log.FormatException;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.log.Signature;
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,7 +52,13 @@ public class ReadManagerImpl implements ReadManager {
     try {
         Chunk c = ioManager.scan(marker);
 // maybe try and cache this
-        return LogRegionPacker.extract(Signature.NONE, c, marker);
+        LogRecord send = LogRegionPacker.extract(Signature.NONE, c, marker);
+        
+        if ( c instanceof Closeable ) {
+          ((Closeable)c).close();
+        }
+        
+        return send;
     } catch ( FormatException form ) {
         throw new IOException(form);
     } 

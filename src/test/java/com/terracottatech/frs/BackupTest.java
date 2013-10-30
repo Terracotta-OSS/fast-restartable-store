@@ -161,9 +161,8 @@ public abstract class BackupTest {
     File copy = new File(folder, "copy");
 
     Properties properties = configure(new Properties());
-    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), "8192");
+    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(16 * 1024));
     properties.setProperty(FrsProperty.COMPACTOR_START_THRESHOLD.shortName(), "120");
-//    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
 
     assertThat(original.mkdirs(), is(true));
 

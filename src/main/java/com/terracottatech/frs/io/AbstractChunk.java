@@ -202,7 +202,7 @@ public abstract class AbstractChunk implements Chunk {
     @Override
     public int get(byte[] buf) {
         int count = 0;
-        while ( count < buf.length ) {
+        while ( count < buf.length && this.hasRemaining() ) {
             ByteBuffer target = findEnd(BYTE_SIZE,false);
             int pos = target.position();
             int sw = buf.length-count;

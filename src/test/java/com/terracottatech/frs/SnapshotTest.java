@@ -1,5 +1,6 @@
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.config.FrsProperty;
 import org.apache.commons.io.FileUtils;
 import org.junit.Rule;
 import org.junit.Test;
@@ -27,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import org.junit.Before;
 
 /**
  * @author tim
@@ -34,7 +36,15 @@ import static org.hamcrest.Matchers.nullValue;
 public class SnapshotTest {
   @Rule
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
+  
+  public Properties properties = new Properties();
 
+  @Before
+  public void setupProperties() {
+    properties = new Properties();
+    properties.put(FrsProperty.IO_NIO_MEMORY_SIZE.shortName(), Integer.toString(64 * 1024 * 1024));
+  }
+  
   @Test
   public void testMultipleSnapshots() throws Exception {
     {
@@ -88,8 +98,8 @@ public class SnapshotTest {
   @Test
   public void testSimpleBackup() throws Exception {
     File backupTo = tempFolder.newFolder();
-    {
-      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+    {    
+    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = createStore(tempFolder.newFolder(), objectManager);
 
       Map<String, String> map = createMap(restartStore, objectManager);
@@ -211,13 +221,12 @@ public class SnapshotTest {
       FileUtils.copyFileToDirectory(snapshot.next(), toDir);
     }
   }
-  private static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(File folder, ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, int segmentSize) throws Exception {
-    Properties properties = new Properties();
+  private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(File folder, ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, int segmentSize) throws Exception {
     properties.put("io.nio.segmentSize", Integer.toString(segmentSize));
     return RestartStoreFactory.createStore(objectManager, folder, properties);
   }
 
-  private static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(File folder, ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) throws Exception {
+  private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(File folder, ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) throws Exception {
     return createStore(folder, objectManager, 1024);
   }
 

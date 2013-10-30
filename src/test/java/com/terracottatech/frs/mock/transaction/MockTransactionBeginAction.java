@@ -9,7 +9,6 @@ import com.terracottatech.frs.action.ActionCodec;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 /**
  *

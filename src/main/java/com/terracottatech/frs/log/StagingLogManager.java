@@ -12,9 +12,9 @@ import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.DirectBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
-import com.terracottatech.frs.io.ManualBufferSource;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -58,7 +58,7 @@ public class StagingLogManager implements LogManager {
     private final BlockingQueue<WritingPackage>         queue = new ArrayBlockingQueue<WritingPackage>(8);
     private IOException                                 blockingException;
     
-    private BufferSource    buffers = new ManualBufferSource(100 * 1024 * 1024);
+    private final BufferSource    buffers = new DirectBufferSource(100 * 1024 * 1024);
 
     public StagingLogManager(IOManager io) {
         this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
@@ -338,6 +338,7 @@ public class StagingLogManager implements LogManager {
         
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(logwrite)== waiting: %.3f active: %.3f written: %d",waiting*1e-6,writing*1e-6,written).out().toString());
+            LOGGER.debug("==PERFORMANCE(memory)==" + buffers.toString());
         }
       }
     }

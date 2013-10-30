@@ -32,12 +32,16 @@ public class RestartStoreReadTest  {
 
   RestartStore  restart;
   ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> omgr;
+  static Properties properties = new Properties();
   
   public RestartStoreReadTest() {
   }
   
   @BeforeClass
   public static void setUpClass() {
+    properties = new Properties();
+    properties.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), "true");
+    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(4 * 1024));
   }
   
   @AfterClass
@@ -49,23 +53,14 @@ public class RestartStoreReadTest  {
     File temp = folder.newFolder();
 
     omgr = new HeapObjectManager<ByteBuffer,ByteBuffer,ByteBuffer>(1);
-//    TransactionManager tmgr = mock(TransactionManager.class);
-//        
-//    LogManager lmgr = new StagingLogManager(iomgr);
-//    ActionManager amgr = mock(ActionManager.class);
-//    
-//    ReadManager rmgr = new ReadManagerImpl(iomgr);
-//    Compactor c = mock(Compactor.class);
-//    Configuration cfg = mock(Configuration.class);
-    Properties props = new Properties();
-    props.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), "true");
-    props.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(4 * 1024));
-    restart = RestartStoreFactory.createStore(omgr, temp,props);
+
+    restart = RestartStoreFactory.createStore(omgr, temp,properties);
     restart.startup();
   }
   
   @After
-  public void tearDown() {
+  public void tearDown() throws Exception {
+    restart.shutdown();
   }
   // TODO add test methods here.
   // The methods must be annotated with annotation @Test. For example:
@@ -81,18 +76,24 @@ public class RestartStoreReadTest  {
     Assert.assertTrue(tuple.getIdentifier().getInt() == 1);
     Assert.assertTrue(tuple.getKey().getInt() == 2);
     Assert.assertTrue(tuple.getValue().getInt() == 3);
+    if ( tuple instanceof Disposable ) {
+      ((Disposable)tuple).dispose();
+    }
     restart.beginTransaction(true).put(byteBufferWithInt(4), byteBufferWithInt(5), byteBufferWithInt(6)).commit();
     lsn = omgr.getLsn(byteBufferWithInt(4), byteBufferWithInt(5));
     tuple = restart.get(lsn);
     Assert.assertTrue(tuple.getIdentifier().getInt() == 4);
     Assert.assertTrue(tuple.getKey().getInt() == 5);
     Assert.assertTrue(tuple.getValue().getInt() == 6);
+    if ( tuple instanceof Disposable ) {
+      ((Disposable)tuple).dispose();
+    }
   }
   
   @Test
   public void testLoop() throws Throwable {
     int x = 0;
-    while (x<10000) {
+    while (x<1000) {
         int id = x++;
         int key = x++;
         int value = x++;
@@ -105,6 +106,9 @@ public class RestartStoreReadTest  {
         Assert.assertTrue(tuple.getKey().getInt() == key);
         Assert.assertTrue((tuple.getValue().get() & 0xff) == (value & 0xff));
         System.out.println(id + " " + key);
+        if ( tuple instanceof Disposable ) {
+          ((Disposable)tuple).dispose();
+        }
     }
   }
 }

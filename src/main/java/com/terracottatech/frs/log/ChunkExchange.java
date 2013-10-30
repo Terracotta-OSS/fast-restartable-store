@@ -4,9 +4,11 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -116,10 +118,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         long waiting = 0;
         long reading = 0;
         long fill = 0;
+        Chunk chunk = null;
 
         try {
             io.seek(IOManager.Seek.END.getValue());
-            Chunk chunk = io.read(Direction.REVERSE);
+            chunk = io.read(Direction.REVERSE);
             long last = System.nanoTime();
             boolean first = true;
             while (chunk != null && !master.isDone()) {
@@ -155,6 +158,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 exceptionThrownInRecovery(t);
             }
         } finally {
+            if ( chunk != null && chunk instanceof Closeable ) {
+                try {
+                  ((Closeable)chunk).close();
+                } catch ( IOException ioe ) {
+                  if ( !master.isDone() ) {
+                      exceptionThrownInRecovery(ioe);
+                  }
+                }
+            }
             cleanup();
             ioDone = true;
         }
@@ -169,7 +181,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         try {
             io.seek(IOManager.Seek.BEGINNING.getValue());
             if (master.isDone()) {
-                queue.clear();
+                drainQueue();
             }
             chunkProcessor.shutdown();
         } catch ( IOException ioe ) {
@@ -190,7 +202,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     public boolean cancel(boolean bln) {
         ioDone = true;
         master.setDone();
-        queue.clear();
+        drainQueue();
         return true;
     }
 
@@ -209,6 +221,25 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     @Override
     public boolean isCancelled() {
         return ioDone;
+    }
+    
+    public void drainQueue() {
+        Future<List<LogRecord>> result = queue.poll();
+        while ( result != null ) {
+            try {
+              List<LogRecord> list = result.get();
+              for ( LogRecord lr : list ) {
+                if ( lr instanceof Disposable ) {
+                  ((Disposable)lr).dispose();
+                }
+              }
+              result = queue.poll();
+            } catch ( ExecutionException ex ) {
+                throw new RuntimeException(ex.getCause());
+            } catch (InterruptedException ie) {
+                throw new RuntimeException(ie);
+            }
+        }
     }
 
     @Override
@@ -328,8 +359,15 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
             isDone = true;
             this.notifyAll();
-            queue.clear();
-            list.clear();
+
+            for ( LogRecord lr : list ) {
+              if ( lr instanceof Disposable ) {
+                ((Disposable)lr).dispose();
+              }
+            }
+
+            drainQueue();
+            
             runner.interrupt();
             chunkProcessor.shutdownNow();
             if (LOGGER.isDebugEnabled()) {

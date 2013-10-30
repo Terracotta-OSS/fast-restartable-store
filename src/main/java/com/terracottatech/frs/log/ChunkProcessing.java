@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.io.Chunk;
+import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -23,6 +24,9 @@ public class ChunkProcessing implements Callable<List<LogRecord>> {
     @Override
     public List<LogRecord> call() throws Exception {
         List<LogRecord> records = LogRegionPacker.unpackInReverse(Signature.ADLER32, base);
+        if ( base instanceof Closeable ) {
+          ((Closeable)base).close();
+        }
         return records;
     }
 }

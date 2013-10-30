@@ -62,7 +62,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         readFileHeader(buffer);
             
         if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(source, Direction.REVERSE);
+            return new MappedReadbackStrategy(buffer, Direction.REVERSE);
         } else if ( method == NIOAccessMethod.STREAM ) {
             return new BufferedReadbackStrategy(Direction.REVERSE, buffer);
         } else {
@@ -78,14 +78,14 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
             throw new HeaderException("bad header", this);
         }
         
-        FileBuffer buffer = (getStream() != null) ? getStream().createFileBuffer(source, 8192) :
+        FileBuffer buffer = (getStream() != null) ? getStream().createFileBuffer(source, 64) :
                 new FileBuffer(source, ByteBuffer.allocate(8192));
         buffer.partition(FILE_HEADER_SIZE);
         buffer.read(1);
         readFileHeader(buffer);
             
         if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(source, Direction.RANDOM); 
+            return new MappedReadbackStrategy(buffer, Direction.RANDOM); 
         } else if ( method == NIOAccessMethod.STREAM ) {
             return new BufferedReadbackStrategy(Direction.RANDOM, buffer);
         } else {
@@ -110,13 +110,19 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( isClosed() ) {
             return;
         }
-        source.close();
         if ( strategy instanceof Closeable ) {
             ((Closeable)strategy).close();
+        } else {
+          source.close();
         }
         strategy = null;
         source = null;
     }
+
+  @Override
+  public String toString() {
+    return "ReadOnlySegment{" + "strategy=" + strategy + '}';
+  }
 
     public Chunk next(Direction dir) throws IOException {
         if (strategy.hasMore(dir)) {

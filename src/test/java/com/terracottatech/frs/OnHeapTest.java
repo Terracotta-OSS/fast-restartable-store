@@ -25,12 +25,14 @@ import static org.hamcrest.core.Is.is;
  *
  * @author mscott
  */
-public class OnHeapTest {
+public abstract class OnHeapTest {
     DecimalFormat df = new DecimalFormat("0000000000");
         
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();
 
+    public abstract Properties configure(Properties props);
+    
     private Map<String, String> createMap(int id, RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore) {
       SimpleRestartableMap map = new SimpleRestartableMap(id, restartStore, false);
       objectManager.registerObject(map);
@@ -44,7 +46,7 @@ public class OnHeapTest {
     private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) throws
             RestartStoreException, IOException {
       return RestartStoreFactory.createStore(objectManager, folder.getRoot(),
-                                             new Properties());
+                                             configure(new Properties()));
     }
     
     private int addTransaction(int count, Map<String, String> map) throws Exception {

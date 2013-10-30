@@ -99,7 +99,7 @@ public abstract class AbstractReadbackStrategyTest {
         assertTrue(instance.hasMore(Direction.FORWARD));
         for ( String word : list ) {
             Chunk c = instance.iterate(Direction.FORWARD);
-            assertTrue(c.length() == word.length());
+            assertTrue(c.remaining() == word.length());
             byte[] check = new byte[word.length()];
             c.get(check);
             assertEquals(word, new String(check));
@@ -112,7 +112,7 @@ public abstract class AbstractReadbackStrategyTest {
         assertTrue(instance.hasMore(Direction.REVERSE));
         for ( String word : reverse(list) ) {
             Chunk c = instance.iterate(Direction.REVERSE);
-            assertTrue(c.length() == word.length());
+            assertTrue(c.remaining() == word.length());
             byte[] check = new byte[word.length()];
             c.get(check);
             assertEquals(word, new String(check));
@@ -125,7 +125,7 @@ public abstract class AbstractReadbackStrategyTest {
         assertTrue(instance.hasMore(Direction.FORWARD));
         for ( String word : list ) {
             Chunk c = instance.iterate(Direction.FORWARD);
-            assertTrue(c.length() == word.length());
+            assertTrue(c.remaining() == word.length());
             byte[] check = new byte[word.length()];
             c.get(check);
             assertEquals(word, new String(check));
@@ -137,7 +137,7 @@ public abstract class AbstractReadbackStrategyTest {
         for ( String word : reverse(list) ) {
             System.out.println(word);
             Chunk c = instance.iterate(Direction.REVERSE);
-            assertTrue("length:" + c.length(), c.length() == word.length());
+            assertTrue("length:" + c.remaining(), c.remaining() == word.length());
             byte[] check = new byte[word.length()];
             c.get(check);
             assertEquals(word, new String(check));
@@ -196,7 +196,7 @@ public abstract class AbstractReadbackStrategyTest {
         ReadbackStrategy instance = getReadbackStrategy(Direction.RANDOM, buffer);
         //  starts at 100 so 103 should be "complete"
         Chunk c = instance.scan(103L);
-        assertTrue(c.length() == "complete".length());
+        assertTrue(c.remaining() == "complete".length());
         byte[] data = new byte["complete".length()];
         c.get(data);
         assertEquals("complete",new String(data));
@@ -205,7 +205,7 @@ public abstract class AbstractReadbackStrategyTest {
         writePartialBuffer(buffer, "now scan a partial buffer");
        instance = new BufferedReadbackStrategy(Direction.RANDOM, buffer);
         c = instance.scan(103L);
-        assertTrue(c.length() == "partial".length());
+        assertTrue(c.remaining() == "partial".length());
         data = new byte["partial".length()];
         c.get(data);
         assertEquals("partial",new String(data));

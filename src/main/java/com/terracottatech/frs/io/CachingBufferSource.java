@@ -14,6 +14,7 @@ import java.util.TreeMap;
  */
 public class CachingBufferSource implements BufferSource {
     private long   totalSize;
+    private final BufferSource parent;
     private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
         @Override
         public int compare(Integer t, Integer t1) {
@@ -22,15 +23,16 @@ public class CachingBufferSource implements BufferSource {
         }
     });
     
-    public CachingBufferSource() {
+    public CachingBufferSource(BufferSource parent) {
+      this.parent = parent;
     }
     
-
     @Override
     public ByteBuffer getBuffer(int size) {
         if (freeList.isEmpty()) {
             return null;
         }
+        
         Integer get = freeList.ceilingKey(size);
         if ( get == null ) {
             get = freeList.floorKey(size);

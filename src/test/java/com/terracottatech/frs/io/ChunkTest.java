@@ -5,9 +5,7 @@
 package com.terracottatech.frs.io;
 
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import org.junit.*;
-import static org.mockito.Mockito.mock;
 
 /**
  *

@@ -23,6 +23,9 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
     private volatile boolean sealed;
     private long offset = 0;
     private long length = 0;    
+    private final HashSet<Chunk> openchunks = new HashSet<Chunk>();
+    private boolean closeRequested = false;
+    private static final ByteBuffer[] EMPTY = new ByteBuffer[] {};
         
     public BufferedReadbackStrategy(Direction dir, FileBuffer buffer) throws IOException {
         this.buffer = buffer;
@@ -69,7 +72,21 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             return true;
         }
 //        data.skip(NIOSegment.FILE_HEADER_SIZE);
-    }   
+    }  
+    
+    private synchronized void addChunk(Chunk c) throws IOException {
+      if ( !this.buffer.isOpen() ) {
+        throw new IOException("file closed");
+      }
+      openchunks.add(c);
+    }
+    
+    private synchronized void removeChunk(Chunk c) throws IOException {
+      openchunks.remove(c);
+      if ( openchunks.isEmpty() && closeRequested ) {
+        this.buffer.close();
+      } 
+    }
     
     private FileBuffer getFileBuffer() {
 //   insure under lock
@@ -150,7 +167,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             return null;
         }
         key = e.getKey();
-        return e.getValue().getChunk().copyDetachedChunk();
+        return e.getValue().getChunk();
       } finally {
         if ( key != null ) {
             offset = ( dir == Direction.FORWARD ) ? key + 1 : key - 1;
@@ -199,8 +216,13 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             return readDirect(positon, get);
         } catch ( IOException ioe ) {
             throw new RuntimeException(ioe);
-        }
+        } 
     }
+
+  @Override
+  public synchronized String toString() {
+    return "BufferedReadbackStrategy{" + "openchunks=" + openchunks + ", closeRequested=" + closeRequested + '}';
+  }
     
     private int writeVirtualDirect(long positon, ByteBuffer put) {
         try {
@@ -217,7 +239,11 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
     
     @Override
     public synchronized void close() throws IOException {
-        this.buffer.close();
+        if ( openchunks.isEmpty() ) {
+          this.buffer.close();
+        } else {
+          closeRequested = true;
+        }
     }
        
     private class Marker {
@@ -238,37 +264,64 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
       }
       
       public VirtualChunk getChunk() throws IOException {
+          if ( closeRequested ) {
+            throw new IOException("file closed");
+          }
           VirtualChunk c = new VirtualChunk(start);
           Chunk header = c.getChunk(12);
-            int cs = header.getInt(); 
-            if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
-              throw new AssertionError("not valid");
-            }
-            long len = header.getLong();
-            if ( len > Integer.MAX_VALUE ) {
-                throw new IOException("buffer overflow");
-            }
-            if ( header instanceof Closeable ) {
-                ((Closeable)header).close();
-            }
-            c.setLength(len);
+          int cs = header.getInt(); 
+          if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
+            throw new AssertionError("not valid");
+          }
+          long len = header.getLong();
+          if ( len > Integer.MAX_VALUE ) {
+              throw new IOException("buffer overflow");
+          }
+          if ( header instanceof Closeable ) {
+              ((Closeable)header).close();
+          }
+          c.setLength(len + 12);
+          addChunk(c);
           return c;
       }
     }
     
-    private class FullChunk extends AbstractChunk {
+    private class FullChunk extends AbstractChunk implements Closeable {
         
         private final ByteBuffer[] data;
 
         public FullChunk(long offset, long length) {
-            data = new ByteBuffer[] {readVirtualDirect(offset, ByteBuffer.allocate((int)length))};
+            if ( length == 0 ) {
+              data = EMPTY;
+            } else {
+              data = new ByteBuffer[] {readVirtualDirect(offset, allocate((int)length))};
+            }
+        }
+        
+        private ByteBuffer allocate(int size) {
+          if ( size == 0 ) {
+            throw new AssertionError();
+          }
+          if ( buffer.getBufferSource() != null ) {
+              ByteBuffer bb = buffer.getBufferSource().getBuffer(size);
+              return bb;
+          }
+          
+          return ByteBuffer.allocate(size);
         }
 
         @Override
         public ByteBuffer[] getBuffers() {
             return data;
         }
-        
+
+      @Override
+      public void close() throws IOException {
+          if ( buffer.getBufferSource() != null ) {
+            buffer.getBufferSource().returnBuffer(data[0]);
+          }
+          removeChunk(this);
+      } 
     }   
     
     private class VirtualChunk implements Chunk, Closeable {
@@ -277,6 +330,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         private long length;
         private long position = 0;
         private final ByteBuffer cache;
+        private final List<ByteBuffer> opened = new ArrayList<ByteBuffer>();
 
         public VirtualChunk(long offset) {
             this.offset = offset;
@@ -289,16 +343,19 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             cache = (buffer.getBufferSource() != null) ? buffer.getBufferSource().getBuffer(32) : null;
         }
         
-        public FullChunk copyDetachedChunk() {
-            return new FullChunk(offset + position,length);
-        }
-        
-        private ByteBuffer allocate(int size) {
+        private ByteBuffer cache(int size) {
             if ( cache != null && size < cache.capacity() ) {
                 cache.clear().limit(size);
                 return cache;
-            } else if ( buffer.getBufferSource() != null ) {
-                return buffer.getBufferSource().getBuffer(size);
+            }
+            return ByteBuffer.allocate(size);
+        }
+        
+        private ByteBuffer allocate(int size) {
+            if ( buffer.getBufferSource() != null ) {
+                ByteBuffer bb = buffer.getBufferSource().getBuffer(size);
+                opened.add(bb);
+                return bb;
             }
             return ByteBuffer.allocate(size);
         }
@@ -310,8 +367,12 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         @Override
         public void close() throws IOException {
             if ( buffer.getBufferSource() != null && cache != null ) {
-                buffer.getBufferSource().returnBuffer(cache);
+              buffer.getBufferSource().returnBuffer(cache);
+              for ( ByteBuffer bb : opened ) {
+                buffer.getBufferSource().returnBuffer(bb);
+              }
             }
+            removeChunk(this);
         }
 
         @Override
@@ -336,7 +397,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
 
         @Override
         public void limit(long v) {
-            
+
         }
 
         @Override
@@ -346,25 +407,25 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
 
         @Override
         public byte get(long pos) {
-            ByteBuffer buffer = readVirtualDirect(pos, allocate(Byte.SIZE/Byte.SIZE));
+            ByteBuffer buffer = readVirtualDirect(pos, cache(Byte.SIZE/Byte.SIZE));
             return buffer.get();
         }
 
         @Override
         public short getShort(long pos) {
-            ByteBuffer buffer = readVirtualDirect(pos, allocate(Short.SIZE/Byte.SIZE));
+            ByteBuffer buffer = readVirtualDirect(pos, cache(Short.SIZE/Byte.SIZE));
             return buffer.getShort();
         }
 
         @Override
         public int getInt(long pos) {
-            ByteBuffer buffer = readVirtualDirect(pos, allocate(Integer.SIZE/Byte.SIZE));
+            ByteBuffer buffer = readVirtualDirect(pos, cache(Integer.SIZE/Byte.SIZE));
             return buffer.getInt();
         }
 
         @Override
         public long getLong(long pos) {
-            ByteBuffer buffer = readVirtualDirect(pos, allocate(Long.SIZE/Byte.SIZE));
+            ByteBuffer buffer = readVirtualDirect(pos, cache(Long.SIZE/Byte.SIZE));
             return buffer.getLong();
         }
 
@@ -444,7 +505,11 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         public int get(byte[] buf) {
             int read = 0;
             try {
-                read = readVirtualDirect(offset + position, ByteBuffer.wrap(buf)).remaining();
+              ByteBuffer wrapped = ByteBuffer.wrap(buf);
+              if ( wrapped.capacity() > this.length - this.position ) {
+                wrapped.limit((int)(length - position));
+              }
+              read = readVirtualDirect(offset + position, wrapped).remaining();
             } finally {
                 position  += read;
             }
@@ -467,7 +532,11 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         @Override
         public ByteBuffer[] getBuffers(long length) {
             try {
-                return new ByteBuffer[] {readVirtualDirect(offset + position,ByteBuffer.allocate((int)length))};
+              if ( length == 0 ) {
+                return EMPTY;
+              } else {
+                return new ByteBuffer[] {readVirtualDirect(offset + position,allocate((int)length))};
+              }
             } finally {
                 position += length;
             }
@@ -476,7 +545,17 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         @Override
         public Chunk getChunk(long length) {
             try {
-                return new VirtualChunk(offset + position, length);
+              if ( length == 0 ) {
+                return new WrappingChunk(EMPTY);
+              } else {
+                Chunk c = new FullChunk(offset + position, length);
+                try {
+                  addChunk(c);
+                } catch ( IOException ioe ) {
+                  throw new RuntimeException(ioe);
+                }
+                return c;
+              }
             } finally {
                 position += length;
             }
@@ -484,12 +563,11 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
 
         @Override
         public void flip() {
-
         }
 
         @Override
         public void clear() {
-
+          position = 0;
         }
         
     }

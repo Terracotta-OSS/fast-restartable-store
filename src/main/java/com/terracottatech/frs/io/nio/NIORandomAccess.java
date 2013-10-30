@@ -7,6 +7,7 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.RandomAccess;
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -18,7 +19,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
  *
  * @author mscott
  */
-class NIORandomAccess implements RandomAccess {
+class NIORandomAccess implements RandomAccess, Closeable {
     private final NIOStreamImpl stream;
     private final NIOSegmentList segments;
     private final NavigableMap<Long,Integer> fileIndex;
@@ -46,14 +47,19 @@ class NIORandomAccess implements RandomAccess {
                 return null;
             } else {
                 if ( marker < seg.load().getBaseMarker() ) {
-                    throw new AssertionError("overshoot");
+                    throw new AssertionError("overshoot: " + marker + " < " + seg.getBaseMarker());
                 }
             }
             c = seg.scan(marker);
         }
         return c;
     }
-    
+
+    @Override
+    public void close() throws IOException {
+      cache.close();
+    }
+ 
     private ReadOnlySegment findSegment(int segNo) {
         return cache.findSegment(segNo);
     }
@@ -124,7 +130,7 @@ class NIORandomAccess implements RandomAccess {
         return seg;
     }    
     
-    private static class FileCache {
+    private static class FileCache implements Closeable {
         private final int offset;
         private final ReadOnlySegment[] segments;
 
@@ -162,10 +168,21 @@ class NIORandomAccess implements RandomAccess {
  // under lock       
         public FileCache addSegment(ReadOnlySegment ro) {
             if ( segments.length <= ro.getSegmentId() - offset ) {
-                return new FileCache(offset,Arrays.copyOf(segments, Math.abs(ro.getSegmentId() - offset) + segments.length + 1));  // buffer by adding the current length to the required length + 1
+                ReadOnlySegment[] na = Arrays.copyOf(segments, Math.abs(ro.getSegmentId() - offset) + segments.length + 1);
+                na[ro.getSegmentId() - offset] = ro;
+                return new FileCache(offset,na);  // buffer by adding the current length to the required length + 1
             }
             segments[ro.getSegmentId() - offset] = ro;
             return this;
+        }
+        
+        @Override
+        public void close() throws IOException {
+          for ( ReadOnlySegment ro : segments ) {
+            if ( ro != null ) {
+              ro.close();
+            }
+          }
         }
     
     }

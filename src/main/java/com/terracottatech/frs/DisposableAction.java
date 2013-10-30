@@ -8,6 +8,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -26,6 +27,11 @@ public class DisposableAction implements Action, Disposable {
 
     @Override
     public void dispose() {
+        disposable.dispose();
+    }
+
+    @Override
+    public void close() throws IOException {
         disposable.dispose();
     }
 

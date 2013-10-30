@@ -11,7 +11,7 @@ import java.util.ArrayList;
  *
  * @author mscott
  */
-public class ManualBufferSource implements BufferSource {
+public abstract class ManualBufferSource implements BufferSource {
     
     private final BufferSource parent;
     private final long maxCapacity;
@@ -25,7 +25,7 @@ public class ManualBufferSource implements BufferSource {
     private final ArrayList<BufferWrapper> pool = new ArrayList<BufferWrapper>();
 
     public ManualBufferSource(long maxCapacity) {
-        this.parent = GlobalBufferSource.getInstance(this, maxCapacity);
+      parent = null;
         this.maxCapacity = maxCapacity;
     }
     
@@ -39,15 +39,13 @@ public class ManualBufferSource implements BufferSource {
     public ByteBuffer getBuffer(int size) {
         if ( min > size ) min = size;
         if ( max < size ) max = size;
-        
-        if ( size < 1024 ) return ByteBuffer.allocate(size);
-        
+                
         if ( size + usage > maxCapacity ) {
             fails += 1;
             return null;
         }  
             
-        ByteBuffer  base = parent.getBuffer(size);
+        ByteBuffer  base = ( this.parent != null ) ? parent.getBuffer(size) : null;
  
         if ( base == null ) {
             base = performAllocation(size);
@@ -75,18 +73,7 @@ public class ManualBufferSource implements BufferSource {
         return base;
     }
     
-    protected ByteBuffer performAllocation(int size) {
-        try {
-            int allocate = Math.round(size * 1.05f);
-            if ( allocate < 8 * 1024 ) allocate = 8 * 1024;
-            ByteBuffer base = ByteBuffer.allocateDirect(allocate);
-            return base;
-        } catch (OutOfMemoryError err) {
-            parent.reclaim();
-            return null;
-//                    LOGGER.warn("ran out of direct memory calling GC");
-        }
-    }
+    protected abstract ByteBuffer performAllocation(int size);
 
     @Override
     public void reclaim() {
@@ -109,11 +96,13 @@ public class ManualBufferSource implements BufferSource {
         }
         synchronized (pool) {
             if ( pool.remove(new BufferWrapper(buffer)) ) {
-                assert(!pool.contains(new BufferWrapper(buffer)));
                 usage -= buffer.capacity();
                 assert(usage == calculateUsage());
-                parent.returnBuffer(buffer);
-            } 
+            } else {
+                if ( parent != null ) {
+                  parent.returnBuffer(buffer);
+                }              
+            }
         }
     }
    

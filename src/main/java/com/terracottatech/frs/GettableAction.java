@@ -3,13 +3,13 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.InvalidatingAction;
 import java.nio.ByteBuffer;
 
 /**
  *
  * @author mscott
  */
-public interface GettableAction extends Tuple<ByteBuffer,ByteBuffer,ByteBuffer>, Action {
+public interface GettableAction extends Tuple<ByteBuffer,ByteBuffer,ByteBuffer>, InvalidatingAction {
     long getLsn();
 }

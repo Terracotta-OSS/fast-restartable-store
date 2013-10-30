@@ -12,21 +12,23 @@ import java.nio.ByteBuffer;
  *
  * @author mscott
  */
-public class DirectBufferSource implements BufferSource {
+public class DirectBufferSource extends ManualBufferSource {
+
+  public DirectBufferSource(long maxCapacity) {
+    super(maxCapacity);
+  }
+
+  public DirectBufferSource(BufferSource parent, long maxCapacity) {
+    super(parent, maxCapacity);
+  }
 
     @Override
-    public ByteBuffer getBuffer(int size) {
-        return ByteBuffer.allocateDirect(size);
-    }
-
-    @Override
-    public void returnBuffer(ByteBuffer buffer) {
-        
-    }
-
-    @Override
-    public void reclaim() {
-        
+    protected ByteBuffer performAllocation(int size) {
+        try {
+            return ByteBuffer.allocateDirect(size);
+        } catch (OutOfMemoryError err) {
+            return null;
+        }
     }
     
 }

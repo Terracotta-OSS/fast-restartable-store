@@ -5,7 +5,6 @@
 package com.terracottatech.frs.transaction;
 
 import com.terracottatech.frs.GettableAction;
-import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;

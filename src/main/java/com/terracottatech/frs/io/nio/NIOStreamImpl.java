@@ -11,11 +11,11 @@ import org.slf4j.LoggerFactory;
 import com.terracottatech.frs.io.BufferBuilder;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.DirectBufferSource;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.ManualBufferSource;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.Stream;
 
 import java.io.File;
@@ -73,14 +73,12 @@ class NIOStreamImpl implements Stream {
             strategies = new HashMap<String, Integer>();
         }
         segmentSize = recommendedSize;
-        if ( memorySize < segmentSize * 4 ) {
-            memorySize = segmentSize * 4;
-        }
+
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
         
-        manualPool = new ManualBufferSource(new DirectBufferSource(), memorySize);
-
+        manualPool = new MaskingBufferSource(new SplittingBufferSource(64,(int)memorySize));
+        
         segments = new NIOSegmentList(directory);
         if (segments.isEmpty()) {
             streamId = UUID.randomUUID();
@@ -314,7 +312,7 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public long append(Chunk c, long marker) throws IOException {
-        if (writeHead == null || writeHead.isClosed()) {
+      if (writeHead == null || writeHead.isClosed()) {
             File f = segments.appendFile();
             
             try {
@@ -416,6 +414,12 @@ class NIOStreamImpl implements Stream {
                 throw new IOException(ie);
             }
         } 
+        
+        if ( randomAccess != null ) {
+          randomAccess.close();
+        }
+        randomAccess = null;
+            
         if ( LOGGER.isDebugEnabled() ) {
             LOGGER.debug("==PERFORMANCE(memory)==" + manualPool.toString());
             StringBuilder slist = new StringBuilder();
@@ -428,7 +432,7 @@ class NIOStreamImpl implements Stream {
             LOGGER.debug("==PERFORMANCE(strategies)==" + slist.toString());
         }
        
-        manualPool.reclaim();        
+        manualPool.reclaim();  
     }
 
     @Override

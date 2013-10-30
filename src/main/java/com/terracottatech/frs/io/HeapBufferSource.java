@@ -12,6 +12,10 @@ import java.nio.ByteBuffer;
  */
 public class HeapBufferSource extends ManualBufferSource {
 
+  public HeapBufferSource(long maxCapacity) {
+    super(maxCapacity);
+  }
+
     public HeapBufferSource(BufferSource parent, long maxCapacity) {
         super(parent, maxCapacity);
     }

@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.object;
 
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;

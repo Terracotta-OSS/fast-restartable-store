@@ -27,10 +27,11 @@ import static org.mockito.Mockito.verify;
 /**
  * @author tim
  */
-public class BackupTest {
+public abstract class BackupTest {
   @Rule
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
 
+  public abstract Properties configure(Properties props);
   @Test
   public void testMissingSource() throws Exception {
     File folder = tempFolder.newFolder();
@@ -56,7 +57,7 @@ public class BackupTest {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
               new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
-                                                                                                      original, new Properties());
+                                                                                                      original, configure(new Properties()));
 
       restartStore.startup().get();
 
@@ -110,7 +111,8 @@ public class BackupTest {
     File original = new File(folder, "original");
     File copy = new File(folder, "copy");
 
-    Properties properties = new Properties();
+    Properties properties = configure(new Properties());
+//    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
 
     {
       assertThat(original.mkdirs(), is(true));
@@ -158,9 +160,10 @@ public class BackupTest {
     File original = new File(folder, "original");
     File copy = new File(folder, "copy");
 
-    Properties properties = new Properties();
+    Properties properties = configure(new Properties());
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), "8192");
     properties.setProperty(FrsProperty.COMPACTOR_START_THRESHOLD.shortName(), "120");
+//    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
 
     assertThat(original.mkdirs(), is(true));
 
@@ -261,7 +264,7 @@ public class BackupTest {
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-              RestartStoreFactory.createStore(objectManager, original, new Properties());
+              RestartStoreFactory.createStore(objectManager, original, configure(new Properties()));
 
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
       objectManager.registerObject(map);
@@ -280,7 +283,7 @@ public class BackupTest {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
               spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-              RestartStoreFactory.createStore(objectManager, copy, new Properties());
+              RestartStoreFactory.createStore(objectManager, copy, configure(new Properties()));
 
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
       objectManager.registerObject(map);

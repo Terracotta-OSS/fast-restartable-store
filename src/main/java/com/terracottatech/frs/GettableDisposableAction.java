@@ -7,6 +7,7 @@
 package com.terracottatech.frs;
 
 import java.nio.ByteBuffer;
+import java.util.Set;
 
 /**
  *
@@ -21,6 +22,11 @@ public class GettableDisposableAction extends DisposableAction implements Gettab
     protected GettableAction getGettableAction() {
         return (GettableAction)super.getAction();
     }
+
+    @Override
+    public Set<Long> getInvalidatedLsns() {
+        return getGettableAction().getInvalidatedLsns();
+    } 
 
     @Override
     public long getLsn() {

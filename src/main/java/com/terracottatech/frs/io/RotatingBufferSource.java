@@ -7,7 +7,9 @@ package com.terracottatech.frs.io;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,11 +20,11 @@ import org.slf4j.LoggerFactory;
 public class RotatingBufferSource implements BufferSource {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
 
-    private ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
+    private final ReferenceQueue<ByteBuffer> queue = new ReferenceQueue<ByteBuffer>();
     
-    BufferSource parent;
+    private final BufferSource parent;
 
-    private final HashSet<BaseHolder> used = new HashSet<BaseHolder>();
+    private final Set<BaseHolder> used = Collections.synchronizedSet(new HashSet<BaseHolder>());
     private int created = 0;
     private int released = 0;
     private long totalCapacity = 0;
@@ -72,7 +74,7 @@ public class RotatingBufferSource implements BufferSource {
 
     private void clearQueue(boolean wait) {
         try {
-            BaseHolder holder = null;
+            BaseHolder holder;
             if (wait) {
                 holder = (BaseHolder) queue.remove(millisToWait);
             } else {

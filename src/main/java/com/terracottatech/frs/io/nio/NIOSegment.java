@@ -7,7 +7,6 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.Stream;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.File;
 import java.io.FileInputStream;

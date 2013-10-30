@@ -27,10 +27,12 @@ import static org.mockito.Mockito.verify;
 /**
  * @author tim
  */
-public class OfflineCompactorTest {
+public abstract class OfflineCompactorTest {
   @Rule
   public JUnitTestFolder temporaryFolder = new JUnitTestFolder();
 
+  public abstract Properties configure(Properties props);
+  
   @Test
   public void testExistingOutputDirectory() throws Exception {
     File testFolder = temporaryFolder.newFolder();
@@ -73,7 +75,7 @@ public class OfflineCompactorTest {
     File uncompacted = new File(testFolder, "uncompacted");
     File compacted = new File(testFolder, "compacted");
 
-    Properties properties = new Properties();
+    Properties properties = configure(new Properties());
     properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(),
                            "NoCompactionPolicy");
     properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(Integer.MAX_VALUE));

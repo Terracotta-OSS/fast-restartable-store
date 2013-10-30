@@ -185,7 +185,6 @@ public class NIOStreamImplTest {
     stream.append(newChunk(10 * 1024 * 1024),100);
 
     stream.close();
-    BufferSource bufs = new ManualBufferSource(1024 * 1024);
     NIOSegmentList list = new NIOSegmentList(workArea);
     list.setReadPosition(0);
     System.out.println("file length: " + list.getBeginningFile().length());

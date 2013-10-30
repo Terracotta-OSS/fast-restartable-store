@@ -14,7 +14,6 @@ import static org.junit.Assert.*;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.doReturn;
 
 /**
  *

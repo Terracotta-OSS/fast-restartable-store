@@ -4,11 +4,9 @@
  */
 package com.terracottatech.frs.mock.log;
 
-import com.terracottatech.frs.io.AbstractChunk;
 import com.terracottatech.frs.log.LogRegion;
 import com.terracottatech.frs.log.LogRecord;
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
 

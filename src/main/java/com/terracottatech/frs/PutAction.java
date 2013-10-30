@@ -7,7 +7,6 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
-import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -19,7 +18,7 @@ import java.util.Set;
 /**
  * @author tim
  */
-public class PutAction implements InvalidatingAction, GettableAction {
+public class PutAction implements GettableAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -100,7 +99,7 @@ public class PutAction implements InvalidatingAction, GettableAction {
       compactor.generatedGarbage(invalidatedLsn);
     }
   }
-
+  
   @Override
   public void replay(long lsn) {
     objectManager.replayPut(getIdentifier(), getKey(), getValue(), lsn);

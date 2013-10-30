@@ -6,10 +6,12 @@
 
 package com.terracottatech.frs;
 
+import java.io.Closeable;
+
 /**
  *
  * @author mscott
  */
-public interface Disposable {
+public interface Disposable extends Closeable {
     void dispose();
 }

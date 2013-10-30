@@ -57,7 +57,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                        @Override
                        public boolean hasNext() {
                            return delegate.hasNext();
-    }
+                       }
     
                        @Override
                        public LogRecord next() {
@@ -187,7 +187,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             }
 
             if ( check != 0 && checksum ) {
-                long value = checksum(Arrays.asList(data.getBuffers()));
+                long value = data.getBuffers() == null ? 
+                    checksum(data) : checksum(Arrays.asList(data.getBuffers()));
+
                 if (check != value ) {
                     throw new FormatException("Adler32 checksum is not correct",check,value,data.length());
                 }
@@ -220,7 +222,22 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             header.putLong(length);
             return header.remaining();
     }
-
+    
+    protected static long checksum(Chunk bufs) {
+        long pos = bufs.position();
+        long lim = bufs.length();
+        Adler32 checksum = new Adler32();
+        byte[] temp = new byte[8192];
+        while (bufs.hasRemaining()) {
+            int got = bufs.get(temp);
+            checksum.update(temp, 0, got);
+        }
+        bufs.clear();
+        bufs.skip(pos);
+        bufs.limit(lim);
+        return checksum.getValue();
+    }
+    
     protected static long checksum(Iterable<ByteBuffer> bufs) {
         Adler32 checksum = new Adler32();
         byte[] temp = null;
@@ -273,10 +290,11 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 if ( format != LR_FORMAT ) {
                     throw new FormatException("log record has an unrecognized version code");
                 }
-                ByteBuffer[] payload = buffer.getBuffers(len);
+
+                Chunk payload = buffer.getChunk(len);
                 LogRecord record = ( buffer instanceof Closeable ) ? 
-                        new DisposableLogRecordImpl((Closeable)buffer, payload) : 
-                        new LogRecordImpl(payload, null);
+                        new DisposableLogRecordImpl(payload) : 
+                        new LogRecordImpl(payload.getBuffers(), null);
                 record.updateLsn(lsn);
                 return record;
             } else {

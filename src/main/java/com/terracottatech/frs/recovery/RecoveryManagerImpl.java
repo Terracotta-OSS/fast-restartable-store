@@ -78,6 +78,11 @@ public class RecoveryManagerImpl implements RecoveryManager {
         put += (ntime - ctime);
         replayFilter.checkError();
         lastRecoveredLsn = logRecord.getLsn();
+        if ( action instanceof Disposable ) {
+//  taken care of in the filter
+        } else if ( logRecord instanceof Disposable ) {
+          ((Disposable)logRecord).dispose();
+        }
       }
     } finally {
       replayFilter.finish();

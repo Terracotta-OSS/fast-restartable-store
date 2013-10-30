@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.concurrent.Future;

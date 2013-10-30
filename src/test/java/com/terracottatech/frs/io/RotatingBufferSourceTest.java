@@ -4,9 +4,7 @@
  */
 package com.terracottatech.frs.io;
 
-import java.nio.ByteBuffer;
 import org.junit.*;
-import static org.junit.Assert.*;
 
 /**
  *
@@ -14,7 +12,7 @@ import static org.junit.Assert.*;
  */
 public class RotatingBufferSourceTest {
     
-    RotatingBufferSource rotate = new RotatingBufferSource(new ManualBufferSource(20 * 1024 * 1024));
+    RotatingBufferSource rotate = new RotatingBufferSource(new DirectBufferSource(20 * 1024 * 1024));
     
     public RotatingBufferSourceTest() {
     }

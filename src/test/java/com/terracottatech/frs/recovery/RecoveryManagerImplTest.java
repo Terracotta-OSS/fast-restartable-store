@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**

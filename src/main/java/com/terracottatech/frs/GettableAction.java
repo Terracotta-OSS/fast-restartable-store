@@ -10,6 +10,6 @@ import java.nio.ByteBuffer;
  *
  * @author mscott
  */
-public interface GettableAction extends Tuple<ByteBuffer,ByteBuffer,ByteBuffer>, InvalidatingAction {
+public interface GettableAction extends Tuple<ByteBuffer,ByteBuffer,ByteBuffer>, InvalidatingAction, DisposableLifecycle {
     long getLsn();
 }

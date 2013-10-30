@@ -5,8 +5,7 @@
 package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.Disposable;
-import com.terracottatech.frs.GettableAction;
-import com.terracottatech.frs.GettableDisposableAction;
+import com.terracottatech.frs.DisposableLifecycle;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordFactory;
@@ -50,10 +49,9 @@ public class ActionManagerImpl implements ActionManager {
   @Override
   public Action extract(LogRecord record) {
     Action a = actionCodec.decode(record.getPayload());
-    if ( record instanceof Disposable && a instanceof GettableAction ) {
-        return new GettableDisposableAction((GettableAction)a, (Disposable)record);
-    } else {
-        return a;
+    if ( record instanceof Disposable && a instanceof DisposableLifecycle ) {
+        ((DisposableLifecycle)a).setDisposable((Disposable)record);
     }
+    return a;
   }
 }

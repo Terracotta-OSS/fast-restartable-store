@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.transaction;
 
+import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
@@ -17,11 +18,12 @@ import java.util.Set;
 
 import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
 import static com.terracottatech.frs.util.ByteBufferUtils.get;
+import java.io.IOException;
 
 /**
  * @author tim
  */
-class TransactionalAction implements InvalidatingAction, TransactionAction, GettableAction {
+class TransactionalAction implements TransactionAction, GettableAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -39,6 +41,7 @@ class TransactionalAction implements InvalidatingAction, TransactionAction, Gett
   private final Action action;
   private final byte mode;
   private final TransactionLSNCallback callback;
+  private Disposable disposable;
 
   TransactionalAction(TransactionHandle handle, byte mode, Action action) {
     this.handle = handle;
@@ -120,6 +123,24 @@ class TransactionalAction implements InvalidatingAction, TransactionAction, Gett
     } else {
       return Collections.emptySet();
     }
+  }
+  
+  @Override
+  public void setDisposable(Disposable c) {
+    disposable = c;
+  }
+
+  @Override
+  public void dispose() {
+    if ( disposable != null ) {
+      disposable.dispose();
+      disposable = null;
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    dispose();
   }
 
   @Override

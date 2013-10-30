@@ -10,6 +10,7 @@ import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import java.io.IOException;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -46,6 +47,7 @@ public class PutAction implements GettableAction {
 
   private long                                                    markedLsn;
   private long                                                    invalidatedLsn;
+  private Disposable                                              disposable;
 
   PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
             ByteBuffer key, ByteBuffer value, boolean recovery) {
@@ -89,6 +91,24 @@ public class PutAction implements GettableAction {
   @Override
   public Set<Long> getInvalidatedLsns() {
     return Collections.singleton(invalidatedLsn);
+  }
+
+  @Override
+  public void setDisposable(Disposable c) {
+    disposable = c;
+  }
+
+  @Override
+  public void dispose() {
+    if ( disposable != null ) {
+      disposable.dispose();
+      disposable = null;
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    dispose();
   }
 
   @Override

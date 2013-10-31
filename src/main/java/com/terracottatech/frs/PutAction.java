@@ -10,6 +10,7 @@ import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import java.io.Closeable;
 import java.io.IOException;
 
 import java.nio.ByteBuffer;
@@ -47,7 +48,7 @@ public class PutAction implements GettableAction {
 
   private long                                                    markedLsn;
   private long                                                    invalidatedLsn;
-  private Disposable                                              disposable;
+  private Closeable                                              disposable;
 
   PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
             ByteBuffer key, ByteBuffer value, boolean recovery) {
@@ -94,21 +95,25 @@ public class PutAction implements GettableAction {
   }
 
   @Override
-  public void setDisposable(Disposable c) {
+  public void setDisposable(Closeable c) {
     disposable = c;
   }
 
   @Override
   public void dispose() {
-    if ( disposable != null ) {
-      disposable.dispose();
-      disposable = null;
+    try {
+      this.close();
+    } catch ( IOException ioe ) {
+      throw new RuntimeException(ioe);
     }
   }
 
   @Override
   public void close() throws IOException {
-    dispose();
+    if ( disposable != null ) {
+      disposable.close();
+      disposable = null;
+    }
   }
 
   @Override

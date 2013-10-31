@@ -26,6 +26,9 @@ public class MaskingBufferSource implements BufferSource {
   @Override
   public ByteBuffer getBuffer(int size) {
     ByteBuffer src = parent.getBuffer(size);
+    if ( src == null ) {
+      return ByteBuffer.allocate(size);
+    }
     return add(src);
   }
 

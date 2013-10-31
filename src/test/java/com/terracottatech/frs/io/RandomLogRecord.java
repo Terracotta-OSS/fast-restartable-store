@@ -77,5 +77,9 @@ public class RandomLogRecord implements LogRecord  {
     public void updateLsn(long lsn) {
         this.lsn = lsn;
     }
-    
+
+  @Override
+  public void close() throws IOException {
+    list = null;
+  }
 }

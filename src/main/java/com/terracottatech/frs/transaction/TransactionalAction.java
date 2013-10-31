@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.transaction;
 
-import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
@@ -18,6 +17,7 @@ import java.util.Set;
 
 import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
 import static com.terracottatech.frs.util.ByteBufferUtils.get;
+import java.io.Closeable;
 import java.io.IOException;
 
 /**
@@ -41,7 +41,6 @@ class TransactionalAction implements TransactionAction, GettableAction {
   private final Action action;
   private final byte mode;
   private final TransactionLSNCallback callback;
-  private Disposable disposable;
 
   TransactionalAction(TransactionHandle handle, byte mode, Action action) {
     this.handle = handle;
@@ -126,21 +125,26 @@ class TransactionalAction implements TransactionAction, GettableAction {
   }
   
   @Override
-  public void setDisposable(Disposable c) {
-    disposable = c;
+  public void setDisposable(Closeable c) {
+    if ( action instanceof GettableAction ) {
+      ((GettableAction)action).setDisposable(c);
+    }
   }
 
   @Override
   public void dispose() {
-    if ( disposable != null ) {
-      disposable.dispose();
-      disposable = null;
+    try {
+      close();
+    } catch ( IOException ioe ) {
+      throw new RuntimeException(ioe);
     }
   }
 
   @Override
   public void close() throws IOException {
-    dispose();
+    if ( action instanceof GettableAction ) {
+      ((GettableAction)action).close();
+    }
   }
 
   @Override

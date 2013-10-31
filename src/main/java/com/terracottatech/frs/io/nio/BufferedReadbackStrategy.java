@@ -289,6 +289,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
     private class FullChunk extends AbstractChunk implements Closeable {
         
         private final ByteBuffer[] data;
+        private volatile boolean closed = false;
 
         public FullChunk(long offset, long length) {
             if ( length == 0 ) {
@@ -317,10 +318,15 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
 
       @Override
       public void close() throws IOException {
-          if ( buffer.getBufferSource() != null ) {
-            buffer.getBufferSource().returnBuffer(data[0]);
-          }
-          removeChunk(this);
+        if ( closed ) {
+          return;
+        } else {
+          closed = true;
+        }
+        if ( buffer.getBufferSource() != null ) {
+          buffer.getBufferSource().returnBuffer(data[0]);
+        }
+        removeChunk(this);
       } 
     }   
     
@@ -331,6 +337,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         private long position = 0;
         private final ByteBuffer cache;
         private final List<ByteBuffer> opened = new ArrayList<ByteBuffer>();
+        private boolean closed = false;
 
         public VirtualChunk(long offset) {
             this.offset = offset;
@@ -366,13 +373,18 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
 
         @Override
         public void close() throws IOException {
-            if ( buffer.getBufferSource() != null && cache != null ) {
-              buffer.getBufferSource().returnBuffer(cache);
-              for ( ByteBuffer bb : opened ) {
-                buffer.getBufferSource().returnBuffer(bb);
-              }
+          if ( closed ) {
+            return;
+          } else {
+            closed = true;
+          }
+          if ( buffer.getBufferSource() != null && cache != null ) {
+            buffer.getBufferSource().returnBuffer(cache);
+            for ( ByteBuffer bb : opened ) {
+              buffer.getBufferSource().returnBuffer(bb);
             }
-            removeChunk(this);
+          }
+          removeChunk(this);
         }
 
         @Override

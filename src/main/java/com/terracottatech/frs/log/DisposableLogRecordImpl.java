@@ -14,7 +14,7 @@ import java.io.IOException;
  *
  * @author mscott
  */
-public class DisposableLogRecordImpl extends LogRecordImpl implements Disposable {
+public class DisposableLogRecordImpl extends LogRecordImpl {
     
     private final Closeable resource;
 
@@ -28,18 +28,8 @@ public class DisposableLogRecordImpl extends LogRecordImpl implements Disposable
     }
 
     @Override
-    public void dispose() {
-        try {
-            if ( resource != null ) {
-              resource.close();
-            }
-        } catch ( IOException ioe ) {
-            throw new RuntimeException(ioe);
-        }
-    }
-
-    @Override
     public void close() throws IOException {
+      super.close();
       if ( resource != null ) {
         resource.close();
       }

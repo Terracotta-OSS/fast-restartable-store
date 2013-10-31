@@ -311,7 +311,13 @@ public class StagingLogManager implements LogManager {
             break;
           } catch (InterruptedException ie) {
             state = state.checkException(ie);
-          } 
+          } catch ( Exception t ) {
+            state = state.checkException(t);
+            if ( packer != null ) {
+                packer.list.exceptionThrown(t);
+            }
+            break;
+          }
         }
         
         try {

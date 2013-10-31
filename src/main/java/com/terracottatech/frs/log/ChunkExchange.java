@@ -4,7 +4,6 @@
  */
 package com.terracottatech.frs.log;
 
-import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
@@ -229,11 +228,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             try {
               List<LogRecord> list = result.get();
               for ( LogRecord lr : list ) {
-                if ( lr instanceof Disposable ) {
-                  ((Disposable)lr).dispose();
-                }
+                lr.close();
               }
               result = queue.poll();
+            } catch ( IOException ioe ) {
+                throw new RuntimeException(ioe);
             } catch ( ExecutionException ex ) {
                 throw new RuntimeException(ex.getCause());
             } catch (InterruptedException ie) {
@@ -361,8 +360,10 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             this.notifyAll();
 
             for ( LogRecord lr : list ) {
-              if ( lr instanceof Disposable ) {
-                ((Disposable)lr).dispose();
+              try {
+                lr.close();
+              } catch ( IOException ioe ) {
+                throw new RuntimeException(ioe);
               }
             }
 

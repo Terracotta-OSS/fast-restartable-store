@@ -7,6 +7,7 @@ package com.terracottatech.frs.io;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
@@ -35,9 +36,7 @@ public class SplittingBufferSource implements BufferSource {
   public ByteBuffer getBuffer(int size) {
     ByteBuffer header = null;
     if ( size > base.capacity() ) {
-      header = ByteBuffer.allocateDirect(size);
-      header.putInt(4,Integer.MIN_VALUE);
-      return header;
+      return null;
     }
     int slot = cascade.length - (Long.numberOfLeadingZeros(min) - Long.numberOfLeadingZeros(size + HEADER_SIZE) + 2);
     int count = 0;
@@ -148,14 +147,14 @@ public class SplittingBufferSource implements BufferSource {
   private class Stack {
     private int pointer = 0;
     private int max = 0;
-    private final ByteBuffer[] slots;
+    private  ByteBuffer[] slots;
     private final int order;
     private final int blocksz;
 
     public Stack(int order) {
-      this.slots = new ByteBuffer[1 << order];
+      this.slots = new ByteBuffer[1];
       this.order = order;
-      this.blocksz = base.capacity() / slots.length;
+      this.blocksz = base.capacity() / (1 << order);
     }
     
     synchronized ByteBuffer pop() {
@@ -178,36 +177,38 @@ public class SplittingBufferSource implements BufferSource {
         }
       }
       
-      slots[pointer++] = bb;
-      if ( max < pointer ) {
-        max = pointer;
-      }
+      add(bb);
       
       return null;
     }
     
-    synchronized void push(ByteBuffer bb) {
+    private void add(ByteBuffer bb) {
       if ( bb.capacity() != this.blocksz ) {
         throw new AssertionError("not returning block to proper stack");
       }
-      if ( pointer == slots.length ) {
+      if ( pointer == base.capacity() / this.blocksz ) {
     /* 100% returned, the entire address space is now resident  */
         throw new AssertionError("more returned then allocated");
+      } else if ( slots.length == pointer ) {
+        slots = Arrays.copyOf(slots, slots.length<<1);
       }
-
       slots[pointer++] = bb;
       if ( max < pointer ) {
         max = pointer;
       }
     }
     
-    private ByteBuffer consolidate(int ls, int rs) {
+    synchronized void push(ByteBuffer bb) {
+      add(bb);
+    }
+    
+  private ByteBuffer consolidate(int ls, int rs) {
       int mask = 1 << (order-1);
       if ( (ls ^ rs) == mask ) {
         int address = ls & ~mask;
         ByteBuffer br = base.duplicate();
         address = address(address);
-        br.position(address).limit(address + blocksz*2);
+        br.position(address).limit(address + (blocksz<<1));
         return br.slice();
       }
       return null;

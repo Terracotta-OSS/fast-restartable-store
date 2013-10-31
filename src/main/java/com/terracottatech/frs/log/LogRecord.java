@@ -4,13 +4,14 @@
  */
 package com.terracottatech.frs.log;
 
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 
 /**
  *
  * @author cdennis
  */
-public interface LogRecord {
+public interface LogRecord extends Closeable {
 
   long getLsn();
   

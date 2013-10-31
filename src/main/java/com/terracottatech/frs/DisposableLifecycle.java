@@ -5,10 +5,12 @@
 
 package com.terracottatech.frs;
 
+import java.io.Closeable;
+
 /**
  *
  * @author mscott
  */
 public interface DisposableLifecycle extends Disposable {
-  void setDisposable(Disposable c);
+  void setDisposable(Closeable c);
 }

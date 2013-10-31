@@ -246,7 +246,7 @@ public class NIOManager implements IOManager {
         if (!directory.exists() || !directory.isDirectory()) {
             throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
         }
-        
+        LOGGER.info("opening with " + method + " access method");
         backend = new NIOStreamImpl(directory, method, segmentSize, memorySize);
 
         lockFile = new File(directory, "FRS.lck");

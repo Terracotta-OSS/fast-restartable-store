@@ -49,8 +49,8 @@ public class ActionManagerImpl implements ActionManager {
   @Override
   public Action extract(LogRecord record) {
     Action a = actionCodec.decode(record.getPayload());
-    if ( record instanceof Disposable && a instanceof DisposableLifecycle ) {
-        ((DisposableLifecycle)a).setDisposable((Disposable)record);
+    if ( a instanceof DisposableLifecycle ) {
+        ((DisposableLifecycle)a).setDisposable(record);
     }
     return a;
   }

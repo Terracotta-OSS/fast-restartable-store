@@ -6,6 +6,7 @@ package com.terracottatech.frs.mock.action;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
+import java.io.IOException;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -52,5 +53,9 @@ public class MockLogRecord implements LogRecord, Serializable {
         return new ByteBuffer[0];
     }
   
-  
+
+  @Override
+  public void close() throws IOException {
+
+  }
 }

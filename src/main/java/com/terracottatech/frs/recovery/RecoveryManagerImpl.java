@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -80,10 +81,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
         lastRecoveredLsn = logRecord.getLsn();
         if ( action instanceof Disposable ) {
 //  taken care of in the filter
-        } else if ( logRecord instanceof Disposable ) {
-          ((Disposable)logRecord).dispose();
+        } else {
+          logRecord.close();
         }
       }
+    } catch ( IOException ioe ) {
+      throw new RecoveryException("failed to restart", ioe);
     } finally {
       replayFilter.finish();
       replayFilter.checkError();
@@ -227,7 +230,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
         action.replay(lsn);
         if ( action instanceof Disposable ) {
             ((Disposable)action).dispose();
+        }
       }
-    }
-}
+  }
 }

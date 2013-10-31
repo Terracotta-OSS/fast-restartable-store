@@ -68,4 +68,10 @@ public class DummyLogRecord implements LogRecord {
     public long size() {
         return keyr + valuer;
     }
+    
+
+  @Override
+  public void close() throws IOException {
+    list = null;
+  }
 }

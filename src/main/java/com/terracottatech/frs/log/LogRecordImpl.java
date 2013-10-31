@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -16,7 +17,7 @@ import java.nio.ByteBuffer;
 public class LogRecordImpl implements LogRecord {
     
     private long lsn;
-    private final ByteBuffer[] payload;
+    private ByteBuffer[] payload;
     
     private final LSNEventListener listener;
 
@@ -49,4 +50,9 @@ public class LogRecordImpl implements LogRecord {
     public String toString() {
         return "LogRecordImpl{lsn=" + lsn + '}';
     }
+
+  @Override
+  public void close() throws IOException {
+    payload = null;
+  }
 }

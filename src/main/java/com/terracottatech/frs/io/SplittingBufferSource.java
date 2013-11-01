@@ -16,16 +16,19 @@ import java.util.Arrays;
 public class SplittingBufferSource implements BufferSource {
   
   private final ByteBuffer base;
-  private final int min;
   private final Stack[] cascade;
   private final int HEADER_SIZE = 8;
-  
+  private final int lowerbound;
 
   public SplittingBufferSource(int min, int size) {
-    size = 1 << (Integer.SIZE - Integer.numberOfLeadingZeros(size) - 1);
+    lowerbound = Integer.numberOfLeadingZeros(min);
+    int spread = lowerbound - Integer.numberOfLeadingZeros(size) + 1;
+    if ( Integer.numberOfTrailingZeros(size) <  spread ) {
+      size |= (0x01 << spread);
+      size &= (0xffffffff << spread);
+    }
     base = ByteBuffer.allocateDirect(size);
-    this.min = min;
-    cascade = new Stack[Long.numberOfLeadingZeros(min) - Long.numberOfLeadingZeros(size) + 1];
+    cascade = new Stack[spread];
     for (int x=0;x<cascade.length;x++) {
       cascade[x] = new Stack(x);
     }
@@ -38,7 +41,7 @@ public class SplittingBufferSource implements BufferSource {
     if ( size > base.capacity() ) {
       return null;
     }
-    int slot = cascade.length - (Long.numberOfLeadingZeros(min) - Long.numberOfLeadingZeros(size + HEADER_SIZE) + 2);
+    int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(size + HEADER_SIZE) + 2);
     int count = 0;
     while ( header == null ) {
       try {
@@ -86,12 +89,13 @@ public class SplittingBufferSource implements BufferSource {
     if ( split == null ) {
       split = split(slot-1);
       int order = split.getInt(4);
-      int span = split.capacity()>>1;
-      split.clear().limit(span);
+      int address = split.getInt(0);
+      split.clear().limit(cascade[slot].blocksz);
       cascade[slot].push(split.slice());
-      split.position(split.limit()).limit(split.capacity());
+      split.position(cascade[slot].blocksz).limit(cascade[slot].blocksz*2);
       split = split.slice();
       split.putInt(4, order | (1 << (slot-1)));
+      split.putInt(0, address + cascade[slot].blocksz);
     }
     return split;
   }
@@ -101,7 +105,7 @@ public class SplittingBufferSource implements BufferSource {
     if ( buffer.getInt(4) == Integer.MIN_VALUE ) {
       return;
     }
-    int slot = cascade.length  - (Long.numberOfLeadingZeros(min) - Long.numberOfLeadingZeros(buffer.capacity()) + 1);
+    int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(buffer.capacity()) + 1);
     cascade[slot--].push(buffer);
   }
 
@@ -113,7 +117,7 @@ public class SplittingBufferSource implements BufferSource {
       cas.add(s.toString());
       size += s.capacity();
     }
-    return "SplittingBufferSource{base=" + base + ", min=" + min + ", cascade=" + cas + ", size=" + base.capacity() + ", total=" + size + "}";
+    return "SplittingBufferSource{base=" + base +  ", cascade=" + cas + ", size=" + base.capacity() + ", total=" + size + "}";
   }
 
   @Override
@@ -154,7 +158,7 @@ public class SplittingBufferSource implements BufferSource {
     public Stack(int order) {
       this.slots = new ByteBuffer[1];
       this.order = order;
-      this.blocksz = base.capacity() / (1 << order);
+      this.blocksz = base.capacity() >> order;
     }
     
     synchronized ByteBuffer pop() {
@@ -233,10 +237,10 @@ public class SplittingBufferSource implements BufferSource {
       return null;
     }
     
-    private int address(int order) {
-      int rev = Integer.reverse(order);
-      rev >>>= (Integer.SIZE - cascade.length);
-      rev *= (base.capacity() / (1 << cascade.length));
+    private int address(int tag) {
+      int rev = Integer.reverse(tag);
+      rev >>>= (Integer.SIZE - this.order);
+      rev *= (blocksz);
       return rev;
     }
     

@@ -22,6 +22,8 @@ import static org.junit.Assert.*;
 public class SplittingBufferSourceTest {
   
   public SplittingBufferSource src;
+  public static final int MIN = 64;
+  public static final int MAX = 1024 * 1024;
   
   public SplittingBufferSourceTest() {
   }
@@ -36,7 +38,7 @@ public class SplittingBufferSourceTest {
   
   @Before
   public void setUp() {
-    src = new SplittingBufferSource(64,1024 * 1024);
+    src = new SplittingBufferSource(MIN,MAX);
   }
   
   @After
@@ -50,12 +52,13 @@ public class SplittingBufferSourceTest {
   public void testGetBuffer() {
     System.out.println("getBuffer");
     int count = 0;
+    
     ByteBuffer b = src.getBuffer(50);
     while ( b != null ) {
       count++;
       b = src.getBuffer(50);
     }
-    assertTrue(count * 64 >= 1024 * 1024);
+    assertTrue(count * MIN >= MAX);
   }
 
   /**
@@ -65,6 +68,7 @@ public class SplittingBufferSourceTest {
   public void testReturnBuffer() {
     System.out.println("returnBuffer");
     List<ByteBuffer> list = new ArrayList<ByteBuffer>();
+    int expected = src.available();
     ByteBuffer b = src.getBuffer(50);
     while ( b != null ) {
       list.add(b);
@@ -73,7 +77,7 @@ public class SplittingBufferSourceTest {
     for ( ByteBuffer cc : list ) {
       src.returnBuffer(cc);
     }
-    assertEquals(1024 * 1024, src.available());
+    assertEquals(expected, src.available());
   }
 
   /**
@@ -91,9 +95,9 @@ public class SplittingBufferSourceTest {
     for ( ByteBuffer cc : list ) {
       src.returnBuffer(cc);
     }
-    assertEquals(64, src.largestChunk());
+    assertEquals(MIN, src.largestChunk());
     src.reclaim();
-    assertEquals(1024 * 1024, src.largestChunk());
+    assertEquals(MAX, src.largestChunk());
   }
   
 }

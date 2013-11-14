@@ -131,11 +131,7 @@ class TransactionalAction implements TransactionAction, GettableAction {
     if ( action instanceof DisposableLifecycle ) {
       ((DisposableLifecycle)action).setDisposable(c);
     } else {
-      try {
-        c.close();
-      } catch ( IOException ioe ) {
-        throw new RuntimeException(ioe);
-      }
+      throw new AssertionError();
     }
   }
 

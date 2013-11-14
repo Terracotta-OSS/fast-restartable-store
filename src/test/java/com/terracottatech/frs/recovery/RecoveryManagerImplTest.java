@@ -5,6 +5,7 @@
 package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.ExposedDeleteAction;
+import com.terracottatech.frs.ExposedRemoveAction;
 import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
@@ -186,13 +187,18 @@ public class RecoveryManagerImplTest {
     ExposedDeleteAction wrappedDelete = mock(ExposedDeleteAction.class);
     PutAction put = mock(PutAction.class);
     PutAction wrappedPut = mock(PutAction.class);
+    ExposedRemoveAction remove = mock(ExposedRemoveAction.class);
+    ExposedRemoveAction wrappedRemove = mock(ExposedRemoveAction.class);
     ExposedTransactionalAction putTransaction = new ExposedTransactionalAction(handle, true, true, wrappedPut, null);
     ExposedTransactionalAction deleteTransaction = new ExposedTransactionalAction(handle, true, true, wrappedDelete, null);
+    ExposedTransactionalAction removeTransaction = new ExposedTransactionalAction(handle, true, true, wrappedRemove, null);
     
     logManager.append(record(200, delete));
-    logManager.append(record(200, put));
-    logManager.append(record(202, putTransaction));
-    logManager.append(record(202, deleteTransaction));
+    logManager.append(record(201, put));
+    logManager.append(record(202, remove));
+    logManager.append(record(203, putTransaction));
+    logManager.append(record(204, deleteTransaction));
+    logManager.append(record(205, removeTransaction));
     logManager.updateLowestLsn(100);
 
     try {
@@ -205,6 +211,8 @@ public class RecoveryManagerImplTest {
     verify(wrappedPut).dispose();
     verify(delete).dispose();
     verify(wrappedDelete).dispose();
+    verify(remove).dispose();
+    verify(wrappedRemove).dispose();
   }
 
   private Action skipped(Action action) {

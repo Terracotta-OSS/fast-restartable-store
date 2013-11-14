@@ -156,6 +156,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             if ( !master.isDone() ) {
                 exceptionThrownInRecovery(t);
             }
+        } catch ( Throwable t ) {
+          throw new AssertionError(t);
         } finally {
             if ( chunk != null && chunk instanceof Closeable ) {
                 try {

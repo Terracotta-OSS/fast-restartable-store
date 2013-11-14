@@ -61,15 +61,19 @@ public class NIOManagerTest {
         System.out.println(workArea.getAbsolutePath());
         Properties props = new Properties();
         props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.SimulatingBufferBuilder");
-        props.setProperty("io.nio.segmentSize", Integer.toString(1024 * 1024));
-        props.setProperty("io.nio.memorySize", Integer.toString(10 * 1024 * 1024));
+        props.setProperty("io.nio.segmentSize", Long.toString(1L * 1024 * 1024));
+        props.setProperty("io.nio.memorySize", Long.toString(10L * 1024 * 1024));
         try {
             props.store(new FileWriter(new File(workArea,"frs.properties")), null);
         } catch ( IOException io ) {
 
         }
         config = Configuration.getConfiguration(workArea);
-        manager = new NIOManager(config, src);
+        try {
+          manager = new NIOManager(config, src);
+        } catch ( Throwable t ) {
+          t.printStackTrace();
+        }
         manager.setMinimumMarker(100);
     }
     

@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.transaction;
 
+import com.terracottatech.frs.Disposable;
+import com.terracottatech.frs.DisposableLifecycle;
 import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
@@ -126,8 +128,8 @@ class TransactionalAction implements TransactionAction, GettableAction {
   
   @Override
   public void setDisposable(Closeable c) {
-    if ( action instanceof GettableAction ) {
-      ((GettableAction)action).setDisposable(c);
+    if ( action instanceof DisposableLifecycle ) {
+      ((DisposableLifecycle)action).setDisposable(c);
     } else {
       try {
         c.close();
@@ -148,8 +150,8 @@ class TransactionalAction implements TransactionAction, GettableAction {
 
   @Override
   public void close() throws IOException {
-    if ( action instanceof GettableAction ) {
-      ((GettableAction)action).close();
+    if ( action instanceof Disposable ) {
+      ((Disposable)action).close();
     }
   }
 

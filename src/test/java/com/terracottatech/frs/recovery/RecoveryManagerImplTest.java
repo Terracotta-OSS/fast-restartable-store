@@ -4,7 +4,9 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.ExposedDeleteAction;
 import com.terracottatech.frs.MapActionFactory;
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.InvalidatingAction;
@@ -14,7 +16,9 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.NullLogManager;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.transaction.ExposedTransactionalAction;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
+import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import org.junit.Before;
 import org.junit.Rule;
@@ -28,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 import static org.junit.Assert.fail;
+import org.mockito.Mockito;
 import static org.mockito.Mockito.*;
 
 /**
@@ -162,6 +167,44 @@ public class RecoveryManagerImplTest {
     } catch (RecoveryException e) {
       // Expected
     }
+  }
+  
+  
+  @Test
+  public void testDisposal() throws Exception {
+    TransactionHandle handle = new TransactionHandle() {
+
+      @Override
+      public ByteBuffer toByteBuffer() {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+        buffer.putLong(1);
+        buffer.flip();
+        return buffer;
+      }
+    };
+    ExposedDeleteAction delete = mock(ExposedDeleteAction.class);
+    ExposedDeleteAction wrappedDelete = mock(ExposedDeleteAction.class);
+    PutAction put = mock(PutAction.class);
+    PutAction wrappedPut = mock(PutAction.class);
+    ExposedTransactionalAction putTransaction = new ExposedTransactionalAction(handle, true, true, wrappedPut, null);
+    ExposedTransactionalAction deleteTransaction = new ExposedTransactionalAction(handle, true, true, wrappedDelete, null);
+    
+    logManager.append(record(200, delete));
+    logManager.append(record(200, put));
+    logManager.append(record(202, putTransaction));
+    logManager.append(record(202, deleteTransaction));
+    logManager.updateLowestLsn(100);
+
+    try {
+      recoveryManager.recover();
+      fail();
+    } catch (RecoveryException e) {
+      // Expected
+    }
+    verify(put).dispose();
+    verify(wrappedPut).dispose();
+    verify(delete).dispose();
+    verify(wrappedDelete).dispose();
   }
 
   private Action skipped(Action action) {

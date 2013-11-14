@@ -19,6 +19,12 @@ public class SplittingBufferSource implements BufferSource {
   private final Stack[] cascade;
   private final int HEADER_SIZE = 8;
   private final int lowerbound;
+  private long timeout = 200L;
+  
+  public SplittingBufferSource(int min, int max, long timeout) {
+    this(min,max);
+    this.timeout = timeout;
+  }
 
   public SplittingBufferSource(int min, int size) {
 
@@ -37,8 +43,12 @@ public class SplittingBufferSource implements BufferSource {
       try {
         create = ByteBuffer.allocateDirect(size);
       } catch ( OutOfMemoryError oome ) {
-        size = size >> 1;
-        spread -= 1;
+        if ( spread-- < 5 ) {
+          throw oome;
+        } else {
+          size = size >> 1;
+          spread -= 1;
+        }
       }
     }
     base = create;
@@ -60,11 +70,11 @@ public class SplittingBufferSource implements BufferSource {
       try {
         header = split(slot);
       } catch ( OutOfMemoryError err ) {
-        header = pauseForMore(slot, 200);
+        header = pauseForMore(slot);
         if ( header == null ) {
           header = consolidate(slot);
           if ( header == null ) {
-            header = pauseForMore(slot,400);
+            header = pauseForMore(slot);
             if ( header == null ) {
               this.reclaim();
               return null;
@@ -82,8 +92,11 @@ public class SplittingBufferSource implements BufferSource {
     return header;
   }
   
-  private ByteBuffer pauseForMore(int slot, long sleep) {
-    return cascade[slot].pauseForMore(sleep);
+  private ByteBuffer pauseForMore(int slot) {
+    if ( timeout > 0 ) {
+      return cascade[slot].pauseForMore(timeout);
+    }
+    return null;
   }
   
   private ByteBuffer consolidate(int slot) {

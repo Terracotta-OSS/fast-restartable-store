@@ -10,13 +10,15 @@ import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import java.io.Closeable;
+import java.io.IOException;
 
 import java.nio.ByteBuffer;
 
 /**
  * @author tim
  */
-class DeleteAction implements Action {
+class DeleteAction implements Action, DisposableLifecycle {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY = new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
     @Override
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -28,6 +30,7 @@ class DeleteAction implements Action {
   private final ObjectManager<ByteBuffer, ?, ?> objectManager;
   private final Compactor compactor;
   private final ByteBuffer id;
+  private Closeable        disposable;
 
   DeleteAction(ObjectManager<ByteBuffer, ?, ?> objectManager, Compactor compactor, ByteBuffer id, boolean recovery) {
     this.objectManager = objectManager;
@@ -36,6 +39,28 @@ class DeleteAction implements Action {
 
     if (recovery) {
       throw new IllegalStateException("Delete is unsupported during recovery.");
+    }
+  }
+
+  @Override
+  public void setDisposable(Closeable c) {
+    disposable = c;
+  }
+
+  @Override
+  public void dispose() {
+    try {
+      this.close();
+    } catch ( IOException ioe ) {
+      throw new RuntimeException(ioe);
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    if ( disposable != null ) {
+      disposable.close();
+      disposable = null;
     }
   }
 

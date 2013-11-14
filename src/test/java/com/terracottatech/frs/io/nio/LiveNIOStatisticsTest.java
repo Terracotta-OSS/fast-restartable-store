@@ -17,8 +17,8 @@ import static org.junit.Assert.*;
 import org.junit.Rule;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  *
@@ -31,9 +31,6 @@ public class LiveNIOStatisticsTest {
   File             home;
   final long             written;
   final long             read;
-  
-  @Rule
-  public JUnitTestFolder folder = new JUnitTestFolder();
   
   
   public LiveNIOStatisticsTest() {
@@ -52,7 +49,8 @@ public class LiveNIOStatisticsTest {
   
   @Before
   public void setUp() throws Exception {    
-    home = spy(folder.newFolder());
+    home = mock(File.class);
+    when(home.getUsableSpace()).thenReturn(Long.MAX_VALUE);
     stream = mock(NIOStreamImpl.class);
     stats = new LiveNIOStatistics(home, stream, written, read);
   }

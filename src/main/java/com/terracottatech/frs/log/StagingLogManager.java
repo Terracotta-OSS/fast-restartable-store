@@ -12,7 +12,6 @@ import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.DirectBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.MaskingBufferSource;

@@ -38,6 +38,7 @@ public class SplittingBufferSource implements BufferSource {
         create = ByteBuffer.allocateDirect(size);
       } catch ( OutOfMemoryError oome ) {
         size = size >> 1;
+        spread -= 1;
       }
     }
     base = create;
@@ -63,7 +64,7 @@ public class SplittingBufferSource implements BufferSource {
         if ( header == null ) {
           header = consolidate(slot);
           if ( header == null ) {
-            header = pauseForMore(slot,2000);
+            header = pauseForMore(slot,400);
             if ( header == null ) {
               this.reclaim();
               return null;

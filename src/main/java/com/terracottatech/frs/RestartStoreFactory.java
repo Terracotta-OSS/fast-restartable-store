@@ -53,7 +53,7 @@ public abstract class RestartStoreFactory {
           File dbHome, Properties properties) throws IOException, RestartStoreException {
     Configuration configuration = Configuration.getConfiguration(dbHome, properties);
     
-    BufferSource writingSource = new MaskingBufferSource(new SplittingBufferSource(16, configuration.getLong(FrsProperty.IO_NIO_WRITING_MEMORY_SIZE).intValue()));
+    BufferSource writingSource = new MaskingBufferSource(new SplittingBufferSource(64, configuration.getLong(FrsProperty.IO_NIO_WRITING_MEMORY_SIZE).intValue()));
     
     IOManager ioManager = new NIOManager(configuration,writingSource);
     ReadManager readManager = new ReadManagerImpl(ioManager);

@@ -259,6 +259,7 @@ public class NIOManager implements IOManager {
             lockFile = null;
         }
         backend = null;
+        mainBuffers.reclaim();
     }
     
     File getHomeDirectory() {

@@ -43,11 +43,11 @@ public class SplittingBufferSource implements BufferSource {
       try {
         create = ByteBuffer.allocateDirect(size);
       } catch ( OutOfMemoryError oome ) {
-        if ( spread-- < 5 ) {
+        if ( spread < 5 ) {
           throw oome;
         } else {
           size = size >> 1;
-          spread -= 1;
+          spread = lowerbound - Integer.numberOfLeadingZeros(size) + 1;
         }
       }
     }
@@ -242,7 +242,7 @@ public class SplittingBufferSource implements BufferSource {
     
     private void add(ByteBuffer bb) {
       if ( bb.capacity() != this.blocksz ) {
-        throw new AssertionError("not returning block to proper stack");
+        throw new AssertionError("not returning block to proper stack " + bb.capacity() + " " + this.blocksz);
       }
       if ( pointer == base.capacity() / this.blocksz ) {
     /* 100% returned, the entire address space is now resident  */

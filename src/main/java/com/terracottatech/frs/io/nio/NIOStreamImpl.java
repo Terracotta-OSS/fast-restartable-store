@@ -13,6 +13,7 @@ import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.MaskingBufferSource;
 import com.terracottatech.frs.io.SplittingBufferSource;
@@ -43,6 +44,7 @@ class NIOStreamImpl implements Stream {
     static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
     private final long segmentSize;
+    private final long memorySize;
 
     private UUID streamId;
     private volatile long lowestMarker = 99;
@@ -53,7 +55,8 @@ class NIOStreamImpl implements Stream {
     private WritingSegment writeHead;
     private ReadOnlySegment readHead;
     private long offset = 0;
-    private BufferSource manualPool;
+    private final BufferSource filePool;
+    private BufferSource replayPool;
     private FSyncer syncer;
     
     private BufferBuilder createBuffer;
@@ -63,22 +66,23 @@ class NIOStreamImpl implements Stream {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     
     NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
-        this(filePath, NIOAccessMethod.getDefault(), recommendedSize, recommendedSize);
+        this(filePath, NIOAccessMethod.getDefault(), recommendedSize, recommendedSize, new HeapBufferSource(512 * 1024 * 1024));
     }
     
-    NIOStreamImpl(File filePath, NIOAccessMethod method, long recommendedSize, long memorySize) throws IOException {
+    NIOStreamImpl(File filePath, NIOAccessMethod method, long recommendedSize, long memorySize, BufferSource src) throws IOException {
         directory = filePath;
 
+        filePool = src;
+        
         if ( LOGGER.isDebugEnabled() ) {
             strategies = new HashMap<String, Integer>();
         }
-        segmentSize = recommendedSize;
+        this.segmentSize = recommendedSize;
+        this.memorySize = memorySize;
 
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
-        
-        manualPool = new MaskingBufferSource(new SplittingBufferSource(64,(int)memorySize));
-        
+                
         segments = new NIOSegmentList(directory);
         if (segments.isEmpty()) {
             streamId = UUID.randomUUID();
@@ -97,11 +101,11 @@ class NIOStreamImpl implements Stream {
         this.method = method;
     }
     
-    NIORandomAccess createRandomAccess() {
+    NIORandomAccess createRandomAccess(BufferSource src) {
         if ( randomAccess == null ) {
             synchronized ( this) {
                 if ( randomAccess == null ) {
-                    randomAccess = new NIORandomAccess(this, segments);
+                    randomAccess = new NIORandomAccess(this, segments, src);
                 }
             }
         }
@@ -124,8 +128,8 @@ class NIOStreamImpl implements Stream {
     
     FileBuffer createFileBuffer(FileChannel channel, int bufferSize) throws IOException {         
         FileBuffer created = ( createBuffer != null ) 
-                ? createBuffer.createBuffer(channel, this.manualPool, bufferSize)
-                : new FileBuffer(channel, this.manualPool, bufferSize);
+                ? createBuffer.createBuffer(channel, this.filePool, bufferSize)
+                : new FileBuffer(channel, this.filePool, bufferSize);
         
         return created;
     }
@@ -174,30 +178,34 @@ class NIOStreamImpl implements Stream {
         }
         segments.setReadPosition(-1);
         
-        ListIterator<File> files = segments.listIterator(segments.size());
-        while ( files.hasPrevious() ) {
-            File f = files.previous();
-            WritingSegment seg = new WritingSegment(this, f);
-            try {
-                seg.open();
-                if (!seg.getStreamId().equals(streamId)) {
-        //  fail,  the stream id does not equal segment's stream id
-                    throw new IOException(BAD_STREAM_ID);
-                }
-                if ( seg.last() ) {
-                    updateCurrentMarker(seg.getMaximumMarker());
-                    this.lowestMarker = seg.getMinimumMarker();
-                    this.lowestMarkerOnDisk = this.lowestMarker;
-                    return true;                    
-                }
-            } catch ( HeaderException h ) {
-                
-            } finally {
-                seg.close();
-            }
-   //  if here, the segment was bad, delete it
-            files.remove();
-            if ( f.exists() ) throw new IOException("unable to make log stream consistent");
+        if( !segments.isEmpty() ) {
+//  assume we are going to recover these files, create memory for recovery
+          ListIterator<File> files = segments.listIterator(segments.size());
+          
+          while ( files.hasPrevious() ) {
+              File f = files.previous();
+              WritingSegment seg = new WritingSegment(this, f);
+              try {
+                  seg.open();
+                  if (!seg.getStreamId().equals(streamId)) {
+          //  fail,  the stream id does not equal segment's stream id
+                      throw new IOException(BAD_STREAM_ID);
+                  }
+                  if ( seg.last() ) {
+                      updateCurrentMarker(seg.getMaximumMarker());
+                      this.lowestMarker = seg.getMinimumMarker();
+                      this.lowestMarkerOnDisk = this.lowestMarker;
+                      return true;                    
+                  }
+              } catch ( HeaderException h ) {
+
+              } finally {
+                  seg.close();
+              }
+     //  if here, the segment was bad, delete it
+              files.remove();
+              if ( f.exists() ) throw new IOException("unable to make log stream consistent");
+          }
         }
         
         return true;
@@ -258,6 +266,41 @@ class NIOStreamImpl implements Stream {
             segment.close();
         }
     }  
+    
+    long scanForEnd() throws IOException {
+        int count = segments.size();
+        long size = 0;
+        for (int x=0;x<count;x++) {
+            File f = segments.get(x);
+            if ( f == null || !f.exists() ) {
+              break;
+            }
+            
+            NIOSegment seg = new NIOSegment(this, f);
+
+            try {
+                seg.openForHeader();
+            } catch ( HeaderException header ) {
+// this should not happen here, rethrow as a IOException
+                throw new IOException(header);
+            }
+            if (!seg.getStreamId().equals(streamId)) {
+                throw new IOException(BAD_STREAM_ID);
+            }
+
+            //  if the base is greater short circuit out
+            if (seg.getBaseMarker() > this.lowestMarkerOnDisk) {
+                break;
+            }
+
+            // ran into the head.  we are done.
+            if ( f.equals(segments.getEndFile()) ) {
+                break;
+            }
+            size += seg.size();                
+        }
+        return size;
+    }    
     
     long findLogTail() throws IOException {
         if ( readHead != null ) {
@@ -421,7 +464,7 @@ class NIOStreamImpl implements Stream {
         randomAccess = null;
             
         if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug("==PERFORMANCE(memory)==" + manualPool.toString());
+            LOGGER.debug("==PERFORMANCE(memory)==" + filePool.toString());
             StringBuilder slist = new StringBuilder();
             for ( Map.Entry<String,Integer> e : strategies.entrySet() ) {
                 slist.append(" ");
@@ -432,7 +475,7 @@ class NIOStreamImpl implements Stream {
             LOGGER.debug("==PERFORMANCE(strategies)==" + slist.toString());
         }
        
-        manualPool.reclaim();  
+        filePool.reclaim();  
     }
 
     @Override
@@ -450,7 +493,7 @@ class NIOStreamImpl implements Stream {
                 }
 
                 ReadOnlySegment nextHead = new ReadOnlySegment(this, method, f, dir);
-                nextHead.load();
+                nextHead.load(replayPool);
                 hintRandomAccess(nextHead.getBaseMarker(), nextHead.getSegmentId());
                                 
                 if ( readHead != null ) {
@@ -527,8 +570,18 @@ class NIOStreamImpl implements Stream {
     @Override
     public void seek(long loc) throws IOException {
         int segmentId;
+        if ( loc == IOManager.Seek.BEGINNING.getValue() ) {
+       //   recovery done.  we could use this memory
+          replayPool = null;
+        } else if ( loc == IOManager.Seek.END.getValue() ) {
+          if (replayPool == null && getAccessMethod() == NIOAccessMethod.STREAM ) {
+       //   about to start recovery
+            replayPool = (segments.getTotalSize() < segmentSize || this.memorySize < 0 ) ? filePool :
+                new MaskingBufferSource(new SplittingBufferSource(16,(int)memorySize));
+          }
+        }
         if ( loc > 0 ) {
-            segmentId = createRandomAccess().seek(loc).getSegmentId();
+            segmentId = createRandomAccess(filePool).seek(loc).getSegmentId();
             offset = loc;
         } else {
             offset = -1;

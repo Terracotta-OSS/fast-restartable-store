@@ -21,13 +21,26 @@ public class SplittingBufferSource implements BufferSource {
   private final int lowerbound;
 
   public SplittingBufferSource(int min, int size) {
+
+    if ( size > 0x70000000 || size < 0 ) {
+      size = 0x70000000;
+    }
+    
     lowerbound = Integer.numberOfLeadingZeros(min);
     int spread = lowerbound - Integer.numberOfLeadingZeros(size) + 1;
     if ( Integer.numberOfTrailingZeros(size) <  spread ) {
       size |= (0x01 << spread);
       size &= (0xffffffff << spread);
     }
-    base = ByteBuffer.allocateDirect(size);
+    ByteBuffer create = null;
+    while ( create == null ) {
+      try {
+        create = ByteBuffer.allocateDirect(size);
+      } catch ( OutOfMemoryError oome ) {
+        size = size >> 1;
+      }
+    }
+    base = create;
     cascade = new Stack[spread];
     for (int x=0;x<cascade.length;x++) {
       cascade[x] = new Stack(x);
@@ -42,16 +55,19 @@ public class SplittingBufferSource implements BufferSource {
       return null;
     }
     int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(size + HEADER_SIZE) + 2);
-    int count = 0;
     while ( header == null ) {
       try {
         header = split(slot);
       } catch ( OutOfMemoryError err ) {
-        header = consolidate(slot);
+        header = pauseForMore(slot, 200);
         if ( header == null ) {
-          this.reclaim();
-          if ( count++ == 10 ) {
-            return null;
+          header = consolidate(slot);
+          if ( header == null ) {
+            header = pauseForMore(slot,2000);
+            if ( header == null ) {
+              this.reclaim();
+              return null;
+            }
           }
         }
       }
@@ -63,6 +79,10 @@ public class SplittingBufferSource implements BufferSource {
       return null;
     }
     return header;
+  }
+  
+  private ByteBuffer pauseForMore(int slot, long sleep) {
+    return cascade[slot].pauseForMore(sleep);
   }
   
   private ByteBuffer consolidate(int slot) {
@@ -150,6 +170,7 @@ public class SplittingBufferSource implements BufferSource {
   
   private class Stack {
     private int pointer = 0;
+    private int waiting = 0;
     private int max = 0;
     private  ByteBuffer[] slots;
     private final int order;
@@ -182,7 +203,26 @@ public class SplittingBufferSource implements BufferSource {
       }
       
       add(bb);
-      
+      if ( waiting > 0 ) {
+        notify();
+      }
+      return null;
+    }
+    
+    synchronized ByteBuffer pauseForMore(long sleep) {
+      if ( pointer == 0 ) {
+        try {
+          waiting++;
+          wait(sleep);
+          waiting--;
+        } catch ( InterruptedException ie ) {
+          Thread.currentThread().interrupt();
+          return null;
+        }
+      }
+      if ( pointer > 0 ) {
+        return slots[--pointer];
+      }
       return null;
     }
     
@@ -204,6 +244,9 @@ public class SplittingBufferSource implements BufferSource {
     
     synchronized void push(ByteBuffer bb) {
       add(bb);
+      if ( waiting > 0 ) {
+        notify();
+      }
     }
     
   private ByteBuffer consolidate(int ls, int rs) {

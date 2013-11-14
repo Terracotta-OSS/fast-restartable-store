@@ -128,6 +128,12 @@ class TransactionalAction implements TransactionAction, GettableAction {
   public void setDisposable(Closeable c) {
     if ( action instanceof GettableAction ) {
       ((GettableAction)action).setDisposable(c);
+    } else {
+      try {
+        c.close();
+      } catch ( IOException ioe ) {
+        throw new RuntimeException(ioe);
+      }
     }
   }
 

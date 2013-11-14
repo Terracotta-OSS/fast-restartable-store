@@ -15,6 +15,8 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.DirectBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -58,14 +60,14 @@ public class StagingLogManager implements LogManager {
     private final BlockingQueue<WritingPackage>         queue = new ArrayBlockingQueue<WritingPackage>(8);
     private IOException                                 blockingException;
     
-    private final BufferSource    buffers = new DirectBufferSource(100 * 1024 * 1024);
+    private BufferSource    buffers;
 
     public StagingLogManager(IOManager io) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io, null);
     }
         
-    public StagingLogManager(IOManager io,Configuration config) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io);
+    public StagingLogManager(IOManager io, BufferSource src, Configuration config) {
+        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io, src);
         String checksum = config.getString(FrsProperty.IO_CHECKSUM);
         this.checksumStyle = Signature.valueOf(checksum);
         this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
@@ -76,14 +78,16 @@ public class StagingLogManager implements LogManager {
         } else if ( commitList.equals("STACKING") ) {
             this.currentRegion = new StackingCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
         }
+
     }
 
-    public StagingLogManager(Signature check, CommitList list, IOManager io) {
+    public StagingLogManager(Signature check, CommitList list, IOManager io, BufferSource src) {
         this.currentRegion = list;
         this.io = io;
         currentLsn.set(list.getBaseLsn());
         this.checksumStyle = check;
         this.MAX_QUEUE_SIZE = 1024;
+        this.buffers =  ( src != null ) ? src : new MaskingBufferSource(new SplittingBufferSource(512,16 * 1024 * 1024));
     }
 
     @Override

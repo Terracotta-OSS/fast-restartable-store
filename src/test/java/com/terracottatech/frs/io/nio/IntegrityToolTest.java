@@ -4,6 +4,9 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordImpl;
 import com.terracottatech.frs.log.LogRegionPacker;
@@ -23,6 +26,7 @@ public class IntegrityToolTest {
     File workArea;
     NIOManager manager; 
     long current = 100;
+    private static BufferSource src;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder(); 
@@ -32,6 +36,7 @@ public class IntegrityToolTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
+      src = new MaskingBufferSource(new SplittingBufferSource(16, 8 * 1024 * 1024));
     }
 
     @AfterClass
@@ -42,7 +47,7 @@ public class IntegrityToolTest {
     public void setUp() throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(), NIOAccessMethod.NONE.toString(), 1 * 1024 * 1024, 10 * 1024 * 1024, false);
+        manager = new NIOManager(workArea.getAbsolutePath(), NIOAccessMethod.NONE.toString(), 1 * 1024 * 1024, -1, -1, false, src);
         manager.setMinimumMarker(100);
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {

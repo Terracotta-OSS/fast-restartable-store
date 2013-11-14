@@ -5,9 +5,12 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.GlobalFilters;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.TimebombFilter;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.*;
@@ -31,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import org.junit.BeforeClass;
 
 /**
  *
@@ -41,9 +45,15 @@ public class NIOManagerTest {
     private long lsn = 100;
     private File workArea;
     private Configuration config;
+    private static BufferSource src;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();
+    
+    @BeforeClass
+    public static void setupClass() throws Exception {
+      src = new MaskingBufferSource(new SplittingBufferSource(16, 8 * 1024 * 1024));
+    }
     
     @Before
     public void setUp() throws IOException {
@@ -59,7 +69,7 @@ public class NIOManagerTest {
 
         }
         config = Configuration.getConfiguration(workArea);
-        manager = new NIOManager(config);
+        manager = new NIOManager(config, src);
         manager.setMinimumMarker(100);
     }
     
@@ -128,21 +138,21 @@ public class NIOManagerTest {
     @Test 
     public void testAtomicMT() {
         System.out.println("Atomic MT append");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( lsn, 100, 20),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( lsn, 100, 20),manager, src);
         testMTAppend(lm);
     }
 
     @Test
     public void testStackingMT() {
         System.out.println("Stacking MT append");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 10),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 10),manager, src);
         testMTAppend(lm);
     }
     
      @Test
     public void testWriteSuspend() throws Exception {
         System.out.println("write then suspend");
-        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 20),manager);
+        final StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new StackingCommitList( lsn, 100, 20),manager, src);
         lm.startup();
         lm.shutdown();
     }     
@@ -211,7 +221,7 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
+       StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager, src);
        lm.startup();
        for (int x=0;x<1000;x++) {
            DummyLogRecord lr1 = new DummyLogRecord(100,1024);
@@ -220,8 +230,8 @@ public class NIOManagerTest {
 
        lm.shutdown();
        
-       manager = new NIOManager(config);
-       lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager);
+       manager = new NIOManager(config, src);
+       lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager, src);
        
        
        long lsn = -1;
@@ -255,7 +265,7 @@ public class NIOManagerTest {
         
         while ( Thread.interrupted() ) {};
         
-        manager = new NIOManager(config);
+        manager = new NIOManager(config, src);
         manager.seek(-1);
         Chunk c = manager.read(Direction.REVERSE);
         int check = 0;

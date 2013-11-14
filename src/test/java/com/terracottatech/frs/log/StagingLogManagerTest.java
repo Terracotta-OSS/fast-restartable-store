@@ -416,7 +416,38 @@ public class StagingLogManagerTest {
 
         @Override
         public IOStatistics getStatistics() throws IOException {
-            throw new IOException();
+            return new IOStatistics() {
+
+              @Override
+              public long getTotalAvailable() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+
+              @Override
+              public long getTotalUsed() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+
+              @Override
+              public long getTotalWritten() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+
+              @Override
+              public long getTotalRead() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+
+              @Override
+              public long getLiveSize() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+
+              @Override
+              public long getExpiredSize() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+              }
+            };
         }
 
         @Override

@@ -10,9 +10,13 @@ import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.flash.ReadManagerImpl;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.MasterLogRecordFactory;
@@ -48,9 +52,12 @@ public abstract class RestartStoreFactory {
           ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
           File dbHome, Properties properties) throws IOException, RestartStoreException {
     Configuration configuration = Configuration.getConfiguration(dbHome, properties);
-    IOManager ioManager = new NIOManager(configuration);
+    
+    BufferSource writingSource = new MaskingBufferSource(new SplittingBufferSource(16, configuration.getLong(FrsProperty.IO_NIO_WRITING_MEMORY_SIZE).intValue()));
+    
+    IOManager ioManager = new NIOManager(configuration,writingSource);
     ReadManager readManager = new ReadManagerImpl(ioManager);
-    LogManager logManager = new StagingLogManager(ioManager,configuration);
+    LogManager logManager = new StagingLogManager(ioManager,writingSource,configuration);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager),
                                                         new MasterLogRecordFactory());

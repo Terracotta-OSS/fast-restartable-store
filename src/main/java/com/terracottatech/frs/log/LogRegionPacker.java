@@ -88,6 +88,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         
         LogRecord target = null;
         while ( target == null ) {
+          if ( !data.hasRemaining() ) {
+            return null;
+          }
             target = readRecord(data,match);
         }
         return target;
@@ -281,10 +284,12 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     
     private static LogRecord readRecord(Chunk buffer,long match) throws FormatException {
         Chunk header = buffer.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE);
+        long lsn = 0;
+        long len = 0;
         try {
             short format = header.getShort();
-            long lsn = header.getLong();
-            long len = header.getLong();
+            lsn = header.getLong();
+            len = header.getLong();
 
             if ( match < 0 || match == lsn ) {
                 if ( format != LR_FORMAT ) {
@@ -301,6 +306,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 buffer.skip(len);
                 return null;
             }
+        } catch ( Exception exp ) {
+          throw new RuntimeException("lsn:" + lsn + " len:" + len + " match:" + match,exp);
         } finally {
             if ( header instanceof Closeable ) {
                 try {

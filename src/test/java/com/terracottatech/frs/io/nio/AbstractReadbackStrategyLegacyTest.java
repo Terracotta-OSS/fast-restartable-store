@@ -4,9 +4,12 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordImpl;
@@ -30,6 +33,7 @@ public abstract class AbstractReadbackStrategyLegacyTest {
     File workArea;
     NIOManager manager; 
     long current = 100;
+    private static BufferSource   src;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder(); 
@@ -39,6 +43,7 @@ public abstract class AbstractReadbackStrategyLegacyTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
+      src = new MaskingBufferSource(new SplittingBufferSource(32, 8* 1024*1024));
     }
 
     @AfterClass
@@ -48,7 +53,7 @@ public abstract class AbstractReadbackStrategyLegacyTest {
     protected void setUp(NIOAccessMethod method) throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(),method.toString(),  4 * 1024 * 1024, 10 * 1024 * 1024, false);
+        manager = new NIOManager(workArea.getAbsolutePath(),method.toString(),  4 * 1024 * 1024, -1, -1, false, src);
         manager.setMinimumMarker(100);
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {
@@ -139,16 +144,19 @@ public abstract class AbstractReadbackStrategyLegacyTest {
             MockReadbackStrategy rs = new MockReadbackStrategy(buffer);
 
             ArrayList<Long> jumps = rs.readJumpList(buffer.getBuffers()[0]);
-            if ( jumps == null ) {
+            if ( jumps != null ) {
                 final long LAST_INT_WORD_IN_CHUNK = buffer.length()-ByteBufferUtils.INT_SIZE;
-                final long LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
-                int numberOfChunks = buffer.getShort(LAST_SHORT_WORD_BEFORE_JUMP_MARK);
-                assert(numberOfChunks < 0);
+                final long LAST_INT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.INT_SIZE;
+                int numberOfChunks = buffer.getInt(LAST_INT_WORD_BEFORE_JUMP_MARK);
+                Assert.assertEquals(jumps.size(), numberOfChunks);
+                count += jumps.size();
+                System.out.println(jumps.size());
+                buffer.close();
                 return;
+            } else {
+              throw new AssertionError();
             }
-            count += jumps.size();
-            System.out.println(jumps.size());
-            buffer.close();
+
         }
         
         Assert.fail("filled up a segment with more than short width of chunks and still got jump lists");
@@ -186,10 +194,15 @@ public abstract class AbstractReadbackStrategyLegacyTest {
                 return buffer.length();
             }
 
-        @Override
-        public long getMaximumMarker() {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        }
+            @Override
+            public boolean isConsistent() {
+              return super.isCloseDetected();
+            }
+
+            @Override
+            public long getMaximumMarker() {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
 
             
             @Override

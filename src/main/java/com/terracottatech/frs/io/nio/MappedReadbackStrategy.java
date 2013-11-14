@@ -37,7 +37,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         boundaries = new TreeMap<Long,Marker>();
         createIndex();
         
-        if ( !this.isConsistent() ) {
+        if ( !this.isCloseDetected() ) {
             lock = new ReentrantReadWriteLock();
         } else {
             lock = null;
@@ -52,6 +52,11 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         } else {
             offset = Long.MIN_VALUE;
         }
+    }
+
+    @Override
+    public boolean isConsistent() {
+      return super.isCloseDetected();
     }
 
     @Override
@@ -74,7 +79,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
                 start = data.position();
                 chunk = readChunk(data);
             }
-            if ( this.isConsistent() ) {
+            if ( this.isCloseDetected() ) {
                 source.close();
             } else {
                 data.truncate(start);
@@ -103,7 +108,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             start = data.position();
             chunk = readChunk(data);
         }
-        if ( this.isConsistent() ) {
+        if ( this.isCloseDetected() ) {
             data.destroy();
             data.append(source.getFileChannel().map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
             if ( data.remaining() < boundaries.lastEntry().getValue().getStart() ) {
@@ -123,7 +128,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     }    
     
     private boolean addData() throws IOException {
-        if ( !this.isConsistent() && data.position() != source.size() ) {            
+        if ( !this.isCloseDetected() && data.position() != source.size() ) {            
             long len = data.position();
             if ( data.hasRemaining() ) {
                 throw new AssertionError("bad tail");
@@ -176,7 +181,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     @Override
     public Chunk scan(long marker) throws IOException {
         Lock l = null;
-        while ( !this.isConsistent() && boundaries.lastKey() < marker ) {
+        while ( !this.isCloseDetected() && boundaries.lastKey() < marker ) {
             l = lock.writeLock();
             try {
                 l.lock();

@@ -4,6 +4,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import java.io.File;
 import java.io.IOException;
@@ -50,7 +51,7 @@ public class NIOSpeedTest {
   
   NIOSpeedTest(String path) throws IOException {
     File f = new File(path);
-    stream = new NIOStreamImpl(f, NIOAccessMethod.getDefault(), 64 * 1024 * 1024, 64 * 1024 * 1024);
+    stream = new NIOStreamImpl(f, NIOAccessMethod.getDefault(), 64 * 1024 * 1024, 64 * 1024 * 1024, new HeapBufferSource(512*1024*1024));
   }
   
   void readThread() {

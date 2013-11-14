@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.RandomAccess;
@@ -24,12 +25,15 @@ class NIORandomAccess implements RandomAccess, Closeable {
     private final NIOSegmentList segments;
     private final NavigableMap<Long,Integer> fileIndex;
     private volatile FileCache cache;
+    private final BufferSource src;
 
-    NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments) {
+
+    NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments, BufferSource src) {
         this.stream = stream;
         this.segments = segments;
         this.fileIndex = new ConcurrentSkipListMap<Long, Integer>();
         this.cache = new FileCache(segments.getBeginningSegmentId(),new ReadOnlySegment[1]);
+        this.src = src;
     }
 
     @Override
@@ -46,7 +50,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
             if ( seg == null ) {
                 return null;
             } else {
-                if ( marker < seg.load().getBaseMarker() ) {
+                if ( marker < seg.load(null).getBaseMarker() ) {
                     throw new AssertionError("overshoot: " + marker + " < " + seg.getBaseMarker());
                 }
             }
@@ -83,7 +87,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
                 seg = createSegment(getId);
             }
             if ( seg != null ) {
-                seg.load();
+                seg.load(src);
                 if ( seg.getMaximumMarker() >= marker ) {
                     break;
                 } else {

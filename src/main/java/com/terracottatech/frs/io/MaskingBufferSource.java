@@ -7,8 +7,8 @@ package com.terracottatech.frs.io;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -17,7 +17,7 @@ import java.util.Map;
 public class MaskingBufferSource implements BufferSource {
   
   private final BufferSource parent;
-  private final Map<BufferEquals, ByteBuffer> out = new HashMap<BufferEquals, ByteBuffer>();
+  private final Map<BufferEquals, ByteBuffer> out = new ConcurrentHashMap<BufferEquals, ByteBuffer>();
 
   public MaskingBufferSource(BufferSource parent) {
     this.parent = parent;
@@ -40,18 +40,18 @@ public class MaskingBufferSource implements BufferSource {
     }
   }
   
-  private synchronized ByteBuffer remove(BufferEquals src) {
+  private ByteBuffer remove(BufferEquals src) {
     return out.remove(src);
   }
   
-  private synchronized ByteBuffer add(ByteBuffer src) {
+  private ByteBuffer add(ByteBuffer src) {
     ByteBuffer pass = src.slice();
     out.put(new BufferEquals(pass), src);
     return pass;
   }
 
   @Override
-  public synchronized void reclaim() {
+  public void reclaim() {
     for ( Map.Entry<BufferEquals,ByteBuffer> b : new ArrayList<Map.Entry<BufferEquals,ByteBuffer>>(out.entrySet()) ) {
       parent.returnBuffer(b.getValue());
     }

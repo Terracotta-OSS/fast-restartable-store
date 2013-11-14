@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
@@ -32,13 +33,13 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         this.method = strat;
     }
     
-    public synchronized ReadOnlySegment load() throws IOException {
+    public synchronized ReadOnlySegment load(BufferSource src) throws IOException {
         if ( strategy == null ) {
             try {
                 if ( dir == Direction.RANDOM ) {
-                    strategy = openForRandomAccess();
+                    strategy = openForRandomAccess(src);
                 } else {
-                    strategy = openForReplay();
+                    strategy = openForReplay(src);
                 }
             } catch ( HeaderException h ) {
                 throw new IOException(h);
@@ -47,7 +48,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         return this;
     }
 
-    private ReadbackStrategy openForReplay() throws IOException, HeaderException {
+    private ReadbackStrategy openForReplay(BufferSource src) throws IOException, HeaderException {
         source = new FileInputStream(getFile()).getChannel();
         length = source.size();
 
@@ -64,13 +65,13 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( method == NIOAccessMethod.MAPPED ) {
             return new MappedReadbackStrategy(buffer, Direction.REVERSE);
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new BufferedReadbackStrategy(Direction.REVERSE, buffer);
+            return new BufferedReadbackStrategy(Direction.REVERSE, buffer.getFileChannel(), src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }
     }
     
-    private ReadbackStrategy openForRandomAccess() throws IOException, HeaderException {
+    private ReadbackStrategy openForRandomAccess(BufferSource src) throws IOException, HeaderException {
         source = new FileInputStream(getFile()).getChannel();
         length = source.size();
 
@@ -87,7 +88,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( method == NIOAccessMethod.MAPPED ) {
             return new MappedReadbackStrategy(buffer, Direction.RANDOM); 
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new BufferedReadbackStrategy(Direction.RANDOM, buffer);
+            return new BufferedReadbackStrategy(Direction.RANDOM, buffer.getFileChannel(), src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }

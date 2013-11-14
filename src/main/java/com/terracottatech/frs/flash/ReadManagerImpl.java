@@ -54,6 +54,10 @@ public class ReadManagerImpl implements ReadManager {
 // maybe try and cache this
         LogRecord send = LogRegionPacker.extract(Signature.NONE, c, marker);
         
+        if ( send == null ) {
+          throw new RuntimeException("not found");
+        }
+        
         if ( c instanceof Closeable ) {
           ((Closeable)c).close();
         }

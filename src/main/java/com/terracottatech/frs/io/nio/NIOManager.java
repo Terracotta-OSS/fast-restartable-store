@@ -12,11 +12,14 @@ import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferBuilder;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
+import com.terracottatech.frs.io.MaskingBufferSource;
 import com.terracottatech.frs.io.RandomAccess;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.util.NullFuture;
 
 import java.io.File;
@@ -50,11 +53,13 @@ public class NIOManager implements IOManager {
     private final long          segmentSize;
     private final boolean       randomAccess;
     private long                memorySize;
+    private long                randomAccessSize;
         
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     
     private NIOStreamImpl backend;
     private RandomAccess  reader;
+    private BufferSource  mainBuffers;
     private long written = 0;
     private long read = 0;
     private long writeTime = 0;
@@ -65,24 +70,30 @@ public class NIOManager implements IOManager {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
      
-    public NIOManager(String home, String method, long segmentSize, long memorySize,boolean randomAccess) throws IOException {
+    public NIOManager(String home, String method, long segmentSize, long memorySize, long randomAccessSize, boolean randomAccess, BufferSource src) throws IOException {
         directory = new File(home);
                 
         this.segmentSize = segmentSize;
         
         this.memorySize = memorySize;
         
+        this.randomAccessSize = randomAccessSize;
+        
         this.randomAccess = randomAccess;
+        
+        this.mainBuffers = src;
         
         open(NIOAccessMethod.valueOf(method));
     }
     
-    public NIOManager(Configuration config) throws IOException {
+    public NIOManager(Configuration config, BufferSource writer) throws IOException {
         this(config.getDBHome().getAbsolutePath(),
             config.getString(FrsProperty.IO_NIO_ACCESS_METHOD),
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
             config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE),
-            config.getBoolean(FrsProperty.IO_RANDOM_ACCESS)
+            config.getLong(FrsProperty.IO_NIO_RANDOM_ACCESS_MEMORY_SIZE),
+            config.getBoolean(FrsProperty.IO_RANDOM_ACCESS),
+            writer
         );
 
         String bufferBuilder = config.getString(FrsProperty.IO_NIO_BUFFER_BUILDER);
@@ -170,6 +181,14 @@ public class NIOManager implements IOManager {
         return marker;
     }
     
+    private BufferSource getRandomAccessBufferSource() {
+      if ( randomAccessSize < 0 ) {
+        return mainBuffers;
+      } else {
+        return new MaskingBufferSource(new SplittingBufferSource(64, (int)randomAccessSize));
+      }
+    }
+    
     @Override
     public Chunk scan(long marker) throws IOException {
         if (backend == null) {
@@ -182,9 +201,13 @@ public class NIOManager implements IOManager {
                 this.backend.waitForMarker(marker);
             }
             if ( reader == null ) {
-                this.reader = backend.createRandomAccess();
+                this.reader = backend.createRandomAccess(getRandomAccessBufferSource());
             }
-            return this.reader.scan(marker);
+            Chunk c = this.reader.scan(marker);
+            if ( c == null ) {
+              throw new RuntimeException("overshoot:" + marker + " " + this.backend.getMarker());
+            }
+            return c;
         } catch ( InterruptedIOException ioe ) {
             Thread.currentThread().interrupt();
             if ( this.isClosed() ) {
@@ -247,7 +270,7 @@ public class NIOManager implements IOManager {
             throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
         }
         LOGGER.info("opening with " + method + " access method");
-        backend = new NIOStreamImpl(directory, method, segmentSize, memorySize);
+        backend = new NIOStreamImpl(directory, method, segmentSize, memorySize, this.mainBuffers);
 
         lockFile = new File(directory, "FRS.lck");
         boolean crashed = !lockFile.createNewFile();
@@ -265,7 +288,7 @@ public class NIOManager implements IOManager {
         backend.open();
         
         if ( randomAccess ) {
-            reader = backend.createRandomAccess();
+            reader = backend.createRandomAccess(getRandomAccessBufferSource());
         }
     }
 

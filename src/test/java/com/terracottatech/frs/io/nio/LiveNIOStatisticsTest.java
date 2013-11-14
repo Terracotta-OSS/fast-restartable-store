@@ -51,7 +51,7 @@ public class LiveNIOStatisticsTest {
   }
   
   @Before
-  public void setUp() throws Exception {
+  public void setUp() throws Exception {    
     home = spy(folder.newFolder());
     stream = mock(NIOStreamImpl.class);
     stats = new LiveNIOStatistics(home, stream, written, read);
@@ -67,7 +67,10 @@ public class LiveNIOStatisticsTest {
   @Test
   public void testGetTotalAvailable() {
     System.out.println(stats.getTotalAvailable());
+    stream.getMarker();
     verify(home).getUsableSpace();
+    verify(stream).getMarker();
+    
   }
 
   /**
@@ -77,6 +80,7 @@ public class LiveNIOStatisticsTest {
   public void testGetTotalUsed() {
     System.out.println(stats.getTotalUsed());
     verify(stream).getTotalSize();
+    
   }
 
   /**
@@ -101,7 +105,8 @@ public class LiveNIOStatisticsTest {
   @Test
   public void testGetLiveSize() throws Exception {
     System.out.println(stats.getLiveSize());
-    verify(stream).findLogTail();
+    verify(stream).scanForEnd();
+    verify(stream).getTotalSize();
   }
 
   /**

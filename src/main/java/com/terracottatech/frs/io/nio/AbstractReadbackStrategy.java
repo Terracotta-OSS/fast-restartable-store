@@ -15,17 +15,15 @@ import java.util.*;
  * @author mscott
  */
 abstract class AbstractReadbackStrategy implements ReadbackStrategy {
-    private volatile boolean                 consistent = false;
+    private volatile boolean                 closedDetected = false;
 
 
     public AbstractReadbackStrategy() {
 
     }
-    
-    
-    @Override
-    public boolean isConsistent() {
-        return consistent;
+        
+    protected boolean isCloseDetected() {
+        return closedDetected;
     }
        
     protected ByteBuffer[] readChunk(Chunk buffer) throws IOException {
@@ -41,7 +39,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         if ( !SegmentHeaders.CHUNK_START.validate(start) ) {
             if ( SegmentHeaders.CLOSE_FILE.validate(start) ) {
 //  close file magic is in a reasonable place, call this segment consistent
-                consistent = true;
+                closedDetected = true;
             }
             return null;
         }
@@ -72,7 +70,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         
     protected ArrayList<Long> readJumpList(ByteBuffer buffer) throws IOException {
         final int LAST_INT_WORD_IN_CHUNK = buffer.position()+buffer.remaining()-ByteBufferUtils.INT_SIZE;
-        final int LAST_SHORT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.SHORT_SIZE;
+        final int LAST_INT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.INT_SIZE;
         
         if ( !buffer.hasRemaining() ) {
             return null;
@@ -80,13 +78,13 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         
         int jump = buffer.getInt(LAST_INT_WORD_IN_CHUNK);
         if ( SegmentHeaders.JUMP_LIST.validate(jump) ) {
-            int numberOfChunks = buffer.getShort(LAST_SHORT_WORD_BEFORE_JUMP_MARK);
+            int numberOfChunks = buffer.getInt(LAST_INT_WORD_BEFORE_JUMP_MARK);
             if ( numberOfChunks < 0 ) {
                 return null;
             }
             
-            int reach = numberOfChunks * ByteBufferUtils.LONG_SIZE;
-            final int EXPECTED_CLOSE_POSITION = LAST_SHORT_WORD_BEFORE_JUMP_MARK - reach - ByteBufferUtils.INT_SIZE;
+            int reach = numberOfChunks * ByteBufferUtils.INT_SIZE;
+            final int EXPECTED_CLOSE_POSITION = LAST_INT_WORD_BEFORE_JUMP_MARK - reach - ByteBufferUtils.INT_SIZE;
             if ( EXPECTED_CLOSE_POSITION < 0 ) {
                 return null;
             }
@@ -94,13 +92,20 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
                 ArrayList<Long> jumps = new ArrayList<Long>(numberOfChunks);
                 for (int x=0;x<numberOfChunks;x++) {
-                    jumps.add(buffer.getLong(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.LONG_SIZE)));
+                  long value = (long)buffer.getInt(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.INT_SIZE));
+                  if ( value < 0 ) {
+                    return null;
+                  } else {
+                    jumps.add(value);
+                  }
                 }
-                consistent = true;
+                closedDetected = true;
                 return jumps;
             }
         }
         return null;
     }
+    
+    
 
 }

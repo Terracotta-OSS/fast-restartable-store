@@ -259,6 +259,19 @@ public class FileBuffer extends AbstractChunk implements Closeable {
         return lt;
     }
 
+    @Override
+    public Chunk getChunk(long length) {
+      if ( this.remaining() < length ) {
+        return super.getChunk(length);
+      } else {
+        try {
+          return new CloseableChunk(this.position(), length);
+        } catch ( IOException ioe ) {
+          throw new RuntimeException(ioe);
+        }
+      }
+    }
+
     public void insert(ByteBuffer[] bufs, int loc, boolean writable) throws IOException {
         int len = ref.length;
         ref = Arrays.copyOf(ref, ref.length + bufs.length);
@@ -293,9 +306,40 @@ public class FileBuffer extends AbstractChunk implements Closeable {
     public FileChannel getFileChannel() {
         return channel;
     }
-    
-    public BufferSource getBufferSource() {
-        return source;
+
+    private class CloseableChunk extends AbstractChunk implements Closeable {
+      
+      private final ByteBuffer[] data;
+
+      public CloseableChunk(long start, long length) throws IOException {
+        if ( source == null ) {
+          throw new IOException("no buffer space");
+        }
+        if ( length > Integer.MAX_VALUE ) {
+          throw new IOException("buffer overflow");
+        }
+        data = new ByteBuffer[] {source.getBuffer((int)length)};
+        if ( data[0] == null ) {
+          throw new IOException("no buffer space");
+        }
+        channel.position(start);
+        while ( data[0].hasRemaining() ) {
+          if ( channel.read(data) < 0 ) {
+            throw new EOFException();
+          }
+        }
+      }
+
+      @Override
+      public ByteBuffer[] getBuffers() {
+        return data;
+      }
+
+      @Override
+      public void close() throws IOException {
+        source.returnBuffer(data[0]);
+      }      
+      
     }
     
 }

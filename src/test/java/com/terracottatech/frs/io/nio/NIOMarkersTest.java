@@ -4,9 +4,12 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.JUnitTestFolder;
 
@@ -24,6 +27,7 @@ public abstract class NIOMarkersTest {
     long current;
     long min;
     NIOAccessMethod method;
+    private static BufferSource src;
     
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();    
@@ -31,8 +35,10 @@ public abstract class NIOMarkersTest {
     public NIOMarkersTest() {
     }
 
+
     @BeforeClass
     public static void setUpClass() throws Exception {
+      src = new MaskingBufferSource(new SplittingBufferSource(16, 8 * 1024 * 1024));
     }
 
     @AfterClass
@@ -43,7 +49,7 @@ public abstract class NIOMarkersTest {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
         this.method = method;
-        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(), 1 * 1024 * 1024, 10 * 1024 * 1024, false);
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(), 1 * 1024 * 1024, -1, -1, false, src);
         manager.setMinimumMarker(100);
     }
     
@@ -104,7 +110,7 @@ public abstract class NIOMarkersTest {
     
     public void testRecovery() throws Exception {
         manager.close();
-        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),1 * 1024 * 1024, 10 * 1024 * 1024, false);
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),1 * 1024 * 1024, -1, -1 , false, src);
         manager.seek(IOManager.Seek.END.getValue());
         Chunk c = manager.read(Direction.REVERSE);
         int count = 0;

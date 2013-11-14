@@ -20,6 +20,7 @@ class NIOSegmentList extends AbstractList<File> {
     private File                          readHead;
     private int                           position;
     private int                           segmentId;
+    private long                           cachedTotalSize; 
 
     NIOSegmentList(File directory) throws IOException {
         this.directory = directory;  
@@ -33,14 +34,13 @@ class NIOSegmentList extends AbstractList<File> {
           segmentId = NIOConstants.convertSegmentNumber(segments.get(0));
         }
         position = -1;
+        for ( int x=0;x<segments.size()-1;x++ ) {
+            cachedTotalSize += segments.get(x).length();
+        }
     }   
     
-    synchronized long getTotalSize() {
-        long total = 0;
-        for ( File f : segments ) {
-            total += f.length();
-        }
-        return total;
+    long getTotalSize() {
+        return cachedTotalSize;
     }
     
     synchronized File appendFile() throws IOException {
@@ -52,6 +52,11 @@ class NIOSegmentList extends AbstractList<File> {
         pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, seg);
         
         File writeHead = new File(directory,fn.toString());
+        
+        if ( !segments.isEmpty() ) {
+          cachedTotalSize += segments.get(segments.size()-1).length();
+        }
+        
         segments.add(writeHead);
         
         return writeHead;
@@ -114,6 +119,9 @@ class NIOSegmentList extends AbstractList<File> {
         if (!segments.get(0).equals(readHead) || segmentId != NIOConstants.convertSegmentNumber(segments.get(0)) ) {
             throw new AssertionError("bad segment deletion");
         }
+        
+        cachedTotalSize -= size;
+        
         return size;
     }
     
@@ -125,10 +133,13 @@ class NIOSegmentList extends AbstractList<File> {
             if ( !f.delete() ) {
                 size -= f.length();
                 segments.add(f);
-                return size;
+                break;
             }
         }
         assert(readHead == null || segments.get(position).equals(readHead));
+        
+        cachedTotalSize -= size;
+
         return size;
     }
     
@@ -141,6 +152,10 @@ class NIOSegmentList extends AbstractList<File> {
     }
     
     synchronized File getFile(int segmentId) {
+        int spot = segmentId - this.segmentId;
+        if ( spot < 0 || spot >= segments.size() ) {
+          return null;
+        }
         return segments.get(segmentId - this.segmentId);
     }
     
@@ -181,7 +196,11 @@ class NIOSegmentList extends AbstractList<File> {
     @Override
     public synchronized File remove(int i) {
         File f = segments.remove(i);
+        
+        cachedTotalSize -= f.length();
+        
         f.delete();
+        
         return f;
     }
 

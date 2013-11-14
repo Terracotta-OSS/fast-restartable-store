@@ -4,6 +4,9 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.nio.NIOAccessMethod;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.util.JUnitTestFolder;
@@ -19,6 +22,8 @@ public class LogManagerThroughputTest {
     private static final long MAX_SEGMENT_SIZE = 10 * 1024 * 1024;
     NIOManager stream;
     LogManager mgr;
+    private static BufferSource src;
+
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();
 
@@ -27,6 +32,7 @@ public class LogManagerThroughputTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
+      src = new MaskingBufferSource(new SplittingBufferSource(16, 8 * 1024 * 1024));
     }
 
     @AfterClass
@@ -35,8 +41,8 @@ public class LogManagerThroughputTest {
 
     @Before
     public void setUp() throws Exception {
-        stream = new NIOManager(folder.getRoot().getAbsolutePath(), NIOAccessMethod.NONE.toString(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10, false);
-        mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( 100l, 64, 20),stream);
+        stream = new NIOManager(folder.getRoot().getAbsolutePath(), NIOAccessMethod.NONE.toString(), MAX_SEGMENT_SIZE, -1, -1, false, src);
+        mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( 100l, 64, 20),stream, src);
         mgr.startup();
     }
     

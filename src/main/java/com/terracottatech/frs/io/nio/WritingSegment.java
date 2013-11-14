@@ -233,18 +233,21 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         target.clear();
         target.put(SegmentHeaders.CLOSE_FILE.getBytes());
         for (long jump : writeJumpList) {
-            if (target.remaining() < ByteBufferUtils.LONG_SIZE
+            if (target.remaining() < ByteBufferUtils.INT_SIZE
                     + ByteBufferUtils.SHORT_SIZE
                     + ByteBufferUtils.INT_SIZE) {
                 target.write(1);
                 target.clear();
             }
-            target.putLong(jump);
+            if ( jump > Integer.MAX_VALUE ) {
+              return;  // invalid jump list, abort
+            }
+            target.putInt((int)jump);
         }
-        if (writeJumpList.size() < Short.MAX_VALUE) {
-            target.putShort((short) writeJumpList.size());
+        if (writeJumpList.size() < Integer.MAX_VALUE) {
+            target.putInt(writeJumpList.size());
         } else {
-            target.putShort((short) -1);
+            target.putInt(-1);
         }
         target.put(SegmentHeaders.JUMP_LIST.getBytes());
     }

@@ -25,6 +25,7 @@ public class NIOCorruptionTests {
     NIOManager manager;
     long current;
     long min;
+    private static BufferSource src;
     private static final int DATA_SIZE = 10 * 1024;
     
     @Rule
@@ -36,7 +37,7 @@ public class NIOCorruptionTests {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        
+      src = new MaskingBufferSource(new SplittingBufferSource(16, 8 * 1024 * 1024));
     }
 
     @AfterClass
@@ -54,7 +55,7 @@ public class NIOCorruptionTests {
         props.store(new FileWriter(new File(workArea,Configuration.USER_PROPERTIES_FILE)), "frs test properties");
         
         Configuration config = Configuration.getConfiguration(workArea);
-        manager = new NIOManager(config);
+        manager = new NIOManager(config,src);
         manager.setMinimumMarker(100);
         current = 100;
     }
@@ -160,7 +161,7 @@ public class NIOCorruptionTests {
     public long testRecovery() throws Exception {
         long size = 0;
         manager.close();
-        manager = new NIOManager(Configuration.getConfiguration(workArea));
+        manager = new NIOManager(Configuration.getConfiguration(workArea),src);
         System.out.println(manager.getStatistics());
 
         manager.seek(IOManager.Seek.END.getValue());

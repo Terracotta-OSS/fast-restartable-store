@@ -5,6 +5,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
@@ -69,7 +70,7 @@ public class NIORandomAccessTest {
                 
         NIOSegmentList segments = Mockito.mock(NIOSegmentList.class);
         mockFiles(segments);
-        ra = new NIORandomAccess(stream, segments);
+        ra = new NIORandomAccess(stream, segments, new HeapBufferSource(512*1024*1024));
     }
     
     private void mockFiles(NIOSegmentList list) {

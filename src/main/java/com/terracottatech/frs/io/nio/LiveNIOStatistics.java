@@ -50,7 +50,7 @@ class LiveNIOStatistics implements IOStatistics {
   @Override
   public long getLiveSize() {
     try {
-      return this.stream.findLogTail();
+      return this.stream.getTotalSize() - this.stream.scanForEnd();
     } catch ( IOException ioe ) {
       return 0;
     }

@@ -26,7 +26,7 @@ public class DeleteFilter extends AbstractFilter<Action> {
   public boolean filter(Action element, long lsn, boolean filtered) {
     if (element instanceof DeleteAction) {
       deleted.add(((DeleteAction) element).getId());
-      return true;
+      return delegate(element, lsn, true);
     } else if (element instanceof GettableAction && deleted.contains(((GettableAction) element).getIdentifier())) {
       return delegate(element, lsn, true);
     } else {

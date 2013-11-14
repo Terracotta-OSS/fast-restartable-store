@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.StringTokenizer;
+import junit.framework.Assert;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -25,7 +26,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.Rule;
-import org.mockito.Mockito;
 
 /**
  *
@@ -203,7 +203,7 @@ public abstract class AbstractReadbackStrategyTest {
         
         buffer = new FileBuffer(new RandomAccessFile(folder.newFile(),"rw").getChannel(),ByteBuffer.allocate(8192));
         writePartialBuffer(buffer, "now scan a partial buffer");
-       instance = new BufferedReadbackStrategy(Direction.RANDOM, buffer);
+       instance = new BufferedReadbackStrategy(Direction.RANDOM, buffer.getFileChannel(), null);
         c = instance.scan(103L);
         assertTrue(c.remaining() == "partial".length());
         data = new byte["partial".length()];
@@ -217,7 +217,6 @@ public abstract class AbstractReadbackStrategyTest {
     @Test
     public void testSize() throws Exception {
         FileBuffer buffer = new FileBuffer(new RandomAccessFile(folder.newFile(),"rw").getChannel(),ByteBuffer.allocate(8192));
-        buffer = Mockito.spy(buffer);
         writeCompleteBuffer(buffer, "test size by making sure buffer.size() gets called");
         long expected = buffer.size();
         ReadbackStrategy instance = getReadbackStrategy(Direction.RANDOM, buffer);
@@ -276,7 +275,7 @@ public abstract class AbstractReadbackStrategyTest {
         expResult = randomizeJumpList(Short.MAX_VALUE + 8);
         buffer = createCompleteJumpListBuffer(expResult);
         result = instance.readJumpList(buffer);
-        assertNull(result);     // can't read array larger than Short.MAX   
+        Assert.assertEquals(expResult.size(), result.size());
     }
     
     protected List<Long> randomizeJumpList(int size) {
@@ -300,12 +299,12 @@ public abstract class AbstractReadbackStrategyTest {
     protected void writeJumplistToChunk(List<Long> jumps, Chunk target) {
         target.put(SegmentHeaders.CLOSE_FILE.getBytes());
         for (long jump : jumps) {
-            target.putLong(jump);
+            target.putInt((int)jump);
         }
-        if (jumps.size() < Short.MAX_VALUE) {
-            target.putShort((short) jumps.size());
+        if (jumps.size() < Integer.MAX_VALUE) {
+            target.putInt((int) jumps.size());
         } else {
-            target.putShort((short) -1);
+            target.putInt((int) -1);
         }
         target.put(SegmentHeaders.JUMP_LIST.getBytes());
     }
@@ -374,6 +373,11 @@ public abstract class AbstractReadbackStrategyTest {
     public class AbstractReadbackStrategyImpl extends AbstractReadbackStrategy {
 
         public AbstractReadbackStrategyImpl() {
+        }
+
+        @Override
+        public boolean isConsistent() {
+          return super.isCloseDetected();
         }
 
         @Override

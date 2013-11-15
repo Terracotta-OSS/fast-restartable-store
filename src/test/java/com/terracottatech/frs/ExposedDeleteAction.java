@@ -24,6 +24,11 @@ public class ExposedDeleteAction extends DeleteAction {
   public void dispose() {
     super.dispose(); //To change body of generated methods, choose Tools | Templates.
   }
+
+  @Override
+  public ByteBuffer getId() {
+    return super.getId(); //To change body of generated methods, choose Tools | Templates.
+  }
   
   
 }

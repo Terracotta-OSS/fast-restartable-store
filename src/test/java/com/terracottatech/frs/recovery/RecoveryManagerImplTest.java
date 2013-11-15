@@ -21,6 +21,7 @@ import com.terracottatech.frs.transaction.ExposedTransactionalAction;
 import com.terracottatech.frs.transaction.TransactionActionFactory;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.util.JUnitTestFolder;
+import com.terracottatech.frs.util.TestUtils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -184,7 +185,9 @@ public class RecoveryManagerImplTest {
       }
     };
     ExposedDeleteAction delete = mock(ExposedDeleteAction.class);
+    when(delete.getId()).thenReturn(TestUtils.byteBufferWithInt(1));
     ExposedDeleteAction wrappedDelete = mock(ExposedDeleteAction.class);
+    when(wrappedDelete.getId()).thenReturn(TestUtils.byteBufferWithInt(1));
     PutAction put = mock(PutAction.class);
     PutAction wrappedPut = mock(PutAction.class);
     ExposedRemoveAction remove = mock(ExposedRemoveAction.class);

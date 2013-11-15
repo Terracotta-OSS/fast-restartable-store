@@ -25,12 +25,20 @@ public class DeleteFilter extends AbstractFilter<Action> {
   @Override
   public boolean filter(Action element, long lsn, boolean filtered) {
     if (element instanceof DeleteAction) {
-      deleted.add(((DeleteAction) element).getId());
+      deleted.add(detach(((DeleteAction) element).getId()));
       return delegate(element, lsn, true);
     } else if (element instanceof GettableAction && deleted.contains(((GettableAction) element).getIdentifier())) {
       return delegate(element, lsn, true);
     } else {
       return delegate(element, lsn, filtered);
     }
+  }
+  
+  private static ByteBuffer detach(ByteBuffer buffer) {
+    byte[] alloc = new byte[buffer.remaining()];
+    buffer.mark();
+    buffer.get(alloc);
+    buffer.reset();
+    return ByteBuffer.wrap(alloc);
   }
 }

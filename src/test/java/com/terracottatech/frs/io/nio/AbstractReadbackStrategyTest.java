@@ -77,7 +77,6 @@ public abstract class AbstractReadbackStrategyTest {
     @Test
     public void testIterate() throws Exception {
         File target = folder.newFile();
-        System.out.println("getMaximumMarker");
         FileBuffer buffer = new FileBuffer(new RandomAccessFile(target,"rw").getChannel(),ByteBuffer.allocate(8192));
         String phrase = "this test will iterate forward and backward";
         String[] list = phrase.split(" ");

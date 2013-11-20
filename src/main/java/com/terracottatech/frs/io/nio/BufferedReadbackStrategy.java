@@ -10,7 +10,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
@@ -45,7 +47,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         this.source = source;
         boundaries = new TreeMap<Long,Marker>();
         length = channel.position();
-        sealed = createIndex();
+        sealed = createIndex(dir == Direction.RANDOM);
         if ( !sealed ) {
           block = new ReentrantReadWriteLock();
         } else {
@@ -67,8 +69,7 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
       return sealed;
     }
     
-    
-    private boolean createIndex() throws IOException {
+    private boolean createIndex(boolean full) throws IOException {
         List<Long> jumps = null;
         long capacity = channel.size();
         if ( capacity > 8192 ) {
@@ -103,12 +104,30 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
         } else {
             ByteBuffer buffer = allocate(16);
             try {
-              for ( Long next : jumps ) {
-                  readDirect(next.intValue() - 20, buffer);
-                  long clen = buffer.getLong();
-                  long marker = buffer.getLong();
-                  boundaries.put(marker,new Marker(next - 20 - clen - 12, marker));
-                  buffer.rewind();
+              if ( full || jumps.isEmpty() ) {
+                for ( Long next : jumps ) {
+                    readDirect(next.intValue() - 20, buffer);
+                    long clen = buffer.getLong();
+                    long marker = buffer.getLong();
+                    boundaries.put(marker,new Marker(next - 20 - clen - 12, marker));
+                    buffer.rewind();
+                }
+              } else {
+ //  don't care about the lsn for iteration so cheat, only need the last one
+                long first = channel.position();
+                Collections.reverse(jumps);
+                ListIterator<Long> jl = jumps.listIterator();
+                long last = jl.next();
+                readDirect(last - 20, buffer);
+                long clen = buffer.getLong();
+                long marker = buffer.getLong();
+                while ( jl.hasNext() ) {
+                  long current = jl.next();
+                  boundaries.put(marker,new Marker(current, marker, last - current - 20));
+                  marker -= 1;
+                  last = current;
+                }
+                boundaries.put(marker, new Marker(first, marker, last - NIOSegment.FILE_HEADER_SIZE - 20));
               }
             } finally {
               free(buffer);
@@ -329,11 +348,19 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
     private class Marker {
       private final long start;
       private final long mark;
+      private final long lhint;
 
       public Marker(long start, long mark) {
         this.start = start;
         this.mark = mark;
-      }   
+        this.lhint = 0;
+      }
+      
+      public Marker(long start, long mark, long lguess) {
+        this.start = start;
+        this.mark = mark;
+        this.lhint = lguess;
+      }         
 
       public long getStart() {
         return start;
@@ -362,19 +389,24 @@ class BufferedReadbackStrategy extends AbstractReadbackStrategy implements Close
             throw new IOException("file closed");
           }
           VirtualChunk c = new VirtualChunk(start);
-          Chunk header = c.getChunk(12);
-          int cs = header.getInt(); 
-          if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
-            throw new AssertionError("not valid");
+          long len = lhint;
+          if ( len == 0 ) {
+            Chunk header = c.getChunk(12);
+            int cs = header.getInt(); 
+            if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
+              throw new AssertionError("not valid");
+            }
+            len = header.getLong() + 12;
+            if ( len > Integer.MAX_VALUE ) {
+                throw new IOException("buffer overflow");
+            }
+            if ( header instanceof Closeable ) {
+                ((Closeable)header).close();
+            }
+          } else {
+            c.skip(12);
           }
-          long len = header.getLong();
-          if ( len > Integer.MAX_VALUE ) {
-              throw new IOException("buffer overflow");
-          }
-          if ( header instanceof Closeable ) {
-              ((Closeable)header).close();
-          }
-          c.setLength(len + 12);
+          c.setLength(len);
           return c;
       }
     }

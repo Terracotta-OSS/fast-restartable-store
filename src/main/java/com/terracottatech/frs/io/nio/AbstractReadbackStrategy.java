@@ -65,8 +65,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         }
         
         return targets;
-    }    
-    
+    }       
         
     protected ArrayList<Long> readJumpList(ByteBuffer buffer) throws IOException {
         final int LAST_INT_WORD_IN_CHUNK = buffer.position()+buffer.remaining()-ByteBufferUtils.INT_SIZE;

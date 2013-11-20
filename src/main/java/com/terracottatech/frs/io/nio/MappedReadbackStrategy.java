@@ -35,7 +35,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
         this.data.skip(source.position());
         boundaries = new TreeMap<Long,Marker>();
-        createIndex();
+        createIndex(dir == Direction.RANDOM);
         
         if ( !this.isCloseDetected() ) {
             lock = new ReentrantReadWriteLock();
@@ -68,7 +68,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         }
     }
 
-    private void createIndex() throws IOException {
+    private void createIndex(boolean full) throws IOException {
         List<Long> jumps = readJumpList(data.getBuffers()[0]);
         if ( jumps == null )  {
             long start = data.position();
@@ -85,15 +85,25 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
                 data.truncate(start);
             }
         } else {
-            Long last = data.position();
+            long last = data.position();
+            long marker = 0;
             for ( Long next : jumps ) {
                 try {
-                  long marker = data.getLong(next.intValue() - 12);
+ //  don't care about marker unless random access
+                  if ( full ) {
+                    marker = data.getLong(next - 12);
+                  } else {
+                    marker++;
+                  }
                   boundaries.put(marker,new Marker(last, marker));
                 } catch ( Throwable t ) {
                     throw new AssertionError(t);
                 }
                 last = next;
+            }
+// replace the last item with the real marker number so getMaximumMarker works
+            if ( !boundaries.isEmpty() ) {
+              boundaries.put(data.getLong(last - 12), boundaries.remove(marker));
             }
             source.close();
         }
@@ -163,10 +173,6 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     
     public Chunk getBuffer() {
         return data.copy();
-    }
-    
-    public long getLastMarker() {
-        return boundaries.lastKey();
     }
     
     @Override
@@ -252,9 +258,9 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         if ( value.getLong() != len ) {
           throw new AssertionError("not valid");
         }
-        if ( value.getLong() != mark ) {
-          throw new AssertionError("not valid");
-        }
+//        if ( value.getLong() != mark ) {
+//          throw new AssertionError("not valid");
+//        }
         return rv;
       }
       

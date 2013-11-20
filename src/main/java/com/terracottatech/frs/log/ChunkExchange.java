@@ -181,9 +181,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private void cleanup() {
         try {
             io.seek(IOManager.Seek.BEGINNING.getValue());
-            if (master.isDone()) {
-                drainQueue();
-            }
             chunkProcessor.shutdown();
         } catch ( IOException ioe ) {
             LOGGER.info("unable to shutdown recovery",ioe);
@@ -203,7 +200,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     public boolean cancel(boolean bln) {
         ioDone = true;
         master.setDone();
-        drainQueue();
         return true;
     }
 
@@ -234,11 +230,11 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
               }
               result = queue.poll();
             } catch ( IOException ioe ) {
-                throw new RuntimeException(ioe);
+                LOGGER.warn("possible resource leak",ioe);
             } catch ( ExecutionException ex ) {
-                throw new RuntimeException(ex.getCause());
+                LOGGER.warn("possible resource leak",ex.getCause());
             } catch (InterruptedException ie) {
-                throw new RuntimeException(ie);
+                LOGGER.warn("possible resource leak",ie);
             }
         }
     }
@@ -368,11 +364,12 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 throw new RuntimeException(ioe);
               }
             }
-
-            drainQueue();
             
             runner.interrupt();
-            chunkProcessor.shutdownNow();
+            chunkProcessor.shutdown();
+            
+            drainQueue();
+
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d avg. wait: %d",
                         loaded, unloaded, recordCount, recordMiss, (recordCount == 0 ) ? 0 : recordWait/recordCount).out().toString());

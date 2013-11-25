@@ -49,8 +49,8 @@ public class ReadManagerImpl implements ReadManager {
 
   @Override
   public LogRecord get(long marker) throws IOException {
+    Chunk c = ioManager.scan(marker);
     try {
-        Chunk c = ioManager.scan(marker);
 // maybe try and cache this
         LogRecord send = LogRegionPacker.extract(Signature.NONE, c, marker);
         
@@ -58,14 +58,14 @@ public class ReadManagerImpl implements ReadManager {
           throw new RuntimeException("not found");
         }
         
-        if ( c instanceof Closeable ) {
-          ((Closeable)c).close();
-        }
-        
         return send;
     } catch ( FormatException form ) {
         throw new IOException(form);
-    } 
+    } finally {
+        if ( c instanceof Closeable ) {
+          ((Closeable)c).close();
+        }
+    }
   }
   
   static class Cache extends LinkedHashMap<Long, LogRecord> {

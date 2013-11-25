@@ -8,8 +8,6 @@ import com.terracottatech.frs.action.*;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
-import java.io.Closeable;
-import java.io.IOException;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -18,7 +16,7 @@ import java.util.Set;
 /**
  * @author tim
  */
-class RemoveAction implements InvalidatingAction, DisposableLifecycle {
+class RemoveAction implements InvalidatingAction {
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override
@@ -34,7 +32,6 @@ class RemoveAction implements InvalidatingAction, DisposableLifecycle {
   private final ByteBuffer id;
   private final ByteBuffer key;
   private final long invalidatedLsn;
-  private Closeable        disposable;
   
 
   RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key, boolean recovery) {
@@ -50,29 +47,6 @@ class RemoveAction implements InvalidatingAction, DisposableLifecycle {
     }
   }
   
-
-  @Override
-  public void setDisposable(Closeable c) {
-    disposable = c;
-  }
-
-  @Override
-  public void dispose() {
-    try {
-      this.close();
-    } catch ( IOException ioe ) {
-      throw new RuntimeException(ioe);
-    }
-  }
-
-  @Override
-  public void close() throws IOException {
-    if ( disposable != null ) {
-      disposable.close();
-      disposable = null;
-    }
-  }  
-
   @Override
   public Set<Long> getInvalidatedLsns() {
     return Collections.singleton(invalidatedLsn);

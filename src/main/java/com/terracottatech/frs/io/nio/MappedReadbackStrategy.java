@@ -69,7 +69,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     }
 
     private void createIndex(boolean full) throws IOException {
-        List<Long> jumps = readJumpList(data.getBuffers()[0]);
+        long[] jumps = readJumpList(data.getBuffers()[0]);
         if ( jumps == null )  {
             long start = data.position();
             ByteBuffer[] chunk = readChunk(data);
@@ -87,7 +87,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         } else {
             long last = data.position();
             long marker = 0;
-            for ( Long next : jumps ) {
+            for ( long next : jumps ) {
                 try {
  //  don't care about marker unless random access
                   if ( full ) {

@@ -15,6 +15,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -25,15 +27,21 @@ class NIORandomAccess implements RandomAccess, Closeable {
     private final NIOSegmentList segments;
     private final NavigableMap<Long,Integer> fileIndex;
     private volatile FileCache cache;
+    private int maxFiles = Integer.MAX_VALUE;
     private final BufferSource src;
+    private static final Logger LOGGER = LoggerFactory.getLogger(RandomAccess.class);
 
 
     NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments, BufferSource src) {
         this.stream = stream;
         this.segments = segments;
         this.fileIndex = new ConcurrentSkipListMap<Long, Integer>();
-        this.cache = new FileCache(segments.getBeginningSegmentId(),new ReadOnlySegment[1]);
+        this.cache = new FileCache(segments.getBeginningSegmentId(),0,new ReadOnlySegment[1]);
         this.src = src;
+    }
+    
+    public void setMaxFiles(int size) {
+      maxFiles = size;
     }
 
     @Override
@@ -42,19 +50,31 @@ class NIORandomAccess implements RandomAccess, Closeable {
         int segId = ( cacheId != null ) ? cacheId.getValue() : cache.getOffset();
         Chunk c = null;
         while ( c == null ) {
-            int getId = segId++;
-            ReadOnlySegment seg = findSegment(getId);
+            ReadOnlySegment seg = findSegment(segId);
             if ( seg == null ) {
-                seg = createSegment(getId);
+                seg = createSegment(segId);
             }
             if ( seg == null ) {
                 return null;
             } else {
-                if ( marker < seg.load(null).getBaseMarker() ) {
-                    throw new AssertionError("overshoot: " + marker + " < " + seg.getBaseMarker());
+                if ( marker < seg.load(src).getBaseMarker() ) {
+                    throw new AssertionError("overshoot: " + marker + " < " + seg + " " + cacheId + " " + segId + " " + cache.getOffset() + " " + fileIndex);
                 }
             }
             c = seg.scan(marker);
+            if ( c == null && LOGGER.isDebugEnabled() ) {
+              LOGGER.debug(marker + " " + seg);
+            }
+            if ( c == null ) {
+              if ( seg.isComplete() ) {
+                segId += 1;
+              } else if ( LOGGER.isDebugEnabled() ) {
+                if ( segments.getCount() + segments.getBeginningSegmentId() != seg.getSegmentId() ) {
+                  throw new AssertionError();
+                }
+                LOGGER.debug("not advanced " + segId);
+              }
+            }
         }
         return c;
     }
@@ -64,17 +84,16 @@ class NIORandomAccess implements RandomAccess, Closeable {
       cache.close();
     }
  
-    private ReadOnlySegment findSegment(int segNo) {
-        return cache.findSegment(segNo);
-    }
-    
-    private void removeSegments(int limit) throws IOException {
-        if ( limit-cache.getOffset() == 0 ) {
-            return;
+    private ReadOnlySegment findSegment(int segNo) throws IOException {
+        ReadOnlySegment ro = cache.findSegment(segNo);
+        if ( ro == null ) {
+            ro = createSegment(segNo);
         }
-        
-        cache = cache.removeSegments(limit);
-    }    
+        if ( ro.getSegmentId() != segNo ) {
+          throw new AssertionError();
+        }
+        return ro;
+    }  
     
     ReadOnlySegment seek(long marker) throws IOException {
         Map.Entry<Long,Integer> cacheId = fileIndex.floorEntry(marker);
@@ -83,9 +102,6 @@ class NIORandomAccess implements RandomAccess, Closeable {
         while ( seg == null ) {
             int getId = segId++;
             seg = findSegment(getId);
-            if ( seg == null ) {
-                seg = createSegment(getId);
-            }
             if ( seg != null ) {
                 seg.load(src);
                 if ( seg.getMaximumMarker() >= marker ) {
@@ -108,15 +124,15 @@ class NIORandomAccess implements RandomAccess, Closeable {
             first = this.fileIndex.firstEntry();
         }
         
-        removeSegments(fid);
+        cache = cache.removeSegments(fid);
     }
     
     void hint(long marker, int segment) {
         fileIndex.put(marker, segment);
     }
-    
+
     private synchronized ReadOnlySegment createSegment(int segId) throws IOException {
-        ReadOnlySegment seg = findSegment(segId);
+        ReadOnlySegment seg = cache.findSegment(segId);
         if ( seg == null ) {
             // first clear any old caches not needed anymore
             cleanCache();
@@ -134,13 +150,22 @@ class NIORandomAccess implements RandomAccess, Closeable {
         return seg;
     }    
     
-    private static class FileCache implements Closeable {
+    private class FileCache implements Closeable {
         private final int offset;
+        private int livecount = 0;
         private final ReadOnlySegment[] segments;
 
-        public FileCache(int offset, ReadOnlySegment[] segments) {
+        public FileCache(int offset, int live, ReadOnlySegment[] segments) {
             this.offset = offset;
+            this.livecount = live;
             this.segments = segments;
+            for (int x=0;x<segments.length;x++) {
+              if ( segments[x] != null ) {
+                if ( segments[x].getSegmentId() != offset + x ) {
+                  throw new AssertionError();
+                }
+              }
+            }
         }
         
         public ReadOnlySegment findSegment(int segno) {
@@ -148,7 +173,11 @@ class NIORandomAccess implements RandomAccess, Closeable {
             if ( pos >= segments.length ) {
                 return null;
             }
-            return segments[pos];
+            ReadOnlySegment ro = segments[pos];
+            if ( ro != null && ro.getSegmentId() != segno ) {
+              throw new AssertionError(segno + " " + segments[pos].getSegmentId());
+            }
+            return ro;
         }
 
         public int getOffset() {
@@ -157,24 +186,41 @@ class NIORandomAccess implements RandomAccess, Closeable {
 
  // under lock       
         public FileCache removeSegments(int limit) throws IOException {
-            int x =0;
-            if ( limit > segments.length - getOffset() ) {
-                limit = segments.length - getOffset();
+            if ( limit <= offset ) {
+              return this;
             }
-            for (;x<limit-getOffset();x++) {
+            if ( limit > offset + segments.length ) {
+                limit = offset + segments.length;
+            }
+            int x = 0;
+            for (;x + offset < limit;x++) {
                 if ( segments[x] != null ) {
                     segments[x].close();
                     segments[x] = null;
+                    livecount--;
                 }
             }
-            return new FileCache(limit,Arrays.copyOfRange(segments, x,segments.length));
+            return new FileCache(limit,livecount,Arrays.copyOfRange(segments, x,segments.length+1));
         }
  // under lock       
-        public FileCache addSegment(ReadOnlySegment ro) {
+        public FileCache addSegment(ReadOnlySegment ro) throws IOException {
+            if ( ro.getSegmentId() < offset ) {
+              throw new AssertionError(ro.getSegmentId() + " " + offset);
+            }
+            if (livecount++ > maxFiles ) {
+              for ( int k=0;k<segments.length;k++ ) {
+                if ( segments[k] != null ) {
+                  segments[k].close();
+                  segments[k] = null;
+                  livecount--;
+                  break;
+                }
+              }
+            }
             if ( segments.length <= ro.getSegmentId() - offset ) {
-                ReadOnlySegment[] na = Arrays.copyOf(segments, Math.abs(ro.getSegmentId() - offset) + segments.length + 1);
+                ReadOnlySegment[] na = Arrays.copyOf(segments, ro.getSegmentId() - offset + segments.length + 1);
                 na[ro.getSegmentId() - offset] = ro;
-                return new FileCache(offset,na);  // buffer by adding the current length to the required length + 1
+                return new FileCache(offset,livecount,na);  // buffer by adding the current length to the required length + 1
             }
             segments[ro.getSegmentId() - offset] = ro;
             return this;

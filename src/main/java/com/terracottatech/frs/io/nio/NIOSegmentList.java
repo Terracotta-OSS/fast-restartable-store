@@ -14,7 +14,7 @@ import java.util.*;
  *
  * @author mscott
  */
-class NIOSegmentList extends AbstractList<File> {
+class NIOSegmentList implements Iterable<File> {
     private final List<File>              segments;
     private final File                    directory;
     private File                          readHead;
@@ -37,7 +37,7 @@ class NIOSegmentList extends AbstractList<File> {
         for ( int x=0;x<segments.size()-1;x++ ) {
             cachedTotalSize += segments.get(x).length();
         }
-    }   
+    }    
     
     long getTotalSize() {
         long size = cachedTotalSize;
@@ -68,7 +68,6 @@ class NIOSegmentList extends AbstractList<File> {
         return writeHead;
     }
     
-    @Override
     public synchronized boolean isEmpty() {
         return segments.isEmpty();
     }
@@ -199,17 +198,14 @@ class NIOSegmentList extends AbstractList<File> {
         return segments.size();
     }
 
-    @Override
     public synchronized File get(int i) {
         return segments.get(i);
     }
 
-    @Override
     public synchronized int size() {
         return segments.size();
     }
 
-    @Override
     public synchronized File remove(int i) {
         File f = segments.remove(i);
         
@@ -218,6 +214,70 @@ class NIOSegmentList extends AbstractList<File> {
         f.delete();
         
         return f;
+    }
+
+    @Override
+    public Iterator<File> iterator() {
+      return listIterator(0);
+    }
+    
+    public ListIterator<File> listIterator(final int start) {
+      return new ListIterator<File>() {
+        int position = start;
+        @Override
+        public boolean hasNext() {
+          return position < size();
+        }
+
+        @Override
+        public File next() {
+          if ( position >= size() ) {
+            throw new NoSuchElementException();
+          }
+          return get(position++);
+        }
+
+        @Override
+        public void remove() {
+          NIOSegmentList.this.remove(position);
+        }
+
+        @Override
+        public boolean hasPrevious() {
+          return position > 0;
+        }
+
+        @Override
+        public File previous() {
+          return get(--position);
+        }
+
+        @Override
+        public int nextIndex() {
+          return position + 1;
+        }
+
+        @Override
+        public int previousIndex() {
+          return position - 1;
+        }
+
+        @Override
+        public void set(File e) {
+          throw new UnsupportedOperationException(); 
+        }
+
+        @Override
+        public void add(File e) {
+          throw new UnsupportedOperationException(); 
+        }
+        
+        
+      };
+    }
+    
+    public List<File> copyList() {
+      return new ArrayList<File>(segments);
     }
 
     @Override

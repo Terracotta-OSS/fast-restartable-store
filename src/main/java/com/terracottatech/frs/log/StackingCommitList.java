@@ -159,9 +159,16 @@ public class StackingCommitList implements CommitList {
     
     @Override
     public void exceptionThrown(Exception exp) {
+      CommitList chain = null;
         synchronized (guard) {
             error = exp;
             guard.notifyAll();
+            if ( next != null ) {
+              chain = next;
+            }
+        }
+        if ( chain != null ) {
+          chain.exceptionThrown(exp);
         }
     }
 

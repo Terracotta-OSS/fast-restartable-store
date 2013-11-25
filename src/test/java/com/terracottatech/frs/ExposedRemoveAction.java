@@ -17,10 +17,4 @@ public class ExposedRemoveAction extends RemoveAction {
   public ExposedRemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key, boolean recovery) {
     super(objectManager, compactor, id, key, recovery);
   }
-
-  @Override
-  public void dispose() {
-    super.dispose(); //To change body of generated methods, choose Tools | Templates.
-  }
-  
 }

@@ -6,6 +6,7 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Loadable;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.IOException;

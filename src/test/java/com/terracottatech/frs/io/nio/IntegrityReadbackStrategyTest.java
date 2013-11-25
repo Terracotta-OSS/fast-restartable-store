@@ -58,6 +58,11 @@ public class IntegrityReadbackStrategyTest extends AbstractReadbackStrategyTest 
         Chunk c = instance.scan(103L);
         assertNull(c);
     }
+
+  @Override @Test 
+  public void testLargeScan() throws Exception {
+    //  not relevant
+  }
     
     
     

@@ -228,7 +228,6 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
               for ( LogRecord lr : list ) {
                 lr.close();
               }
-              result = queue.poll();
             } catch ( IOException ioe ) {
                 LOGGER.warn("possible resource leak",ioe);
             } catch ( ExecutionException ex ) {
@@ -236,6 +235,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             } catch (InterruptedException ie) {
                 LOGGER.warn("possible resource leak",ie);
             }
+            result = queue.poll();
         }
     }
 

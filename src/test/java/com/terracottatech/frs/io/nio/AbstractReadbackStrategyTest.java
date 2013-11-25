@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.TreeMap;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -81,11 +82,12 @@ public abstract class AbstractReadbackStrategyTest {
         String phrase = "this test will iterate forward and backward";
         String[] list = phrase.split(" ");
         long count = 100;
-        List<Long> jumps = new ArrayList<Long>();
+        long[] jumps = new long[list.length];
+        int x = 0;
         for ( String word : list ) {
             this.writeDataToChunk(word.getBytes(), buffer, count++);
             buffer.write(1);
-            jumps.add(buffer.offset());
+            jumps[x] = buffer.offset();
             buffer.clear();
         }
         this.writeJumplistToChunk(jumps, buffer);
@@ -209,7 +211,48 @@ public abstract class AbstractReadbackStrategyTest {
         c.get(data);
         assertEquals("partial",new String(data));
     }
-
+    /**
+     * Test of scan method, of class BufferedRandomAccessStrategy.
+     */
+    @Test
+    public void testLargeScan() throws Exception {
+        FileBuffer buffer = new FileBuffer(new RandomAccessFile(folder.newFile(),"rw").getChannel(),ByteBuffer.allocate(32 * 1024));
+        TreeMap<Long,String> map = new TreeMap<Long,String>();
+        Random r = new Random();
+        long base = 100;
+        for (int x=0;x<8001;x++) {
+          int size = r.nextInt(8192);
+          byte[] data = new byte[size];
+          r.nextBytes(data);
+          String val = new String(data);
+          base += r.nextInt(1024);
+          map.put(base,val);
+          writeDataToChunk(data, buffer, base);
+          buffer.write(1);
+          buffer.clear();
+          System.out.println("writing entry: " + x);
+        }
+        buffer.sync(true);
+        buffer.position(0);
+        
+        ReadbackStrategy instance = getReadbackStrategy(Direction.RANDOM, buffer);
+        //  test scan front
+        Chunk c = instance.scan(100L);
+        assertEquals("first",map.firstEntry().getValue(),stringify(c));
+        c = instance.scan(base-1);
+        assertEquals("last",map.lastEntry().getValue(),stringify(c));
+//  loop middle
+        for (int x=0;x<32;x++) {
+          long next = r.nextInt((int)base);
+          assertEquals("loop", map.ceilingEntry(next).getValue(),stringify(instance.scan(next)));
+        }
+    }
+    
+    private String stringify(Chunk c) {
+      byte[] data = new byte[(int)c.remaining()];
+      c.get(data);
+      return new String(data);
+    }
     /**
      * Test of size method, of class BufferedRandomAccessStrategy.
      */
@@ -234,7 +277,7 @@ public abstract class AbstractReadbackStrategyTest {
         AbstractReadbackStrategy instance = new AbstractReadbackStrategyImpl();
         assertFalse(instance.isConsistent());
 
-        List<Long> expResult = randomizeJumpList(64);
+        long[] expResult = randomizeJumpList(64);
         buffer = createCompleteJumpListBuffer(expResult);
         instance.readJumpList(buffer);
         assertTrue(instance.isConsistent());
@@ -266,42 +309,44 @@ public abstract class AbstractReadbackStrategyTest {
         System.out.println("readJumpList");
         ByteBuffer buffer = null;
         AbstractReadbackStrategy instance = new AbstractReadbackStrategyImpl();
-        List<Long> expResult = randomizeJumpList(64);
+        long[] expResult = randomizeJumpList(64);
         buffer = createCompleteJumpListBuffer(expResult);
-        List<Long> result = instance.readJumpList(buffer);
-        assertEquals(expResult, result);
+        long[] result = instance.readJumpList(buffer);
+        assertArrayEquals(expResult, result);
 // test more than short length array
         expResult = randomizeJumpList(Short.MAX_VALUE + 8);
         buffer = createCompleteJumpListBuffer(expResult);
         result = instance.readJumpList(buffer);
-        Assert.assertEquals(expResult.size(), result.size());
+        Assert.assertEquals(expResult.length, result.length);
     }
     
-    protected List<Long> randomizeJumpList(int size) {
-        List<Long> list= new ArrayList<Long>();
+    protected long[] randomizeJumpList(int size) {
+        long[] list= new long[size];
         Random r = new Random();
         long base = 0;
         for (int x=0;x<size;x++) {
             base += r.nextInt(8192);
-            list.add(base);
+            list[x] = base;
         }
         return list;
     }
     
-    protected ByteBuffer createCompleteJumpListBuffer(List<Long> jumps) {
-        ByteBuffer buffer = ByteBuffer.allocate(8 * jumps.size() + 10);  // size is a long(8) * size of array + 4 header + + 2 size + 4 footer
+    protected ByteBuffer createCompleteJumpListBuffer(long[] jumps) {
+        ByteBuffer buffer = ByteBuffer.allocate(4 * jumps.length + 12);  // size is a long(8) * size of array + 4 header + + 2 size + 4 footer
         writeJumplistToChunk(jumps, new WrappingChunk(buffer));
         buffer.flip();
         return buffer;
     }
     
-    protected void writeJumplistToChunk(List<Long> jumps, Chunk target) {
+    protected void writeJumplistToChunk(long[] jumps, Chunk target) {
         target.put(SegmentHeaders.CLOSE_FILE.getBytes());
+        long last = 0;
         for (long jump : jumps) {
-            target.putInt((int)jump);
+            target.putInt((int)(jump - last));
+            last = jump;
         }
-        if (jumps.size() < Integer.MAX_VALUE) {
-            target.putInt((int) jumps.size());
+        if (jumps.length < Integer.MAX_VALUE) {
+            target.putInt((int) jumps.length);
         } else {
             target.putInt((int) -1);
         }
@@ -342,11 +387,12 @@ public abstract class AbstractReadbackStrategyTest {
     protected int writeCompleteBuffer(FileBuffer buffer, String phrase) throws Exception {
         String[] list = phrase.split(" ");
         long count = 100;
-        List<Long> jumps = new ArrayList<Long>();
+        long[] jumps = new long[list.length];
+        int x = 0;
         for ( String word : list ) {
             this.writeDataToChunk(word.getBytes(), buffer, count++);
             buffer.write(1);
-            jumps.add(buffer.offset());
+            jumps[x++] = (int)(buffer.offset());
             buffer.clear();
         }
         this.writeJumplistToChunk(jumps, buffer);

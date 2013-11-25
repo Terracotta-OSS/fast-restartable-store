@@ -67,7 +67,7 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         return targets;
     }       
         
-    protected ArrayList<Long> readJumpList(ByteBuffer buffer) throws IOException {
+    protected long[] readJumpList(ByteBuffer buffer) throws IOException {
         final int LAST_INT_WORD_IN_CHUNK = buffer.position()+buffer.remaining()-ByteBufferUtils.INT_SIZE;
         final int LAST_INT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.INT_SIZE;
         
@@ -89,13 +89,15 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
             }
             int cfm = buffer.getInt(EXPECTED_CLOSE_POSITION);
             if ( SegmentHeaders.CLOSE_FILE.validate(cfm) ) {
-                ArrayList<Long> jumps = new ArrayList<Long>(numberOfChunks);
+                long[] jumps = new long[numberOfChunks];
+                long last = 0;
                 for (int x=0;x<numberOfChunks;x++) {
-                  long value = (long)buffer.getInt(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.INT_SIZE));
+                  int value = buffer.getInt(EXPECTED_CLOSE_POSITION + ByteBufferUtils.INT_SIZE + (x*ByteBufferUtils.INT_SIZE));
                   if ( value < 0 ) {
                     return null;
                   } else {
-                    jumps.add(value);
+                    last += value;
+                    jumps[x] = last;
                   }
                 }
                 closedDetected = true;
@@ -104,7 +106,4 @@ abstract class AbstractReadbackStrategy implements ReadbackStrategy {
         }
         return null;
     }
-    
-    
-
 }

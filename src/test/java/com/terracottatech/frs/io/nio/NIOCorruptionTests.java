@@ -50,7 +50,7 @@ public class NIOCorruptionTests {
         workArea = folder.newFolder();
         Properties props = new Properties();
         props.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1 * 1024 * 1024));
-        props.setProperty(FrsProperty.IO_NIO_MEMORY_SIZE.shortName(), Integer.toString(10 * 1024 * 1024));
+        props.setProperty(FrsProperty.IO_NIO_POOL_MEMORY_SIZE.shortName(), Integer.toString(10 * 1024 * 1024));
 //        props.setProperty("io.nio.bufferBuilder", "com.terracottatech.frs.io.nio.CorruptionBuilder");
         props.store(new FileWriter(new File(workArea,Configuration.USER_PROPERTIES_FILE)), "frs test properties");
         

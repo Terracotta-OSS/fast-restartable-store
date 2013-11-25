@@ -27,10 +27,13 @@ public class ChunkProcessing implements Callable<List<LogRecord>> {
       if ( base instanceof Loadable ) {
         ((Loadable)base).load();
       }
+      try {
         List<LogRecord> records = LogRegionPacker.unpackInReverse(Signature.ADLER32, base);
+        return records;
+      } finally {
         if ( base instanceof Closeable ) {
           ((Closeable)base).close();
         }
-        return records;
+      }
     }
 }

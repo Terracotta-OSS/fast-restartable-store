@@ -42,7 +42,7 @@ public class SnapshotTest {
   @Before
   public void setupProperties() {
     properties = new Properties();
-    properties.put(FrsProperty.IO_NIO_MEMORY_SIZE.shortName(), Integer.toString(64 * 1024 * 1024));
+    properties.put(FrsProperty.IO_NIO_POOL_MEMORY_SIZE.shortName(), Integer.toString(64 * 1024 * 1024));
   }
   
   @Test

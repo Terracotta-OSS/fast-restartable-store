@@ -9,6 +9,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -18,6 +20,7 @@ public class MaskingBufferSource implements BufferSource {
   
   private final BufferSource parent;
   private final Map<BufferEquals, ByteBuffer> out = new ConcurrentHashMap<BufferEquals, ByteBuffer>();
+  private static final Logger LOGGER = LoggerFactory.getLogger(MaskingBufferSource.class);
 
   public MaskingBufferSource(BufferSource parent) {
     this.parent = parent;
@@ -37,6 +40,8 @@ public class MaskingBufferSource implements BufferSource {
     ByteBuffer src = remove(new BufferEquals(buffer));
     if ( src != null ) {
       parent.returnBuffer(src);
+    } else {
+      LOGGER.debug("possible double free of memory resource" + buffer);
     }
   }
   

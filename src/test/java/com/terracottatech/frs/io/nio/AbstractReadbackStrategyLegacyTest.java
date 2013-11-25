@@ -102,7 +102,7 @@ public abstract class AbstractReadbackStrategyLegacyTest {
         File end = list.getEndFile();
         final FileBuffer  endbuffer = new FileBuffer(new FileInputStream(end).getChannel(), ByteBuffer.allocate((int)end.length()));
         AbstractReadbackStrategy rs = new MockReadbackStrategy(endbuffer);
-        ArrayList<Long> jumps = rs.readJumpList(endbuffer.getBuffers()[0]);
+        long[] jumps = rs.readJumpList(endbuffer.getBuffers()[0]);
         assert(jumps == null);
         
         manager.close();
@@ -117,7 +117,7 @@ public abstract class AbstractReadbackStrategyLegacyTest {
             rs = new MockReadbackStrategy(buffer);
 
             jumps = rs.readJumpList(buffer.getBuffers()[0]);
-            count += jumps.size();
+            count += jumps.length;
             buffer.close();
         }
         
@@ -143,14 +143,14 @@ public abstract class AbstractReadbackStrategyLegacyTest {
             buffer.skip(NIOSegment.FILE_HEADER_SIZE);
             MockReadbackStrategy rs = new MockReadbackStrategy(buffer);
 
-            ArrayList<Long> jumps = rs.readJumpList(buffer.getBuffers()[0]);
+            long[] jumps = rs.readJumpList(buffer.getBuffers()[0]);
             if ( jumps != null ) {
                 final long LAST_INT_WORD_IN_CHUNK = buffer.length()-ByteBufferUtils.INT_SIZE;
                 final long LAST_INT_WORD_BEFORE_JUMP_MARK = LAST_INT_WORD_IN_CHUNK - ByteBufferUtils.INT_SIZE;
                 int numberOfChunks = buffer.getInt(LAST_INT_WORD_BEFORE_JUMP_MARK);
-                Assert.assertEquals(jumps.size(), numberOfChunks);
-                count += jumps.size();
-                System.out.println(jumps.size());
+                Assert.assertEquals(jumps.length, numberOfChunks);
+                count += jumps.length;
+                System.out.println(jumps.length);
                 buffer.close();
                 return;
             } else {

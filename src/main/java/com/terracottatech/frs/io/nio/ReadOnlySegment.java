@@ -65,7 +65,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( method == NIOAccessMethod.MAPPED ) {
             return new MappedReadbackStrategy(buffer, Direction.REVERSE);
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new BufferedReadbackStrategy(Direction.REVERSE, buffer.getFileChannel(), src);
+            return new MinimalReadbackStrategy(Direction.REVERSE, getMinimumMarker(), buffer.getFileChannel(), src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }
@@ -88,7 +88,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( method == NIOAccessMethod.MAPPED ) {
             return new MappedReadbackStrategy(buffer, Direction.RANDOM); 
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new BufferedReadbackStrategy(Direction.RANDOM, buffer.getFileChannel(), src);
+            return new MinimalReadbackStrategy(Direction.RANDOM, getMinimumMarker(), buffer.getFileChannel(), src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }
@@ -104,6 +104,10 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         
     public boolean isClosed() {
         return ( strategy == null );
+    }
+    
+    public boolean isComplete() {
+      return strategy.isConsistent();
     }
     
     @Override
@@ -122,7 +126,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
 
   @Override
   public String toString() {
-    return "ReadOnlySegment{" + "strategy=" + strategy + '}';
+    return "ReadOnlySegment{"+ "strategy=" + strategy + "}\n\t" + super.toString();
   }
 
     public Chunk next(Direction dir) throws IOException {

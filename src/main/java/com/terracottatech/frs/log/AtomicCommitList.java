@@ -188,6 +188,13 @@ public class AtomicCommitList implements CommitList {
             return written;
         }
     }
+    
+
+    private boolean isError() {
+        synchronized (guard) {
+            return error != null;
+        }
+    }    
 
     @Override
     public void written() {
@@ -247,9 +254,16 @@ public class AtomicCommitList implements CommitList {
 
     @Override
     public void exceptionThrown(Exception exp) {
+      CommitList chain = null;
         synchronized (guard) {
             error = exp;
             guard.notifyAll();
+            if ( next != null ) {
+              chain = next;
+            }
+        }
+        if ( chain != null ) {
+          chain.exceptionThrown(exp);
         }
     }
 
@@ -272,7 +286,7 @@ public class AtomicCommitList implements CommitList {
 
     @Override
     public boolean isDone() {
-        return (goLatch.getCount() == regions.length() || this.isWritten());
+        return (goLatch.getCount() == regions.length() || this.isWritten() || this.isError() );
     }   
     
 //  iterator interface

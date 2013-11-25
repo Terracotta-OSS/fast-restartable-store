@@ -148,4 +148,9 @@ public class NIOSegment {
 
         return false;
     }
+
+  @Override
+  public String toString() {
+    return "NIOSegment{" + "segNum=" + segNum + ", src=" + src + ", lowestMarker=" + lowestMarker + ", minMarker=" + minMarker + ", wasClosed=" + wasClosed + '}';
+  }
 }

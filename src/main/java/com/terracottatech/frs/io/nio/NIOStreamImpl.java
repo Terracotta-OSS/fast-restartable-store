@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -577,7 +578,7 @@ class NIOStreamImpl implements Stream {
           if (replayPool == null && getAccessMethod() == NIOAccessMethod.STREAM ) {
        //   about to start recovery
             replayPool = (segments.getTotalSize() < segmentSize || this.memorySize < 0 ) ? filePool :
-                new MaskingBufferSource(new SplittingBufferSource(16,(int)memorySize));
+                new MaskingBufferSource(new SplittingBufferSource(64,(int)memorySize));
           }
         }
         if ( loc > 0 ) {
@@ -645,7 +646,7 @@ class NIOStreamImpl implements Stream {
     }
 
     List<File> fileList() {
-        return new ArrayList<File>(segments);
+      return Collections.unmodifiableList(segments.copyList());
     }
 
     private void closeSegment(WritingSegment nio) throws IOException {

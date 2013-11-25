@@ -190,18 +190,13 @@ public class RecoveryManagerImplTest {
     when(wrappedDelete.getId()).thenReturn(TestUtils.byteBufferWithInt(1));
     PutAction put = mock(PutAction.class);
     PutAction wrappedPut = mock(PutAction.class);
-    ExposedRemoveAction remove = mock(ExposedRemoveAction.class);
-    ExposedRemoveAction wrappedRemove = mock(ExposedRemoveAction.class);
     ExposedTransactionalAction putTransaction = new ExposedTransactionalAction(handle, true, true, wrappedPut, null);
     ExposedTransactionalAction deleteTransaction = new ExposedTransactionalAction(handle, true, true, wrappedDelete, null);
-    ExposedTransactionalAction removeTransaction = new ExposedTransactionalAction(handle, true, true, wrappedRemove, null);
     
     logManager.append(record(200, delete));
     logManager.append(record(201, put));
-    logManager.append(record(202, remove));
     logManager.append(record(203, putTransaction));
     logManager.append(record(204, deleteTransaction));
-    logManager.append(record(205, removeTransaction));
     logManager.updateLowestLsn(100);
 
     try {
@@ -214,8 +209,6 @@ public class RecoveryManagerImplTest {
     verify(wrappedPut).dispose();
     verify(delete).dispose();
     verify(wrappedDelete).dispose();
-    verify(remove).dispose();
-    verify(wrappedRemove).dispose();
   }
 
   private Action skipped(Action action) {

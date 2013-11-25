@@ -109,16 +109,16 @@ public class StagingLogManagerTest {
                     } catch ( InterruptedException ir ) {
                     
                     } catch ( ExecutionException ee ) {
-                        
+                      
                     } finally {
-                        check.countDown();
+                        check.countDown();                        
                     }
                 }
             }.start();
         }
         ioManager.throwException(new IOException("disk full"));
         check.await();
-        assert(logManager.currentLsn() == logManager.firstCommitListLsn());
+        assert(logManager.currentLsn() >= logManager.firstCommitListLsn());
     }
     
     @Test 
@@ -370,7 +370,9 @@ public class StagingLogManagerTest {
         
         private synchronized void block() {
             try {
-                if ( exception == null ) this.wait();
+                while ( exception == null ) {
+                  this.wait();
+                }
             } catch ( InterruptedException ie ) {
                 throw new RuntimeException(ie);
             }

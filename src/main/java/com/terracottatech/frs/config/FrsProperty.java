@@ -11,9 +11,10 @@ public enum FrsProperty {
   IO_WAIT("io.wait", Type.INTEGER, 200),
   
   IO_NIO_SEGMENT_SIZE("io.nio.segmentSize", Type.LONG, 512L * 1024 * 1024),
-  IO_NIO_MEMORY_SIZE("io.nio.memorySize", Type.LONG, -1L),
-  IO_NIO_WRITING_MEMORY_SIZE("io.nio.writingMemorySize", Type.LONG, 8L * 1024 * 1024),
+  IO_NIO_RECOVERY_MEMORY_SIZE("io.nio.recoveryMemorySize", Type.LONG, -1L),
+  IO_NIO_POOL_MEMORY_SIZE("io.nio.memorySize", Type.LONG, 8L * 1024 * 1024),
   IO_NIO_RANDOM_ACCESS_MEMORY_SIZE("io.nio.randomAccessMemorySize", Type.LONG, -1L),
+  IO_NIO_FILECACHE_MAX("io.nio.randomAccessMemorySize", Type.INTEGER, 32 * 1024),
   IO_NIO_MEMORY_TIMEOUT("io.nio.memoryTimeout", Type.LONG, 0L),
   IO_NIO_BUFFER_BUILDER("io.nio.bufferBuilder", Type.STRING, null),
   IO_NIO_ACCESS_METHOD("io.nio.accessMethod", Type.STRING, "STREAM"),

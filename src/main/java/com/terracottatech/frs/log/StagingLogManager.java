@@ -57,7 +57,6 @@ public class StagingLogManager implements LogManager {
     
     private ChunkExchange                               exchanger;
     private final BlockingQueue<WritingPackage>         queue = new ArrayBlockingQueue<WritingPackage>(8);
-    private IOException                                 blockingException;
     
     private BufferSource    buffers;
 
@@ -197,61 +196,65 @@ public class StagingLogManager implements LogManager {
         long size = 0;
         int fill = 0;
         try {
-        while (!stopped) {
-          CommitList oldRegion = currentRegion;
-          try {
-            if ( !state.acceptRecords() && currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
-                oldRegion.close(currentLsn.get()-1);
-            }
-            long mark = System.nanoTime();
-            processing += (mark - last);
-            oldRegion.waitForContiguous();
-            last = System.nanoTime();
-            waiting += (last - mark);
-            last = System.nanoTime();
-            currentRegion = oldRegion.next();
-            
-            if ( oldRegion.isEmpty() ) {
-                oldRegion.written();
-     //  only skip the IO queue if records are still being accepted,
-     //  if not, the IO thread may need to loosened to shutdown
-                if ( state.acceptRecords() ) continue;
-            }
-            
-            WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
-            if ( wp.isEmpty() ) {
-                continue;
-            } else {
-                wp.run();                
-            }
+          while (!stopped) {
+            CommitList oldRegion = currentRegion;
+            try {
+              if ( !state.acceptRecords() && currentLsn.get()-1 >= oldRegion.getBaseLsn() ) {
+                  oldRegion.close(currentLsn.get()-1);
+              }
+              long mark = System.nanoTime();
+              processing += (mark - last);
+              oldRegion.waitForContiguous();
+              last = System.nanoTime();
+              waiting += (last - mark);
+              last = System.nanoTime();
+              currentRegion = oldRegion.next();
 
-            while ( !queue.offer(wp,200,TimeUnit.MICROSECONDS) ) {
-                if ( stopped ) break;
+              if ( oldRegion.isEmpty() ) {
+                  oldRegion.written();
+       //  only skip the IO queue if records are still being accepted,
+       //  if not, the IO thread may need to loosened to shutdown
+                  if ( state.acceptRecords() ) continue;
+              }
+
+              WritingPackage wp = new WritingPackage(oldRegion,regionFactory);
+              if ( wp.isEmpty() ) {
+                  continue;
+              } else {
+                  wp.run();                
+              }
+
+              while ( !queue.offer(wp,200,TimeUnit.MICROSECONDS) ) {
+                  if ( stopped ) break;
+              }
+
+              size += queue.size();
+              int lf = (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
+              fill += lf;
+              turns+=1;
+  //  if in synchronous mode, wait here so more log records are batched in the next region
+              if ( state.acceptRecords() && oldRegion.isSyncRequested() ) {
+                  try {
+                      oldRegion.get();
+                  } catch ( ExecutionException ee ) {
+                      //  ignore this, this wait is a performace optimization
+                  }
+              }
+            } catch (InterruptedException ie) {
+              oldRegion.exceptionThrown(ie);
+              state = state.checkException(ie);
+            } catch ( Exception t ) {
+              oldRegion.exceptionThrown(t);
+              state = state.checkException(t);
             }
-            
-            size += queue.size();
-            int lf = (int)(oldRegion.getEndLsn() - oldRegion.getBaseLsn());
-            fill += lf;
-            turns+=1;
-//  if in synchronous mode, wait here so more log records are batched in the next region
-            if ( state.acceptRecords() && oldRegion.isSyncRequested() ) {
-                try {
-                    oldRegion.get();
-                } catch ( ExecutionException ee ) {
-                    //  ignore this, this wait is a performace optimization
-                }
-            }
-          } catch (InterruptedException ie) {
-            state.checkException(ie);
           }
-        }
-        
-        asyncPacker.shutdown();
-        if ( turns == 0 ) turns = 1;
-        if ( LOGGER.isDebugEnabled() ) {
-            LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(processing)== waiting: %.3f active: %.3f ave. queue: %d fill: %d",
-                    waiting*1e-6,processing*1e-6,size/(turns),fill/turns).out().toString());
-        }
+
+          asyncPacker.shutdown();
+          if ( turns == 0 ) turns = 1;
+          if ( LOGGER.isDebugEnabled() ) {
+              LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(processing)== waiting: %.3f active: %.3f ave. queue: %d fill: %d",
+                      waiting*1e-6,processing*1e-6,size/(turns),fill/turns).out().toString());
+          }
         } catch ( OutOfMemoryError oome ) {
             LOGGER.error("on write queue thread",oome);
         }
@@ -259,9 +262,9 @@ public class StagingLogManager implements LogManager {
     }
 
     private class IODaemon extends Thread {
-    long waiting;
-    long writing;
-    long written;
+      long waiting;
+      long writing;
+      long written;
     
       IODaemon() {
         setDaemon(true);
@@ -306,19 +309,24 @@ public class StagingLogManager implements LogManager {
             packer.written();
             
           } catch (IOException ioe) {
-            blockingException = ioe;
+            if ( packer != null ) {
+                packer.list.exceptionThrown(ioe);
+            }
             state = state.checkException(ioe);
             if ( packer != null ) {
                 packer.list.exceptionThrown(ioe);
             }
             break;
           } catch (InterruptedException ie) {
+            if ( packer != null ) {
+                packer.list.exceptionThrown(ie);
+            }
             state = state.checkException(ie);
           } catch ( Exception t ) {
-            state = state.checkException(t);
             if ( packer != null ) {
                 packer.list.exceptionThrown(t);
             }
+            state = state.checkException(t);
             break;
           }
         }
@@ -329,7 +337,6 @@ public class StagingLogManager implements LogManager {
                 long floatingLsn = highestOnDisk.get();
                 while ( currentLsn.get() - 1 != floatingLsn ) {
                     CommitList next = queue.take().list;
-                    next.exceptionThrown(blockingException);
                     floatingLsn = next.getEndLsn();
                 }
             } else if ( !queue.isEmpty() ) {
@@ -453,11 +460,7 @@ public class StagingLogManager implements LogManager {
     
     private CommitList _append(LogRecord record, boolean sync) {
         if ( !state.acceptRecords() ) {
-            if ( blockingException != null ) {
-                throw new LogWriteError(blockingException);
-            } else {
-                throw new RuntimeException("frs is not accepting records");
-            }
+          throw new LogWriteError();
         }
         
         while ( state.starting() ) {
@@ -589,11 +592,11 @@ public class StagingLogManager implements LogManager {
         public void run() {
             if ( data == null ) {
                 synchronized (list) {
-                    if ( data == null ) {
-                        data = factory.pack(list);
-               }
+                   if ( data == null ) {
+                      data = factory.pack(list);
+                   }
+                }
             }
-        }
         }
         
         boolean isEmpty() {

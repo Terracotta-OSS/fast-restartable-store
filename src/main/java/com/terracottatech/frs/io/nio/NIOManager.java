@@ -18,7 +18,6 @@ import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.MaskingBufferSource;
-import com.terracottatech.frs.io.RandomAccess;
 import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.util.NullFuture;
 
@@ -58,7 +57,7 @@ public class NIOManager implements IOManager {
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     
     private NIOStreamImpl backend;
-    private RandomAccess  reader;
+    private NIORandomAccess  reader;
     private BufferSource  mainBuffers;
     private long written = 0;
     private long read = 0;
@@ -90,7 +89,7 @@ public class NIOManager implements IOManager {
         this(config.getDBHome().getAbsolutePath(),
             config.getString(FrsProperty.IO_NIO_ACCESS_METHOD),
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
-            config.getLong(FrsProperty.IO_NIO_MEMORY_SIZE),
+            config.getLong(FrsProperty.IO_NIO_RECOVERY_MEMORY_SIZE),
             config.getLong(FrsProperty.IO_NIO_RANDOM_ACCESS_MEMORY_SIZE),
             config.getBoolean(FrsProperty.IO_RANDOM_ACCESS),
             writer
@@ -109,6 +108,9 @@ public class NIOManager implements IOManager {
             } catch ( ClassCastException cce ) {
                 LOGGER.warn("custom builder", cce);
             }
+        } 
+        if ( randomAccess ) {
+          reader.setMaxFiles(config.getInt(FrsProperty.IO_NIO_FILECACHE_MAX));
         }
     }
 // for tests
@@ -204,8 +206,9 @@ public class NIOManager implements IOManager {
                 this.reader = backend.createRandomAccess(getRandomAccessBufferSource());
             }
             Chunk c = this.reader.scan(marker);
-            if ( c == null ) {
-              throw new RuntimeException("overshoot:" + marker + " " + this.backend.getMarker());
+            while ( c == null ) {
+              this.backend.waitForMarker(marker);
+              c = this.reader.scan(marker);
             }
             return c;
         } catch ( InterruptedIOException ioe ) {

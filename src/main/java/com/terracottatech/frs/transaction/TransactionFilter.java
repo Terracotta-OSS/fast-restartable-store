@@ -46,8 +46,7 @@ public class TransactionFilter extends AbstractAdaptingFilter<Action, Action> {
         if (openTransactions.contains(transactionAction.getHandle())) {
           replayed = delegate(((TransactionalAction) transactionAction).getAction(), lsn, filtered);
         } else {
-          replayed = delegate(((TransactionalAction) transactionAction).getAction(), lsn,
-                              true);
+          replayed = delegate(((TransactionalAction) transactionAction).getAction(), lsn, true);
         }
       }
 

@@ -360,7 +360,16 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
           }
           removeChunk(this);
         }
-
+        
+//        @Override
+//        protected void finalize() throws Throwable {
+//          super.finalize(); 
+//          if ( !closed ) {
+//            LOGGER.warn("LEAK DETECTED");
+//            close();
+//          }
+//        }
+        
         @Override
         public ByteBuffer[] getBuffers() {
           if ( loaded ) {
@@ -576,7 +585,6 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
                     cache.clear();
                     
                     return new CloseableChunk() {
-                      
                       boolean localclosed = false;
                       
                       @Override
@@ -609,7 +617,8 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
                   cache = null;
                   readVirtualDirect(offset + position, b);
                   return new CloseableChunk () {
-
+                    boolean localclosed = false;
+                    
                     @Override
                     public ByteBuffer[] getBuffers() {
                       return new ByteBuffer[] {b};
@@ -617,13 +626,23 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
 
                     @Override
                     public void close() throws IOException {
+                      localclosed = true;
                       if ( cache == null ) {
                         cache = b;
                       } else {
                         free(b);
                       }
                     }
-                    
+                      
+//  ONLY FOR DEBUGGING LEAKS
+//                    @Override
+//                    protected void finalize() throws Throwable {
+//                      super.finalize(); 
+//                      if ( !localclosed ) {
+//                        LOGGER.warn("LEAK DETECTED");
+//                        close();
+//                      }
+//                    }
                   };
                 } else {
                   return new FullChunk(offset + position, size);
@@ -648,7 +667,7 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
         @Override
         public String toString() {
           return "VirtualChunk{" + "offset=" + offset + ", length=" + length + ", position=" + position + ", closed=" + closed + '}';
-        }
+        }        
     }
     
     private static abstract class CloseableChunk extends AbstractChunk implements Closeable {

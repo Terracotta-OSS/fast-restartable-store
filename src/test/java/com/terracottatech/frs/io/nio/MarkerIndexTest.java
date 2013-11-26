@@ -25,8 +25,8 @@ import static org.mockito.Mockito.verify;
  */
 public class MarkerIndexTest {
   
-  HeapBufferSource source = spy(new HeapBufferSource(Long.MAX_VALUE));
-  MarkerIndex markers = new MarkerIndex(source);
+  HeapBufferSource source;
+  MarkerIndex markers;
   long[] list;
   
   public MarkerIndexTest() {
@@ -42,6 +42,8 @@ public class MarkerIndexTest {
   
   @Before
   public void setUp() {
+    source = spy(new HeapBufferSource(Long.MAX_VALUE));
+    markers = new MarkerIndex(source);
     list = randomizeJumpList(8192);
     markers.append(list);
   }
@@ -112,5 +114,14 @@ public class MarkerIndexTest {
     markers.close();
     verify(source).returnBuffer(Matchers.any(ByteBuffer.class));
   }
+  
+   @Test
+  public void testAppend() throws Exception {
+    System.out.println("append");
+    markers.append(randomizeJumpList(6000));
+    assertEquals(8192 + 6000, markers.size());
+    System.out.println(markers);
+  }
+   
   
 }

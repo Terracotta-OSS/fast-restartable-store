@@ -22,15 +22,7 @@ import org.slf4j.LoggerFactory;
 class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
 
     private static final        Logger LOGGER = LoggerFactory.getLogger(ReadbackStrategy.class);
-//    private long[]              jumpList;
-//    private final Map<Integer,Long>              markerCache = Collections.synchronizedMap(new LinkedHashMap<Integer,Long>(256,.75f,true) {
-//
-//      @Override
-//      protected boolean removeEldestEntry(Map.Entry<Integer, Long> eldest) {
-//        return size() > 256;
-//      }
-//      
-//    });
+
     private final MarkerIndex                       index;
     private final ReentrantReadWriteLock                          block;
     private volatile boolean    sealed;

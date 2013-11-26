@@ -217,20 +217,18 @@ public abstract class AbstractReadbackStrategyTest {
     @Test
     public void testLargeScan() throws Exception {
         FileBuffer buffer = new FileBuffer(new RandomAccessFile(folder.newFile(),"rw").getChannel(),ByteBuffer.allocate(32 * 1024));
-        TreeMap<Long,String> map = new TreeMap<Long,String>();
+        TreeMap<Long,byte[]> map = new TreeMap<Long,byte[]>();
         Random r = new Random();
         long base = 100;
         for (int x=0;x<8001;x++) {
-          int size = r.nextInt(8192);
+          int size = r.nextInt(4096);
           byte[] data = new byte[size];
           r.nextBytes(data);
-          String val = new String(data);
-          base += r.nextInt(1024);
-          map.put(base,val);
+          base += r.nextInt(1024) + 1;
+          assertNull(map.put(base,data));
           writeDataToChunk(data, buffer, base);
           buffer.write(1);
           buffer.clear();
-          System.out.println("writing entry: " + x);
         }
         buffer.sync(true);
         buffer.position(0);
@@ -238,20 +236,20 @@ public abstract class AbstractReadbackStrategyTest {
         ReadbackStrategy instance = getReadbackStrategy(Direction.RANDOM, buffer);
         //  test scan front
         Chunk c = instance.scan(100L);
-        assertEquals("first",map.firstEntry().getValue(),stringify(c));
+        assertArrayEquals("first",map.firstEntry().getValue(),getBytes(c));
         c = instance.scan(base-1);
-        assertEquals("last",map.lastEntry().getValue(),stringify(c));
+        assertArrayEquals("last",map.lastEntry().getValue(),getBytes(c));
 //  loop middle
         for (int x=0;x<32;x++) {
           long next = r.nextInt((int)base);
-          assertEquals("loop", map.ceilingEntry(next).getValue(),stringify(instance.scan(next)));
+          assertArrayEquals("loop", map.ceilingEntry(next).getValue(),getBytes(instance.scan(next)));
         }
     }
     
-    private String stringify(Chunk c) {
+    private byte[] getBytes(Chunk c) {
       byte[] data = new byte[(int)c.remaining()];
       c.get(data);
-      return new String(data);
+      return data;
     }
     /**
      * Test of size method, of class BufferedRandomAccessStrategy.

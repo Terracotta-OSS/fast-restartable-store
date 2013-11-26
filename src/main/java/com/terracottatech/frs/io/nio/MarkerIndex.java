@@ -30,15 +30,6 @@ public class MarkerIndex implements Closeable {
     this.source = source;
   }
   
-  public MarkerIndex(long offset, long[] jumpList, BufferSource src) {
-    if ( src == null ) {
-      src = new HeapBufferSource(Integer.MAX_VALUE);
-    }
-    this.source = src;
-    expand(jumpList.length);
-    append(jumpList);
-  }
-  
   public long position(int index) {
     return jumpIndex.getLong(ByteBufferUtils.LONG_SIZE * (2 * index));
   }
@@ -85,7 +76,15 @@ public class MarkerIndex implements Closeable {
       if ( jumpIndex != null ) {
         cap += jumpIndex.position();
       }
-      ByteBuffer newspace = source.getBuffer(cap);
+      ByteBuffer newspace = null;
+      if ( cap < 256 * 1024 ) {
+        newspace = source.getBuffer(cap);
+      } else {
+        if ( cap < 1024 * 1024 ) {
+          cap = 1024 * 1024;
+        }
+        newspace = ByteBuffer.allocateDirect(cap);
+      }
       if ( jumpIndex != null ) {
         jumpIndex.flip();
         newspace.put(jumpIndex);
@@ -99,4 +98,11 @@ public class MarkerIndex implements Closeable {
   public void close() throws IOException {
     source.returnBuffer(jumpIndex);
   }
+
+  @Override
+  public String toString() {
+    return "MarkerIndex{" + "source=" + jumpIndex + ", cacheCount=" + cacheCount + '}';
+  }
+  
+  
 }

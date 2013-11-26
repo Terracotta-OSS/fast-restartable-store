@@ -93,6 +93,9 @@ public class SplittingBufferSource implements BufferSource {
   }
   
   private ByteBuffer pauseForMore(int slot) {
+    if ( slot >= cascade.length ) {
+      slot = cascade.length - 1;
+    }
     if ( timeout > 0 ) {
       return cascade[slot].pauseForMore(timeout);
     }

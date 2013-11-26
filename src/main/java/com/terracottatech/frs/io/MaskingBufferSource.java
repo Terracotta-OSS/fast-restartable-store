@@ -30,6 +30,7 @@ public class MaskingBufferSource implements BufferSource {
   public ByteBuffer getBuffer(int size) {
     ByteBuffer src = parent.getBuffer(size);
     if ( src == null ) {
+      LOGGER.warn("using heap for recovery, add more recovery memory " + size);
       return ByteBuffer.allocate(size);
     }
     return add(src);

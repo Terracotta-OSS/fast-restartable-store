@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.junit.Assert.assertEquals;
 import org.junit.BeforeClass;
 
 /**
@@ -242,7 +243,9 @@ public class NIOManagerTest {
        Iterator<LogRecord> logs = lm.startup();
        while ( logs.hasNext() ) {
            LogRecord record = logs.next();
-           if ( lsn > 0 ) assert(lsn-1 == record.getLsn());
+           if ( lsn > 0 ) {
+             assertEquals(lsn-1 ,record.getLsn());
+           };
            lsn = record.getLsn();
        }
     }

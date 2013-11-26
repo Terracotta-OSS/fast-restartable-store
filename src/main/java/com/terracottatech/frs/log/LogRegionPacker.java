@@ -6,7 +6,6 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.SnapshotRequest;
 import com.terracottatech.frs.io.Chunk;
-import com.terracottatech.frs.io.Loadable;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -120,6 +119,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }   
     
 
+    @Override
     public List<LogRecord> unpack(Chunk data) throws FormatException {
         readRegionHeader(data,false);
         
@@ -298,7 +298,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 }
 
                 Chunk payload = buffer.getChunk(len);
-                LogRecord record = ( buffer instanceof Closeable ) ? 
+                LogRecord record = ( payload instanceof Closeable ) ? 
                         new DisposableLogRecordImpl(payload) : 
                         new LogRecordImpl(payload.getBuffers(), null);
                 record.updateLsn(lsn);

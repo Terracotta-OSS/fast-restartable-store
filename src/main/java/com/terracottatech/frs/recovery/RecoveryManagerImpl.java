@@ -74,13 +74,17 @@ public class RecoveryManagerImpl implements RecoveryManager {
         Action action = actionManager.extract(logRecord);
         long ctime = System.nanoTime();
         filter += (ctime - ntime);
-        progressLoggingFilter.filter(action, logRecord.getLsn(), false);
+        boolean replayed = progressLoggingFilter.filter(action, logRecord.getLsn(), false);
         ntime = System.nanoTime();
         put += (ntime - ctime);
         replayFilter.checkError();
         lastRecoveredLsn = logRecord.getLsn();
         if ( action instanceof Disposable ) {
+          if ( !replayed ) {
+            ((Disposable)action).dispose();
+          } else {
 //  taken care of in the filter
+          }
         } else {
           logRecord.close();
         }
@@ -160,9 +164,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
     @Override
     public boolean filter(final Action element, final long lsn, boolean filtered) {
       if (filtered) {
-          if ( element instanceof Disposable ) {
-              ((Disposable)element).dispose();
-          }
+//          if ( element instanceof Disposable ) {
+//              ((Disposable)element).dispose();
+//          }
         return false;
       } else {
         replayed++;
@@ -188,8 +192,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
                         a.replay();
                     }
                 } catch (Throwable t) {
-                firstError.compareAndSet(null, t);
-                LOGGER.error("Error replaying record: " + t.getMessage());
+                  firstError.compareAndSet(null, t);
+                  LOGGER.error("Error replaying record: " + t.getMessage());
                 }
             }
             });

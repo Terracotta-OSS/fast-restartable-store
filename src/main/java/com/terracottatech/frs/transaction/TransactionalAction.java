@@ -141,17 +141,15 @@ class TransactionalAction implements TransactionAction, GettableAction {
 
   @Override
   public void dispose() {
-    try {
-      close();
-    } catch ( IOException ioe ) {
-      throw new RuntimeException(ioe);
+    if ( action instanceof Disposable ) {
+      ((Disposable)action).dispose();
     }
   }
 
   @Override
   public void close() throws IOException {
-    if ( action instanceof Disposable ) {
-      ((Disposable)action).close();
+    if ( action instanceof Closeable ) {
+      ((Closeable)action).close();
     }
   }
 

@@ -130,7 +130,23 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 last = System.nanoTime();
                 fill += queue.size();
                 ChunkProcessing cp = new ChunkProcessing(chunk);
-                queue.put(chunkProcessor.submit(cp));
+                Future<List<LogRecord>> f = chunkProcessor.submit(cp);
+                while ( f != null ) {
+                  try {
+                    queue.put(f);
+                    f = null;
+                  } catch ( InterruptedException ie ) {
+                    if ( master.isDone() ) {
+     //  done, clean up
+                      for ( LogRecord l : f.get() ) {
+                        l.close();
+                      }
+    //  chunk already processed
+                      chunk = null;
+                      throw ie;
+                    }
+                  }
+                }
                 count += 1;
                 waiting += (System.nanoTime() - last);
                 last = System.nanoTime();
@@ -182,6 +198,14 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         try {
             io.seek(IOManager.Seek.BEGINNING.getValue());
             chunkProcessor.shutdown();
+
+            try {
+              while ( !chunkProcessor.isTerminated() ) {
+                chunkProcessor.awaitTermination(10, TimeUnit.SECONDS);
+              }
+            } catch ( InterruptedException ie ) {
+              LOGGER.warn("recovery interrupted", ie);
+            }            
         } catch ( IOException ioe ) {
             LOGGER.info("unable to shutdown recovery",ioe);
         }
@@ -220,7 +244,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         return ioDone;
     }
     
-    public void drainQueue() {
+    private void drainQueue() {
         Future<List<LogRecord>> result = queue.poll();
         while ( result != null ) {
             try {
@@ -366,10 +390,14 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
             
             runner.interrupt();
-            chunkProcessor.shutdown();
+            try {
+              runner.join();
+            } catch ( InterruptedException ie ) {
+              throw new RuntimeException("recovery interrupted");
+            }
             
             drainQueue();
-
+            
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(new Formatter(new StringBuilder()).format("==PERFORMANCE(readIterator)== loaded: %d unloaded: %d count: %d miss: %d avg. wait: %d",
                         loaded, unloaded, recordCount, recordMiss, (recordCount == 0 ) ? 0 : recordWait/recordCount).out().toString());

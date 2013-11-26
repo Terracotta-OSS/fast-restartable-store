@@ -23,6 +23,4 @@ public class MinimalReadbackStrategyTest extends AbstractReadbackStrategyTest {
   public ReadbackStrategy getReadbackStrategy(Direction dir, FileBuffer buffer) throws IOException {
     return new MinimalReadbackStrategy(dir, 100, buffer.getFileChannel(), null);
   }
-  
-  
 }

@@ -5,6 +5,7 @@ package com.terracottatech.frs.flash;
 
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.io.Loadable;
 import com.terracottatech.frs.log.FormatException;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRegionPacker;
@@ -12,39 +13,44 @@ import com.terracottatech.frs.log.Signature;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map.Entry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author mscott
  */
 public class ReadManagerImpl implements ReadManager {
-  
+      
+  private static final Logger LOGGER = LoggerFactory.getLogger(ReadManager.class);
+
   private final IOManager ioManager;
-  private Cache cached = new Cache();
+  private final Cache cached = new Cache();
   
   public ReadManagerImpl(IOManager io) {
     this.ioManager = io;
   }
   
-  public synchronized LogRecord checkCache(long lsn) {
-      LogRecord lr = cached.remove(lsn);
-      if ( lr != null ) {
-          cached.put(lsn,lr);
+  private synchronized Chunk check(long lsn) {
+      Chunk c = cached.get(lsn);
+      if ( c != null ) {
+        long pos = c.position();
+        try {
+          return c.getChunk(c.remaining());
+        } finally { 
+          c.clear();
+          c.skip(pos);
+        }
       }
-      return lr;
+      return null;
   }
   
-  public synchronized LogRecord cacheRecords(long lsn, List<LogRecord> records) {
-      LogRecord target = null;
-      for ( LogRecord lr : records ) {
-          cached.put(lr.getLsn(), lr);
-          if ( lr.getLsn() == lsn ) {
-              target = lr;
-          }
+  private synchronized void cache(long lsn, Chunk records) throws IOException {
+      if ( records instanceof Loadable ) {
+        ((Loadable)records).load();
       }
-      return target;
+      cached.put(lsn, records);
   }
 
   @Override
@@ -68,19 +74,30 @@ public class ReadManagerImpl implements ReadManager {
     }
   }
   
-  static class Cache extends LinkedHashMap<Long, LogRecord> {
+  static class Cache extends LinkedHashMap<Long, Chunk> {
         boolean over = false;
 
-        @Override
-        public LogRecord remove(Object key) {
-            over = false;
-            return super.remove(key); //To change body of generated methods, choose Tools | Templates.
+        public Cache() {
+          super(256, 1.25f, true);
         }
 
         @Override
-        protected boolean removeEldestEntry(Entry<Long, LogRecord> eldest) {
-            if ( over == false && this.size() > 1000 ) {
+        public Chunk remove(Object key) {
+            over = false;
+            return super.remove(key); 
+        }
+
+        @Override
+        protected boolean removeEldestEntry(Entry<Long, Chunk> eldest) {
+            if ( over || this.size() > 512 ) {
                 over = true;
+                if (eldest.getValue() instanceof Closeable ) {
+                  try {
+                    ((Closeable)eldest.getValue()).close();
+                  } catch ( IOException ioe ) {
+                    LOGGER.warn("error closing chunk", ioe);
+                  }
+                }
             }
             return over;
         }

@@ -112,7 +112,13 @@ class NIORandomAccess implements RandomAccess, Closeable {
             }
         }
         return seg;
-    }    
+    }   
+    
+    synchronized void closeToReadHead() throws IOException {
+      int current = segments.getSegmentPosition();
+        
+        cache = cache.closeSegments(current);
+    }
     
     private void cleanCache() throws IOException {
         int fid = segments.getBeginningSegmentId();
@@ -202,6 +208,25 @@ class NIORandomAccess implements RandomAccess, Closeable {
             }
             return new FileCache(limit,livecount,Arrays.copyOfRange(segments, x,segments.length+1));
         }
+        
+  // under lock       
+       public FileCache closeSegments(int limit) throws IOException {
+            if ( limit <= offset ) {
+              return this;
+            }
+            if ( limit > offset + segments.length ) {
+                limit = offset + segments.length;
+            }
+            int x = 0;
+            for (;x + offset < limit;x++) {
+                if ( segments[x] != null ) {
+                    segments[x].close();
+                    segments[x] = null;
+                    livecount--;
+                }
+            }
+            return this;
+        }        
  // under lock       
         public FileCache addSegment(ReadOnlySegment ro) throws IOException {
             if ( ro.getSegmentId() < offset ) {

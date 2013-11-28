@@ -9,6 +9,8 @@ import com.terracottatech.frs.io.Direction;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -21,6 +23,7 @@ class NIOSegmentList implements Iterable<File> {
     private int                           position;
     private int                           segmentId;
     private long                           cachedTotalSize; 
+    private static final Logger LOGGER = LoggerFactory.getLogger(NIOSegmentList.class);
 
     NIOSegmentList(File directory) throws IOException {
         this.directory = directory;  
@@ -123,7 +126,7 @@ class NIOSegmentList implements Iterable<File> {
         segmentId += count;
         position -= count;
         if ((readHead != null && !segments.get(0).equals(readHead)) || segmentId != NIOConstants.convertSegmentNumber(segments.get(0)) ) {
-            throw new AssertionError("bad segment deletion");
+            LOGGER.warn("unable to delete some files during compaction");
         }
         
         cachedTotalSize -= size;
@@ -144,7 +147,7 @@ class NIOSegmentList implements Iterable<File> {
         }
         
         if (readHead != null && !segments.get(position).equals(readHead)) {
-            throw new AssertionError("bad segment deletion");
+            LOGGER.warn("unable to delete some files during compaction");
         }
         
         cachedTotalSize -= size;

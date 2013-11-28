@@ -484,32 +484,35 @@ public class StagingLogManager implements LogManager {
             int waitspin = 2 + (Math.round((float)(Math.random() * 1024f)));
             while ( !mine.append(record,sync) ) {
                 if ( spincount++ > waitspin ) {
-                    try {                      
-                        mine.get();
-                        waitspin += (Math.round((float)(Math.random() * 512f)));
-                    } catch ( InterruptedException ie ) {
-
-                    } catch ( ExecutionException ee ) {
-
-                    }
+                    futureWait(mine);
+                    waitspin += (Math.round((float)(Math.random() * 512f)));
                 }
                 mine = mine.next();
             }
-            
         }
         return mine;
     }
+        
+    private void futureWait(CommitList mine) {
+      try {                      
+          mine.get();
+      } catch ( InterruptedException ie ) {
 
+      } catch ( ExecutionException ee ) {
+
+      }
+    }
 
     @Override
     public Future<Void> append(LogRecord record) {
+// this is not a guaranteed write.  consider returning a future that throws an exception
         return _append(record,false);
       }
     
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        Future<Void> w = _append(record,true);
-        return w;
+        CommitList w = _append(record,true);
+        return new CommitListFuture(record.getLsn(), w);
       }
 
     @Override

@@ -52,6 +52,7 @@ public class AtomicCommitList implements CommitList {
             return false;
         }
         
+        boolean close = false;
         long end = endLsn.get();
         
         if ( end > 0 && end < record.getLsn() ) return false;
@@ -60,13 +61,15 @@ public class AtomicCommitList implements CommitList {
    //  if a sync is requested, go ahead and set the flag whether the 
    //  record actually gets dropped here we need to ensure the sync request moves
    //  with the highest lsn that reqested it.  a couple extra syncs are ok.
-            setSyncRequest(record.getLsn());
+            close = setSyncRequest(record.getLsn());
         }
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
             goLatch.countDown();
-            if ( atHead && ( sync || record instanceof SnapshotRequest )) {
+            if ( atHead && (close || record instanceof SnapshotRequest )) {
+              if (syncRequest.get() == record.getLsn() || record instanceof SnapshotRequest) {
                 checkForClosed();
+              }
             }
         } else {
             return false;
@@ -76,13 +79,16 @@ public class AtomicCommitList implements CommitList {
         return true;
     }
     
-    private void setSyncRequest(long newRequest) {
+    private boolean setSyncRequest(long newRequest) {
         long csync = syncRequest.get();
         while (  csync < newRequest ) {
             if ( !syncRequest.compareAndSet(csync, newRequest) ) {
                 csync = syncRequest.get();
+            } else {
+              return true;
             }
         }
+        return false;
     }
 
     @Override
@@ -152,10 +158,8 @@ public class AtomicCommitList implements CommitList {
             if ( record == null ) {
                 goLatch.countDown();
             } else {
-                CommitList nnext = cnext;
-        //  TODO: is this check necessary?  
-                while ( !nnext.append(record, syncRequest.get() >= record.getLsn()) ) {
-                    nnext = nnext.next();
+                while ( !cnext.append(record, syncRequest.get() == record.getLsn()) ) {
+                    cnext = cnext.next();
                 }
             }
         }

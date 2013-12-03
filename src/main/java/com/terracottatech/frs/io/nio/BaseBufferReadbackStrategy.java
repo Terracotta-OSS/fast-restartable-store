@@ -100,24 +100,24 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
     }
     return source.getBuffer(size);
     //  FOR DEBUGGING ONLY
-    //      ByteBuffer bigger = source.getBuffer(size + 4);
-    //      if ( bigger.getInt(0) != 0 ) {
-    //        throw new AssertionError("stomp");
-    //      }
-    //      bigger.putInt(0xEAC0CA11);
-    //      return bigger;
+//          ByteBuffer bigger = source.getBuffer(size + 4);
+//          if ( bigger.getInt(0) != 0 ) {
+//            throw new AssertionError("stomp " + Integer.toHexString(bigger.getInt(0)));
+//          }
+//          bigger.putInt(0xEAC0CA11);
+//          return bigger;
   }
 
   protected void free(ByteBuffer buf) {
     if (source != null && buf != null) {
-      //  FOR DEBUGGING ONLY
-      //        if ( buf.getInt(0) != 0xEAC0CA11 ) {
-      //          throw new AssertionError("stomp");
-      //        }
-      //        buf.clear();
-      //        while ( buf.hasRemaining() ) {
-      //          buf.put((byte)0);
-      //        }
+//        FOR DEBUGGING ONLY
+//              if ( buf.getInt(0) != 0xEAC0CA11 ) {
+//                throw new AssertionError("stomp " + Integer.toHexString(buf.getInt(0)));
+//              }
+//              buf.clear();
+//              while ( buf.hasRemaining() ) {
+//                buf.put((byte)0);
+//              }
       source.returnBuffer(buf);
     }
   }
@@ -237,15 +237,6 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
               closed = true;
               parent.close();
             }
-//  ONLY FOR DEBUGGING LEAKS
-//            @Override
-//            protected void finalize() throws Throwable {
-//              super.finalize(); 
-//              if ( !closed ) {
-//                LOGGER.warn("LEAK DETECTED");
-//                close();
-//              }
-//            }
           };        
         }
 
@@ -262,15 +253,6 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
             removeChunk(this);
           }
         }
-//  ONLY FOR DEBUGGING LEAKS
-//        @Override
-//        protected void finalize() throws Throwable {
-//          super.finalize(); 
-//          if ( !closed ) {
-//            LOGGER.warn("LEAK DETECTED");
-//            close();
-//          }
-//        }
       }
 
       protected class VirtualChunk implements Chunk, Closeable, Loadable {
@@ -360,15 +342,6 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
           }
           removeChunk(this);
         }
-        
-//        @Override
-//        protected void finalize() throws Throwable {
-//          super.finalize(); 
-//          if ( !closed ) {
-//            LOGGER.warn("LEAK DETECTED");
-//            close();
-//          }
-//        }
         
         @Override
         public ByteBuffer[] getBuffers() {
@@ -602,48 +575,7 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
                           free(cache);
                         }
                       }
-//  ONLY FOR DEBUGGING LEAKS
-//                      @Override
-//                      protected void finalize() throws Throwable {
-//                        super.finalize(); 
-//                        if ( !localclosed ) {
-//                          LOGGER.warn("LEAK DETECTED");
-//                          close();
-//                        }
-//                      }
                     };
-                } else if ( size <= 32 ) {
-                  final ByteBuffer b = cache((int)size);
-                  cache = null;
-                  readVirtualDirect(offset + position, b);
-                  return new CloseableChunk () {
-                    boolean localclosed = false;
-                    
-                    @Override
-                    public ByteBuffer[] getBuffers() {
-                      return new ByteBuffer[] {b};
-                    }
-
-                    @Override
-                    public void close() throws IOException {
-                      localclosed = true;
-                      if ( cache == null ) {
-                        cache = b;
-                      } else {
-                        free(b);
-                      }
-                    }
-                      
-//  ONLY FOR DEBUGGING LEAKS
-//                    @Override
-//                    protected void finalize() throws Throwable {
-//                      super.finalize(); 
-//                      if ( !localclosed ) {
-//                        LOGGER.warn("LEAK DETECTED");
-//                        close();
-//                      }
-//                    }
-                  };
                 } else {
                   return new FullChunk(offset + position, size);
                 }

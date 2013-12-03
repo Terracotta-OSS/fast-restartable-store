@@ -5,7 +5,9 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.SnapshotRequest;
+import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.SimpleBufferSource;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -31,6 +33,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + (2 * ByteBufferUtils.LONG_SIZE);
     static final int LOG_REGION_HEADER_SIZE = (2 * ByteBufferUtils.SHORT_SIZE) + (2 * ByteBufferUtils.LONG_SIZE);
 
+    private final BufferSource source;
+
     //  just hinting
     private int tuningMax = 10;
     private static final short REGION_VERSION = 02;
@@ -40,9 +44,15 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     private final Signature cType;
     
     public LogRegionPacker(Signature sig) {
+        this(sig, new SimpleBufferSource());
+    }   
+    
+    public LogRegionPacker(Signature sig, BufferSource src) {
         cType = sig;
         
         assert(cType == Signature.NONE || cType == Signature.ADLER32);
+        
+        this.source = ( src == null ) ? new SimpleBufferSource() : src;
     }   
     
     @Override
@@ -77,21 +87,32 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
            });
 
         if ( !holder.isEmpty() ) {
-            return new SnapshotBufferList(c.getBuffers(),holder);
+            return new SnapshotBufferList(Arrays.asList(c.getBuffers()),holder);
         } else {
             return c;
         }
     }
     
-    public static LogRecord extract(Signature type, Chunk data, long match) throws FormatException {
-        readRegionHeader(data,type == Signature.ADLER32);
-        
+    public static LogRecord extract(Signature type, Chunk data, long match) throws FormatException, IOException {
+        long[] spreads = readRegionHeader(data,type == Signature.ADLER32);
+        long skip = 0;
+        for ( long j : spreads ) {
+          long mark = data.getLong(data.position() + skip + j + ByteBufferUtils.SHORT_SIZE);
+          if ( mark > match ) {
+            break;
+          } else {
+            skip += j;
+          }
+        }
+
+        data.skip(skip);
+          
         LogRecord target = null;
         while ( target == null ) {
           if ( !data.hasRemaining() ) {
             return null;
           }
-            target = readRecord(data,match);
+          target = readRecord(data,match);
         }
         return target;
     }
@@ -134,20 +155,17 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         int count = 0;
-                
-        ByteBuffer headers = ByteBuffer.allocate(LOG_REGION_HEADER_SIZE + (LOG_RECORD_HEADER_SIZE * 1024));
-        headers.limit(LOG_REGION_HEADER_SIZE);
-        ByteBuffer regionHeader = headers.slice();
-        headers.position(headers.limit()).limit(headers.capacity());
+
+        ByteBuffer regionHeader = source.getBuffer(LOG_REGION_HEADER_SIZE);
+        ByteBuffer hints = source.getBuffer(1024);
 
         buffers.add(regionHeader);
+        buffers.add(hints);
+        
+        ArrayList<Long> spreads = new ArrayList<Long>();
+        long pos = 0;
         for (LogRecord record : records) {
-            if ( headers.remaining() < LOG_RECORD_HEADER_SIZE) {
-                headers = ByteBuffer.allocate((LOG_RECORD_HEADER_SIZE * 1024));
-            }
-            headers.limit(headers.position() + LOG_RECORD_HEADER_SIZE);
-            ByteBuffer rhead = headers.slice();
-            headers.position(headers.limit()).limit(headers.capacity());
+            ByteBuffer rhead = source.getBuffer(LOG_RECORD_HEADER_SIZE);
             
             buffers.add(rhead);
 
@@ -156,23 +174,35 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             for ( ByteBuffer bb : payload ) {
                 len += bb.remaining();
                 buffers.add(bb);
-                count++;
             }
-
+            pos += len;
+            pos += LOG_RECORD_HEADER_SIZE;
+            if ( ++count % 16 == 15 ) {
+              spreads.add(pos);
+              pos = 0;
+            }
             formRecordHeader(len,record.getLsn(),rhead);
             rhead.flip();
         }
         
-        formRegionHeader(doChecksum() ? checksum(buffers.subList(1, buffers.size())) : 0,regionHeader);
+        hints.putShort((short)spreads.size());
+        for ( Long s : spreads ) {
+          hints.putLong(s);
+        }
+        
+        hints.flip();
+
+        formRegionHeader(doChecksum() ? checksum(buffers.subList(2, buffers.size())) : 0,regionHeader);
         tuningMax = tuningMax + (int)Math.round((count - tuningMax) * .1);
-        return new BufferListWrapper(buffers);
+        
+        return new BufferListWrapper(buffers, source);
     }
     
     protected boolean doChecksum() {
         return cType == Signature.ADLER32;
     }
     
-    private static void readRegionHeader(Chunk data, boolean checksum) throws FormatException {
+    private static long[] readRegionHeader(Chunk data, boolean checksum) throws FormatException {
         Chunk header = data.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE + 2);
         try {
             short region = header.getShort();
@@ -190,6 +220,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 throw new FormatException("log region has an unrecognized version code");
             }
 
+            long[] spreads = readSpreads(data);
+            
             if ( check != 0 && checksum ) {
                 long value = data.getBuffers() == null ? 
                     checksum(data) : checksum(Arrays.asList(data.getBuffers()));
@@ -198,6 +230,10 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                     throw new FormatException("Adler32 checksum is not correct",check,value,data.length());
                 }
             }    
+            
+            return spreads;
+        } catch ( IOException ioe ) {
+          throw new RuntimeException(ioe);
         } finally {
             if ( header instanceof Closeable ) {
                 try {
@@ -207,6 +243,19 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 }
             }
         }
+    }
+    
+    private static long[] readSpreads(Chunk data) throws IOException {
+      short len = data.getShort();
+      long[] list = new long[len];
+      Chunk c = data.getChunk(len * ByteBufferUtils.LONG_SIZE);
+      for (int x=0;x<list.length;x++) {
+        list[x] = c.getLong();
+      }
+      if ( c instanceof Closeable ) {
+        ((Closeable)c).close();
+      }
+      return list;
     }
     
     protected int formRegionHeader(long checksum, ByteBuffer header) {
@@ -281,7 +330,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             LOGGER.error("MD5 checksumming selected but the package is not available",no);
             return new byte[16];
         }
-    }    
+    }  
     
     private static LogRecord readRecord(Chunk buffer,long match) throws FormatException {
         Chunk header = buffer.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE);
@@ -306,7 +355,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             } else {
                 buffer.skip(len);
                 return null;
-            }
+            } 
         } catch ( Exception exp ) {
           throw new RuntimeException("lsn:" + lsn + " len:" + len + " match:" + match,exp);
         } finally {

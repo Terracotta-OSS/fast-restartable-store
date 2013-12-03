@@ -7,7 +7,7 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.io.BufferSource;
-import com.terracottatech.frs.io.HeapBufferSource;
+import com.terracottatech.frs.io.SimpleBufferSource;
 import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -25,7 +25,7 @@ public class MarkerIndex implements Closeable {
 
   public MarkerIndex(BufferSource source) {
     if ( source == null ) {
-      source = new HeapBufferSource(Integer.MAX_VALUE);
+      source = new SimpleBufferSource();
     }
     this.source = source;
   }

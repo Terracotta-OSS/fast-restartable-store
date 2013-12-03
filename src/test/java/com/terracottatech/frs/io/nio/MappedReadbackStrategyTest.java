@@ -20,6 +20,6 @@ public class MappedReadbackStrategyTest extends AbstractReadbackStrategyTest {
     
     @Override
     public ReadbackStrategy getReadbackStrategy(Direction dir, FileBuffer buffer) throws IOException {
-        return new MappedReadbackStrategy(buffer, dir);
+        return new MappedReadbackStrategy(buffer.getFileChannel(), dir);
     }
 }

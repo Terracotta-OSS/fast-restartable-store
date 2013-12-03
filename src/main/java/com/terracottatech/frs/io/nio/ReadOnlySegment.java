@@ -8,6 +8,8 @@ import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
+import com.terracottatech.frs.io.SimpleBufferSource;
+import com.terracottatech.frs.io.WrappingChunk;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,6 +37,9 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
     
     public synchronized ReadOnlySegment load(BufferSource src) throws IOException {
         if ( strategy == null ) {
+          if ( src == null ) {
+            src = new SimpleBufferSource();
+          }
             try {
                 if ( dir == Direction.RANDOM ) {
                     strategy = openForRandomAccess(src);
@@ -56,16 +61,16 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
             throw new HeaderException("bad header", this);
         }
         
-        FileBuffer buffer = (getStream() != null) ? getStream().createFileBuffer(source, 8192) :
-                new FileBuffer(source, ByteBuffer.allocate(8192));
-        buffer.partition(FILE_HEADER_SIZE);
-        buffer.read(1);
-        readFileHeader(buffer);
+        ByteBuffer header = src.getBuffer(FILE_HEADER_SIZE);
+        source.read(header);
+        header.flip();
+        readFileHeader(new WrappingChunk(header));
+        src.returnBuffer(header);
             
         if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(buffer, Direction.REVERSE);
+            return new MappedReadbackStrategy(source, Direction.REVERSE);
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new MinimalReadbackStrategy(Direction.REVERSE, getMinimumMarker(), buffer.getFileChannel(), src);
+            return new MinimalReadbackStrategy(Direction.REVERSE, getMinimumMarker(), source, src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }
@@ -79,16 +84,16 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
             throw new HeaderException("bad header", this);
         }
         
-        FileBuffer buffer = (getStream() != null) ? getStream().createFileBuffer(source, 64) :
-                new FileBuffer(source, ByteBuffer.allocate(8192));
-        buffer.partition(FILE_HEADER_SIZE);
-        buffer.read(1);
-        readFileHeader(buffer);
+        ByteBuffer header = src.getBuffer(FILE_HEADER_SIZE);
+        source.read(header);
+        header.flip();
+        readFileHeader(new WrappingChunk(header));
+        src.returnBuffer(header);
             
         if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(buffer, Direction.RANDOM); 
+            return new MappedReadbackStrategy(source, Direction.RANDOM); 
         } else if ( method == NIOAccessMethod.STREAM ) {
-            return new MinimalReadbackStrategy(Direction.RANDOM, getMinimumMarker(), buffer.getFileChannel(), src);
+            return new MinimalReadbackStrategy(Direction.RANDOM, getMinimumMarker(), source, src);
         } else {
             throw new RuntimeException("unrecognized readback method");
         }

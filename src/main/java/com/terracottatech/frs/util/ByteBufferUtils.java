@@ -126,6 +126,14 @@ public abstract class ByteBufferUtils {
         }
     }
     
+    public static long length(ByteBuffer[] list ) {
+      long len = 0;
+      for (ByteBuffer buf : list ) {
+          len += buf.remaining();
+      }
+      return len;
+    }
+    
     public static void clear(ByteBuffer[] list) {
         for (ByteBuffer buf : list ) {
             buf.clear();

@@ -16,9 +16,9 @@ import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.MaskingBufferSource;
 import com.terracottatech.frs.io.SplittingBufferSource;
+import java.io.Closeable;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Formatter;
 import java.util.Iterator;
@@ -296,10 +296,12 @@ public class StagingLogManager implements LogManager {
             if (io.getCurrentMarker()+1 != packer.baseLsn()) {
                 throw new AssertionError("lsns not sequenced " + io.getCurrentMarker()+1 + " != " + packer.baseLsn());
             }
+            
             written += io.write(c,packer.endLsn());
-            for ( ByteBuffer giveBack : c.getBuffers() ) {
-                buffers.returnBuffer(giveBack);
-            }
+            
+            if ( c instanceof Closeable ) {
+              ((Closeable)c).close();
+            } 
 
             if ( packer.doSync() ) {
                 io.sync();

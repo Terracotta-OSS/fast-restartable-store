@@ -27,14 +27,17 @@ public class ReadManagerImpl implements ReadManager {
 
   private final IOManager ioManager;
   private final Cache cached = new Cache();
+  private int hit;
+  private int miss;
   
   public ReadManagerImpl(IOManager io) {
     this.ioManager = io;
   }
-  
+// UNUSED  
   private synchronized Chunk check(long lsn) {
       Chunk c = cached.get(lsn);
       if ( c != null ) {
+        hit++;
         long pos = c.position();
         try {
           return c.getChunk(c.remaining());
@@ -43,15 +46,26 @@ public class ReadManagerImpl implements ReadManager {
           c.skip(pos);
         }
       }
+      miss++;
       return null;
   }
-  
-  private synchronized void cache(long lsn, Chunk records) throws IOException {
+// UNUSED  
+  private synchronized Chunk cache(long lsn, Chunk records) throws IOException {
+      if ( records == null ) {
+        return null;
+      }
       if ( records instanceof Loadable ) {
         ((Loadable)records).load();
       }
       cached.put(lsn, records);
-  }
+      long pos = records.position();
+      try {
+        return records.getChunk(records.remaining());
+      } finally { 
+        records.clear();
+        records.skip(pos);
+      }
+    }
 
   @Override
   public LogRecord get(long marker) throws IOException {

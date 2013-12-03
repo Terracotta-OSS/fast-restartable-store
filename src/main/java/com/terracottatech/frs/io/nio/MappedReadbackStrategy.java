@@ -21,16 +21,16 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
 
-    private final FileBuffer source;
+    private final   FileChannel                           source;
     private final   AppendableChunk                        data;
     private final   NavigableMap<Long,Marker>              boundaries;
     private final ReadWriteLock lock;
     private long offset = 0;
     
         
-    public MappedReadbackStrategy(FileBuffer src, Direction dir) throws IOException {
-        this.source = src;
-        MappedByteBuffer mapped = source.getFileChannel().map(FileChannel.MapMode.READ_ONLY,0,(int)source.size());
+    public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
+      this.source = src;
+        MappedByteBuffer mapped = src.map(FileChannel.MapMode.READ_ONLY,0,(int)src.size());
 
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
         this.data.skip(source.position());
@@ -120,7 +120,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         }
         if ( this.isCloseDetected() ) {
             data.destroy();
-            data.append(source.getFileChannel().map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
+            data.append(source.map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
             if ( data.remaining() < boundaries.lastEntry().getValue().getStart() ) {
                 throw new AssertionError("bad boundaries " + data.remaining() + " " 
                         + boundaries.lastEntry().getValue().getStart());
@@ -143,7 +143,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             if ( data.hasRemaining() ) {
                 throw new AssertionError("bad tail");
             }
-            MappedByteBuffer buffer = source.getFileChannel().map(FileChannel.MapMode.READ_ONLY, len, source.size() - len);
+            MappedByteBuffer buffer = source.map(FileChannel.MapMode.READ_ONLY, len, source.size() - len);
             data.append(buffer);
             return true;
         }

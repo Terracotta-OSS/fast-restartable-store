@@ -8,6 +8,8 @@ package com.terracottatech.frs.io;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  *
@@ -122,7 +124,10 @@ public class SplittingBufferSource implements BufferSource {
     } else if ( slot < 0 ) {
         throw new OutOfMemoryError("OOME");
     }
-    ByteBuffer split = cascade[slot].pop();
+    ByteBuffer split = cascade[slot].lazyPop();
+    if ( split == null ) {
+      split = cascade[slot].pop();
+    }
     if ( split == null ) {
       split = split(slot-1);
       int order = split.getInt(4);
@@ -139,11 +144,19 @@ public class SplittingBufferSource implements BufferSource {
 
   @Override
   public void returnBuffer(ByteBuffer buffer) {
+      returnBufferToSlot(buffer, true);
+  }
+  
+  private void returnBufferToSlot(ByteBuffer buffer, boolean lazy) {
     if ( buffer.getInt(4) == Integer.MIN_VALUE ) {
       return;
     }
     int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(buffer.capacity()) + 1);
-    cascade[slot--].push(buffer);
+    if ( lazy ) {
+      cascade[slot].lazyPush(buffer);
+    } else {
+      cascade[slot].push(buffer);
+    }
   }
 
   @Override
@@ -178,7 +191,7 @@ public class SplittingBufferSource implements BufferSource {
   
   int largestChunk() {
     for ( Stack s : cascade ) {
-      if ( s.pointer > 0 ) {
+      if ( s.pointer > 0 || !s.lazy.isEmpty() ) {
         return s.blocksz;
       }
     }
@@ -192,6 +205,7 @@ public class SplittingBufferSource implements BufferSource {
     private  ByteBuffer[] slots;
     private final int order;
     private final int blocksz;
+    private final Queue<ByteBuffer> lazy = new ConcurrentLinkedQueue<ByteBuffer>();
 
     public Stack(int order) {
       this.slots = new ByteBuffer[1];
@@ -199,7 +213,22 @@ public class SplittingBufferSource implements BufferSource {
       this.blocksz = base.capacity() >> order;
     }
     
+    private void lazyLoad() {
+      ByteBuffer item = lazy.poll();
+      while ( item != null ) {
+        add(item);
+        item = lazy.poll();
+      }
+    }
+    
+    ByteBuffer lazyPop() {
+      return lazy.poll();
+    }
+    
     synchronized ByteBuffer pop() {
+      if ( !lazy.isEmpty() ) {
+        lazyLoad();
+      }
       if ( pointer == 0 ) {
         return null;
       }
@@ -227,6 +256,7 @@ public class SplittingBufferSource implements BufferSource {
     }
     
     synchronized ByteBuffer pauseForMore(long sleep) {
+      lazyLoad();
       if ( pointer == 0 ) {
         try {
           waiting++;
@@ -259,6 +289,10 @@ public class SplittingBufferSource implements BufferSource {
       }
     }
     
+    void lazyPush(ByteBuffer bb) {
+      lazy.add(bb);
+    }
+    
     synchronized void push(ByteBuffer bb) {
       add(bb);
       if ( waiting > 0 ) {
@@ -279,6 +313,8 @@ public class SplittingBufferSource implements BufferSource {
     }
     
     synchronized ByteBuffer reclaim() {
+      lazyLoad();
+
       if ( pointer < 2) {
         return null;
       }
@@ -308,6 +344,9 @@ public class SplittingBufferSource implements BufferSource {
       int size = 0;
       for ( int x=0;x<pointer;x++ ) {
         size += slots[x].capacity();
+      }
+      for ( ByteBuffer b : lazy ) {
+        size += b.capacity();
       }
       return size;
     }

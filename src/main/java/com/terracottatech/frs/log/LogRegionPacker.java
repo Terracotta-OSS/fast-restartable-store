@@ -37,9 +37,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
     //  just hinting
     private int tuningMax = 10;
-    private static final short REGION_VERSION = 02;
-    private static final byte[] REGION_FORMAT = "NF".getBytes();
-    private static final short LR_FORMAT = 02;
+    static final short REGION_VERSION = 02;
+    static final byte[] REGION_FORMAT = "NF".getBytes();
+    static final short LR_FORMAT = 02;
     private static final String BAD_CHECKSUM = "bad checksum";
     private final Signature cType;
     
@@ -165,6 +165,10 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         ArrayList<Long> spreads = new ArrayList<Long>();
         long pos = 0;
         for (LogRecord record : records) {
+            if ( pos > 0 && count % 16 == 0 ) {
+              spreads.add(pos);
+              pos = 0;
+            }
             ByteBuffer rhead = source.getBuffer(LOG_RECORD_HEADER_SIZE);
             
             buffers.add(rhead);
@@ -177,10 +181,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
             }
             pos += len;
             pos += LOG_RECORD_HEADER_SIZE;
-            if ( ++count % 16 == 15 ) {
-              spreads.add(pos);
-              pos = 0;
-            }
+            count++;
             formRecordHeader(len,record.getLsn(),rhead);
             rhead.flip();
         }
@@ -353,6 +354,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 record.updateLsn(lsn);
                 return record;
             } else {
+                if ( lsn > match ) {
+                  throw new AssertionError();
+                }
                 buffer.skip(len);
                 return null;
             } 

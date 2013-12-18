@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.SnapshotRequest;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,6 +54,18 @@ public class AtomicCommitListTest {
       assertThat(record, is(record0));
     }
   }
+  
+  @Test
+  public void testLongSnapshot() throws Exception {
+    CommitList current = commitList;
+    long lsn = 10;
+    while ( current == commitList ) {
+      current = append(record(lsn++));
+    }
+    current = append(snapshot(lsn++));
+
+    assertThat("make sure commitlist is closed", current.getEndLsn() == lsn-1);
+  }  
   
   @Test
   public void testOneElementSync() throws Exception {
@@ -189,6 +202,11 @@ public class AtomicCommitListTest {
       }
   }
   
+  private LogRecord snapshot(long lsn) {
+    LogRecord record = mock(SnapshotRecord.class);
+    when(record.getLsn()).thenReturn(lsn);
+    return record;
+  }  
   
   
   private LogRecord record(long lsn) {
@@ -197,11 +215,12 @@ public class AtomicCommitListTest {
     return record;
   }
 
-  private void append(LogRecord record) {
+  private CommitList append(LogRecord record) {
     CommitList l = commitList;
     while (!l.append(record,false)) {
       l = l.next();
     }
+    return l;
   }
 
   private void close(long lsn) {
@@ -209,5 +228,9 @@ public class AtomicCommitListTest {
     while (!l.close(lsn)) {
       l = l.next();
     }
+  }
+  
+  private static abstract class SnapshotRecord implements LogRecord, SnapshotRequest {
+    
   }
 }

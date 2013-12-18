@@ -66,10 +66,8 @@ public class AtomicCommitList implements CommitList {
         
         if ( regions.compareAndSet((int) (record.getLsn() - baseLsn), null, record) ) {
             goLatch.countDown();
-            if ( atHead && (close || record instanceof SnapshotRequest )) {
-              if (syncRequest.get() == record.getLsn() || record instanceof SnapshotRequest) {
-                checkForClosed();
-              }
+            if ( (atHead && close && syncRequest.get() == record.getLsn()) || record instanceof SnapshotRequest) {
+              checkForClosed();
             }
         } else {
             return false;

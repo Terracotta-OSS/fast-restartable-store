@@ -33,6 +33,7 @@ public class OfflineCompactor {
 
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(), "NoCompactionPolicy");
+    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
 
     RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> outputStore =
             RestartStoreFactory.createStore(

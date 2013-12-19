@@ -4,6 +4,8 @@
  */
 package com.terracottatech.frs.object;
 
+import com.terracottatech.frs.Constants;
+
 /**
  * @author tim
  */
@@ -51,7 +53,7 @@ public class NullObjectManager<I, K, V> implements ObjectManager<I, K, V> {
 
   @Override
   public long getLowestLsn() {
-      return -1;
+      return Constants.GENESIS_LSN;
   }
 
   @Override

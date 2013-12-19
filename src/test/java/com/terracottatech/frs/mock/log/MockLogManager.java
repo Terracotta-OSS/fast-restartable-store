@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.mock.log;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
@@ -104,7 +105,7 @@ public class MockLogManager implements LogManager {
     public synchronized Future<Void> append(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
-            ioManager.write(packer.pack(new MockLogRegion(record)),100);
+            ioManager.write(packer.pack(new MockLogRegion(record)),Constants.FIRST_LSN);
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
@@ -115,7 +116,7 @@ public class MockLogManager implements LogManager {
     public Future<Void> appendAndSync(LogRecord record) {
         record.updateLsn(currentLsn.getAndIncrement());
         try {
-            ioManager.write(packer.pack(new MockLogRegion(record)),100);
+            ioManager.write(packer.pack(new MockLogRegion(record)),Constants.FIRST_LSN);
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }

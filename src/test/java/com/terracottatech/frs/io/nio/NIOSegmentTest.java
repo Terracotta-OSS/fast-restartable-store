@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.AbstractChunk;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.nio.NIOStreamImpl;
@@ -44,7 +45,7 @@ public class NIOSegmentTest {
     public void setUp() throws IOException {
             workarea = folder.newFolder();
             stream = new NIOStreamImpl(workarea, (1 * 1024 * 1024));
-            stream.setMinimumMarker(100);
+            stream.setMinimumMarker(Constants.FIRST_LSN);
     }
 
     @After
@@ -72,7 +73,7 @@ public class NIOSegmentTest {
                 return 40;
             }
         };
-            long result = stream.append(c,100);
+            long result = stream.append(c,Constants.FIRST_LSN);
             assertEquals(72l, result);  //  length of these bytes plus 32 bytes of header for LogRegions
     }
 

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
@@ -82,8 +83,8 @@ public abstract class NIOMarkersTest {
     
     @Test
     public void testSyncClean() throws Exception {
-        current = 100;
-        min = 100;
+        current = Constants.FIRST_LSN;
+        min = Constants.FIRST_LSN;
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {
             writeChunkWithMarkers(10);

@@ -1,5 +1,6 @@
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.*;
 import com.terracottatech.frs.log.BufferListWrapper;
 import com.terracottatech.frs.util.JUnitTestFolder;
@@ -33,7 +34,7 @@ public class NIOStreamImplTest {
   public void setUp() throws Exception {
     workArea = folder.newFolder();
     stream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10, new HeapBufferSource(512*1024*1024));
-        stream.setMinimumMarker(100);
+        stream.setMinimumMarker(Constants.FIRST_LSN);
         
         long seed = System.currentTimeMillis();
     r = new Random(seed);
@@ -51,7 +52,7 @@ public class NIOStreamImplTest {
    */
   @Test
   public void testAppend() throws Exception {
-    assertThat(stream.append(newChunk(1),100), is(CHUNK_OVERHEAD + 1));
+    assertThat(stream.append(newChunk(1),Constants.FIRST_LSN), is(CHUNK_OVERHEAD + 1));
     assertThat(listFiles().length, is(1));
 
     assertThat(stream.append(newChunk(MAX_SEGMENT_SIZE - 2),200),
@@ -66,7 +67,7 @@ public class NIOStreamImplTest {
   public void testRead() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
-    long marker = 100;
+    long marker = Constants.FIRST_LSN;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
       stream.append(newChunk(s),marker+=100);
@@ -89,7 +90,7 @@ public class NIOStreamImplTest {
   public void testConstrainedMemoryRead() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
-    long marker = 100;
+    long marker = Constants.FIRST_LSN;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
       stream.append(newChunk(s),marker+=100);
@@ -129,7 +130,7 @@ public class NIOStreamImplTest {
   public void testSync() throws Exception {
     System.out.println("sync");
     Chunk c = new WrappingChunk(ByteBuffer.allocateDirect(1024));
-    stream.append(c,100);
+    stream.append(c,Constants.FIRST_LSN);
     stream.sync();
     File lock = new File(workArea.getAbsolutePath() + "/FRS.lck");
     assertTrue(lock.exists());
@@ -143,7 +144,7 @@ public class NIOStreamImplTest {
   public void testOpen() throws Exception {
     long size = 30 * 1024 * 1024;
     int numChunks = 0;
-    long marker = 100;
+    long marker = Constants.FIRST_LSN;
     while (size > 0) {
       int s = r.nextInt((int) (size + 1));
       stream.append(newChunk(s),marker += 100);
@@ -166,7 +167,7 @@ public class NIOStreamImplTest {
     
   @Test
   public void testMiniBuffers() throws Exception {
-    stream.append(newChunk(40),100);
+    stream.append(newChunk(40),Constants.FIRST_LSN);
 
     stream.close();
     NIOSegmentList list = new NIOSegmentList(workArea);
@@ -182,7 +183,7 @@ public class NIOStreamImplTest {
   
   @Test
   public void testMegaBuffers() throws Exception {
-    stream.append(newChunk(10 * 1024 * 1024),100);
+    stream.append(newChunk(10 * 1024 * 1024),Constants.FIRST_LSN);
 
     stream.close();
     NIOSegmentList list = new NIOSegmentList(workArea);

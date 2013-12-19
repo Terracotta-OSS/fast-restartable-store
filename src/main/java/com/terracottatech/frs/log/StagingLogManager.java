@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +48,7 @@ public class StagingLogManager implements LogManager {
     private volatile CommitList currentRegion;
     private final AtomicLong currentLsn = new AtomicLong(100);
     private final AtomicLong lowestLsn = new AtomicLong(0);
-    private final AtomicLong highestOnDisk = new AtomicLong(99);
+    private final AtomicLong highestOnDisk = new AtomicLong(Constants.GENESIS_LSN);
     private Signature  checksumStyle;
     private final IOManager io;
     private volatile LogMachineState   state = LogMachineState.IDLE;
@@ -61,20 +62,20 @@ public class StagingLogManager implements LogManager {
     private BufferSource    buffers;
 
     public StagingLogManager(IOManager io) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io, null);
+        this(Signature.ADLER32,new AtomicCommitList( Constants.FIRST_LSN, 1024, 200),io, null);
     }
         
     public StagingLogManager(IOManager io, BufferSource src, Configuration config) {
-        this(Signature.ADLER32,new AtomicCommitList( 100l, 1024, 200),io, src);
+        this(Signature.ADLER32,new AtomicCommitList( Constants.FIRST_LSN, 1024, 200),io, src);
         String checksum = config.getString(FrsProperty.IO_CHECKSUM);
         this.checksumStyle = Signature.valueOf(checksum);
         this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
         this.RECOVERY_QUEUE_SIZE = config.getInt(FrsProperty.IO_RECOVERY_QUEUE_SIZE);
         String commitList = config.getString(FrsProperty.IO_COMMITLIST);
         if ( commitList.equals("ATOMIC") ) {
-            this.currentRegion = new AtomicCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
+            this.currentRegion = new AtomicCommitList(Constants.FIRST_LSN, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
         } else if ( commitList.equals("STACKING") ) {
-            this.currentRegion = new StackingCommitList(100, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
+            this.currentRegion = new StackingCommitList(Constants.FIRST_LSN, MAX_QUEUE_SIZE, config.getInt(FrsProperty.IO_WAIT));
         }
 
     }
@@ -140,7 +141,7 @@ public class StagingLogManager implements LogManager {
         
         currentLsn.set(lastLsn + 1);
         highestOnDisk.set(lastLsn);
-        if ( lowest < 100 ) lowest = 100;
+        if ( lowest < Constants.FIRST_LSN ) lowest = Constants.FIRST_LSN;
         lowestLsn.set(lowest);
         
         currentRegion = currentRegion.create(lastLsn + 1);

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
@@ -43,7 +44,7 @@ import org.junit.BeforeClass;
  */
 public class NIOManagerTest {
     private NIOManager manager;
-    private long lsn = 100;
+    private long lsn = Constants.FIRST_LSN;
     private File workArea;
     private Configuration config;
     private static BufferSource src;
@@ -75,7 +76,7 @@ public class NIOManagerTest {
         } catch ( Throwable t ) {
           t.printStackTrace();
         }
-        manager.setMinimumMarker(100);
+        manager.setMinimumMarker(Constants.FIRST_LSN);
     }
     
     @After
@@ -113,7 +114,7 @@ public class NIOManagerTest {
         int lastSync = -1;
         long lastLen = 0;
         long total = System.nanoTime();
-        long marker = 100;
+        long marker = Constants.FIRST_LSN;
         for ( int x=0;x<count;x++) {
             Chunk test = createLogRegion();
             long start = System.nanoTime();
@@ -226,7 +227,7 @@ public class NIOManagerTest {
     @Test
     public void testReader() throws IOException {
         System.out.println("reader");
-       StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager, src);
+       StagingLogManager lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(Constants.FIRST_LSN, 100, 20), manager, src);
        lm.startup();
        for (int x=0;x<1000;x++) {
            DummyLogRecord lr1 = new DummyLogRecord(100,1024);
@@ -236,7 +237,7 @@ public class NIOManagerTest {
        lm.shutdown();
        
        manager = new NIOManager(config, src);
-       lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(100l, 100, 20), manager, src);
+       lm = new StagingLogManager(Signature.ADLER32, new AtomicCommitList(Constants.FIRST_LSN, 100, 20), manager, src);
        
        
        long lsn = -1;

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.Snapshot;
 import com.terracottatech.frs.SnapshotRequest;
 import org.junit.Before;
@@ -191,7 +192,7 @@ public class StagingLogManagerTest {
      */
     @Test
     public void testReader() throws Exception {
-        long lsn = 100;
+        long lsn = Constants.FIRST_LSN;
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 100; j++) {
@@ -217,7 +218,7 @@ public class StagingLogManagerTest {
 
     @Test
     public void testSlowPuts() throws Exception {
-        long lsn = 100;
+        long lsn = Constants.FIRST_LSN;
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
@@ -260,7 +261,7 @@ public class StagingLogManagerTest {
     
     @Test
     public void testReaderDeath() throws Exception {
-        long lsn = 100;
+        long lsn = Constants.FIRST_LSN;
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
@@ -268,7 +269,7 @@ public class StagingLogManagerTest {
                 record.updateLsn(lsn++);
                 records.add(record);
             }
-            ioManager.setMinimumMarker(99);
+            ioManager.setMinimumMarker(Constants.GENESIS_LSN);
             ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
         }
         
@@ -318,7 +319,7 @@ public class StagingLogManagerTest {
     
     @Test
     public void testSlowReader() throws Exception {
-        long lsn = 100;
+        long lsn = Constants.FIRST_LSN;
         for (int i = 0; i < 10; i++) {
             List<LogRecord> records = new ArrayList<LogRecord>();
             for (int j = 0; j < 10; j++) {
@@ -351,8 +352,8 @@ public class StagingLogManagerTest {
     private class DummyIOManager implements IOManager {
 
         private final Deque<Chunk> chunks = new LinkedList<Chunk>();
-        private long min = 99;
-        private long current = 99;
+        private long min = Constants.GENESIS_LSN;
+        private long current = Constants.GENESIS_LSN;
         private boolean slowReads = false;
         private boolean dieOnRead = false;
         private boolean haltWrites = false;

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.WrappingChunk;
@@ -31,7 +32,7 @@ public class NIOSpeedTest {
   @Before
   public void setUp() throws Exception {
     stream = new NIOStreamImpl(folder.getRoot(), MAX_SEGMENT_SIZE);
-        stream.setMinimumMarker(100);
+        stream.setMinimumMarker(Constants.FIRST_LSN);
   }
   
   public NIOSpeedTest() {
@@ -97,7 +98,7 @@ public class NIOSpeedTest {
         Chunk c = new WrappingChunk(buf);
         long w = 0;
         long n = System.nanoTime();
-        long marker = 100;
+        long marker = Constants.FIRST_LSN;
         while ( w < 128L * 1024 * 1024 ) {
             buf.position(0);
             w += stream.append(c,marker+=100);

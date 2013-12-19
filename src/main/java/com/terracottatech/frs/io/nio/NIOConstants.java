@@ -5,6 +5,7 @@ import java.io.FilenameFilter;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.Comparator;
+import java.util.Formatter;
 
 /**
  * @author tim
@@ -21,6 +22,15 @@ public abstract class NIOConstants {
       return string.startsWith("seg") && string.endsWith(".frs");
     }
   };
+  
+  public static String convertToSegmentFileName(int seg) {
+        StringBuilder fn = new StringBuilder();
+        Formatter pfn = new Formatter(fn);
+
+        pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, seg);
+        
+        return fn.toString();
+  }
 
   public static int convertSegmentNumber(File f) {
     return convertSegmentNumber(f.getName());

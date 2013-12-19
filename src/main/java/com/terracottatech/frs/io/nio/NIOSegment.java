@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.IOManager;
@@ -107,7 +108,7 @@ public class NIOSegment {
         this.lowestMarker = lowestMarker;
         this.minMarker = marker;
         
-        if ( lowestMarker < 99 || marker < 99 ) {
+        if ( lowestMarker < Constants.GENESIS_LSN || marker < Constants.GENESIS_LSN ) {
             throw new AssertionError("bad markers");
         }
  //  parent is null only in tests and read-only ops       

@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
@@ -89,7 +90,7 @@ public class NIORandomAccessTest {
     private static void insertTestData(NIOStreamImpl stream, File f, int segno) {
         try {
             WritingSegment seg = new WritingSegment(stream,f).open();
-            seg.insertFileHeader(100, 100 + segno);
+            seg.insertFileHeader(Constants.FIRST_LSN, 100 + segno);
             seg.append(new WrappingChunk(ByteBuffer.wrap(("MAGIC" + segno).getBytes())), 100 + segno + 1);
             seg.prepareForClose();
             seg.close();

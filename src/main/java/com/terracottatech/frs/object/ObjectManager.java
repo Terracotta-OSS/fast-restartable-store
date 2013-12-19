@@ -8,8 +8,6 @@ package com.terracottatech.frs.object;
  * @author cdennis
  */
 public interface ObjectManager<I, K, V> {
-   
-   public static final long ISEMPTY_LSN = -1;
   
   long getLsn(I id, K key);
   

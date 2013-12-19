@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.MaskingBufferSource;
 import com.terracottatech.frs.io.SplittingBufferSource;
@@ -42,7 +43,7 @@ public class LogManagerThroughputTest {
     @Before
     public void setUp() throws Exception {
         stream = new NIOManager(folder.getRoot().getAbsolutePath(), NIOAccessMethod.NONE.toString(), MAX_SEGMENT_SIZE, -1, -1, false, src);
-        mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( 100l, 64, 20),stream, src);
+        mgr = new StagingLogManager(Signature.ADLER32, new AtomicCommitList( Constants.FIRST_LSN, 64, 20),stream, src);
         mgr.startup();
     }
     

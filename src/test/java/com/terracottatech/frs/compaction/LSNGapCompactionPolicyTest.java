@@ -1,5 +1,6 @@
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.Constants;
 import org.junit.Test;
 
 import com.terracottatech.frs.config.Configuration;
@@ -53,7 +54,7 @@ public class LSNGapCompactionPolicyTest {
   @Test
   public void testNoGaps() throws Exception {
     createPolicy(1, 0.5, 0.8);
-    currentLsn(100);
+    currentLsn(Constants.FIRST_LSN);
     lowestLsn(0);
     size(100);
     assertThat(policy.startCompacting(), is(false));
@@ -62,7 +63,7 @@ public class LSNGapCompactionPolicyTest {
   @Test
   public void testLargeEndGap() throws Exception {
     createPolicy(1, 0.5, 0.8);
-    currentLsn(100);
+    currentLsn(Constants.FIRST_LSN);
     lowestLsn(0);
     size(6);
     assertThat(policy.startCompacting(), is(true));
@@ -70,14 +71,14 @@ public class LSNGapCompactionPolicyTest {
       lowestLsn(i);
       assertThat(policy.compacted(entry(i)), is(true));
     }
-    lowestLsn(100);
+    lowestLsn(Constants.FIRST_LSN);
     assertThat(policy.compacted(entry(99)), is(false));
   }
 
   @Test
   public void testLargeStartGap() throws Exception {
     createPolicy(1, 0.5, 0.8);
-    currentLsn(100);
+    currentLsn(Constants.FIRST_LSN);
     lowestLsn(0);
     size(6);
     assertThat(policy.startCompacting(), is(true));
@@ -89,7 +90,7 @@ public class LSNGapCompactionPolicyTest {
   @Test
   public void testWindow() throws Exception {
     createPolicy(10, 0.5, 0.8);
-    currentLsn(100);
+    currentLsn(Constants.FIRST_LSN);
     lowestLsn(0);
     size(30);
     assertThat(policy.startCompacting(), is(true));

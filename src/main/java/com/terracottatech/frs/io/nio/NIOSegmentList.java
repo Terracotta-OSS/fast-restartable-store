@@ -54,13 +54,8 @@ class NIOSegmentList implements Iterable<File> {
     
     synchronized File appendFile() throws IOException {
         int seg = segmentId + segments.size();
-
-        StringBuilder fn = new StringBuilder();
-        Formatter pfn = new Formatter(fn);
-
-        pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, seg);
         
-        File writeHead = new File(directory,fn.toString());
+        File writeHead = new File(directory,NIOConstants.convertToSegmentFileName(seg));
         
         if ( !segments.isEmpty() ) {
           cachedTotalSize += segments.get(segments.size()-1).length();

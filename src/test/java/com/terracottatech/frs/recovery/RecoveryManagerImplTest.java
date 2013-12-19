@@ -4,8 +4,8 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.ExposedDeleteAction;
-import com.terracottatech.frs.ExposedRemoveAction;
 import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 import static org.junit.Assert.fail;
-import org.mockito.Mockito;
 import static org.mockito.Mockito.*;
 
 /**
@@ -148,7 +147,7 @@ public class RecoveryManagerImplTest {
   public void testRecoveryError() throws Exception {
     Action errorAction = mock(Action.class);
     doThrow(new AssertionError()).when(errorAction).replay(anyLong());
-    logManager.append(record(100, errorAction));
+    logManager.append(record(Constants.FIRST_LSN, errorAction));
 
     try {
       recoveryManager.recover();
@@ -161,7 +160,7 @@ public class RecoveryManagerImplTest {
   @Test
   public void testMissingRecordsOnRecovery() throws Exception {
     logManager.append(record(200, action(true)));
-    logManager.updateLowestLsn(100);
+    logManager.updateLowestLsn(Constants.FIRST_LSN);
 
     try {
       recoveryManager.recover();
@@ -197,7 +196,7 @@ public class RecoveryManagerImplTest {
     logManager.append(record(201, put));
     logManager.append(record(203, putTransaction));
     logManager.append(record(204, deleteTransaction));
-    logManager.updateLowestLsn(100);
+    logManager.updateLowestLsn(Constants.FIRST_LSN);
 
     try {
       recoveryManager.recover();

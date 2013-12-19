@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
@@ -87,8 +88,8 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
         if (lastLsn > 0) {
             return;
         }
-        if (last < 100) {
-            last = 99;
+        if (last < Constants.FIRST_LSN) {
+            last = Constants.GENESIS_LSN;
         }
         lastLsn = last;
         lowestLsn = lowest;
@@ -157,7 +158,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 }
             }
             if (first) {
-                offerLsns(99, 99);
+                offerLsns(Constants.GENESIS_LSN, Constants.GENESIS_LSN);
             }
        } catch (InterruptedException i) {
             if ( !master.isDone() ) {

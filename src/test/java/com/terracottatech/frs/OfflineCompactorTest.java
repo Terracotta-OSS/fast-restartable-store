@@ -1,6 +1,7 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.config.FrsProperty;
+import com.terracottatech.frs.io.nio.NIOConstants;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
@@ -12,12 +13,14 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Formatter;
 import java.util.Properties;
 import java.util.Random;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.spy;
@@ -147,6 +150,10 @@ public abstract class OfflineCompactorTest {
       verify(objectManager, times(100)).replayPut(any(ByteBuffer.class),
                                                   any(ByteBuffer.class), any(ByteBuffer.class),
                                                   anyLong());
+        StringBuilder fn = new StringBuilder();
+        Formatter pfn = new Formatter(fn);
+  
+        assertTrue("make sure first file exists", new File(compacted,pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, 0).toString()).exists());
     }
 
     assertThat(FileUtils.sizeOfDirectory(compacted), lessThan(

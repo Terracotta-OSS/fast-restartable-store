@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.SnapshotRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +48,10 @@ class NIOStreamImpl implements Stream {
     private final long memorySize;
 
     private UUID streamId;
-    private volatile long lowestMarker = 99;
+    private volatile long lowestMarker = Constants.GENESIS_LSN;
     private volatile long lowestMarkerOnDisk = 0;
     private volatile long fsyncdMarker = 0;
-    private long currentMarker = 99;  //  init lsn is 100
+    private long currentMarker = Constants.GENESIS_LSN;  //  init lsn is 100
     private int  markerWaiters = 0;
     private WritingSegment writeHead;
     private ReadOnlySegment readHead;

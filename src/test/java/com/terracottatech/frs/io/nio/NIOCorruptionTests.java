@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.io.nio;
 
+import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.*;
@@ -56,8 +57,8 @@ public class NIOCorruptionTests {
         
         Configuration config = Configuration.getConfiguration(workArea);
         manager = new NIOManager(config,src);
-        manager.setMinimumMarker(100);
-        current = 100;
+        manager.setMinimumMarker(Constants.FIRST_LSN);
+        current = Constants.FIRST_LSN;
     }
     
     @Test

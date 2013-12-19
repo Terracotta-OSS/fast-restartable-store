@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,7 +138,7 @@ public class CompactorImpl implements Compactor {
           
           long lowLsn = objectManager.getLowestLsn();
           
-          if ( lowLsn == ObjectManager.ISEMPTY_LSN ) {
+          if ( lowLsn == Constants.ISEMPTY_LSN ) {
               lowLsn = barrier.getLsn();
           }
 

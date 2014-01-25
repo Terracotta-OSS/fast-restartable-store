@@ -151,16 +151,19 @@ class NIOSegmentList implements Iterable<File> {
     }
     
     synchronized File getCurrentReadFile() {
-      if ( position < 0 || position >= segments.size()) {
-        return null;
-      }
-      if ( readHead == null ) {
-        readHead = segments.get(position);
-      }
+        if ( position < 0 || position >= segments.size()) {
+          return null;
+        }
+        if ( readHead == null ) {
+          readHead = segments.get(position);
+        }
         return readHead;
     }
     
     synchronized File getEndFile() throws IOException {
+        if ( segments.isEmpty() ) {
+          return null;
+        }
         return segments.get(segments.size()-1);
     }
     
@@ -189,6 +192,9 @@ class NIOSegmentList implements Iterable<File> {
     }    
     
     synchronized File getBeginningFile() throws IOException {
+        if ( segments.isEmpty() ) {
+          return null;
+        }
         return segments.get(0);
     }
     
@@ -197,6 +203,9 @@ class NIOSegmentList implements Iterable<File> {
     }
 
     public synchronized File get(int i) {
+      if ( i >= segments.size() ) {
+        return null;
+      }
         return segments.get(i);
     }
 
@@ -205,6 +214,9 @@ class NIOSegmentList implements Iterable<File> {
     }
 
     public synchronized File remove(int i) {
+      if ( i >= segments.size() ) {
+        return null;
+      }
         File f = segments.remove(i);
         
         cachedTotalSize -= f.length();

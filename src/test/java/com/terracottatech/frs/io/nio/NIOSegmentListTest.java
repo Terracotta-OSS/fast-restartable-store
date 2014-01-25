@@ -11,6 +11,7 @@ import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ListIterator;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -192,6 +193,26 @@ public class NIOSegmentListTest {
     new FileOutputStream(f2).close();
     
     assertEquals(f2,list.getFile(2));
+  }
+  
+  @Test
+  public void testGetWhileDelete() throws Throwable {
+    System.out.println("getWhileDelete");
+    NIOSegmentList list = new NIOSegmentList(tempFolder.newFolder());
+    File f = list.appendFile();
+    new FileOutputStream(f).close();
+    File f1 = list.appendFile();
+    new FileOutputStream(f1).close();
+    File f2 = list.appendFile();
+    new FileOutputStream(f2).close();
+    
+    assertEquals(f2,list.getFile(2));
+    
+    ListIterator it = list.listIterator(2);
+    it.remove();
+    
+    assertNull(list.get(2));   // should not throw
+    it.remove();  // does not throw exception
   }
   
 }

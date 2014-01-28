@@ -27,8 +27,6 @@ public interface LogManager {
 
   void shutdown();
   
-//  Future<Void> recover();
-  
   Future<Void> append(LogRecord record);
   
   Future<Void> appendAndSync(LogRecord record);

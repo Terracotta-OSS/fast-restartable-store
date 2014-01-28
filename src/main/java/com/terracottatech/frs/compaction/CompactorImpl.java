@@ -99,6 +99,7 @@ public class CompactorImpl implements Compactor {
   public void startup() {
     if (!alive) {
       alive = true;
+      LOGGER.info("using " + policy.getClass().getName() + " compaction policy");
       compactorThread = new CompactorThread();
       compactorThread.start();
     }
@@ -175,6 +176,7 @@ public class CompactorImpl implements Compactor {
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     long liveSize = objectManager.size();
     long compactedCount = 0;
+    long startTime = System.currentTimeMillis();
     while (compactedCount < liveSize && !signalPause) {
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
       if (compactionEntry == null) {
@@ -209,6 +211,7 @@ public class CompactorImpl implements Compactor {
         written.get();
       }
     }
+    LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
   }
 
   @Override

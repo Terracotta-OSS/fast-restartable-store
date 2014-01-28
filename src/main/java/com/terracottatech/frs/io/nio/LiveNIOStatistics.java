@@ -64,5 +64,11 @@ class LiveNIOStatistics implements IOStatistics {
       return 0;
     }
   }
-  
+
+  @Override
+  public String toString() {
+    return "LiveNIOStatistics{" + "home=" + home + ", written=" + written + ", read=" + read + 
+        " used:" + getTotalUsed() + 
+        '}';
+  }
 }

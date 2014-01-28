@@ -8,11 +8,16 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MAX_LOAD;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_MIN_LOAD;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_LSNGAP_WINDOW_SIZE;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author tim
  */
 public class LSNGapCompactionPolicy implements CompactionPolicy {
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(LSNGapCompactionPolicy.class);
+  
   private final ObjectManager<?, ?, ?> objectManager;
   private final LogManager logManager;
   private final double minLoad;
@@ -47,6 +52,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
     currentLsn = logManager.currentLsn();
     long lowestLsn = objectManager.getLowestLsn();
     float ratio = calculateRatio(liveSize, currentLsn - lowestLsn);
+    LOGGER.debug("compacted ratio:" + ratio + " liveSize:" + liveSize + " currentLsn:" + currentLsn + " lowestLsn:" + lowestLsn);
     if (ratio <= minLoad) {
       compactedCount = 0;
       windowCount = 0;
@@ -57,6 +63,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
     }
   }
 
+  @Override
   public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
     if (!isCompacting) {
       throw new IllegalStateException("Compaction is not running.");
@@ -72,6 +79,9 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
     // liveSize / (currentLsn + compactedCount - entry.getLsn()) <= ratio
 
     double estimatedRatio = estimateRatio(entry.getLsn());
+    if ( compactedCount % 1000 == 0 ) {
+      LOGGER.debug("compacted ratio:" + estimatedRatio + " compacted: " + compactedCount);
+    }
     if (estimatedRatio <= maxLoad || estimatedRatio > 1.0) {
       windowCount = 0;
       return true;
@@ -84,6 +94,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
           windowCount = 0;
           return true;
         } else {
+          LOGGER.debug("STOPPING count:" + compactedCount + " windows:" + windowCount);
           return false;
         }
       } else {
@@ -93,7 +104,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
   }
 
   private double estimateRatio(long minLsn) {
-    return ((double) liveSize) / (compactedCount + currentLsn - minLsn);
+    return ((double) liveSize) / (currentLsn - minLsn);
   }
 
   @Override

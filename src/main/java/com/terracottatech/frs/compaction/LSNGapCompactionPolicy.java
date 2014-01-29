@@ -104,7 +104,7 @@ public class LSNGapCompactionPolicy implements CompactionPolicy {
   }
 
   private double estimateRatio(long minLsn) {
-    return ((double) liveSize) / (currentLsn - minLsn);
+    return ((double) liveSize) / (compactedCount + currentLsn - minLsn);
   }
 
   @Override

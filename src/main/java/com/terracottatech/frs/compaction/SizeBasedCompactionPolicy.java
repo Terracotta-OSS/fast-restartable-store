@@ -55,7 +55,7 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
 
   private float getRatio() {
     try {
-      return objectManager.sizeInBytes() / ioManager.getStatistics().getLiveSize();
+      return (float)(1.0D * objectManager.sizeInBytes() / ioManager.getStatistics().getLiveSize());
     } catch (IOException e) {
       throw new RuntimeException("Failed to get log size.", e);
     }

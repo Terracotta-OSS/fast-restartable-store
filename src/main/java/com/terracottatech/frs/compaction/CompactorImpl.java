@@ -41,6 +41,8 @@ public class CompactorImpl implements Compactor {
   private final TransactionManager transactionManager;
   private final ActionManager actionManager;
   private final LogManager logManager;
+  private final boolean useLimiting = !Boolean.getBoolean("frs.compactor.limiter.disable");
+
   private final Semaphore compactionCondition = new Semaphore(0);
   private volatile boolean alive = false;
   private final CompactionPolicy policy;
@@ -55,7 +57,7 @@ public class CompactorImpl implements Compactor {
 
 
   CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                TransactionManager transactionManager, ActionManager actionManager, LogManager logManager,
+                TransactionManager transactionManager, ActionManager actionManager, final LogManager logManager,
                 CompactionPolicy policy, long runIntervalSeconds, long retryIntervalSeconds,
                 long compactActionThrottle, int startThreshold) {
     this.objectManager = objectManager;
@@ -166,8 +168,7 @@ public class CompactorImpl implements Compactor {
             LOGGER.info("Compactor is interrupted. Shutting down.");
             return;
           }
-        }
-      }
+       }
     }
   }
 
@@ -176,42 +177,67 @@ public class CompactorImpl implements Compactor {
     long ceilingLsn = transactionManager.getLowestOpenTransactionLsn();
     long liveSize = objectManager.size();
     long compactedCount = 0;
+    long baseLsn = logManager.lowestLsn();
     long startTime = System.currentTimeMillis();
-    while (compactedCount < liveSize && !signalPause) {
-      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(ceilingLsn);
-      if (compactionEntry == null) {
-        return;
-      }
-      compactedCount++;
-      Future<Void> written;
-      try {
-        CompactionAction compactionAction =
-                new CompactionAction(objectManager, compactionEntry);
-        written = actionManager.happened(compactionAction);
-        // We can't update the object manager on Action.record() because the compactor
-        // is holding onto the segment lock. Since we want to wait for the action to be
-        // sequenced anyways so we don't keep getting the same compaction keys, we may as
-        // well just do the object manager update here.
-        compactionAction.updateObjectManager();
-      } finally {
-        objectManager.releaseCompactionEntry(compactionEntry);
-      }
 
-      // Check with the policy if we need to stop.
-      if (!policy.compacted(compactionEntry)) {
-        break;
-      }
+     long rangeLsn = (logManager.currentLsn() - baseLsn - liveSize)/1000L;
+     if ( rangeLsn == 0 ) {
+       rangeLsn = 1;
+     }
+     if ( rangeLsn < 0 ) {
+       throw new AssertionError("not all LSNs accounted for");
+     }
+     long startLsn = 0;
+     long lastLsn = 0;
+ 
+      LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
+      while (compactedCount < liveSize && !signalPause) {
+        ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
+        if (compactionEntry == null) {
+          if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
+            rangeLsn <<= 1;
+            LOGGER.debug("bumping range to " + rangeLsn);
+            continue;
+          } else {
+            break;
+          }
+        }
+        lastLsn = compactionEntry.getLsn();
+        if ( startLsn == 0 ) {
+          startLsn = lastLsn;
+        }
+        compactedCount++;
+        Future<Void> written;
+        try {
+          CompactionAction compactionAction =
+                  new CompactionAction(objectManager, compactionEntry);
+          written = actionManager.happened(compactionAction);
+          // We can't update the object manager on Action.record() because the compactor
+          // is holding onto the segment lock. Since we want to wait for the action to be
+          // sequenced anyways so we don't keep getting the same compaction keys, we may as
+          // well just do the object manager update here.
+          compactionAction.updateObjectManager();
+        } finally {
+          objectManager.releaseCompactionEntry(compactionEntry);
+        }
 
-      // To prevent filling up the write queue with compaction junk, risking crowding
-      // out actual actions, we throttle a bit after some set number of compaction
-      // actions by just waiting until the latest compaction action is written to disk.
-      if (compactedCount % compactActionThrottle == 0) {
-        // While we're waiting, might as well update the lowest lsn so compaction provides continuous benefit.
-        logManager.updateLowestLsn(objectManager.getLowestLsn());
-        written.get();
+        // Check with the policy if we need to stop.
+        if (!policy.compacted(compactionEntry)) {
+          break;
+        }
+
+        // To prevent filling up the write queue with compaction junk, risking crowding
+        // out actual actions, we throttle a bit after some set number of compaction
+        // actions by just waiting until the latest compaction action is written to disk.
+        if (compactedCount % compactActionThrottle == 0) {
+          // While we're waiting, might as well update the lowest lsn so compaction provides continuous benefit.
+          logManager.updateLowestLsn(objectManager.getLowestLsn());
+          written.get();
+        }
       }
+      LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
+      LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
     }
-    LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
   }
 
   @Override

@@ -42,7 +42,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     static final short LR_FORMAT = 02;
     private static final String BAD_CHECKSUM = "bad checksum";
     private final Signature cType;
-    
+     
+    private static final ThreadLocal<byte[]> buffer = new ThreadLocal<byte[]>();
+     
     public LogRegionPacker(Signature sig) {
         this(sig, new SimpleBufferSource());
     }   
@@ -294,12 +296,15 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     
     protected static long checksum(Iterable<ByteBuffer> bufs) {
         Adler32 checksum = new Adler32();
-        byte[] temp = null;
         for (ByteBuffer buf : bufs) {
             if (buf.hasArray()) {
                 checksum.update(buf.array(),buf.arrayOffset() + buf.position(),(buf.limit()-buf.position()));
             } else {
-                if ( temp == null ) temp = new byte[8192];
+                byte[] temp = buffer.get();
+                if ( temp == null ) {
+                  temp = new byte[8192];
+                  buffer.set(temp);
+                }                
                 buf.mark();
                 while (buf.hasRemaining()) {
                     int fetch = ( buf.remaining() > temp.length ) ? temp.length : buf.remaining();

@@ -85,6 +85,8 @@ public class CompactorImplTest {
     policy.compactCount = 1500;
     compactor.startup();
 
+    doReturn(0L).when(logManager).lowestLsn();
+    doReturn(1101L).when(logManager).currentLsn();
     doReturn(1100L).when(objectManager).size();
 
     compactor.compactNow();
@@ -106,6 +108,9 @@ public class CompactorImplTest {
 
     compactor.startup();
 
+    doReturn(0L).when(logManager).lowestLsn();
+    doReturn(1001L).when(logManager).currentLsn();
+    doReturn(1000L).when(transactionManager).getLowestOpenTransactionLsn();
     doReturn(1000L).when(objectManager).size();
     doReturn(null).when(objectManager).acquireCompactionEntry(anyLong());
 
@@ -125,6 +130,8 @@ public class CompactorImplTest {
   public void testPausing() throws Exception {
     policy.compactCount = 1000;
 
+    doReturn(0L).when(logManager).lowestLsn();
+    doReturn(101L).when(logManager).currentLsn();
     doReturn(100L).when(objectManager).size();
 
     compactor.startup();

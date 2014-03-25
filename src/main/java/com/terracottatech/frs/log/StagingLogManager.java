@@ -451,7 +451,10 @@ public class StagingLogManager implements LogManager {
             LOGGER.error("error during shutdown",ee);
         } catch ( InterruptedException ie ) {
             LOGGER.error("error during shutdown",ie);
+        } catch ( RuntimeException re ) {
+            LOGGER.error("error during shutdown",re);
         }
+        
         try {
             io.close();
         } catch ( IOException ioe ) {

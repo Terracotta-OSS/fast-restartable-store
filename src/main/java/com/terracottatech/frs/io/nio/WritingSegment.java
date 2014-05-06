@@ -171,8 +171,8 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     public synchronized void close() throws IOException {
         totalWrite = 0;
         //  don't need any memory buffers anymore       
-        totalWrite = buffer.getTotal();
-        if ( buffer.isOpen() ) {
+        if ( buffer != null && buffer.isOpen() ) {
+            totalWrite = buffer.getTotal();
             buffer.sync(true);
             buffer.close();
         }

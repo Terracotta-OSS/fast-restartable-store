@@ -143,11 +143,7 @@ public class NIOSegment {
         buffer.clear();
         buffer.position(buffer.size() - buffer.capacity()).read(1);
         int fileEnd = buffer.getInt(buffer.remaining() - ByteBufferUtils.INT_SIZE);
-        if (SegmentHeaders.CLOSE_FILE.validate(fileEnd) && SegmentHeaders.JUMP_LIST.validate(fileEnd)) {
-            return true;
-        }
-
-        return false;
+        return (SegmentHeaders.CLOSE_FILE.validate(fileEnd) || SegmentHeaders.JUMP_LIST.validate(fileEnd));
     }
 
   @Override

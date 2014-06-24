@@ -47,7 +47,7 @@ public class IntegrityToolTest {
     public void setUp() throws Exception {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
-        manager = new NIOManager(workArea.getAbsolutePath(), NIOAccessMethod.NONE.toString(), 1 * 1024 * 1024, -1, -1, false, src);
+        manager = new NIOManager(workArea.getAbsolutePath(), NIOAccessMethod.NONE.toString(), null, 1 * 1024 * 1024, -1, -1, false, src);
         manager.setMinimumMarker(100);
     //  create a 10k lsn window
         for(int x=0;x<1000;x++) {

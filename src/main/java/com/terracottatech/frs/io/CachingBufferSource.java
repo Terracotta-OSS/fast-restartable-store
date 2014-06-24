@@ -14,21 +14,37 @@ import java.util.TreeMap;
  */
 public class CachingBufferSource implements BufferSource {
     private long   totalSize;
-    private final BufferSource parent;
     private final TreeMap<Integer,ByteBuffer> freeList = new TreeMap<Integer,ByteBuffer>( new Comparator<Integer>() {
         @Override
         public int compare(Integer t, Integer t1) {
      // make sure nothing ever equals so everything fits in the set
-            return t.intValue() - t1.intValue();
+            return t - t1;
         }
     });
     
-    public CachingBufferSource(BufferSource parent) {
-      this.parent = parent;
+    public CachingBufferSource() {
+    }
+    
+    synchronized int removeSmallest() {
+      if ( freeList.isEmpty() ) {
+        return 0;
+      }
+      int size = freeList.remove(freeList.firstKey()).capacity();
+      totalSize -= size;
+      return size;
+    }
+    
+    synchronized int removeLargest() {
+      if ( freeList.isEmpty() ) {
+        return 0;
+      }
+      int size = freeList.remove(freeList.lastKey()).capacity();
+      totalSize -= size;
+      return size;
     }
     
     @Override
-    public ByteBuffer getBuffer(int size) {
+    public synchronized ByteBuffer getBuffer(int size) {
         if (freeList.isEmpty()) {
             return null;
         }
@@ -64,18 +80,18 @@ public class CachingBufferSource implements BufferSource {
         return buffer;
     }
     
-    public long getSize() {
+    public synchronized long getSize() {
         return totalSize;
     }
 
     @Override
-    public void reclaim() {
+    public synchronized void reclaim() {
         totalSize = 0;
         freeList.clear();
     }
 
     @Override
-    public void returnBuffer(ByteBuffer buffer) {
+    public synchronized void returnBuffer(ByteBuffer buffer) {
         assert(zeroFrame(buffer));
         findSlot(buffer);
     }
@@ -122,4 +138,15 @@ public class CachingBufferSource implements BufferSource {
         }
         return true;
     }
+    
+    public int count() {
+      return freeList.size();
+    }
+
+  @Override
+  public String toString() {
+    return "CachingBufferSource{" + "totalSize=" + totalSize + ", freeList=" + freeList.size() + '}';
+  }
+    
+    
 }

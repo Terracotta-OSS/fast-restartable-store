@@ -14,8 +14,10 @@ import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.flash.ReadManagerImpl;
 import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.HiLoBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SLABBufferSource;
 import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.nio.NIOManager;
 import com.terracottatech.frs.log.LogManager;
@@ -54,8 +56,15 @@ public abstract class RestartStoreFactory {
     Configuration configuration = Configuration.getConfiguration(dbHome, properties);
     
     int memorySize = configuration.getLong(FrsProperty.IO_NIO_POOL_MEMORY_SIZE).intValue();
-    long timeout = configuration.getLong(FrsProperty.IO_NIO_MEMORY_TIMEOUT).longValue();
-    BufferSource writingSource = new MaskingBufferSource(new SplittingBufferSource(64, memorySize, timeout));
+    BufferSource writingSource = null;
+    if ( configuration.getString(FrsProperty.IO_NIO_BUFFER_SOURCE).equals("HILO") ) {
+      writingSource = new MaskingBufferSource(new HiLoBufferSource(2048, 8 * 1024 * 1024, memorySize));
+    } else if ( configuration.getString(FrsProperty.IO_NIO_BUFFER_SOURCE).equals("SLAB") ) {
+      writingSource = new MaskingBufferSource(new SLABBufferSource(8 * 1024 * 1024, memorySize));
+    } else {
+      long timeout = configuration.getLong(FrsProperty.IO_NIO_MEMORY_TIMEOUT);
+      writingSource = new MaskingBufferSource(new SplittingBufferSource(64, memorySize, timeout));
+    }
     
     IOManager ioManager = new NIOManager(configuration,writingSource);
     ReadManager readManager = new ReadManagerImpl(ioManager);

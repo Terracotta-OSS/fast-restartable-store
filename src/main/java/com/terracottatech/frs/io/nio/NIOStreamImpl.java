@@ -16,8 +16,6 @@ import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.IOManager;
-import com.terracottatech.frs.io.MaskingBufferSource;
-import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.io.Stream;
 
 import java.io.File;
@@ -45,7 +43,6 @@ class NIOStreamImpl implements Stream {
     static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
     private final long segmentSize;
-    private final long memorySize;
 
     private UUID streamId;
     private volatile long lowestMarker = Constants.GENESIS_LSN;
@@ -67,22 +64,24 @@ class NIOStreamImpl implements Stream {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     
     NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
-        this(filePath, NIOAccessMethod.getDefault(), recommendedSize, recommendedSize, new HeapBufferSource(512 * 1024 * 1024));
+        this(filePath, NIOAccessMethod.getDefault(), recommendedSize, new HeapBufferSource(512 * 1024 * 1024), null);
     }
     
-    NIOStreamImpl(File filePath, NIOAccessMethod method, long recommendedSize, long memorySize, BufferSource src) throws IOException {
+    NIOStreamImpl(File filePath, NIOAccessMethod method, long recommendedSize, BufferSource writeBuffers, BufferSource recoveryBuffers) throws IOException {
         directory = filePath;
 
-        filePool = src;
+        filePool = writeBuffers;
+        replayPool = recoveryBuffers;
+        if ( replayPool == null ) {
+          replayPool = filePool;
+        }
         
         if ( LOGGER.isDebugEnabled() ) {
             strategies = new HashMap<String, Integer>();
         }
         this.segmentSize = recommendedSize;
-        this.memorySize = memorySize;
 
         LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a segment size of " + (segmentSize / (1024*1024)));
-        LOGGER.debug("==CONFIG(nio)==" + filePath.getAbsolutePath() + " using a memory size of " + (memorySize / (1024*1024)));
                 
         segments = new NIOSegmentList(directory);
         if (segments.isEmpty()) {
@@ -577,13 +576,8 @@ class NIOStreamImpl implements Stream {
         if ( loc == IOManager.Seek.BEGINNING.getValue() ) {
        //   recovery done.  we could use this memory
           replayPool = null;
-        } else if ( loc == IOManager.Seek.END.getValue() ) {
-          if (replayPool == null && getAccessMethod() == NIOAccessMethod.STREAM ) {
-       //   about to start recovery
-            replayPool = (segments.getTotalSize() < segmentSize || this.memorySize < 0 ) ? filePool :
-                new MaskingBufferSource(new SplittingBufferSource(64,(int)memorySize));
-          }
-        }
+        } 
+        
         if ( loc > 0 ) {
             segmentId = createRandomAccess(filePool).seek(loc).getSegmentId();
             offset = loc;
@@ -593,7 +587,7 @@ class NIOStreamImpl implements Stream {
         }
 
         if ( readHead != null ) {
-            if ( segmentId != segments.getSegmentPosition() ) {
+            if ( offset < 0 || segmentId != segments.getSegmentPosition() ) {
                 readHead.close();
                 readHead = null;
             }

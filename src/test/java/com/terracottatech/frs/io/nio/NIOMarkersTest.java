@@ -50,7 +50,7 @@ public abstract class NIOMarkersTest {
         workArea = folder.newFolder();
         System.out.println(workArea.getAbsolutePath());
         this.method = method;
-        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(), 1 * 1024 * 1024, -1, -1, false, src);
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),null,  1 * 1024 * 1024, -1, -1, false, src);
         manager.setMinimumMarker(100);
     }
     
@@ -111,7 +111,7 @@ public abstract class NIOMarkersTest {
     
     public void testRecovery() throws Exception {
         manager.close();
-        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),1 * 1024 * 1024, -1, -1 , false, src);
+        manager = new NIOManager(workArea.getAbsolutePath(), method.toString(),null, 1 * 1024 * 1024, -1, -1 , false, src);
         manager.seek(IOManager.Seek.END.getValue());
         Chunk c = manager.read(Direction.REVERSE);
         int count = 0;

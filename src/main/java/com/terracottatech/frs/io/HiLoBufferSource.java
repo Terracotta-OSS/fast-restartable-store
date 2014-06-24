@@ -1,0 +1,127 @@
+/*
+ * All content copyright (c) 2014 Terracotta, Inc., except as may otherwise
+ * be noted in a separate copyright notice. All rights reserved.
+ */
+
+package com.terracottatech.frs.io;
+
+import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ *
+ * @author mscott
+ */
+public class HiLoBufferSource implements BufferSource {
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(HiLoBufferSource.class);
+  
+  private final int totalSize;
+  private final int threshold;
+  private final AtomicInteger allocations = new AtomicInteger();
+  private final SplittingBufferSource lo;
+  private final SLABBufferSource      hi;
+  private final LimitedCachingBufferSource          hiCache;
+  public static final int DEFAULTSLAB = 8 * 1024 * 1024;
+  
+  public HiLoBufferSource(int totalsize) {
+    this(DEFAULTSLAB, totalsize);
+  }
+  
+  public HiLoBufferSource(int slabsize, int totalsize) {
+    this(slabsize/32, slabsize, totalsize);
+  }
+  
+  public HiLoBufferSource(int threshold, int slabsize, int totalsize) {
+    this.totalSize = totalsize;
+    if ( slabsize > totalsize / 4 ) {
+      slabsize = totalsize / 4;
+      LOGGER.warn("slab size for memory is greater than 25% of total size.  Adjusting slabsize to 25% of total size or " + slabsize + " bytes");
+    }
+    if ( threshold >= slabsize / 4 ) {
+      threshold = slabsize / 4;
+      LOGGER.warn("threshold size for memory is greater than 25% of slab size.  Adjusting threshold to 25% of slabsize or " + threshold + " bytes");
+    }
+
+    this.threshold = threshold;
+    int maxslabs = (totalsize / slabsize) - 1;
+    lo = new SplittingBufferSource(32, slabsize);
+    hi = new SLABBufferSource(slabsize, maxslabs/2);
+    hiCache = new LimitedCachingBufferSource((maxslabs/2 * slabsize) - slabsize);
+  }
+
+  @Override
+  public ByteBuffer getBuffer(int size) {
+    if ( allocations.incrementAndGet() % 8196 == 0 && LOGGER.isDebugEnabled() ) {
+      LOGGER.debug("allocations=" + allocations.get() + " usage=" + this.usage());
+    }
+    ByteBuffer buffer = null;
+    if ( size < threshold ) {
+      buffer = lo.getBuffer(size);
+    }
+    if ( buffer == null ) {
+      if ( size + SLABBufferSource.HEADERSZ >= hi.getSlabSize() ) {
+        buffer = hiCache.getBuffer(size + SLABBufferSource.HEADERSZ);
+        if ( buffer != null ) {
+          buffer.putInt(Integer.MIN_VALUE);
+        } else {
+          buffer = largeAllocation(size + SLABBufferSource.HEADERSZ);
+        }
+      } else {
+        buffer = hi.getBuffer(size);
+        if ( buffer != null ) {
+          buffer.putInt(0, buffer.getInt(0)|0x80000000);
+        }
+      } 
+    }
+    return buffer;
+  }
+  
+  private synchronized ByteBuffer largeAllocation(int size) {
+    if ( size < 0 ) {
+      return null;
+    }
+    try {
+      return ByteBuffer.allocateDirect(size);
+    } catch ( OutOfMemoryError oome ) {
+      return null;
+    }
+  }
+
+  @Override
+  public void returnBuffer(ByteBuffer buffer) {
+    if ( buffer.getInt(0) < 0 ) {
+      if ( buffer.capacity() > hi.getSlabSize() ) {
+        hiCache.returnBuffer(buffer);
+      } else {
+        try {
+          buffer.putInt(0,buffer.getInt(0)&0x7fffffff);
+          hi.returnBuffer(buffer);
+        } catch ( AssertionError a ) {
+          System.out.println(threshold + " " + hi.getSlabSize());
+          throw a;
+        }
+      }
+    } else {
+      lo.returnBuffer(buffer);
+    } 
+  }
+
+  @Override
+  public void reclaim() {
+    hi.reclaim();
+    lo.reclaim();
+    hiCache.reclaim();
+  }
+  
+  public long usage() {
+    return lo.usage() + hi.getSize() + hiCache.getSize();
+  }
+
+  @Override
+  public String toString() {
+    return "HiLoBufferSource{used=" + usage() + ", totalSize=" + totalSize + ", threshold=" + threshold + ", \nlo=" + lo + ", \nhi=" + hi + ", \nhiCache=" + hiCache + '}';
+  }
+}

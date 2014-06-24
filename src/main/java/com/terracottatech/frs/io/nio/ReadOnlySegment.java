@@ -7,7 +7,6 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
-import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.SimpleBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import java.io.Closeable;

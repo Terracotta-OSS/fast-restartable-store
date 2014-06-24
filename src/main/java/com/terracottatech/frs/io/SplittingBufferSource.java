@@ -19,7 +19,7 @@ public class SplittingBufferSource implements BufferSource {
   
   private final ByteBuffer base;
   private final Stack[] cascade;
-  private final int HEADER_SIZE = 8;
+  public static final int HEADERSZ = 8;
   private final int lowerbound;
   private long timeout = 200L;
   
@@ -67,7 +67,7 @@ public class SplittingBufferSource implements BufferSource {
     if ( size > base.capacity() ) {
       return null;
     }
-    int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(size + HEADER_SIZE) + 2);
+    int slot = cascade.length - (lowerbound - Integer.numberOfLeadingZeros(size + HEADERSZ) + 2);
     while ( header == null ) {
       try {
         header = split(slot);
@@ -87,7 +87,7 @@ public class SplittingBufferSource implements BufferSource {
     }  
     header.clear();
     try {
-      header.limit(size+HEADER_SIZE).position(HEADER_SIZE);
+      header.limit(size+HEADERSZ).position(HEADERSZ);
     } catch ( IllegalArgumentException ia ) {
       return null;
     }
@@ -180,7 +180,11 @@ public class SplittingBufferSource implements BufferSource {
       }
     }
   }
-  
+      
+  int usage() {
+    return base.capacity();
+  }
+    
   int available() {
     int size = 0;
     for ( Stack s : cascade ) {
@@ -354,6 +358,7 @@ public class SplittingBufferSource implements BufferSource {
     synchronized boolean isEmpty() {
       return pointer == 0;
     }
+
 
     @Override
     public String toString() {

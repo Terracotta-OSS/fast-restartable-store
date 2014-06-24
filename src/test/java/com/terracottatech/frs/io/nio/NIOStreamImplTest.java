@@ -33,7 +33,7 @@ public class NIOStreamImplTest {
   @Before
   public void setUp() throws Exception {
     workArea = folder.newFolder();
-    stream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10, new HeapBufferSource(512*1024*1024));
+    stream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE,  new HeapBufferSource(512*1024*1024),null);
         stream.setMinimumMarker(Constants.FIRST_LSN);
         
         long seed = System.currentTimeMillis();
@@ -76,7 +76,7 @@ public class NIOStreamImplTest {
     }
     stream.close();
 
-    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE * 10, new HeapBufferSource(512*1024*1024));
+    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE,  new HeapBufferSource(512*1024*1024),null);
     nioStream.seek(-1);
     int foundChunks = 0;
     while (nioStream.read(Direction.REVERSE) != null) {
@@ -99,7 +99,7 @@ public class NIOStreamImplTest {
     }
     stream.close();
 
-    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, MAX_SEGMENT_SIZE / 2, new HeapBufferSource(512*1024*1024));
+    NIOStreamImpl nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, new HeapBufferSource(512*1024*1024),null);
     nioStream.seek(-1);
     int foundChunks = 0;
     while (nioStream.read(Direction.REVERSE) != null) {

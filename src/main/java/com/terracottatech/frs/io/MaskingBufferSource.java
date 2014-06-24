@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,8 @@ public class MaskingBufferSource implements BufferSource {
   private static final Logger LOGGER = LoggerFactory.getLogger(MaskingBufferSource.class);
   private final ReferenceQueue<ByteBuffer> queue;
   private final boolean DEBUG_LEAKS = Boolean.getBoolean("frs.leak.debug");
+  private AtomicLong allocations = new AtomicLong();
+  private AtomicLong allocTime = new AtomicLong();
 
   public MaskingBufferSource(BufferSource parent) {
     this(parent,false);
@@ -42,12 +45,25 @@ public class MaskingBufferSource implements BufferSource {
 
   @Override
   public ByteBuffer getBuffer(int size) {
-    ByteBuffer src = parent.getBuffer(size);
-    if ( src == null ) {
-      LOGGER.warn("using heap for recovery, add more recovery memory " + size);
-      return ByteBuffer.allocate(size);
+    long ntime = System.nanoTime();
+    try {
+      ByteBuffer src = parent.getBuffer(size);
+      if ( src == null ) {
+        LOGGER.warn("using heap for recovery, add more recovery memory " + size);
+        return ByteBuffer.allocate(size);
+      }
+      return add(src);
+    } finally {
+      long ttime = allocTime.addAndGet(System.nanoTime()-ntime);
+      long tcount = allocations.incrementAndGet();
+      if ( LOGGER.isDebugEnabled() ) {
+        if ( tcount % 1000 == 0 ) {
+          LOGGER.debug("average allocation time:" + (ttime/tcount) + " for " + tcount + " allocations");
+          allocTime.set(0);
+          allocations.set(0);
+        }
+      }
     }
-    return add(src);
   }
 
   @Override

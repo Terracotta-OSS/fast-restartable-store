@@ -18,6 +18,7 @@ import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
 import com.terracottatech.frs.io.MaskingBufferSource;
+import com.terracottatech.frs.io.SLABBufferSource;
 import com.terracottatech.frs.io.SplittingBufferSource;
 import com.terracottatech.frs.util.NullFuture;
 
@@ -51,8 +52,9 @@ public class NIOManager implements IOManager {
     private FileLock            lock;
     private final long          segmentSize;
     private final boolean       randomAccess;
-    private long                memorySize;
-    private long                randomAccessSize;
+    private final long          memorySize;
+    private final long          randomAccessSize;
+    private boolean             useSlabs = false;
         
     private static final String LOCKFILE_ACTIVE = "lock file exists";
     
@@ -69,7 +71,7 @@ public class NIOManager implements IOManager {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
      
-    public NIOManager(String home, String method, long segmentSize, long memorySize, long randomAccessSize, boolean randomAccess, BufferSource src) throws IOException {
+    public NIOManager(String home, String method, String memoryType, long segmentSize, long memorySize, long randomAccessSize, boolean randomAccess, BufferSource src) throws IOException {
         directory = new File(home);
                 
         this.segmentSize = segmentSize;
@@ -82,12 +84,15 @@ public class NIOManager implements IOManager {
         
         this.mainBuffers = src;
         
+        this.useSlabs = memoryType != null && memoryType.equals("SLAB");
+        
         open(NIOAccessMethod.valueOf(method));
     }
     
     public NIOManager(Configuration config, BufferSource writer) throws IOException {
         this(config.getDBHome().getAbsolutePath(),
             config.getString(FrsProperty.IO_NIO_ACCESS_METHOD),
+            config.getString(FrsProperty.IO_NIO_BUFFER_SOURCE),
             config.getLong(FrsProperty.IO_NIO_SEGMENT_SIZE),
             config.getLong(FrsProperty.IO_NIO_RECOVERY_MEMORY_SIZE),
             config.getLong(FrsProperty.IO_NIO_RANDOM_ACCESS_MEMORY_SIZE),
@@ -187,8 +192,17 @@ public class NIOManager implements IOManager {
       if ( randomAccessSize < 0 ) {
         return mainBuffers;
       } else {
-        return new MaskingBufferSource(new SplittingBufferSource(64, (int)randomAccessSize));
+        return new MaskingBufferSource(( useSlabs ) ? 
+            new SLABBufferSource((int)this.randomAccessSize) : 
+            new SplittingBufferSource(64,(int)this.randomAccessSize));
       }
+    }
+    
+    private BufferSource getRecoveryBufferSource(NIOAccessMethod method) {
+      return ( this.memorySize < 0 || method != NIOAccessMethod.STREAM ) ? mainBuffers :
+        new MaskingBufferSource(( useSlabs ) ? 
+            new SLABBufferSource((int)this.memorySize) : 
+            new SplittingBufferSource(64, (int)this.memorySize));
     }
     
     @Override
@@ -274,7 +288,7 @@ public class NIOManager implements IOManager {
             throw new IOException("DB home " + directory.getAbsolutePath() + " does not exist.");
         }
         LOGGER.info("opening with " + method + " access method");
-        backend = new NIOStreamImpl(directory, method, segmentSize, memorySize, this.mainBuffers);
+        backend = new NIOStreamImpl(directory, method, segmentSize, this.mainBuffers, this.getRecoveryBufferSource(method));
 
         lockFile = new File(directory, "FRS.lck");
         boolean crashed = !lockFile.createNewFile();

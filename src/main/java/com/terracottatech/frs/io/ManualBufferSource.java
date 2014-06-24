@@ -90,7 +90,9 @@ public abstract class ManualBufferSource implements BufferSource {
 
     @Override
     public void returnBuffer(ByteBuffer buffer) {
-        assert(buffer != null);
+        if ( buffer == null ) {
+          return;
+        }
         if ( buffer.hasArray() ) {
             return;
         }

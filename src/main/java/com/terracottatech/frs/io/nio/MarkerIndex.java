@@ -14,12 +14,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.Collection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author mscott
  */
 public class MarkerIndex implements Closeable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MarkerIndex.class);
   private final BufferSource source;
   private LongBuffer  jumpIndex;
   private ByteBuffer  returnBuffer;
@@ -80,14 +83,21 @@ public class MarkerIndex implements Closeable {
         cap += jumpIndex.position();
       }
       LongBuffer newspace;
-      if ( cap < 256 * 1024 / ByteBufferUtils.LONG_SIZE) {
+    LOGGER.debug("expanding index to " + (cap  * ByteBufferUtils.LONG_SIZE));
+      if ( cap < 2048 / ByteBufferUtils.LONG_SIZE) {
         returnBuffer = source.getBuffer(cap  * ByteBufferUtils.LONG_SIZE);
         newspace = returnBuffer.asLongBuffer();
       } else {
         if ( cap < 1024 * 1024 / ByteBufferUtils.LONG_SIZE) {
           cap = 1024 * 1024 / ByteBufferUtils.LONG_SIZE;
         }
-        newspace = ByteBuffer.allocateDirect(cap * ByteBufferUtils.LONG_SIZE).asLongBuffer();
+    LOGGER.debug("not using buffer source");
+        try {
+          newspace = ByteBuffer.allocateDirect(cap * ByteBufferUtils.LONG_SIZE).asLongBuffer();
+        } catch ( OutOfMemoryError oome ) {
+//  assume offheap
+          newspace = ByteBuffer.allocate(cap * ByteBufferUtils.LONG_SIZE).asLongBuffer();
+        }
         returnBuffer = null;
       }
       if ( jumpIndex != null ) {

@@ -12,12 +12,13 @@ public enum FrsProperty {
   
   IO_NIO_SEGMENT_SIZE("io.nio.segmentSize", Type.LONG, 512L * 1024 * 1024),
   IO_NIO_RECOVERY_MEMORY_SIZE("io.nio.recoveryMemorySize", Type.LONG, -1L),
-  IO_NIO_POOL_MEMORY_SIZE("io.nio.memorySize", Type.LONG, 8L * 1024 * 1024),
+  IO_NIO_POOL_MEMORY_SIZE("io.nio.memorySize", Type.LONG, 64L * 1024 * 1024),
   IO_NIO_RANDOM_ACCESS_MEMORY_SIZE("io.nio.randomAccessMemorySize", Type.LONG, -1L),
   IO_NIO_FILECACHE_MAX("io.nio.maxOpenFiles", Type.INTEGER, 32 * 1024),
   IO_NIO_MEMORY_TIMEOUT("io.nio.memoryTimeout", Type.LONG, 0L),
   IO_NIO_BUFFER_BUILDER("io.nio.bufferBuilder", Type.STRING, null),
   IO_NIO_ACCESS_METHOD("io.nio.accessMethod", Type.STRING, "STREAM"),
+  IO_NIO_BUFFER_SOURCE("io.nio.bufferSource", Type.STRING, "HILO"),
   
   RECOVERY_COMPRESSED_SKIP_SET("recovery.compressedSkipSet", Type.BOOLEAN, true),
   RECOVERY_MIN_THREAD_COUNT("recovery.minThreadCount", Type.INTEGER, 1),
@@ -30,7 +31,7 @@ public enum FrsProperty {
   COMPACTOR_START_THRESHOLD("compactor.startThreshold", Type.INTEGER, 50000),
   COMPACTOR_RETRY_INTERVAL("compactor.retryInterval", Type.LONG, 600L),
 
-  COMPACTOR_LSNGAP_MIN_LOAD("compactor.lsnGap.minLoad", Type.DOUBLE, 0.30),
+  COMPACTOR_LSNGAP_MIN_LOAD("compactor.lsnGap.minLoad", Type.DOUBLE, 0.50),
   COMPACTOR_LSNGAP_MAX_LOAD("compactor.lsnGap.maxLoad", Type.DOUBLE, 0.60),
   COMPACTOR_LSNGAP_WINDOW_SIZE("compactor.lsnGap.windowSize", Type.INTEGER, 20),
 

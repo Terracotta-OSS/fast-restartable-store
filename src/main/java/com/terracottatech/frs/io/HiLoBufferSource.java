@@ -18,12 +18,11 @@ public class HiLoBufferSource implements BufferSource {
   
   private static final Logger LOGGER = LoggerFactory.getLogger(HiLoBufferSource.class);
   
-  private final int totalSize;
   private final int threshold;
   private final AtomicInteger allocations = new AtomicInteger();
   private final SplittingBufferSource lo;
   private final SLABBufferSource      hi;
-  private final LimitedCachingBufferSource          hiCache;
+  private final CachingBufferSource          hiCache;
   public static final int DEFAULTSLAB = 8 * 1024 * 1024;
   
   public HiLoBufferSource(int totalsize) {
@@ -35,7 +34,6 @@ public class HiLoBufferSource implements BufferSource {
   }
   
   public HiLoBufferSource(int threshold, int slabsize, int totalsize) {
-    this.totalSize = totalsize;
     if ( slabsize > totalsize / 4 ) {
       slabsize = totalsize / 4;
       LOGGER.warn("slab size for memory is greater than 25% of total size.  Adjusting slabsize to 25% of total size or " + slabsize + " bytes");
@@ -51,6 +49,13 @@ public class HiLoBufferSource implements BufferSource {
     hi = new SLABBufferSource(slabsize, maxslabs/2);
     hiCache = new LimitedCachingBufferSource((maxslabs/2 * slabsize) - slabsize);
   }
+  
+  HiLoBufferSource(int threshold, BufferProvider provider) {
+    hiCache = provider.getLargeCache();
+    hi = provider.getLargeSource();
+    lo = provider.getSmallSource();
+    this.threshold = threshold;
+  }
 
   @Override
   public ByteBuffer getBuffer(int size) {
@@ -64,10 +69,11 @@ public class HiLoBufferSource implements BufferSource {
     if ( buffer == null ) {
       if ( size + SLABBufferSource.HEADERSZ >= hi.getSlabSize() ) {
         buffer = hiCache.getBuffer(size + SLABBufferSource.HEADERSZ);
+        if ( buffer == null ) {
+          buffer = largeAllocation(size + SLABBufferSource.HEADERSZ);
+        }
         if ( buffer != null ) {
           buffer.putInt(Integer.MIN_VALUE);
-        } else {
-          buffer = largeAllocation(size + SLABBufferSource.HEADERSZ);
         }
       } else {
         buffer = hi.getBuffer(size);
@@ -94,15 +100,13 @@ public class HiLoBufferSource implements BufferSource {
   public void returnBuffer(ByteBuffer buffer) {
     if ( buffer.getInt(0) < 0 ) {
       if ( buffer.capacity() > hi.getSlabSize() ) {
+        if ( buffer.getInt(0) != Integer.MIN_VALUE ) {
+          throw new AssertionError();
+        }
         hiCache.returnBuffer(buffer);
       } else {
-        try {
-          buffer.putInt(0,buffer.getInt(0)&0x7fffffff);
-          hi.returnBuffer(buffer);
-        } catch ( AssertionError a ) {
-          System.out.println(threshold + " " + hi.getSlabSize());
-          throw a;
-        }
+        buffer.putInt(0,buffer.getInt(0)&0x7fffffff);
+        hi.returnBuffer(buffer);
       }
     } else {
       lo.returnBuffer(buffer);
@@ -122,6 +126,12 @@ public class HiLoBufferSource implements BufferSource {
 
   @Override
   public String toString() {
-    return "HiLoBufferSource{used=" + usage() + ", totalSize=" + totalSize + ", threshold=" + threshold + ", \nlo=" + lo + ", \nhi=" + hi + ", \nhiCache=" + hiCache + '}';
+    return "HiLoBufferSource{used=" + usage() + ", threshold=" + threshold + ", \nlo=" + lo + ", \nhi=" + hi + ", \nhiCache=" + hiCache + '}';
+  }
+  
+  interface BufferProvider {
+    public SplittingBufferSource getSmallSource();
+    public SLABBufferSource getLargeSource();
+    public CachingBufferSource getLargeCache();
   }
 }

@@ -20,6 +20,7 @@ import com.terracottatech.frs.io.Stream;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,7 +62,7 @@ class NIOStreamImpl implements Stream {
     private final NIOAccessMethod method;
 // debugging
     private HashMap<String, Integer> strategies;
-    private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NIOStreamImpl.class);
     
     NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
         this(filePath, NIOAccessMethod.getDefault(), recommendedSize, new HeapBufferSource(512 * 1024 * 1024), null);
@@ -579,8 +580,18 @@ class NIOStreamImpl implements Stream {
         } 
         
         if ( loc > 0 ) {
-            segmentId = createRandomAccess(filePool).seek(loc).getSegmentId();
-            offset = loc;
+            NIORandomAccess ra = createRandomAccess(filePool);
+            try {
+              this.waitForMarker(loc);
+              ReadOnlySegment ro = ra.seek(loc);
+              if ( ro == null ) {
+                throw new IOException("bad seek");
+              }
+              segmentId = ro.getSegmentId();
+              offset = loc;
+            } catch ( InterruptedException ie ) {
+              throw new InterruptedIOException();
+            }
         } else {
             offset = -1;
             segmentId = (int)loc;  //  ( <= 0 )

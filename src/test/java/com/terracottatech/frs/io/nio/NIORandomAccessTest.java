@@ -5,17 +5,16 @@
 package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.Constants;
+import com.terracottatech.frs.io.BufferSource;
+import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
 import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Formatter;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -29,6 +28,7 @@ import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import static org.hamcrest.number.OrderingComparison.greaterThanOrEqualTo;
 
 /**
  *
@@ -130,6 +130,41 @@ public class NIORandomAccessTest {
         ReadOnlySegment result = instance.seek(102L);
         assertEquals(result.getSegmentId(), 1);
     }
+    
+    @Test
+    public void testScanTooFast() throws Exception {
+      final NIORandomAccess.FileCache mocked = Mockito.mock(NIORandomAccess.FileCache.class);
+      final ReadOnlySegment seg = Mockito.mock(ReadOnlySegment.class);
+      Mockito.when(mocked.findSegment(Matchers.anyInt())).thenReturn(null);
+      Mockito.when(mocked.removeSegments(Matchers.anyInt())).thenReturn(mocked);
+      Mockito.when(mocked.addSegment(Matchers.any(ReadOnlySegment.class))).then(new Answer<Object> () {
+
+        @Override
+        public Object answer(InvocationOnMock invocation) throws Throwable {
+          return mocked;
+        }
+      });
+      
+      Mockito.when(seg.scan(Matchers.longThat(greaterThanOrEqualTo(500L)))).thenReturn(new WrappingChunk(ByteBuffer.wrap(new byte[0])));
+      Mockito.when(seg.load(Matchers.any(BufferSource.class))).thenReturn(seg);
+      Mockito.when(seg.getBaseMarker()).thenReturn(500L);
+
+      ra.seedCache(mocked);
+      Chunk c = ra.scan(501);
+      assertNull(c);
+//  mock lsn now committed to disk
+      Mockito.when(mocked.findSegment(Matchers.intThat(greaterThanOrEqualTo(2)))).then(new Answer<Object> () {
+
+        @Override
+        public Object answer(InvocationOnMock invocation) throws Throwable {
+          int sid = (Integer)invocation.getArguments()[0];
+          Mockito.when(seg.getSegmentId()).thenReturn(sid);
+          return seg;
+        }
+      });
+      c = ra.scan(501);
+      assertNotNull(c);
+    }
 
     /**
      * Test of hint method, of class NIORandomAccess.
@@ -144,38 +179,5 @@ public class NIORandomAccessTest {
         instance.hint(101L, 1);
 
         assertEquals(instance.seek(101L).getSegmentId(),1);
-    }
-    
-    private class MockNIOStream extends NIOStreamImpl {
-
-        public MockNIOStream() throws IOException {
-            super(baseDir,1024 * 1024);
-        }
-        
-    }
-    
-    private class MockNIOSegmentList extends NIOSegmentList {
-        
-        Map<Integer,File> mockFiles = new TreeMap<Integer, File>();
-
-        public MockNIOSegmentList() throws IOException {
-            super(baseDir);
-        }
-
-        @Override
-        synchronized File getFile(int segmentId) {
-            File f = mockFiles.get(segmentId);
-            if ( f == null ) {
-                StringBuilder fn = new StringBuilder();
-                Formatter pfn = new Formatter(fn);
-
-                pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, segmentId);
-
-                f = new File(baseDir,fn.toString());
-                mockFiles.put(segmentId,f);
-                insertTestData(stream, f,segmentId);
-            }
-            return f;
-        }     
     }
 }

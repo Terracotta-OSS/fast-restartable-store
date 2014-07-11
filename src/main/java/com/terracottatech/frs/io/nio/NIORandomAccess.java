@@ -29,7 +29,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
     private volatile FileCache cache;
     private int maxFiles = Integer.MAX_VALUE;
     private final BufferSource src;
-    private static final Logger LOGGER = LoggerFactory.getLogger(RandomAccess.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NIORandomAccess.class);
 
 
     NIORandomAccess(NIOStreamImpl stream, NIOSegmentList segments, BufferSource src) {
@@ -43,6 +43,14 @@ class NIORandomAccess implements RandomAccess, Closeable {
     public void setMaxFiles(int size) {
       maxFiles = size;
     }
+// for tests
+    void seedCache(FileCache cache) {
+      this.cache = cache;
+    }
+// for tests
+    FileCache createCache(int offset, int length, ReadOnlySegment[] cache) {
+      return new FileCache(offset, length, cache);
+    }
 
     @Override
     public Chunk scan(long marker) throws IOException {
@@ -51,9 +59,6 @@ class NIORandomAccess implements RandomAccess, Closeable {
         Chunk c = null;
         while ( c == null ) {
             ReadOnlySegment seg = findSegment(segId);
-            if ( seg == null ) {
-                seg = createSegment(segId);
-            }
             if ( seg == null ) {
                 return null;
             } else {
@@ -89,7 +94,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
         if ( ro == null ) {
             ro = createSegment(segNo);
         }
-        if ( ro.getSegmentId() != segNo ) {
+        if ( ro != null && ro.getSegmentId() != segNo ) {
           throw new AssertionError();
         }
         return ro;
@@ -102,7 +107,10 @@ class NIORandomAccess implements RandomAccess, Closeable {
         while ( seg == null ) {
             int getId = segId++;
             seg = findSegment(getId);
-            if ( seg != null ) {
+            if ( seg == null ) {
+//  segment overflow
+                return null;
+            } else {
                 seg.load(src);
                 if ( seg.getMaximumMarker() >= marker ) {
                     break;
@@ -156,12 +164,12 @@ class NIORandomAccess implements RandomAccess, Closeable {
         return seg;
     }    
     
-    private class FileCache implements Closeable {
+    class FileCache implements Closeable {
         private final int offset;
         private int livecount = 0;
         private final ReadOnlySegment[] segments;
 
-        public FileCache(int offset, int live, ReadOnlySegment[] segments) {
+        FileCache(int offset, int live, ReadOnlySegment[] segments) {
             this.offset = offset;
             this.livecount = live;
             this.segments = segments;

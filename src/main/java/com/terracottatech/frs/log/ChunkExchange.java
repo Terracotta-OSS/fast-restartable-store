@@ -200,13 +200,13 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             io.seek(IOManager.Seek.BEGINNING.getValue());
             chunkProcessor.shutdown();
 
-            try {
-              while ( !chunkProcessor.isTerminated() ) {
+            while ( !chunkProcessor.isTerminated() ) {
+              try {
                 chunkProcessor.awaitTermination(10, TimeUnit.SECONDS);
-              }
-            } catch ( InterruptedException ie ) {
-              LOGGER.warn("recovery interrupted", ie);
-            }            
+              } catch ( InterruptedException ie ) {
+                LOGGER.debug("cleanup interrupted", ie);
+              }            
+            }
         } catch ( IOException ioe ) {
             LOGGER.info("unable to shutdown recovery",ioe);
         }

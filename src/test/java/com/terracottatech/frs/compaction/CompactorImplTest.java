@@ -101,6 +101,17 @@ public class CompactorImplTest {
     verify(logManager, times(2)).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
+  
+  @Test
+  public void testMaxPermits() throws Exception {
+    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
+                                  logManager, policy,
+                                  60, 60, 1000, Integer.MAX_VALUE);
+//don't start the thread
+    compactor.compactNow();
+// this should overflow and not cause crashing error
+    compactor.generatedGarbage(100);
+  }
 
   @Test
   public void testCompactionTerminatesOnEmptyObjectManager() throws Exception {

@@ -242,12 +242,23 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public void generatedGarbage(long lsn) {
-    compactionCondition.release();
+    try {
+      compactionCondition.release();
+    } catch ( Error e ) {
+  //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
+      LOGGER.warn("error generating garbage", e);
+    } 
   }
 
   @Override
   public void compactNow() {
-    compactionCondition.release(startThreshold);
+    try {
+      compactionCondition.drainPermits();
+      compactionCondition.release(startThreshold);
+    } catch ( Error e ) {
+  //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
+      LOGGER.warn("error generating garbage", e);
+    } 
   }
 
   private synchronized boolean checkForPause() throws InterruptedException {

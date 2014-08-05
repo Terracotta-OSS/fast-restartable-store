@@ -9,6 +9,7 @@ public enum FrsProperty {
   IO_RECOVERY_QUEUE_SIZE("io.recoveryQueueSize", Type.INTEGER, 16),
   IO_COMMITLIST("io.commitList", Type.STRING, "ATOMIC"),
   IO_WAIT("io.wait", Type.INTEGER, 200),
+  IO_DISABLE_SYNC("io.disableSync", Type.BOOLEAN, false),
   
   IO_NIO_SEGMENT_SIZE("io.nio.segmentSize", Type.LONG, 512L * 1024 * 1024),
   IO_NIO_RECOVERY_MEMORY_SIZE("io.nio.recoveryMemorySize", Type.LONG, -1L),

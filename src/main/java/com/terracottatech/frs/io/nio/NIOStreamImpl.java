@@ -44,6 +44,8 @@ class NIOStreamImpl implements Stream {
     static final String BAD_STREAM_ID = "mis-aligned streams";
     private final File directory;
     private final long segmentSize;
+    
+    private boolean syncDisabled = false;
 
     private UUID streamId;
     private volatile long lowestMarker = Constants.GENESIS_LSN;
@@ -111,6 +113,10 @@ class NIOStreamImpl implements Stream {
             }
         }
         return randomAccess;
+    }
+    
+    void disableSync(boolean disabled) {
+      syncDisabled = disabled;
     }
     
     private void hintRandomAccess(long marker, int segmentId) {
@@ -422,6 +428,9 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public long sync() throws IOException {
+        if ( syncDisabled ) {
+          return -2;
+        }
         if (writeHead != null && !writeHead.isClosed()) {
             long pos = writeHead.position();
             if (syncer != null) {

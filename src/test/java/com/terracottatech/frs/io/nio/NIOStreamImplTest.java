@@ -201,4 +201,10 @@ public class NIOStreamImplTest {
         assertThat(ioe.getMessage(),is("no direct memory space"));
     }
   }  
+  
+  @Test
+  public void testDisableFsync() throws Exception {
+    stream.disableSync(true);
+    Assert.assertEquals(-2, stream.sync());
+  }
 }

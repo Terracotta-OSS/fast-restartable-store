@@ -54,6 +54,7 @@ public class NIOManager implements IOManager {
     private final boolean       randomAccess;
     private final long          memorySize;
     private final long          randomAccessSize;
+    private boolean       disableSync;
     private boolean             useSlabs = false;
         
     private static final String LOCKFILE_ACTIVE = "lock file exists";
@@ -116,6 +117,10 @@ public class NIOManager implements IOManager {
         } 
         if ( randomAccess ) {
           reader.setMaxFiles(config.getInt(FrsProperty.IO_NIO_FILECACHE_MAX));
+        }
+        
+        if ( config.getBoolean(FrsProperty.IO_DISABLE_SYNC) ) {
+          this.backend.disableSync(true);
         }
     }
 // for tests

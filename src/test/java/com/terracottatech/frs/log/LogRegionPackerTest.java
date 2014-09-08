@@ -71,13 +71,62 @@ public class LogRegionPackerTest {
     LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32);
     Chunk result = instance.pack(payload);
     verifyChunkHeader(result);
+    verifyHints(result,0);
     verify(mock).getPayload();
     verify(mock).getLsn();
   }
   
+  /**
+   * Test of pack method, of class LogRegionPacker.
+   */
+  @Test
+  public void testLargePack() throws Exception {
+    System.out.println("large pack");
+    final ArrayList<LogRecord> list = new ArrayList<LogRecord>();
+    LogRecord mock = Mockito.mock(LogRecord.class);
+    when(mock.getPayload()).thenReturn(new ByteBuffer[] {ByteBuffer.allocate(512)});
+    when(mock.getLsn()).thenReturn(999L);
+    for (int x=0;x<8192;x++) {
+      list.add(mock);
+    }
+    Iterable<LogRecord> payload = new Iterable<LogRecord>() {
+
+      @Override
+      public Iterator<LogRecord> iterator() {
+        return list.iterator();
+      }
+    };
+    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32);
+    Chunk result = instance.pack(payload);
+    verifyChunkHeader(result);
+    verifyHints(result,255);
+    verify(mock, times(8192)).getPayload();
+    verify(mock, times(8192)).getLsn();
+  }  
+  
   private boolean verifyChunkHeader(Chunk c) {
     assertEquals(c.getShort(), LogRegionPacker.REGION_VERSION);
     assertEquals(c.getLong(), c.getLong());
+    c.get(); //  region format
+    c.get(); //  region format
+    return true;
+  }
+  
+    
+  private boolean verifyRecordHeader(Chunk c) {
+    c.getShort(); // record header
+    c.getLong(); // lsn
+    c.getLong();  // length 
+    return true;
+  }
+  
+    
+  private boolean verifyHints(Chunk c, int expectedSize) {
+    int size = c.getShort();
+    assertEquals(expectedSize, size);
+    for (int x=0;x<size;x++) {
+      System.out.println(c.getLong());
+    }
     return true;
   }
 

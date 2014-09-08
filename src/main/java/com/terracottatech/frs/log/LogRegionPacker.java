@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.zip.Adler32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,19 +158,37 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     protected Chunk writeRecords(Iterable<LogRecord> records) {        
         ArrayList<ByteBuffer> buffers = new ArrayList<ByteBuffer>(tuningMax);
         int count = 0;
+        final short HINTS_MAX_SIZE = 256;
+        int hintSpread = 16;
 
         ByteBuffer regionHeader = source.getBuffer(LOG_REGION_HEADER_SIZE);
-        ByteBuffer hints = source.getBuffer(1024);
+        ByteBuffer hints = source.getBuffer(((Long.SIZE / Byte.SIZE) * HINTS_MAX_SIZE) + (Short.SIZE / Byte.SIZE));
 
         buffers.add(regionHeader);
         buffers.add(hints);
         
-        ArrayList<Long> spreads = new ArrayList<Long>();
+        ArrayList<Long> spreads = new ArrayList<Long>(HINTS_MAX_SIZE+1);
         long pos = 0;
         for (LogRecord record : records) {
-            if ( pos > 0 && count % 16 == 0 ) {
+            if ( pos > 0 && count % hintSpread == 0 ) {
               spreads.add(pos);
               pos = 0;
+// cull the hints list if it's too big
+              if ( spreads.size() > HINTS_MAX_SIZE ) {
+                boolean remove = true;
+                ListIterator<Long> si = spreads.listIterator();
+                while (si.hasNext() ) {
+                  pos += si.next();
+                  if (remove) {
+                    si.remove();
+                  } else {
+                    si.set(pos);
+                    pos = 0;
+                  }
+                  remove = !remove;
+                }
+                hintSpread <<= 1;
+              }
             }
             ByteBuffer rhead = source.getBuffer(LOG_RECORD_HEADER_SIZE);
             
@@ -189,8 +208,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         }
         
         hints.putShort((short)spreads.size());
-        for ( Long s : spreads ) {
-          hints.putLong(s);
+        for (Long spread : spreads) {
+          hints.putLong(spread);
         }
         
         hints.flip();
@@ -273,10 +292,10 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     }
     
     protected int formRecordHeader(long length, long lsn, ByteBuffer header) {
-            header.putShort(LR_FORMAT);
-            header.putLong(lsn);
-            header.putLong(length);
-            return header.remaining();
+        header.putShort(LR_FORMAT);
+        header.putLong(lsn);
+        header.putLong(length);
+        return header.remaining();
     }
     
     protected static long checksum(Chunk bufs) {

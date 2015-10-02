@@ -63,15 +63,17 @@ class NIORandomAccess implements RandomAccess, Closeable {
                 return null;
             } else {
                 if ( marker < seg.load(src).getBaseMarker() ) {
-                    throw new AssertionError("overshoot: " + marker + " < " + seg + " " + cacheId + " " + segId + " " + cache.getOffset() + " " + fileIndex);
+                  LOGGER.info("overshoot: " + marker + " < " + seg + " " + cacheId + " " + segId + " " + cache.getOffset() + " " + fileIndex);
+                  return null;        // Let NIOManager re-drive
                 }
             }
+            boolean segComplete = seg.isComplete();     // null result from "incomplete" segment is re-driven
             c = seg.scan(marker);
-            if ( c == null && LOGGER.isDebugEnabled() ) {
-              LOGGER.debug(marker + " " + seg);
-            }
             if ( c == null ) {
-              if ( seg.isComplete() ) {
+              if ( LOGGER.isDebugEnabled() ) {
+                LOGGER.debug(marker + " " + seg);
+              }
+              if ( segComplete ) {
                 segId += 1;
               } else if ( LOGGER.isDebugEnabled() ) {
                 if ( segments.getCount() + segments.getBeginningSegmentId() != seg.getSegmentId() ) {

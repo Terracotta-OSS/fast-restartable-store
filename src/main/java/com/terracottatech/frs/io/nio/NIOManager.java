@@ -224,10 +224,18 @@ public class NIOManager implements IOManager {
             if ( reader == null ) {
                 this.reader = backend.createRandomAccess(getRandomAccessBufferSource());
             }
-            Chunk c = this.reader.scan(marker);
-            while ( c == null ) {
-              this.backend.waitForMarker(marker);
-              c = this.reader.scan(marker);
+            int attempts = 10;
+            Chunk c;
+            while ( (c = this.reader.scan(marker)) == null ) {
+                if (attempts-- == 0) {
+                    throw new IllegalStateException("failed to find marker " + marker + " in " + directory);
+                }
+                if (this.isClosed()) {
+                    throw new IllegalStateException("closed during get operation");
+                }
+                LOGGER.info("Marker " + marker + " not found in " + directory + " during scan; retrying after fsync wait (attempts remaining = " + attempts + ")");
+                // TODO: Should reader be closed and re-opened? (https://support.microsoft.com/en-us/kb/981166)
+                this.backend.waitForMarker(marker);
             }
             return c;
         } catch ( InterruptedIOException ioe ) {

@@ -25,6 +25,7 @@ import org.junit.Test;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -32,11 +33,23 @@ import java.util.Iterator;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
+
 import org.junit.BeforeClass;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  *
@@ -102,7 +115,8 @@ public class NIOManagerTest {
         manager.close();
         assert(manager.isClosed());
     }
-  /**
+
+    /**
      * Test of append method, of class IOManagerImpl.
      */
     @Test
@@ -135,9 +149,9 @@ public class NIOManagerTest {
         }
 
         System.out.format("bytes written: %.3fM in %dms = %.3f MB/sec\n",
-                tb / (1024d * 1024d),
-                NANOSECONDS.toMillis(System.nanoTime() - total),
-                (tb / (1024d * 1024d)) / ((System.nanoTime() - total) * 1e-9)
+            tb / (1024d * 1024d),
+            NANOSECONDS.toMillis(System.nanoTime() - total),
+            (tb / (1024d * 1024d)) / ((System.nanoTime() - total) * 1e-9)
         );
     }
     
@@ -250,7 +264,87 @@ public class NIOManagerTest {
            lsn = record.getLsn();
        }
     }
-    
+
+    /**
+     * Ensures that {@link NIOManager#scan(long)} completes after waiting for write completion.
+     */
+    @Test
+    public void testScan() throws Exception {
+        final int recordCount = 1000;
+        final long triggerMarker = Constants.FIRST_LSN + recordCount - 10;
+
+        /*
+         * Inject a "spied" NIOStreamImpl into the NIOManager instance so
+         * the 'waitForMarker' method activity can be watched.
+         */
+        final Field backendField = NIOManager.class.getDeclaredField("backend");
+        backendField.setAccessible(true);
+        NIOStreamImpl backend = (NIOStreamImpl)backendField.get(manager);
+        backend = spy(backend);
+        backendField.set(manager, backend);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(final InvocationOnMock invocationOnMock) throws Throwable {
+                final Long marker = (Long)invocationOnMock.getArguments()[0];
+                if (marker == triggerMarker) {
+                    System.out.format("waitForMarker(%s)%n", marker);
+                    System.out.flush();
+                    latch.countDown();          // Release the record loading thread
+                }
+                return invocationOnMock.callRealMethod();
+            }
+        }).when(backend).waitForMarker(anyLong());
+
+        final StagingLogManager lm =
+            new StagingLogManager(Signature.ADLER32, new AtomicCommitList(Constants.FIRST_LSN, 100, 20), manager, src);
+        lm.startup();
+
+        /*
+         * Load records into log manager pausing 1/2 way through to wait for a call to
+         * NIOStreamImpl.waitForMarker for the trigger marker value.
+         */
+        final Thread loadingThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (int x = 0; x < recordCount; x++) {
+                    try {
+                        DummyLogRecord record = new DummyLogRecord(100, 1024);
+                        if (x == recordCount - 1) {
+                            final Future<Void> future = lm.appendAndSync(record);
+                            future.get();
+                        } else if (x == recordCount / 2) {
+                            final Future<Void> future = lm.appendAndSync(record);
+                            future.get();
+                            System.out.println("Record loading suspended");
+                            latch.await();          // Wait for a call to NIOStreamImpl.waitForMarker(triggerMarker)
+                        } else {
+                            lm.append(record);
+                        }
+                    } catch (IOException e) {
+                        throw new AssertionError(e);
+                    } catch (InterruptedException e) {
+                        throw new AssertionError(e);
+                    } catch (ExecutionException e) {
+                        throw new AssertionError(e);
+                    }
+                }
+            }
+        });
+        loadingThread.setDaemon(true);
+        loadingThread.start();
+
+        assertNotNull(manager.scan(Constants.FIRST_LSN));
+        assertThat(lm.currentLsn(), lessThan(triggerMarker));
+        assertThat(latch.getCount(), not(equalTo(0L)));
+        assertThat(loadingThread.getState(), equalTo(Thread.State.WAITING));
+        assertNotNull(manager.scan(triggerMarker));
+
+        loadingThread.join();
+        lm.shutdown();
+    }
+
     @Test
     public void testTimeBomb() throws Exception {
         GlobalFilters.addFilter(new TimebombFilter(1, TimeUnit.SECONDS));

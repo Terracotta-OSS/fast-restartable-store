@@ -51,7 +51,7 @@ class NIOStreamImpl implements Stream {
     private volatile long lowestMarker = Constants.GENESIS_LSN;
     private volatile long lowestMarkerOnDisk = 0;
     private volatile long fsyncdMarker = 0;
-    private long currentMarker = Constants.GENESIS_LSN;  //  init lsn is 100
+    private volatile long currentMarker = Constants.GENESIS_LSN;  //  init lsn is 100
     private int  markerWaiters = 0;
     private WritingSegment writeHead;
     private ReadOnlySegment readHead;

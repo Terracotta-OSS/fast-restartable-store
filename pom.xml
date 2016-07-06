@@ -3,7 +3,7 @@
   <parent>
     <artifactId>forge-parent-ee</artifactId>
     <groupId>org.terracotta.forge</groupId>
-    <version>3.20</version>
+    <version>3.22</version>
   </parent>
   <scm>
     <connection>scm:git:git@github.softwareag.com:Terracotta-Legacy/fast-restartable-store.git</connection>
@@ -130,6 +130,35 @@
           </plugin>
         </plugins>
       </reporting>
+    </profile>
+
+    <profile>
+      <id>sag-deps</id>
+      <activation>
+        <property>
+          <name>sag-deps</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.terracotta</groupId>
+              <artifactId>maven-forge-plugin</artifactId>
+              <dependencies>
+                <dependency>
+                  <groupId>com.softwareag.ibit.tools.util</groupId>
+                  <artifactId>finder</artifactId>
+                  <!-- Before bumping version - verify it still accepts exclusion files -->
+                  <version>3.0</version>
+                  <scope>compile</scope>
+                </dependency>
+              </dependencies>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
     </profile>
   </profiles>
 

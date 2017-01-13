@@ -30,7 +30,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
     private FileBuffer buffer;
     private static final short IMPL_NUMBER = 02;
     private long maxMarker;
-    private List<Long> writeJumpList;
+    private WritingSegmentJumpList writeJumpList;
     private long totalWrite;
     private boolean existingFile = false;
 
@@ -85,7 +85,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
                 throw new HeaderException("truncated header",this);
             }
         } else {
-            this.writeJumpList = new ArrayList<Long>();
+            this.writeJumpList = new WritingSegmentJumpList();
         }
         
         return this;
@@ -99,7 +99,7 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         }
     }
     
-    void setJumpList(List<Long> jumps) {
+    void setJumpList(WritingSegmentJumpList jumps) {
         this.writeJumpList = jumps;
     }
 

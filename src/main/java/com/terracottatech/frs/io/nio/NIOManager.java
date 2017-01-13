@@ -366,7 +366,8 @@ public class NIOManager implements IOManager {
         }
         try {
             if (backupLock == null || !backupLock.isValid()) {
-                LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is complete.");
+                LOGGER.info("Unable to lock backup lockfile. Delaying log file cleanup until the backup is " +
+                  "complete.");
                 return NullFuture.INSTANCE;
             }
             synchronized (backupLockFile.getCanonicalPath().intern()) {

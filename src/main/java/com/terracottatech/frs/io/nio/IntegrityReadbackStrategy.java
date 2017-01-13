@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
     private static final Logger LOGGER = LoggerFactory.getLogger(IOManager.class);
     private final FileBuffer buffer;
-    private final ArrayList<Long> jumpList = new ArrayList<Long>();
+    private final WritingSegmentJumpList jumpList = new WritingSegmentJumpList();
     private long lastGood = 0;
     private long lastMarker = 0;
     private boolean primed = false;
@@ -131,7 +131,7 @@ public class IntegrityReadbackStrategy extends AbstractReadbackStrategy {
         return lastGood;
     }
     
-    List<Long> getJumpList() {
+    WritingSegmentJumpList getJumpList() {
         return jumpList;
     }
 

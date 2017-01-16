@@ -4,13 +4,17 @@
  */
 package com.terracottatech.frs.io.nio;
 
-import com.terracottatech.frs.io.*;
+import com.terracottatech.frs.io.AppendableChunk;
+import com.terracottatech.frs.io.Chunk;
+import com.terracottatech.frs.io.Direction;
+import com.terracottatech.frs.util.LongLongOrderedDeltaArray.LongLongEntry;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.*;
+import java.util.NoSuchElementException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -23,10 +27,10 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
 
     private final   FileChannel                           source;
     private final   AppendableChunk                        data;
-    private final   NavigableMap<Long,Marker>              boundaries;
+    private final   MarkerDictionary              boundaries;
     private final ReadWriteLock lock;
     private long offset = 0;
-    
+    private long maxMarker = Long.MIN_VALUE;
         
     public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
       this.source = src;
@@ -34,7 +38,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
 
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
         this.data.skip(source.position());
-        boundaries = new TreeMap<Long,Marker>();
+        boundaries = new MarkerDictionary();
         createIndex(dir == Direction.RANDOM);
         
         if ( !this.isCloseDetected() ) {
@@ -46,9 +50,9 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
         if ( boundaries.isEmpty() ) {
             this.offset = Long.MIN_VALUE;
         } else if ( dir == Direction.REVERSE ) {
-            this.offset = boundaries.lastKey();
+            this.offset = boundaries.lastEntry().getKey();
         } else if ( dir == Direction.FORWARD ) {
-            this.offset = boundaries.firstKey();
+            this.offset = boundaries.firstEntry().getKey();
         } else {
             offset = Long.MIN_VALUE;
         }
@@ -61,11 +65,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
 
     @Override
     public long getMaximumMarker() {
-        try {
-            return boundaries.lastKey();
-        } catch ( NoSuchElementException no ) {
-            return Long.MIN_VALUE;
-        }
+        return maxMarker;
     }
 
     private void createIndex(boolean full) throws IOException {
@@ -75,7 +75,8 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             ByteBuffer[] chunk = readChunk(data);
             while (chunk != null) {
                 long marker = data.getLong(data.position() - 12);
-                boundaries.put(marker,new Marker(start, marker));
+                updateMaxMarker(marker);
+                boundaries.append(marker, start);
                 start = data.position();
                 chunk = readChunk(data);
             }
@@ -95,7 +96,8 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
                   } else {
                     marker++;
                   }
-                  boundaries.put(marker,new Marker(last, marker));
+                  updateMaxMarker(marker);
+                  boundaries.append(marker, last);
                 } catch ( Throwable t ) {
                     throw new AssertionError(t);
                 }
@@ -103,27 +105,34 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             }
 // replace the last item with the real marker number so getMaximumMarker works
             if ( !boundaries.isEmpty() ) {
-              boundaries.put(data.getLong(last - 12), boundaries.remove(marker));
+              updateMaxMarker(data.getLong(last - 12));
             }
             source.close();
         }
     }
-    
-    private void updateIndex() throws IOException {
+
+    private void updateMaxMarker(long marker) {
+      if (marker > maxMarker) {
+        maxMarker = marker;
+      }
+    }
+
+  private void updateIndex() throws IOException {
         long start = data.position();
         ByteBuffer[] chunk = readChunk(data);
         while (chunk != null) {
             long marker = data.getLong(data.position() - 12);
-            boundaries.put(marker,new Marker(start, marker));
+            updateMaxMarker(marker);
+            boundaries.append(marker, start);
             start = data.position();
             chunk = readChunk(data);
         }
         if ( this.isCloseDetected() ) {
             data.destroy();
             data.append(source.map(FileChannel.MapMode.READ_ONLY, 0, source.size()));
-            if ( data.remaining() < boundaries.lastEntry().getValue().getStart() ) {
+            if ( data.remaining() < boundaries.lastEntry().getValue() ) {
                 throw new AssertionError("bad boundaries " + data.remaining() + " " 
-                        + boundaries.lastEntry().getValue().getStart());
+                        + boundaries.lastEntry().getValue());
             }
             source.close();
         } else if ( data.hasRemaining() ) {
@@ -154,21 +163,28 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     public Chunk iterate(Direction dir) throws IOException {
       Long key = null;
       try {
-        Map.Entry<Long,Marker> e = ( dir == Direction.FORWARD ) ? boundaries.ceilingEntry(offset) : boundaries.floorEntry(offset);
+        LongLongEntry e = (dir == Direction.FORWARD) ? boundaries.ceilingEntry(offset) : boundaries.floorEntry(offset);
         key = e.getKey();
-        return e.getValue().getChunk();
+        long start = e.getValue();
+        return getArbitraryChunkFromStart(start);
       } finally {
-        offset = ( dir == Direction.FORWARD ) ? key + 1 : key - 1;
+        offset = (dir == Direction.FORWARD) ? key + 1 : key - 1;
       }
     }
 
     @Override
     public boolean hasMore(Direction dir) throws IOException {
-        try {
-            return ( dir == Direction.FORWARD ) ? ( boundaries.lastKey() >= offset ) : boundaries.firstKey() <= offset;
-        } catch ( NoSuchElementException no ) {
-            return false;
+      try {
+        if (boundaries.isEmpty()) {
+          return false;
+        } else if (dir == Direction.FORWARD) {
+          return boundaries.lastEntry().getKey() >= offset;
+        } else {
+          return boundaries.firstEntry().getKey() <= offset;
         }
+      } catch (NoSuchElementException no) {
+        return false;
+      }
     }
     
     public Chunk getBuffer() {
@@ -187,7 +203,7 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     @Override
     public Chunk scan(long marker) throws IOException {
         Lock l = null;
-        while ( !this.isCloseDetected() && boundaries.lastKey() < marker ) {
+        while ( !this.isCloseDetected() && boundaries.lastEntry().getKey() < marker ) {
             l = lock.writeLock();
             try {
                 l.lock();
@@ -207,11 +223,11 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             if ( l != null ) {
                 l.lock();
             }
-            Map.Entry<Long,Marker> m = boundaries.ceilingEntry(marker);
+            LongLongEntry m = boundaries.ceilingEntry(marker);
             if ( m == null ) {
                 return null;
             } else {
-                return m.getValue().getChunk();
+                return getArbitraryChunkFromStart(m.getValue());
             } 
         } finally {
             if ( l != null ) {
@@ -265,4 +281,21 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
       }
       
     }
+
+
+  Chunk getArbitraryChunkFromStart(long start) {
+    Chunk value = data.copy();
+    value.skip(start);
+    int cs = value.getInt();
+    if ( !SegmentHeaders.CHUNK_START.validate(cs) ) {
+      throw new AssertionError("not valid");
+    }
+    long len = value.getLong();
+    Chunk rv = value.getChunk(len);
+    if ( value.getLong() != len ) {
+      throw new AssertionError("not valid");
+    }
+    return rv;
+  }
+
 }

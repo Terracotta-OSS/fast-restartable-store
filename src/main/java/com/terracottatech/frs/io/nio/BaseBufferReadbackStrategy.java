@@ -143,7 +143,7 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
     }
   }
   
-        
+
   protected class Marker {
       private final long start;
       private final long mark;
@@ -154,12 +154,12 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
         this.mark = mark;
         this.lhint = 0;
       }
-      
+
       public Marker(long start, long mark, long lguess) {
         this.start = start;
         this.mark = mark;
         this.lhint = lguess;
-      }         
+      }
 
       public long getStart() {
         return start;
@@ -168,7 +168,7 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
       public long getMark() {
         return mark;
       }
-      
+
       public Chunk getFullChunk() throws IOException {
         FullChunk header = new FullChunk(start, 12);
         int cs = header.getInt();

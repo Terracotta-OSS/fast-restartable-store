@@ -74,6 +74,21 @@ public class SLABBufferSource implements BufferSource {
     return total;
   }
 
+  private boolean isCapacityAvailable(int size) {
+    int sizeToCheck = size + SLABBufferSource.HEADERSZ;
+    for (SLAB s : list) {
+      if (s != null) {
+        if (s.remaining() >= sizeToCheck) {
+          return true;
+        }
+      } else {
+        // if there are empty slots as the capacity may increase..return true
+        return true;
+      }
+    }
+    return false;
+  }
+
   private int count() {
     int total = 0;
     for (SLAB s : list) {
@@ -164,7 +179,7 @@ public class SLABBufferSource implements BufferSource {
           }
           out.incrementAndGet();
           return target.allocateReserved(size);
-        } else if (p < -1 && amountRemaining() < slabsize) {
+        } else if (p < -1 && (amountRemaining() < slabsize || !isCapacityAvailable(size))) {
           return null;
         }
       }

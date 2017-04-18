@@ -89,6 +89,25 @@ public class SLABBufferSourceTest extends BufferSourceTest {
   }
 
   /**
+   * Test of getBuffer method, of class SLABBufferSource.
+   */
+  @Test
+  public void testGetBufferWithSmallLeftOverPerSlab() {
+    System.out.println("getBufferLoop");
+    int size = 7153746;
+    SLABBufferSource instance = new SLABBufferSource();
+    for (int i = 0; i < 128; i++) {
+      ByteBuffer result = instance.getBuffer(size);
+      assertThat(result.capacity(), greaterThanOrEqualTo(size));
+      assertThat(result.remaining(), greaterThanOrEqualTo(size));
+    }
+    // TDB-421 this should return null instead of looping
+    ByteBuffer result = instance.getBuffer(size);
+    assertNull(result);
+  }
+
+
+  /**
    * Test of returnBuffer method, of class SLABBufferSource.
    */
   @Test

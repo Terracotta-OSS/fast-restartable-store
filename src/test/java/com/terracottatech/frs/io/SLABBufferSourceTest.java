@@ -95,8 +95,8 @@ public class SLABBufferSourceTest extends BufferSourceTest {
   public void testGetBufferWithSmallLeftOverPerSlab() {
     System.out.println("getBufferLoop");
     int size = 7153746;
-    SLABBufferSource instance = new SLABBufferSource();
-    for (int i = 0; i < 128; i++) {
+    SLABBufferSource instance = new SLABBufferSource(8 * 1024 * 1024, 4);
+    for (int i = 0; i < 4; i++) {
       ByteBuffer result = instance.getBuffer(size);
       assertThat(result.capacity(), greaterThanOrEqualTo(size));
       assertThat(result.remaining(), greaterThanOrEqualTo(size));

@@ -108,7 +108,12 @@ public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<
       V old = dataMap.put(key, value);
       RK encodedKey = encodeKey(key);
       RV encodedValue = encodeValue(value);
-      byteSize += keyByteSize(key, encodedKey) + valueByteSize(value, encodedValue);
+      if(old == null) {
+        byteSize += keyByteSize(key, encodedKey) + valueByteSize(value, encodedValue);
+      } else {
+        byteSize += valueByteSize(value, encodedValue) - valueByteSize(old, encodeValue(old));
+      }
+      
       restartability.beginTransaction(synchronousWrites).put(identifier, encodedKey, encodedValue).commit();
       return old;
     } catch (TransactionException e) {

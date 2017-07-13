@@ -11,6 +11,7 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.NullLogManager;
@@ -20,6 +21,7 @@ import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.Properties;
 import java.util.concurrent.Future;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
@@ -238,5 +240,42 @@ public class RestartStoreImplTest {
   public void testStatistics() throws Exception {
     restartStore.getStatistics();
     verify(logManager).getIOStatistics();
-  } 
+  }
+
+  @Test
+  public void testPauseResume() throws Exception {
+    Future<Future<Snapshot>> f = restartStore.pause();
+    f.get();
+
+    verify(compactor).pause();
+    verify(actionManager).pause();
+
+    restartStore.resume();
+    verify(actionManager).resume();
+  }
+
+  @Test
+  public void testPauseAutoResume() throws Exception {
+    Properties properties = new Properties();
+    properties.put(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS.shortName(), Long.toString(20));
+    configuration = Configuration.getConfiguration(new File("foo"), properties);
+    restartStore = createStore();
+    restartStore.startup();
+
+    Future<Future<Snapshot>> f = restartStore.pause();
+    f.get();
+
+    verify(compactor).pause();
+    verify(actionManager).pause();
+
+    Thread.sleep(200);
+
+    try {
+      restartStore.resume();
+      fail("Should have auto resumed");
+    } catch (NotPausedException e) {
+      verify(actionManager).resume();
+      verify(compactor).unpause();
+    }
+  }
 }

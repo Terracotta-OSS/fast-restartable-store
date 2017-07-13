@@ -4,6 +4,7 @@
  */
 package com.terracottatech.frs.mock;
 
+import com.terracottatech.frs.NotPausedException;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.Snapshot;
@@ -98,6 +99,14 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   public Statistics getStatistics() {
     throw new UnsupportedOperationException();
   }
-  
-  
+
+  @Override
+  public Future<Future<Snapshot>> pause() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void resume() throws NotPausedException {
+    throw new NotPausedException();
+  }
 }

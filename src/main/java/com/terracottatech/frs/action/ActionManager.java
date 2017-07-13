@@ -31,10 +31,29 @@ public interface ActionManager {
   Future<Void> happened(Action action);
 
   /**
-   * Extrac the {@link Action} from the given {@link LogRecord}
+   * Extract the {@link Action} from the given {@link LogRecord}
    *
    * @param record {@link LogRecord} to pull the {@link Action} out of.
    * @return {@link Action}
    */
   Action extract(LogRecord record);
+
+  /**
+   * Pause action manager.
+   * <p>
+   * On a return from this method, all {@link ActionManager#happened(Action)} and
+   * {@link ActionManager#syncHappened(Action)} calls will block at entry, until the action manager
+   * is resumed. This call comes out iff no more pending {@code happened()} and {@code syncHappened()} exists
+   * in any threads and all incoming calls starts blocking, thereby guaranteeing that the gate is completely
+   * closed.
+   */
+  void pause();
+
+  /**
+   * Resume action manager.
+   * <p>
+   * On a successful return, the {@link ActionManager} gate is open and all threads blocked in *happened() calls will
+   * unblock itself and continue processing.
+   */
+  void resume();
 }

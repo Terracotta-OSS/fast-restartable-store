@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -544,7 +545,14 @@ public class StagingLogManager implements LogManager {
         return snapshot;
     }
 
-    @Override
+  @Override
+  public Future<Snapshot> snapshotAsync() {
+    SnapshotRecord snapshot = new SnapshotRecord();
+    Future<Void> write = this.append(snapshot);
+    return new SnapshotFuture(snapshot, write);
+  }
+
+  @Override
     public IOStatistics getIOStatistics() {
       try {
         return io.getStatistics();
@@ -639,4 +647,41 @@ public class StagingLogManager implements LogManager {
             }
         }
     }
+
+  private static class SnapshotFuture implements Future<Snapshot> {
+    private final Snapshot snapshot;
+    private final Future<Void> write;
+
+    private SnapshotFuture(Snapshot snapshot, Future<Void> write) {
+      this.snapshot = snapshot;
+      this.write = write;
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return write.isDone();
+    }
+
+    @Override
+    public Snapshot get() throws InterruptedException, ExecutionException {
+      write.get();
+      return snapshot;
+    }
+
+    @Override
+    public Snapshot get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+      write.get(timeout, unit);
+      return write.isDone() ? snapshot : null;
+    }
+  }
 }

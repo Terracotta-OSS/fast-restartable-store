@@ -48,6 +48,14 @@ public class MockActionManager implements ActionManager {
   }
 
   @Override
+  public void pause() {
+  }
+
+  @Override
+  public void resume() {
+  }
+
+  @Override
   public Future<Void> syncHappened(Action action) {
     return happened(action);
   }

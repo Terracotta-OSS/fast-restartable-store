@@ -59,6 +59,11 @@ public class NullLogManager implements LogManager {
   }
 
   @Override
+  public Future<Snapshot> snapshotAsync() {
+    return null;
+  }
+
+  @Override
   public IOStatistics getIOStatistics() {
       return null;      
   }

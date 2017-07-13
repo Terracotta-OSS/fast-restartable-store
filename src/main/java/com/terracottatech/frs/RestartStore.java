@@ -72,4 +72,30 @@ public interface RestartStore<I, K, V> {
    * @return statistics from current log stream implementation 
    */
   Statistics getStatistics();
+
+  /**
+   * Start the process of pausing incoming actions. Also, start the process of pausing compaction and return
+   * a {@link Future} that can be used to check when the pause completes.
+   *
+   * The pause action is complete when all ongoing actions are queued (including compaction) and new actions
+   * are frozen, thereby closing the gate for any future actions, until either a resume is called or until
+   * an internal timeout happens. Just before completing the pause action, as snapshot request will be queued
+   * and a future to this snapshot request will be returned.
+   * <p>
+   * A snapshot request takes a snapshot of this {@link RestartStore} for backup purposes. Once the snapshot completes
+   * ({@link Future#get()} all transactions that have already been committed prior to the snapshot call are guaranteed
+   * to be in the snapshot. Changes made while the snapshot is taken may or may not be in the snapshot. The snapshot
+   * must be released after it's used in order to release any held resources and to unpause compaction.
+   *
+   * @return {@link Future} that completes when the pause is complete (including compaction pause and snapshot request
+   *         queueing).
+   */
+  Future<Future<Snapshot>> pause();
+
+  /**
+   * Resume queueing of incoming actions for IO.
+   *
+   * @throws NotPausedException, if the store is NOT in a paused state.
+   */
+  void resume() throws NotPausedException;
 }

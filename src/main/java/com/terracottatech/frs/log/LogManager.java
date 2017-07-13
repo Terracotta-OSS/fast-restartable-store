@@ -32,6 +32,8 @@ public interface LogManager {
   Future<Void> appendAndSync(LogRecord record);
 
   Snapshot snapshot() throws ExecutionException, InterruptedException;
+
+  Future<Snapshot> snapshotAsync();
   
   IOStatistics getIOStatistics();
 }

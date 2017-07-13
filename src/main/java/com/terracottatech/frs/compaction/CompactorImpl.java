@@ -283,7 +283,7 @@ public class CompactorImpl implements Compactor {
     signalPause = true;
     compactNow();
     boolean interrupted = false;
-    while (!paused) {
+    while (!paused && signalPause) {
       try {
         wait();
       } catch (InterruptedException e) {
@@ -297,9 +297,10 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public synchronized void unpause() {
-    if (!paused) {
+    if (!paused && !signalPause) {
       return;
     }
+    signalPause = false;
     paused = false;
     notifyAll();
   }

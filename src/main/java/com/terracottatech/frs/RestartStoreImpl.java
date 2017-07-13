@@ -9,6 +9,7 @@ import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.compaction.CompactorImpl;
 import com.terracottatech.frs.config.Configuration;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.flash.ReadManager;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.IOStatistics;
@@ -21,12 +22,22 @@ import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.recovery.RecoveryManagerImpl;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @author twu
@@ -34,7 +45,7 @@ import java.util.concurrent.Future;
 public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>,
         RecoveryListener {
   private enum State {
-    INIT, RECOVERING, RUNNING, SHUTDOWN
+    INIT, RECOVERING, RUNNING, SHUTDOWN, PAUSED
   }
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
@@ -44,6 +55,12 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final ActionManager actionManager;
   private final ReadManager readManager;
   private final Configuration configuration;
+
+  private final int maxPauseTime;
+  private final ExecutorService pauseTaskExecutorService;
+  private final ScheduledExecutorService pauseTimeOutService;
+  private volatile Future<Future<Snapshot>> pauseTaskRef;
+  private volatile ScheduledFuture<?> pauseTimerTaskRef;
 
   private volatile State state = State.INIT;
 
@@ -58,6 +75,9 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     this.readManager = read;
     this.compactor = compactor;
     this.configuration = configuration;
+    this.pauseTaskExecutorService = Executors.newSingleThreadExecutor();
+    this.pauseTimeOutService = Executors.newSingleThreadScheduledExecutor();
+    this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
@@ -181,8 +201,65 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       };
   }
 
+  @Override
+  public synchronized Future<Future<Snapshot>> pause() {
+    if (state == State.PAUSED) {
+      return pauseTaskRef;
+    }
+    if (state != State.RUNNING) {
+      throw new IllegalStateException("RestartStore is not ready for pause. Current state " + state);
+    }
+    state = State.PAUSED;
+    pauseTimerTaskRef = pauseTimeOutService.schedule(new Runnable() {
+      @Override
+      public void run() {
+        forceResume();
+      }
+    }, maxPauseTime, TimeUnit.MILLISECONDS);
+    pauseTaskRef = pauseTaskExecutorService.submit(new Callable<Future<Snapshot>>() {
+      @Override
+      public Future<Snapshot> call() throws Exception {
+        compactor.pause();
+        actionManager.pause();
+        return new OuterSnapshotFuture(logManager.snapshotAsync());
+      }
+    });
+    return pauseTaskRef;
+  }
+
+  @Override
+  public synchronized void resume() throws NotPausedException {
+    if (state != State.PAUSED) {
+      throw new NotPausedException("Restart store is currently not paused");
+    }
+    if (!pauseTaskRef.isDone()) {
+      throw new IllegalStateException("Pause task is still running. This is unexpected");
+    }
+    actionManager.resume();
+    pauseTimerTaskRef.cancel(true);
+    pauseTaskRef = null;
+    pauseTimerTaskRef = null;
+    state = State.RUNNING;
+  }
+
+  /**
+   * Force a resume as we have been in paused state for far too long and no one has
+   * externally called a resume.
+   */
+  private synchronized void forceResume() {
+    if (state != State.PAUSED) {
+      return;
+    }
+    compactor.unpause();
+    actionManager.resume();
+    pauseTaskRef.cancel(true);
+    pauseTaskRef = null;
+    pauseTimerTaskRef = null;
+    state = State.RUNNING;
+  }
+
   private void checkReadyState() {
-    if (state != State.RUNNING && state != State.RECOVERING) {
+    if (state != State.RUNNING && state != State.RECOVERING && state != State.PAUSED) {
       throw new IllegalStateException("RestartStore is not ready for mutations. Current state " + state);
     }
   }
@@ -296,6 +373,66 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
     private void checkCommitted() {
       if (committed) throw new IllegalStateException("Transaction is already committed.");
+    }
+  }
+
+  /**
+   * {@link Future} to wait for a snapshot to complete. The {@link OuterSnapshot} ensures that the
+   * compactor is unpaused, once the inner snapshot is complete.
+   */
+  private class OuterSnapshotFuture implements Future<Snapshot> {
+    private final Future<Snapshot> innerSnapshot;
+
+    private OuterSnapshotFuture(Future<Snapshot> innerSnapshot) {
+      this.innerSnapshot = innerSnapshot;
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      throw new UnsupportedOperationException("Not yet supported.");
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return innerSnapshot.isDone();
+    }
+
+    @Override
+    public Snapshot get() throws InterruptedException, ExecutionException {
+      Snapshot inner = innerSnapshot.get();
+      return new OuterSnapshot(inner, compactor);
+    }
+
+    @Override
+    public Snapshot get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+      Snapshot inner = innerSnapshot.get(timeout, unit);
+      return (inner != null) ? new OuterSnapshot(inner, compactor) : null;
+    }
+  }
+
+  private static class OuterSnapshot implements Snapshot {
+    private final Snapshot inner;
+    private final Compactor compactor;
+
+    public OuterSnapshot(Snapshot inner, Compactor compactor) {
+      this.inner = inner;
+      this.compactor = compactor;
+    }
+
+    @Override
+    public void close() throws IOException {
+      compactor.unpause();
+      inner.close();
+    }
+
+    @Override
+    public Iterator<File> iterator() {
+      return inner.iterator();
     }
   }
 }

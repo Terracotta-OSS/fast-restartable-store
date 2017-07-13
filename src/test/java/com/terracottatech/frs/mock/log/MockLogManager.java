@@ -188,7 +188,12 @@ public class MockLogManager implements LogManager {
         throw new UnsupportedOperationException();
     }
 
-    @Override
+  @Override
+  public Future<Snapshot> snapshotAsync() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
     public IOStatistics getIOStatistics() {
       throw new UnsupportedOperationException("Not supported yet.");
     }

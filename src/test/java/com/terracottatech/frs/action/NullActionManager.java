@@ -26,4 +26,12 @@ public class NullActionManager implements ActionManager {
   public Action extract(LogRecord record) {
     return null;
   }
+
+  @Override
+  public void pause() {
+  }
+
+  @Override
+  public void resume() {
+  }
 }

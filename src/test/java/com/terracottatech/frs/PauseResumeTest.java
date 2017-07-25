@@ -62,19 +62,22 @@ public class PauseResumeTest {
         snapshot.close();
       }
 
-      barrier = new CyclicBarrier(2);
-      for (int i = 0; i < 5; i++) {
-        map1Future = doPuts(executor, map1, barrier);
-        map2Future = doPuts(executor, map2, barrier);
-        map1Future.get();
-        map2Future.get();
-      }
+      int iterations = 0;
+      do {
+        barrier = new CyclicBarrier(2);
+        for (int i = 0; i < 5; i++) {
+          map1Future = doPuts(executor, map1, barrier);
+          map2Future = doPuts(executor, map2, barrier);
+          map1Future.get();
+          map2Future.get();
+        }
 
-      {
-        Snapshot snapshot = restartStore.snapshot();
-        f2 = snapshot.iterator().next();
-        snapshot.close();
-      }
+        {
+          Snapshot snapshot = restartStore.snapshot();
+          f2 = snapshot.iterator().next();
+          snapshot.close();
+        }
+      } while(f1.getName().equals(f2.getName()) && iterations++ < 4);
 
       assertThat(f1.getName().equals(f2.getName()), is(false));
       restartStore.shutdown();

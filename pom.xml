@@ -98,6 +98,15 @@
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <version>3.4</version>
+        <configuration>
+          <aggregate>true</aggregate>
+          <targetJdk>${java.build.version}</targetJdk>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.3</version>
         <configuration>

@@ -9,9 +9,9 @@ import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.SimpleBufferSource;
 import com.terracottatech.frs.io.WrappingChunk;
+
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -23,6 +23,7 @@ import java.nio.channels.FileChannel;
 class ReadOnlySegment extends NIOSegment implements Closeable {
 //  for reading 
     private FileChannel source;
+    private final FileChannelReadOpener opener;
     private final NIOAccessMethod method;
     private ReadbackStrategy strategy;
     private final Direction dir;
@@ -32,6 +33,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         super(parent,buffer);
         this.dir = dir;
         this.method = strat;
+        this.opener = new FileChannelReadOpener(getFile());
     }
     
     public synchronized ReadOnlySegment load(BufferSource src) throws IOException {
@@ -52,8 +54,19 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         return this;
     }
 
+  private void readFullyFirstBytes(ByteBuffer buffer) throws IOException {
+    int startPosition = buffer.position();
+    while (buffer.hasRemaining()) {
+      try {
+        source.read(buffer);
+      } catch (PositionLostException e) {
+        source.position(buffer.position() - startPosition);
+      }
+    }
+  }
+
     private ReadbackStrategy openForReplay(BufferSource src) throws IOException, HeaderException {
-        source = new FileInputStream(getFile()).getChannel();
+        source = new WrappedFileChannel(opener.open(), opener);
         length = source.size();
 
         if (length < FILE_HEADER_SIZE) {
@@ -61,22 +74,28 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         }
         
         ByteBuffer header = src.getBuffer(FILE_HEADER_SIZE);
-        source.read(header);
+        readFullyFirstBytes(header);
         header.flip();
         readFileHeader(new WrappingChunk(header));
         src.returnBuffer(header);
-            
-        if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(source, Direction.REVERSE);
-        } else if ( method == NIOAccessMethod.STREAM ) {
-            return new MinimalReadbackStrategy(Direction.REVERSE, getMinimumMarker(), source, src);
-        } else {
-            throw new RuntimeException("unrecognized readback method");
+
+        while (true) {
+          try {
+            if (method == NIOAccessMethod.MAPPED) {
+              return new MappedReadbackStrategy(source, Direction.REVERSE, opener);
+            } else if (method == NIOAccessMethod.STREAM) {
+              return new MinimalReadbackStrategy(Direction.REVERSE, getMinimumMarker(), source, src, opener);
+            } else {
+              throw new RuntimeException("unrecognized readback method");
+            }
+          } catch (PositionLostException e) {
+            source.position(FILE_HEADER_SIZE);
+          }
         }
     }
     
     private ReadbackStrategy openForRandomAccess(BufferSource src) throws IOException, HeaderException {
-        source = new FileInputStream(getFile()).getChannel();
+        source = new WrappedFileChannel(opener.open(), opener);
         length = source.size();
 
         if (length < FILE_HEADER_SIZE) {
@@ -84,19 +103,25 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         }
         
         ByteBuffer header = src.getBuffer(FILE_HEADER_SIZE);
-        source.read(header);
+        readFullyFirstBytes(header);
         header.flip();
         readFileHeader(new WrappingChunk(header));
         src.returnBuffer(header);
-            
-        if ( method == NIOAccessMethod.MAPPED ) {
-            return new MappedReadbackStrategy(source, Direction.RANDOM); 
-        } else if ( method == NIOAccessMethod.STREAM ) {
-            return new MinimalReadbackStrategy(Direction.RANDOM, getMinimumMarker(), source, src);
-        } else {
-            throw new RuntimeException("unrecognized readback method");
+
+        while (true) {
+          try {
+            if (method == NIOAccessMethod.MAPPED) {
+              return new MappedReadbackStrategy(source, Direction.RANDOM, opener);
+            } else if (method == NIOAccessMethod.STREAM) {
+              return new MinimalReadbackStrategy(Direction.RANDOM, getMinimumMarker(), source, src, opener);
+            } else {
+              throw new RuntimeException("unrecognized readback method");
+            }
+          } catch (PositionLostException ple) {
+            source.position(FILE_HEADER_SIZE);
+          }
         }
-    }    
+    }
      
     public Chunk scan(long marker) throws IOException {
         return strategy.scan(marker);
@@ -122,7 +147,7 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
         if ( strategy instanceof Closeable ) {
             ((Closeable)strategy).close();
         } else {
-          source.close();
+          opener.close();
         }
         strategy = null;
         source = null;
@@ -152,4 +177,5 @@ class ReadOnlySegment extends NIOSegment implements Closeable {
             return -1;
         }
     }
+
 }

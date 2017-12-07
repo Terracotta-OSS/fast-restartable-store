@@ -31,8 +31,9 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
     private long offset = 0;
     private long length = 0;    
     
-    public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source) throws IOException {
-        super(dir,channel,source);
+    public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source,
+                                    ChannelOpener opener) throws IOException {
+        super(dir,channel,source,opener);
         boundaries = new TreeMap<Long,Marker>();
         length = channel.position();
         sealed = createIndex(dir == Direction.RANDOM);
@@ -51,6 +52,10 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
             offset = Long.MIN_VALUE;
         }
     }
+
+  public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source) throws IOException {
+      this(dir, channel, source, null);
+  }
 
     @Override
     public boolean isConsistent() {

@@ -12,10 +12,17 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Function;
 
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * @author mscott
@@ -84,7 +91,81 @@ public class NIOStreamImplTest {
     }
     assertThat(foundChunks, is(numChunks));
   }
-  
+
+  @Test
+  public void testReadWithInterrupt() throws Exception {
+    long size = 50 * 1024 * 1024;
+    int numChunks = 0;
+    long marker = Constants.FIRST_LSN;
+    while (size > 0) {
+      int s = 10 + r.nextInt(1024 * 128);
+      stream.append(newChunk(s),marker+=100);
+      size -= s;
+      numChunks++;
+    }
+    stream.close();
+
+    final List<Thread> runningThreads = Collections.synchronizedList(new LinkedList<>());
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+    final CountDownLatch readerLatch = new CountDownLatch(1);
+    final CountDownLatch interruptorLatch = new CountDownLatch(1);
+
+    Runnable interruptor = () -> {
+      interruptorLatch.countDown();
+      while (!runningThreads.isEmpty()) {
+        Thread t;
+        try {
+          t = runningThreads.get(r.nextInt(runningThreads.size()));
+        } catch (IndexOutOfBoundsException ignored) {
+          continue;
+        }
+        for (int i = 0; i < 1000; i++) {
+          t.interrupt();
+          Thread.yield(); Thread.yield(); Thread.yield();
+        }
+        // pause for sometime before issuing next interrupts
+        for (int i = 0; i < 100 + r.nextInt(10000); i++) {
+          try {
+            Thread.sleep(1);
+            if (runningThreads.isEmpty()) {
+              break;
+            }
+          } catch (InterruptedException ignored) {
+          }
+        }
+      }
+    };
+
+    Callable<Integer> reader = () -> {
+      runningThreads.add(Thread.currentThread());
+      NIOStreamImpl nioStream;
+      int foundChunks = 0;
+      try {
+        nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, new HeapBufferSource(512 * 1024 * 1024), null);
+        nioStream.seek(-1);
+        readerLatch.countDown();
+        interruptorLatch.await();
+        while (nioStream.read(Direction.REVERSE) != null) {
+          foundChunks++;
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+        fail("Unexpected exception :: " + e.getMessage());
+      } finally {
+        runningThreads.remove(Thread.currentThread());
+      }
+      return foundChunks;
+    };
+
+    Future<Integer> f = executorService.submit(reader);
+    readerLatch.await();
+    Future f1 = executorService.submit(interruptor);
+    int foundChunks = f.get();
+    f1.get();
+    executorService.shutdown();
+
+    assertThat(foundChunks, is(numChunks));
+  }
 
   @Test
   public void testConstrainedMemoryRead() throws Exception {

@@ -32,8 +32,9 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
     private final long          start;
     private int                 position = Integer.MIN_VALUE;
         
-    public MinimalReadbackStrategy(Direction dir, long first, FileChannel channel, BufferSource source) throws IOException {
-      super(dir,channel,source);
+    public MinimalReadbackStrategy(Direction dir, long first, FileChannel channel, BufferSource source,
+                                   ChannelOpener opener) throws IOException {
+      super(dir,channel,source,opener);
       this.firstKey = first;
       length = channel.position();
       start = length;
@@ -50,6 +51,10 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
         this.position = 0;
       }
     }
+
+  public MinimalReadbackStrategy(Direction dir, long first, FileChannel channel, BufferSource source) throws IOException {
+    this(dir, first, channel, source, null);
+  }
 
     @Override
     public boolean isConsistent() {
@@ -194,10 +199,11 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
         int b = buffer.position();
         int e = buffer.limit();
         int chunkStart = 0;
-        long last = channel.position();
+        long last = length;
+        long currentPos = length;
         try {
           try {
-              readFully(4, buffer);
+              currentPos = readFullyFromPos(4, buffer, currentPos);
           } catch ( IOException ioe ) {
               System.out.println("bad length " + length + " " + channel.position() + " " + channel.size());
               throw ioe;
@@ -206,22 +212,22 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
           ArrayList<Long> list = new ArrayList<Long>();
           while (SegmentHeaders.CHUNK_START.validate(chunkStart)) {
               try {
-                  readFully(8, buffer);
+                  currentPos = readFullyFromPos(8, buffer, currentPos);
                   long len = buffer.getLong();
-                  channel.position(channel.position() + len);
-                  readFully(20, buffer);
+                  currentPos += len;
+                  currentPos = readFullyFromPos(20, buffer, currentPos);
                   if ( len != buffer.getLong() ) {
                       throw new IOException("chunk corruption - head and tail lengths do not match");
                   }
                   long marker = buffer.getLong();
-                  list.add(channel.position());
+                  list.add(currentPos);
                   if ( !SegmentHeaders.FILE_CHUNK.validate(buffer.getInt()) ) {
                       throw new IOException("chunk corruption - file chunk magic is missing");
                   }
                   buffer.position(b).limit(e);
-                  last = channel.position();
-                  if ( channel.position() < channel.size() ) {
-                      readFully(4, buffer);
+                  last = currentPos;
+                  if ( currentPos < channel.size() ) {
+                      currentPos = readFullyFromPos(4, buffer, currentPos);
                       chunkStart = buffer.getInt();
                   } else {
                       break;

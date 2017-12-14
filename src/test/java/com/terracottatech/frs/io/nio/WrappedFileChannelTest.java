@@ -6,7 +6,6 @@ package com.terracottatech.frs.io.nio;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -276,7 +275,6 @@ public class WrappedFileChannelTest {
         Thread.yield();
       }
       f.cancel(true);
-      Assert.assertEquals(true, f.isCancelled());
     }
     endLatch.await();
     if (!writeLocked) {
@@ -395,7 +393,7 @@ public class WrappedFileChannelTest {
     writeBuf(position, big, false);
   }
 
-  private void writeBuf(long position, boolean big, boolean force) throws IOException {
+  private synchronized void writeBuf(long position, boolean big, boolean force) throws IOException {
     ByteBuffer b = (big) ? BIG_SRC.duplicate() : SRC.duplicate();
     boolean interrupted = Thread.interrupted();
     long pos = position;
@@ -433,7 +431,7 @@ public class WrappedFileChannelTest {
     }
   }
 
-  private ByteBuffer readBuf(long position, boolean big) throws IOException {
+  private synchronized ByteBuffer readBuf(long position, boolean big) throws IOException {
     ByteBuffer b = ByteBuffer.allocate(big ? BIG_BUF_LEN : BUF_LEN);
     long pos = position;
     boolean interrupted = Thread.interrupted();
@@ -465,6 +463,7 @@ public class WrappedFileChannelTest {
       if (interrupted) {
         Thread.currentThread().interrupt();
       }
+      assertThat(totalRead, is((big) ? BIG_BUF_LEN : BUF_LEN));
     }
     return b;
   }

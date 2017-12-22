@@ -166,6 +166,11 @@ class TransactionalAction implements TransactionAction, GettableAction {
   }
 
   @Override
+  public int replayConcurrency() {
+    return action.replayConcurrency();
+  }
+
+  @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer handleBuffer = handle.toByteBuffer();
     ByteBuffer header = ByteBuffer.allocate(handleBuffer.capacity() + 1);

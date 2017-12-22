@@ -29,6 +29,16 @@ public interface Action extends LSNEventListener {
   void replay(long lsn);
 
   /**
+   * Determine the replay parallelism for this action. Multiple actions with the
+   * same replay parallelism will be replayed sequentially.
+   *
+   * @return the replay parallelism number
+   */
+  default int replayConcurrency() {
+    return 1;
+  }
+
+  /**
    * Get the serialized form of the action.
    *
    * @param codec {@link ActionCodec} to serialize the action with

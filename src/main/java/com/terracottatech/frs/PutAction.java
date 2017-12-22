@@ -131,6 +131,11 @@ public class PutAction implements GettableAction {
   }
 
   @Override
+  public int replayConcurrency() {
+    return objectManager.replayConcurrency(getIdentifier(), getKey());
+  }
+
+  @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
     header.putInt(id.remaining());

@@ -16,6 +16,10 @@ public interface ObjectManagerStripe<I, K, V> {
   
   void replayPut(K key, V value, long lsn);
 
+  default int replayConcurrency(K key) {
+    return 1;
+  }
+
   Collection<ObjectManagerSegment<I, K, V>> getSegments();
 
   void updateLsn(ObjectManagerEntry<I, K, V> entry, long newLsn);

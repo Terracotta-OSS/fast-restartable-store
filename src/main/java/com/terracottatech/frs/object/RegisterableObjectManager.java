@@ -19,6 +19,13 @@ public class RegisterableObjectManager<I, K, V> extends AbstractObjectManager<I,
   }
 
   @Override
+  public int replayConcurrency(I id, K key) {
+    ObjectManagerStripe<I, K, V> stripe = stripes.get(id);
+    int concurrency = stripe.replayConcurrency(key);
+    return (concurrency == 1) ? stripe.hashCode() : concurrency;
+  }
+
+  @Override
   protected Collection<ObjectManagerStripe<I, K, V>> getStripes() {
     return stripes.values();
   }

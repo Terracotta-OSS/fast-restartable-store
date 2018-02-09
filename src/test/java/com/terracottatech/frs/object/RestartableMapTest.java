@@ -40,7 +40,7 @@ public class RestartableMapTest {
     for(long i = 0; i < testMappingsSize; i++) {
       restartableMap.put(i, SMALL_VALUE);
     }
-    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 2) * LONG_BYTES * testMappingsSize));
+    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 3) * LONG_BYTES * testMappingsSize));
     
     // verify puts
     for(long i = 0; i < testMappingsSize; i++) {
@@ -51,20 +51,20 @@ public class RestartableMapTest {
     for(long i = 0; i < testMappingsSize; i++) {
       restartableMap.put(i, BIG_VALUE);
     }
-    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((BIG_VALUE.length + 2) * LONG_BYTES * testMappingsSize));
+    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((BIG_VALUE.length + 3) * LONG_BYTES * testMappingsSize));
 
     //overwrite all keys with small value and verify size
     for(long i = 0; i < testMappingsSize; i++) {
       restartableMap.put(i, SMALL_VALUE);
     }
-    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 2) * LONG_BYTES * testMappingsSize));
+    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 3) * LONG_BYTES * testMappingsSize));
     
     //shutdown & recover
     restartStore.shutdown();
     initialize(storage);
 
     // test size after recovery
-    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 2) * LONG_BYTES * testMappingsSize));
+    assertThat(restartableMap.getObjectManagerStripe().sizeInBytes(), is((SMALL_VALUE.length + 3) * LONG_BYTES * testMappingsSize));
     
     //remove all keys and verify size
     for(long i = 0; i < testMappingsSize; i++) {

@@ -21,6 +21,14 @@ import java.util.Set;
  * @author tim
  */
 public class PutAction implements GettableAction {
+  /* PutAction.getPayload
+  4 bytes - PutAction.idByteCount
+  4 bytes - PutAction.keyByteCount
+  4 bytes - PutAction.valueByteCount
+  8 bytes - PutAction.invalidatedLsn
+  */
+  public static final long PUT_ACTION_OVERHEAD = 20L;
+
   public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
           new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
             @Override

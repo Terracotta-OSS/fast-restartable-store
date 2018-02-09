@@ -15,8 +15,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import org.junit.After;
 import org.junit.AfterClass;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import static org.mockito.Mockito.mock;
@@ -25,10 +23,10 @@ import static org.mockito.Mockito.when;
 /**
  * @author tim
  */
-public class SizeBasedCompactionPolicyTest {
+public class LegacySizeBasedCompactionPolicyTest {
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private IOStatistics statistics;
-  private SizeBasedCompactionPolicy policy;
+  private LegacySizeBasedCompactionPolicy policy;
 
   @BeforeClass
   public static void setUpClass() throws Exception {
@@ -51,7 +49,7 @@ public class SizeBasedCompactionPolicyTest {
     statistics = mock(IOStatistics.class);
     IOManager ioManager = mock(IOManager.class);
     when(ioManager.getStatistics()).thenReturn(statistics);
-    policy = new SizeBasedCompactionPolicy(ioManager, objectManager, createConfiguration(threshold, amount));
+    policy = new LegacySizeBasedCompactionPolicy(ioManager, objectManager, createConfiguration(threshold, amount));
   }
 
   private Configuration createConfiguration(double threshold, double amount) {

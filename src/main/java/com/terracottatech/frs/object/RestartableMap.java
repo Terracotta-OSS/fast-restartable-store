@@ -3,7 +3,10 @@ package com.terracottatech.frs.object;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.object.heap.HeapValueSortedMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -11,11 +14,13 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<K, V>, RestartableObject<RI, RK, RV> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(RestartableMap.class);
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private final ObjectManagerStripe<RI, RK, RV> objectManagerStripe = new MapObjectManagerStripe();
   private final RestartStore<RI, RK, RV> restartability;
   private final RI identifier;
+  private final long identifierByteSize;
   
   private final Map<K, V> dataMap = new ConcurrentHashMap<K, V>();
   private final HeapValueSortedMap<K, Long> lsnMap = new HeapValueSortedMap<K, Long>();
@@ -27,10 +32,24 @@ public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<
   private Set<K> keySet;
   private Set<Entry<K, V>> entrySet;
 
+  public RestartableMap(RI identifier, RestartStore<RI, RK, RV> restartability, boolean synchronousWrites, int identifierByteSize) {
+    this.identifier = identifier;
+    this.restartability = restartability;
+    this.synchronousWrites = synchronousWrites;
+    this.identifierByteSize = identifierByteSize;
+  }
+
   public RestartableMap(RI identifier, RestartStore<RI, RK, RV> restartability, boolean synchronousWrites) {
     this.identifier = identifier;
     this.restartability = restartability;
     this.synchronousWrites = synchronousWrites;
+
+    if (identifier instanceof ByteBuffer) {
+      identifierByteSize = ((ByteBuffer) identifier).remaining();
+    } else {
+      LOGGER.warn("Strange identifier: expected: " + ByteBuffer.class + " found: " + identifier.getClass());
+      identifierByteSize = 0;
+    }
   }
   
   public RestartableMap(RI identifier, RestartStore<RI, RK, RV> restartability) {
@@ -109,7 +128,7 @@ public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<
       RK encodedKey = encodeKey(key);
       RV encodedValue = encodeValue(value);
       if(old == null) {
-        byteSize += keyByteSize(key, encodedKey) + valueByteSize(value, encodedValue);
+        byteSize += identifierByteSize + keyByteSize(key, encodedKey) + valueByteSize(value, encodedValue);
       } else {
         byteSize += valueByteSize(value, encodedValue) - valueByteSize(old, encodeValue(old));
       }
@@ -132,7 +151,7 @@ public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<
       V removed = dataMap.remove(key);
       if (removed != null) {
         RK encodedKey = encodeKey((K) key);
-        byteSize -= keyByteSize((K) key, encodedKey) + valueByteSize(removed, encodeValue(removed));
+        byteSize -= identifierByteSize + keyByteSize((K) key, encodedKey) + valueByteSize(removed, encodeValue(removed));
         restartability.beginTransaction(synchronousWrites).remove(identifier, encodedKey).commit();
       }
       return removed;
@@ -419,7 +438,7 @@ public abstract class RestartableMap<K, V, RI, RK, RV> implements ConcurrentMap<
           throw new AssertionError();
         } else {
           RestartableMap.this.replayPut(key, value);
-          byteSize += keyByteSize(key, rKey) + valueByteSize(value, rValue);
+          byteSize += identifierByteSize + keyByteSize(key, rKey) + valueByteSize(value, rValue);
           lsnMap.put(key, lsn);
         }
       } finally {

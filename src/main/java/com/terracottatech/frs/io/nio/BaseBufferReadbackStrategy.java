@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author mscott
  */
-public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
+abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
   protected static final Logger LOGGER = LoggerFactory.getLogger(ReadbackStrategy.class);
   protected static final ByteBuffer[] EMPTY = new ByteBuffer[]{};
   private final FileChannel channel;
@@ -33,11 +33,34 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
   private final ChannelOpener opener;
   private volatile boolean closeRequested = false;
 
-  public BaseBufferReadbackStrategy(Direction dir, FileChannel channel, BufferSource source,
+  private volatile long    lastKey = Long.MIN_VALUE;
+  private volatile boolean sealed = false;
+
+  BaseBufferReadbackStrategy(Direction dir, FileChannel channel, BufferSource source,
                                     ChannelOpener opener) throws IOException {
         this.channel = channel;
         this.source = source;
         this.opener = opener;
+  }
+
+  @Override 
+  public boolean isConsistent() { 
+    return this.sealed; 
+  }
+
+  @Override 
+  public long getMaximumMarker() { 
+    return this.lastKey;
+  }
+  
+  protected void seal(boolean consistent, long lastKey) { 
+    if (!sealed) {
+      // set the last key first so that is visible when sealed is visible
+      this.lastKey = lastKey;
+      this.sealed = consistent; 
+    } else { 
+      throw new AssertionError("already sealed"); 
+    } 
   }
 
   protected void addChunk(Chunk c) throws IOException {

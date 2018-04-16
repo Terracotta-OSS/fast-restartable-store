@@ -144,7 +144,11 @@ public class NIOStreamImplTest {
         nioStream = new NIOStreamImpl(workArea, NIOAccessMethod.getDefault(), MAX_SEGMENT_SIZE, new HeapBufferSource(512 * 1024 * 1024), null);
         nioStream.seek(-1);
         readerLatch.countDown();
-        interruptorLatch.await();
+        try{
+          interruptorLatch.await(); 
+        }catch (InterruptedException e){
+          Thread.currentThread().interrupt();
+        }
         while (nioStream.read(Direction.REVERSE) != null) {
           foundChunks++;
         }

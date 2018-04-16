@@ -56,6 +56,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
     public Chunk scan(long marker) throws IOException {
         Map.Entry<Long,Integer> cacheId = fileIndex.floorEntry(marker);
         int segId = ( cacheId != null ) ? cacheId.getValue() : cache.getOffset();
+        int startId = segId;
         Chunk c = null;
         while ( c == null ) {
             ReadOnlySegment seg = findSegment(segId);
@@ -63,7 +64,7 @@ class NIORandomAccess implements RandomAccess, Closeable {
                 return null;
             } else {
                 if ( marker < seg.load(src).getBaseMarker() ) {
-                  LOGGER.info("overshoot: " + marker + " < " + seg + " " + cacheId + " " + segId + " " + cache.getOffset() + " " + fileIndex);
+                  LOGGER.info("overshoot: " + marker + " < " + seg + " " + startId + " " + cacheId + " " + segId + " " + cache.getOffset() + " " + fileIndex);
                   return null;        // Let NIOManager re-drive
                 }
             }
@@ -74,7 +75,9 @@ class NIORandomAccess implements RandomAccess, Closeable {
                 LOGGER.debug(marker + " " + seg);
               }
               if ( segComplete ) {
-                segId += 1;
+                if (marker > seg.getMaximumMarker()) {
+                  segId += 1;
+                }
               } else if ( LOGGER.isDebugEnabled() ) {
                 if ( segments.getCount() + segments.getBeginningSegmentId() != seg.getSegmentId() ) {
                   throw new AssertionError();

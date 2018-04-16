@@ -25,9 +25,7 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
 
     private final MarkerIndex                       index;
     private final ReentrantReadWriteLock                          block;
-    private volatile boolean    sealed;
     private final long          firstKey;
-    private long                lastKey = Long.MAX_VALUE;
     private long                length = 0; 
     private final long          start;
     private int                 position = Integer.MIN_VALUE;
@@ -39,7 +37,7 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
       length = channel.position();
       start = length;
       index = new MarkerIndex(source);
-      sealed = createIndex();
+      boolean sealed = createIndex();
       if ( !sealed ) {
         block = new ReentrantReadWriteLock();
       } else {
@@ -56,13 +54,8 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
     this(dir, first, channel, source, null);
   }
 
-    @Override
-    public boolean isConsistent() {
-      return sealed;
-    }
-    
     private long locate(long mark) throws IOException {
-      if ( mark > lastKey ) {
+      if ( mark > getMaximumMarker() ) {
         return Long.MIN_VALUE;
       }
       if ( mark < firstKey ) {
@@ -110,7 +103,11 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
         if ( cur > 0 && readMark(cur-1,buf) > mark ) {
           throw new AssertionError();
         }
-        return (cur == 0 ) ? start : index.position(cur-1);
+        long retValue = (cur == 0 ) ? start : index.position(cur-1);
+        if (retValue < 0L) {
+          throw new AssertionError();
+        }
+        return retValue;
       } finally {
         free(buf);
       }
@@ -174,7 +171,8 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
             index.append(jumpList);
             ByteBuffer buffer = allocate(16);
             try {
-                lastKey = readMark(jumpList.length-1, buffer);
+              long lastKey = readMark(jumpList.length-1, buffer);
+              seal(true, lastKey);
             } finally {
               free(buffer);
             }
@@ -183,15 +181,10 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
         }
     }  
 
-    @Override
-    public long getMaximumMarker() {
-      return lastKey;
-    } 
-    
     private boolean updateIndex() throws IOException {
       FileChannel channel = getChannel();
         if ( length + 4 > channel.size() ) {
-            return sealed;
+            return isConsistent();
         } else {
             channel.position(length);
         }
@@ -238,17 +231,16 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
                   break;
               }
           }
-          int pos = 0;
           index.append(list);
         } finally {
             free(buffer);
         }
-        if ( SegmentHeaders.CLOSE_FILE.validate(chunkStart) ) {
-            sealed = true;
-        }
         length = last;
-        lastKey = readMark(index.size() - 1,null);
-        return sealed;
+        if (!isConsistent()) {
+          long lastKey = readMark(index.size() - 1,null);
+          seal(SegmentHeaders.CLOSE_FILE.validate(chunkStart), lastKey);
+        }     
+        return isConsistent();
     }     
 
     @Override
@@ -275,10 +267,10 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
     public Chunk scan(long marker) throws IOException {
       Lock lock = null;
       try {
-        if ( !sealed ) {
+        if ( !isConsistent() ) {
           lock = block.readLock();
           lock.lock();
-          while ( marker > lastKey && !sealed ) {
+          while ( marker > getMaximumMarker() && !isConsistent() ) {
               // upgrade lock
               lock.unlock();
               Lock writer = block.writeLock();

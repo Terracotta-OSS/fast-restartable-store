@@ -36,6 +36,9 @@ public class MarkerIndex implements Closeable {
   }
   
   public long position(int index) {
+    if (jumpIndex == null) {
+      return 0L;
+    }
     return jumpIndex.get(2 * index);
   }
     

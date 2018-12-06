@@ -56,4 +56,11 @@ public interface ActionManager {
    * unblock itself and continue processing.
    */
   void resume();
+
+  /**
+   * Return a dummy barrier action as a log record that can be used as a freeze marker.
+   *
+   * @return a dummy Log record that can be used as a freeze marker
+   */
+  LogRecord barrierAction();
 }

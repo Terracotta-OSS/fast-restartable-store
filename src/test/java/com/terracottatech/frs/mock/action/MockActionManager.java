@@ -56,6 +56,11 @@ public class MockActionManager implements ActionManager {
   }
 
   @Override
+  public LogRecord barrierAction() {
+    return null;
+  }
+
+  @Override
   public Future<Void> syncHappened(Action action) {
     return happened(action);
   }

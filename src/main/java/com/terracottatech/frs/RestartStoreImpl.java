@@ -4,6 +4,9 @@
  */
 package com.terracottatech.frs;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.compaction.Compactor;
@@ -22,6 +25,7 @@ import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.recovery.RecoveryManagerImpl;
 import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.transaction.TransactionManager;
+import com.terracottatech.frs.util.NullFuture;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,8 +48,10 @@ import java.util.concurrent.TimeoutException;
  */
 public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>,
         RecoveryListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(RestartStoreImpl.class);
+
   private enum State {
-    INIT, RECOVERING, RUNNING, SHUTDOWN, PAUSED
+    INIT, RECOVERING, RUNNING, SHUTDOWN, PAUSED, FROZEN
   }
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
@@ -60,9 +66,11 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final ExecutorService pauseTaskExecutorService;
   private final ScheduledExecutorService pauseTimeOutService;
   private volatile Future<Future<Snapshot>> pauseTaskRef;
+  private volatile Future<Future<Void>> shutdownTaskRef;
   private volatile ScheduledFuture<?> pauseTimerTaskRef;
 
   private volatile State state = State.INIT;
+  private volatile State prevState = state;
 
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                    TransactionManager transactionManager, LogManager logManager,
@@ -93,8 +101,15 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   @Override
   public synchronized Future<Void> startup() throws InterruptedException,
           RecoveryException {
-    if (state != State.INIT) {
-      throw new IllegalStateException("Can't startup from state " + state);
+    while (state != State.INIT) {
+      if (state == State.FROZEN) {
+        // wait indefinitely as we cannot unfreeze from a frozen state
+        // neither can we throw exception. Wait for JVM to die.
+        LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
+        this.wait();
+      } else {
+        throw new IllegalStateException("Can't startup from state " + state);
+      }
     }
     state = State.RECOVERING;
     RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, actionManager,
@@ -103,7 +118,11 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized void recovered() {
+  public synchronized void recovered() throws InterruptedException {
+    while (state == State.FROZEN) {
+      LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
+      this.wait();
+    }
     if (state == State.RECOVERING) {
       compactor.startup();
       state = State.RUNNING;
@@ -229,17 +248,58 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   @Override
   public synchronized void resume() throws NotPausedException {
-    if (state != State.PAUSED) {
+    if (state != State.PAUSED && state != State.FROZEN) {
       throw new NotPausedException("Restart store is currently not paused");
     }
-    if (!pauseTaskRef.isDone()) {
-      throw new IllegalStateException("Pause task is still running. This is unexpected");
+    if (state == State.PAUSED) {
+      if (!pauseTaskRef.isDone()) {
+        throw new IllegalStateException("Pause task is still running. This is unexpected");
+      }
+      pauseTimerTaskRef.cancel(true);
     }
-    actionManager.resume();
-    pauseTimerTaskRef.cancel(true);
     pauseTaskRef = null;
     pauseTimerTaskRef = null;
-    state = State.RUNNING;
+    shutdownTaskRef = null;
+    if (state != State.FROZEN || prevState == State.RUNNING) {
+      if (state == State.FROZEN) {
+        // for snapshots..compactor is unpaused after snapshots are closed
+        compactor.unpause();
+      }
+      actionManager.resume();
+      state = State.RUNNING;
+    } else {
+      // state is frozen..means from Init or Recovered state..move back
+      state = prevState;
+      this.notifyAll();
+    }
+  }
+
+  @Override
+  public synchronized Future<Future<Void>> freeze() {
+    if (shutdownTaskRef != null) {
+      return shutdownTaskRef;
+    }
+    if (state == State.PAUSED) {
+      // does not make sense to freeze when snapshot is going on
+      throw new IllegalStateException("RestartStore is not ready for freeze. Snapshot may be in progress");
+    }
+    prevState = state;
+    state = State.FROZEN;
+    if (prevState != State.RUNNING) {
+      // this means there is nothing to freeze.
+      shutdownTaskRef = new NullFutureFuture();
+      return shutdownTaskRef;
+    } else {
+      shutdownTaskRef = pauseTaskExecutorService.submit(new Callable<Future<Void>>() {
+        @Override
+        public Future<Void> call() throws Exception {
+          compactor.pause();
+          actionManager.pause();
+          return new OuterFreezeFuture(logManager.appendAndSync(actionManager.barrierAction()));
+        }
+      });
+      return shutdownTaskRef;
+    }
   }
 
   /**
@@ -259,13 +319,47 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   private void checkReadyState() {
-    if (state != State.RUNNING && state != State.RECOVERING && state != State.PAUSED) {
-      throw new IllegalStateException("RestartStore is not ready for mutations. Current state " + state);
+    if (isNotInReadyState(state)) {
+      if (state != State.FROZEN || isNotInReadyState(prevState)) {
+        throw new IllegalStateException("RestartStore is not ready for mutations. Current state " +
+                                        (state == State.FROZEN ? prevState : state));
+      }
     }
   }
 
+  private boolean isNotInReadyState(State stateToCheck) {
+    return (stateToCheck != State.RUNNING && stateToCheck != State.RECOVERING && stateToCheck != State.PAUSED);
+  }
+
   private boolean isRecovering() {
-    return state == State.RECOVERING;
+    return state == State.RECOVERING || (state == State.FROZEN && prevState == State.RECOVERING);
+  }
+
+  private class NullFutureFuture implements Future<Future<Void>> {
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      return false;
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return true;
+    }
+
+    @Override
+    public Future<Void> get() throws InterruptedException, ExecutionException {
+      return new NullFuture();
+    }
+
+    @Override
+    public Future<Void> get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+      return new NullFuture();
+    }
   }
 
   private class AutoCommitTransaction implements
@@ -296,7 +390,6 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       } else {
         actionManager.happened(action);
       }
-
     }
 
     @Override
@@ -373,6 +466,42 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
     private void checkCommitted() {
       if (committed) throw new IllegalStateException("Transaction is already committed.");
+    }
+  }
+
+  /**
+   * Outer Freeze future that can be used to wait for a barrier action to reach durable storage.
+   */
+  private class OuterFreezeFuture implements Future<Void> {
+    private final Future<Void> innerFreezeMarker;
+
+    private OuterFreezeFuture(Future<Void> innerFreezeMarker) {
+      this.innerFreezeMarker = innerFreezeMarker;
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      throw new UnsupportedOperationException("Not yet supported.");
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return innerFreezeMarker.isDone();
+    }
+
+    @Override
+    public Void get() throws InterruptedException, ExecutionException {
+      return innerFreezeMarker.get();
+    }
+
+    @Override
+    public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+      return innerFreezeMarker.get(timeout, unit);
     }
   }
 

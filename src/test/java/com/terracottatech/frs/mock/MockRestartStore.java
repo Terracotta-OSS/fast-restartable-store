@@ -109,4 +109,10 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   public void resume() throws NotPausedException {
     throw new NotPausedException();
   }
+
+  @Override
+  public Future<Future<Void>> freeze() {
+    throw new UnsupportedOperationException();
+  }
+
 }

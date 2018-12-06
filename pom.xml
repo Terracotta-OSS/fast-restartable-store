@@ -12,7 +12,7 @@
   
   <groupId>com.terracottatech</groupId>
   <artifactId>fast-restartable-store</artifactId>
-  <version>1.5.5-SNAPSHOT</version>
+  <version>1.5.5</version>
   <packaging>jar</packaging>
 
   <name>fast-restartable-store</name>
@@ -65,6 +65,10 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.build.version>1.8</java.build.version>
+  
+    <metadata.build.jenkins.url>http://jenkins.terracotta.eur.ad.sag:8080/job/releasers/job/frs_releaser/4/</metadata.build.jenkins.url>
+    <metadata.build.maven.active.profiles>terracotta-repositories,release,tc-publish,fullmode</metadata.build.maven.active.profiles>
+    <metadata.svn.revision>53858</metadata.svn.revision>
   </properties>
   
   <build>

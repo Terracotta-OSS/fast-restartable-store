@@ -30,9 +30,10 @@ public class RestartStoreReadWriteMultiThreadTest {
   static final int DIFFERENT_KEYS = 8;
   static final int CACHE_ID = 1;
   static final int BATCH_SIZE = 3;
-  static final int CONCURRENCY_COUNT = 4; 
+  static final int SYNC_SIZE = 100;
+  static final int CONCURRENCY_COUNT = 4;
   static final int DATA_SIZE = 1000;
-  static final int RECORD_COUNT = 200000;
+  static final int RECORD_COUNT = 20000;
   static final int ADDITIONAL_RECORD_COUNT = 100;
   
   private final AtomicBoolean stop = new AtomicBoolean(false);
@@ -170,18 +171,20 @@ public class RestartStoreReadWriteMultiThreadTest {
     int operationCount = 0;
 
     int batchSize = BATCH_SIZE;
-    while(x < numberOfIterations){
+    int nosyncCount = 0;
+    while (x < numberOfIterations) {
       int key = x++ % DIFFERENT_KEYS;
       Thread.yield();
-      if(operationCount == 0){
+      if (operationCount == 0) {
         transCommitStatus = false;
-        trans = restartStore.beginTransaction(true);
+        boolean doSync = (++nosyncCount % SYNC_SIZE) == 0;
+        trans = restartStore.beginTransaction(doSync);
       }
 
       trans.put(byteBufferWithInt(CACHE_ID), byteBufferWithInt(key), ByteBuffer.wrap(vc));
       operationCount++;
       Thread.yield();
-      if(operationCount == batchSize){
+      if (operationCount == batchSize) {
         transCommitStatus = true;
         trans.commit();
         operationCount = 0;

@@ -7,8 +7,8 @@ package com.terracottatech.frs.io.nio;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.Direction;
 import com.terracottatech.frs.io.FileBuffer;
-import static com.terracottatech.frs.io.nio.NIOSegment.FILE_HEADER_SIZE;
 import com.terracottatech.frs.util.ByteBufferUtils;
+
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
@@ -17,9 +17,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 /**
  *
@@ -173,7 +171,10 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         //  don't need any memory buffers anymore       
         if ( buffer != null && buffer.isOpen() ) {
             totalWrite = buffer.getTotal();
+            long delta = System.nanoTime();
             buffer.sync(true);
+            delta = System.nanoTime() - delta;
+            getStream().recordFsyncLatency(delta);
             buffer.close();
         }
 
@@ -261,7 +262,10 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
             throw new IOException("segment is closed");
         }
         long pos = buffer.offset();
+        long delta = System.nanoTime();
         buffer.sync(meta);
+        delta = System.nanoTime() - delta;
+        getStream().recordFsyncLatency(delta);
         return pos;
     }
     
@@ -274,8 +278,11 @@ class WritingSegment extends NIOSegment implements Iterable<Chunk>, Closeable {
         buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
         writeJumpList(buffer);
         buffer.write(1);
+        long delta = System.nanoTime();
         buffer.sync(true);
-    }    
+        delta = System.nanoTime() - delta;
+        getStream().recordFsyncLatency(delta);
+    }
         
     boolean last() throws IOException {
         if ( buffer == null ) {

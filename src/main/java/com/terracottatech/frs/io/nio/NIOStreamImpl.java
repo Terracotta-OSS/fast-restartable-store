@@ -6,9 +6,6 @@ package com.terracottatech.frs.io.nio;
 
 import com.terracottatech.frs.Constants;
 import com.terracottatech.frs.SnapshotRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.terracottatech.frs.io.BufferBuilder;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
@@ -17,6 +14,9 @@ import com.terracottatech.frs.io.FileBuffer;
 import com.terracottatech.frs.io.HeapBufferSource;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.io.Stream;
+import com.terracottatech.frs.util.Log2LatencyBins;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,6 +30,8 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Exchanger;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * NIO implementation of Log Stream.
@@ -37,8 +39,12 @@ import java.util.concurrent.Exchanger;
  * @author mscott
  */
 class NIOStreamImpl implements Stream {
-/*  concurrency needed for cloning */
+    /*  concurrency needed for cloning */
+    private final static Integer REPORT_FSYNC_LATENCIES = Integer.getInteger(
+      "com.terracottatech.frs.ReportFsyncLatenciesInSecs",
+      5 * 60);
     private final NIOSegmentList          segments;
+    private final Log2LatencyBins fsyncLatencyBin;
     private volatile NIORandomAccess      randomAccess;
 
     static final String BAD_STREAM_ID = "mis-aligned streams";
@@ -59,7 +65,7 @@ class NIOStreamImpl implements Stream {
     private final BufferSource filePool;
     private BufferSource replayPool;
     private FSyncer syncer;
-    
+    private volatile boolean closed = false;
     private BufferBuilder createBuffer;
     private final NIOAccessMethod method;
 // debugging
@@ -72,6 +78,7 @@ class NIOStreamImpl implements Stream {
     
     NIOStreamImpl(File filePath, NIOAccessMethod method, long recommendedSize, BufferSource writeBuffers, BufferSource recoveryBuffers) throws IOException {
         directory = filePath;
+        this.fsyncLatencyBin = new Log2LatencyBins("FRS Sync: " + directory);
 
         filePool = writeBuffers;
         replayPool = recoveryBuffers;
@@ -102,8 +109,24 @@ class NIOStreamImpl implements Stream {
         }
         
         this.method = method;
+
+        if (REPORT_FSYNC_LATENCIES != null && REPORT_FSYNC_LATENCIES.intValue() > 0) {
+            LOGGER.info("Reporting fsync latencies every " + REPORT_FSYNC_LATENCIES + " seconds");
+            fsyncLatencyBin.reporterThread(() -> (!closed),
+                                           REPORT_FSYNC_LATENCIES.intValue(),
+                                           TimeUnit.SECONDS,
+                                           0,
+                                           makeLatencyConsumer(fsyncLatencyBin)).start();
+        }
     }
-    
+
+    private static Consumer<Log2LatencyBins> makeLatencyConsumer(Log2LatencyBins fsyncLatencyBin) {
+        return b -> {
+            LOGGER.info(b.toString(Log2LatencyBins.ToString.NO_RANGES_AND_ZEROS, b.binCounts(), b.count()));
+            fsyncLatencyBin.sloppyReset();
+        };
+    }
+
     NIORandomAccess createRandomAccess(BufferSource src) {
         if ( randomAccess == null ) {
             synchronized ( this) {
@@ -462,6 +485,7 @@ class NIOStreamImpl implements Stream {
 
     @Override
     public void close() throws IOException {
+        closed = true;
         if (writeHead != null && !writeHead.isClosed()) {
             closeSegment(writeHead);
         }
@@ -687,6 +711,12 @@ class NIOStreamImpl implements Stream {
           this.currentMarker = nio.getMaximumMarker();
           updateSyncMarker(this.currentMarker);
           lowestMarkerOnDisk = nio.getMinimumMarker();
+        }
+    }
+
+    public void recordFsyncLatency(long ns) {
+        if (fsyncLatencyBin != null) {
+            fsyncLatencyBin.record(ns);
         }
     }
 }

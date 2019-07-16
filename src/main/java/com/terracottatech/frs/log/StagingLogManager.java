@@ -21,6 +21,7 @@ import java.io.Closeable;
 
 import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.Collections;
 import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -291,31 +292,31 @@ public class StagingLogManager implements LogManager {
             last = System.nanoTime();
             waiting += (last - mark);
 
-            if ( packer == null ) {
-                syncd = io.getCurrentMarker();
-                io.sync();
-                continue;
+            if (packer == null || packer.isEmpty()) {
+              packer = null;
+              syncd = io.getCurrentMarker();
+              io.sync();
+              continue;
             }
-           
+
             Chunk c = packer.take();
             if (io.getCurrentMarker()+1 != packer.baseLsn()) {
                 throw new AssertionError("lsns not sequenced " + io.getCurrentMarker()+1 + " != " + packer.baseLsn());
             }
-            
+
             written += io.write(c,packer.endLsn());
-            
+
             if ( c instanceof Closeable ) {
               ((Closeable)c).close();
-            } 
+            }
 
             if ( packer.doSync() ) {
                 syncd = io.getCurrentMarker();
                 io.sync();
             }
-            
+
             highestOnDisk.set(packer.endLsn());
             packer.written();
-            
           } catch (IOException ioe) {
             if ( packer != null ) {
                 packer.list.exceptionThrown(ioe);
@@ -436,8 +437,10 @@ public class StagingLogManager implements LogManager {
         CommitList  current = currentRegion;
 
         current.close(currentLsn.get()-1);
-        
-        try {
+
+        queueEmptyWritingPackageForShutdown();
+
+      try {
             daemon.join();
         } catch ( InterruptedException ie ) {
             LOGGER.error("error waiting for write thread to close",ie);
@@ -468,8 +471,101 @@ public class StagingLogManager implements LogManager {
         }
         state = state.idle();
     }
-    
-    private CommitList _append(LogRecord record, boolean sync) {
+
+  private void queueEmptyWritingPackageForShutdown() {
+    // this trys to put an empty WritingPackage on the queue
+    // so the daemon wakes up. This speeds shutdown,
+    // as it will wake the daemon thread.
+    queue.offer(new WritingPackage(new CommitList() {
+      @Override
+      public boolean cancel(boolean mayInterruptIfRunning) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean isCancelled() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean isDone() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public Void get() throws InterruptedException, ExecutionException {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public Void get(long timeout,
+                      TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public Iterator<LogRecord> iterator() {
+        return Collections.EMPTY_LIST.iterator();
+      }
+
+      @Override
+      public boolean append(LogRecord record, boolean sync) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean close(long lsn) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public void waitForContiguous() throws InterruptedException {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public CommitList next() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean isSyncRequested() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean isEmpty() {
+        return true;
+      }
+
+      @Override
+      public long getEndLsn() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public long getBaseLsn() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public void written() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public void exceptionThrown(Exception exp) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public CommitList create(long baseLsn) {
+        throw new UnsupportedOperationException();
+      }
+    }, null));
+  }
+
+  private CommitList _append(LogRecord record, boolean sync) {
         if ( !state.acceptRecords() ) {
           throw new LogWriteError();
         }

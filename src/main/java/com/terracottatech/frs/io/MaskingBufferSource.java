@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ public class MaskingBufferSource implements BufferSource {
   private final boolean DEBUG_LEAKS = Boolean.getBoolean("frs.leak.debug");
   private AtomicLong allocations = new AtomicLong();
   private AtomicLong allocTime = new AtomicLong();
+  private AtomicLong lastRecoveryWarnTimeNS = new AtomicLong(0L);
 
   public MaskingBufferSource(BufferSource parent) {
     this(parent,false);
@@ -49,7 +51,12 @@ public class MaskingBufferSource implements BufferSource {
     try {
       ByteBuffer src = parent.getBuffer(size);
       if ( src == null ) {
-        LOGGER.warn("using heap for recovery, add more recovery memory " + size);
+        // report no more frequently than once per minute...
+        long lt = lastRecoveryWarnTimeNS.get();
+        // if it is mor than 1 minuite sincve, and the last time was stable...
+        if ((ntime - lt) > TimeUnit.MINUTES.toNanos(1) && lastRecoveryWarnTimeNS.compareAndSet(lt, ntime)) {
+          LOGGER.info("using heap for recovery, adding more recovery memory could speed recovery " + size);
+        }
         return ByteBuffer.allocate(size);
       }
       return add(src);

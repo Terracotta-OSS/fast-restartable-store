@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
 
 public class Log2LatencyBinsTest {
@@ -136,5 +137,22 @@ public class Log2LatencyBinsTest {
     t.start();
     t.join();
     assertThat(seen.get(), is(5));
+  }
+
+  @Test
+  public void testInterruptWorksk() throws InterruptedException {
+    Log2LatencyBins lb = new Log2LatencyBins("test1", 10, 16);
+    final AtomicInteger seen = new AtomicInteger(0);
+
+    Thread t = lb.reporterThread(() -> (seen.get() < Integer.MAX_VALUE), 100000, TimeUnit.MILLISECONDS, -1, (lb2) -> {
+      seen.incrementAndGet();
+      assertThat(lb2, is(lb));
+    });
+    t.start();
+    Thread.sleep(100);
+    seen.set(Integer.MAX_VALUE);
+    t.interrupt();
+    t.join();
+    assertThat(seen.get(), lessThan(Integer.MAX_VALUE));
   }
 }

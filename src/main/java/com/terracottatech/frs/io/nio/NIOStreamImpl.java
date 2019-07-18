@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -42,9 +44,10 @@ class NIOStreamImpl implements Stream {
     /*  concurrency needed for cloning */
     private final static Integer REPORT_FSYNC_LATENCIES = Integer.getInteger(
       "com.terracottatech.frs.ReportFsyncLatenciesInSecs",
-      5 * 60);
+      (int) TimeUnit.SECONDS.convert(5, TimeUnit.MINUTES));
     private final NIOSegmentList          segments;
     private final Log2LatencyBins fsyncLatencyBin;
+    private final Thread reporterThread;
     private volatile NIORandomAccess      randomAccess;
 
     static final String BAD_STREAM_ID = "mis-aligned streams";
@@ -71,7 +74,8 @@ class NIOStreamImpl implements Stream {
 // debugging
     private HashMap<String, Integer> strategies;
     private static final Logger LOGGER = LoggerFactory.getLogger(NIOStreamImpl.class);
-    
+    private AtomicBoolean reporterShutdown=new AtomicBoolean(false);
+
     NIOStreamImpl(File filePath, long recommendedSize) throws IOException {
         this(filePath, NIOAccessMethod.getDefault(), recommendedSize, new HeapBufferSource(512 * 1024 * 1024), null);
     }
@@ -112,12 +116,20 @@ class NIOStreamImpl implements Stream {
 
         if (REPORT_FSYNC_LATENCIES != null && REPORT_FSYNC_LATENCIES.intValue() > 0) {
             LOGGER.info("Reporting fsync latencies every " + REPORT_FSYNC_LATENCIES + " seconds");
-            fsyncLatencyBin.reporterThread(() -> (!closed),
-                                           REPORT_FSYNC_LATENCIES.intValue(),
-                                           TimeUnit.SECONDS,
-                                           0,
-                                           makeLatencyConsumer(fsyncLatencyBin)).start();
+            this.reporterThread = fsyncLatencyBin.reporterThread(makeReporterShutdownSupplier(this.reporterShutdown),
+                                                                 REPORT_FSYNC_LATENCIES.intValue(),
+                                                                 TimeUnit.SECONDS,
+                                                                 0,
+                                                                 makeLatencyConsumer(fsyncLatencyBin));
+            this.reporterThread.start();
+
+        } else {
+            this.reporterThread = null;
         }
+    }
+
+    private static BooleanSupplier makeReporterShutdownSupplier(AtomicBoolean signal) {
+        return () -> (!signal.get());
     }
 
     private static Consumer<Log2LatencyBins> makeLatencyConsumer(Log2LatencyBins fsyncLatencyBin) {
@@ -486,6 +498,8 @@ class NIOStreamImpl implements Stream {
     @Override
     public void close() throws IOException {
         closed = true;
+        reporterShutdown.set(true);
+
         if (writeHead != null && !writeHead.isClosed()) {
             closeSegment(writeHead);
         }
@@ -494,6 +508,10 @@ class NIOStreamImpl implements Stream {
             readHead.close();
         }
         readHead = null;
+
+        if (this.reporterThread != null) {
+            this.reporterThread.interrupt();
+        }
 
         if (syncer != null) {
             syncer.interrupt();

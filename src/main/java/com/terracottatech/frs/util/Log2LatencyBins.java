@@ -259,7 +259,6 @@ public class Log2LatencyBins {
         delayUnits.sleep(delayInterval);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        return;
       }
       runnable.run();
     }, name + " latency watcher");

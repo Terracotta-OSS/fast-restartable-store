@@ -69,7 +69,7 @@ public class Log2LatencyBins {
    * Create a set of bins for recording latencies.
    *
    * @param name Name of this bin.
-   * @param binCount Number of power of 2 bins to allocate. Will be capped 2<=x<=32
+   * @param binCount Number of power of 2 bins to allocate. Will be capped 27&lt;=x&lt;=32
    * @param smallestResolutionPower 2^^this arg is the smallest resolution that will
    * be tracked; the increasing bins will each double in span. Will be capped to
    * max(63 - capped binCount, 2).
@@ -243,7 +243,7 @@ public class Log2LatencyBins {
    * @param keepAlive Boolean supplier which dictates if the loop should continue running.
    * @param delayInterval Delay interval for looping.
    * @param delayUnits Units for delay interval.
-   * @param minNSToReport If no latencies >= to this, no callback is made. <=0 means always
+   * @param minNSToReport If no latencies &gt;= to this, no callback is made. &lt;=0 means always
    * report
    * @param output callback.
    * @return Thread, not started, set to daemon mode.
@@ -274,7 +274,7 @@ public class Log2LatencyBins {
    * @param keepAlive Boolean supplier which dictates if the loop should continue running.
    * @param delayInterval Delay interval for looping.
    * @param delayUnits Units for delay interval.
-   * @param minNSToReport If no latencies >= to this, no callback is made. <=0 means always
+   * @param minNSToReport If no latencies &gt;= to this, no callback is made. &lt;=0 means always
    * report
    * @param output callback.
    * @return Runnable

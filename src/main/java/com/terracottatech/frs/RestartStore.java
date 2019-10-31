@@ -95,7 +95,7 @@ public interface RestartStore<I, K, V> {
   /**
    * Resume queueing of incoming actions for IO.
    *
-   * @throws NotPausedException, if the store is NOT in a paused state.
+   * @throws NotPausedException
    */
   void resume() throws NotPausedException;
 
@@ -106,9 +106,9 @@ public interface RestartStore<I, K, V> {
    * The freeze action is complete when all ongoing actions are queued (including compaction) and new actions
    * are frozen, thereby closing the gate for any future actions forever.
    *
-   * Once the gate is closed for new actions, a {@Link NullAction} will be queued and a future to this null action
-   * request will be returned. Waiting on that future ensures not only that data up to that marker has reached
-   * durable storage but also that all other subsequent actions are frozen forever.
+   * Once the gate is closed for new actions, a {@link com.terracottatech.frs.action.NullAction} will be queued and a
+   * future to this null action request will be returned. Waiting on that future ensures not only that data up to that
+   * marker has reached durable storage but also that all other subsequent actions are frozen forever.
    * <p>
    * Once a freeze is complete, either it can be resumed or the JVM system can be stopped/exited in this freeze state.
    * <p>

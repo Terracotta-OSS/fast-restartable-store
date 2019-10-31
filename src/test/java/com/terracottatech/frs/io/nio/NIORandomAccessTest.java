@@ -16,6 +16,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Formatter;
 import java.util.UUID;
+
+import net.bytebuddy.implementation.bytecode.Addition;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -24,6 +26,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.Ignore;
 import org.junit.Rule;
+import org.mockito.AdditionalMatchers;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -145,7 +148,7 @@ public class NIORandomAccessTest {
         }
       });
       
-      Mockito.when(seg.scan(Matchers.longThat(greaterThanOrEqualTo(500L)))).thenReturn(new WrappingChunk(ByteBuffer.wrap(new byte[0])));
+      Mockito.when(seg.scan(AdditionalMatchers.geq(500L))).thenReturn(new WrappingChunk(ByteBuffer.wrap(new byte[0])));
       Mockito.when(seg.load(Matchers.any(BufferSource.class))).thenReturn(seg);
       Mockito.when(seg.getBaseMarker()).thenReturn(500L);
 
@@ -153,7 +156,7 @@ public class NIORandomAccessTest {
       Chunk c = ra.scan(501);
       assertNull(c);
 //  mock lsn now committed to disk
-      Mockito.when(mocked.findSegment(Matchers.intThat(greaterThanOrEqualTo(2)))).then(new Answer<Object> () {
+      Mockito.when(mocked.findSegment(AdditionalMatchers.geq(2))).then(new Answer<Object> () {
 
         @Override
         public Object answer(InvocationOnMock invocation) throws Throwable {

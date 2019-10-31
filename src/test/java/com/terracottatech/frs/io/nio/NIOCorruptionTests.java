@@ -20,6 +20,7 @@ import org.junit.*;
  *
  * @author mscott
  */
+@Ignore
 public class NIOCorruptionTests {
     File workArea;
     BufferBuilder  builder;

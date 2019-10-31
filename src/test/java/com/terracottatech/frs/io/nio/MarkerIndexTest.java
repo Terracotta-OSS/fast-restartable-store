@@ -15,7 +15,13 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
+
+import org.mockito.ArgumentMatchers;
 import org.mockito.Matchers;
+
+import static org.mockito.AdditionalMatchers.or;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -112,7 +118,7 @@ public class MarkerIndexTest {
   public void testClose() throws Exception {
     System.out.println("close");
     markers.close();
-    verify(source).returnBuffer(Matchers.any(ByteBuffer.class));
+    verify(source).returnBuffer(or(any(ByteBuffer.class), isNull()));
   }
   
    @Test

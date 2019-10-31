@@ -15,6 +15,8 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import static org.hamcrest.number.OrderingComparison.greaterThanOrEqualTo;
 import static org.hamcrest.number.OrderingComparison.lessThan;
+
+import org.mockito.AdditionalMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Matchers;
 import static org.mockito.Matchers.anyInt;
@@ -124,7 +126,7 @@ public class HiLoBufferSourceTest extends BufferSourceTest {
     src.returnBuffer(buf);
     Mockito.verify(hi).returnBuffer(Matchers.eq(buf));
     buf = src.getBuffer(10*1024*1024);
-    Mockito.verify(cache).getBuffer(Matchers.intThat(OrderingComparison.greaterThanOrEqualTo(10*1024*1024)));
+    Mockito.verify(cache).getBuffer(AdditionalMatchers.geq(10*1024*1024));
     assertNotNull(buf);
     src.returnBuffer(buf);
     Mockito.verify(cache).returnBuffer(Matchers.eq(buf));

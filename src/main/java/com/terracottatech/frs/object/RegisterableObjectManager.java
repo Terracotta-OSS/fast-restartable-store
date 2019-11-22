@@ -37,7 +37,7 @@ public class RegisterableObjectManager<I, K, V> extends AbstractObjectManager<I,
   public void registerStripe(I id, ObjectManagerStripe<I, K, V> stripe) {
     ObjectManagerStripe<?, ?, ?> previous = stripes.putIfAbsent(id, stripe);
     if (previous != null) {
-      throw new AssertionError(id + " already mapped");
+      throw new IllegalStateException(id + " already mapped");
     }
   }
   

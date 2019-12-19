@@ -3,7 +3,7 @@
   <parent>
     <artifactId>forge-parent-ee</artifactId>
     <groupId>org.terracotta.forge</groupId>
-    <version>4.12</version>
+    <version>4.13</version>
   </parent>
   <scm>
     <connection>scm:git:git@github.softwareag.com:Terracotta-Legacy/fast-restartable-store.git</connection>
@@ -41,13 +41,22 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-            <argLine>-XX:MaxDirectMemorySize=1g</argLine>
-            <forkCount>1</forkCount>
-            <reuseForks>false</reuseForks>
-        </configuration>
+        <groupId>org.terracotta</groupId>
+        <artifactId>maven-forge-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <argLine>-XX:MaxDirectMemorySize=1g</argLine>
+              <forkCount>1</forkCount>
+              <reuseForks>false</reuseForks>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

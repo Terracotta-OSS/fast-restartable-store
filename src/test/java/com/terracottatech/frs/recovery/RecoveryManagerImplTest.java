@@ -22,9 +22,13 @@ import com.terracottatech.frs.transaction.TransactionHandle;
 import com.terracottatech.frs.util.TestUtils;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.hamcrest.core.IsSame.sameInstance;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -160,6 +164,31 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     verify(wrappedPut).dispose();
     verify(delete).dispose();
     verify(wrappedDelete).dispose();
+  }
+
+  @Test
+  public void testCorrectTcclInReplayThreads() throws Exception {
+    ClassLoader loader = mock(ClassLoader.class);
+    AtomicReference<ClassLoader> tccl = new AtomicReference<>();
+    Action tcclCapture = mock(Action.class);
+    doAnswer(inv -> {
+      tccl.set(Thread.currentThread().getContextClassLoader());
+      return null;
+    }).when(tcclCapture).replay(anyLong());
+
+    ClassLoader previous = Thread.currentThread().getContextClassLoader();
+    try {
+      Thread.currentThread().setContextClassLoader(loader);
+      //pick up TCCL
+      setUp();
+
+      logManager.append(record(Constants.FIRST_LSN, tcclCapture));
+      recoveryManager.recover();
+    } finally {
+      Thread.currentThread().setContextClassLoader(previous);
+    }
+
+    assertThat(tccl.get(), sameInstance(loader));
   }
 
   private Action skipped(Action action) {

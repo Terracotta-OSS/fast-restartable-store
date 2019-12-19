@@ -141,7 +141,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
   }
 
-  private static class ReplayFilter implements Filter<Action>, ForkJoinPool.ForkJoinWorkerThreadFactory {
+  private static class ReplayFilter implements Filter<Action> {
     private final AtomicInteger              threadId        = new AtomicInteger();
     private final AtomicReference<Throwable> firstError      = new AtomicReference<>();
     private final ForkJoinPool replayPool;
@@ -163,7 +163,13 @@ public class RecoveryManagerImpl implements RecoveryManager {
       this.batches = new ReplayElement[numBatches][replayPerBatchSize];
       this.currentIndices = new int[numBatches];
       this.replayBatchTask = null;
-      this.replayPool = new ForkJoinPool(maxThreadCount, this, null, false);
+      ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+      this.replayPool = new ForkJoinPool(maxThreadCount, pool -> {
+        ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+        thread.setName("Replay Thread - " + threadId.getAndIncrement());
+        thread.setContextClassLoader(classLoader);
+        return thread;
+      }, null, false);
     }
 
     public long getReplayCount() {
@@ -273,14 +279,6 @@ public class RecoveryManagerImpl implements RecoveryManager {
           LOGGER.warn("Cannot proceed further. Checking Again for recovery completion...");
         }
       } while (!done);
-    }
-
-    @Override
-    public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
-      // fork join threads are daemon threads by default
-      ForkJoinWorkerThread t = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
-      t.setName("Replay Thread - " + threadId.getAndIncrement());
-      return t;
     }
   }
 

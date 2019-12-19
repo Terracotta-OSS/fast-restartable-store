@@ -78,27 +78,6 @@
         </plugins>
       </reporting>
     </profile>
-
-    <profile>
-      <id>testVM</id>
-      <activation>
-        <property>
-          <name>testVM</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <jvm>${testVM}</jvm>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
   </profiles>
 
   <distributionManagement>

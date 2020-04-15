@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.Assert;
 
+import static com.terracottatech.frs.config.FrsProperty.FORCE_LOG_REGION_FORMAT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
@@ -201,7 +202,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(records),lsn-1);
         }
         
 
@@ -227,7 +228,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(records),lsn-1);
         }
         
 
@@ -270,7 +271,7 @@ public class StagingLogManagerTest {
                 records.add(record);
             }
             ioManager.setMinimumMarker(Constants.GENESIS_LSN);
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(records),lsn-1);
         }
         
         ioManager.dieOnRead(); // dies with 10 records left to read
@@ -328,7 +329,7 @@ public class StagingLogManagerTest {
                 lsn++;
                 records.add(record);
             }
-            ioManager.write(new LogRegionPacker(Signature.ADLER32).pack(records),lsn-1);
+            ioManager.write(new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(records),lsn-1);
         }
         ioManager.slowReads();
 

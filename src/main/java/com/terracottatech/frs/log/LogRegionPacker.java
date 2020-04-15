@@ -5,6 +5,7 @@
 package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.SnapshotRequest;
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.BufferSource;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.SimpleBufferSource;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import static com.terracottatech.frs.PutAction.PUT_ACTION_OVERHEAD;
 import static com.terracottatech.frs.action.ActionCodecImpl.ACTION_HEADER_OVERHEAD;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
  *
@@ -51,23 +53,30 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     //  just hinting
     private int tuningMax = 10;
     static final short REGION_VERSION = 02;
-    static final byte[] REGION_FORMAT = "NF".getBytes();
+    //we only use the first two US-ASCII bytes of these strings (limited space in the header)
+    public static final String OLD_REGION_FORMAT_STRING = "NF";
+    public static final String NEW_REGION_FORMAT_STRING = "HT";
+    //the old region format bytes sequence (notice the default charset use!)
+    static final byte[] OLD_REGION_FORMAT = OLD_REGION_FORMAT_STRING.getBytes();
+    static final byte[] NEW_REGION_FORMAT = NEW_REGION_FORMAT_STRING.getBytes(US_ASCII);
     static final short LR_FORMAT = 02;
     private static final String BAD_CHECKSUM = "bad checksum";
     private final Signature cType;
-     
+    private final String forcedLogRegionFormat;
+
     private static final ThreadLocal<byte[]> buffer = new ThreadLocal<byte[]>();
      
-    public LogRegionPacker(Signature sig) {
-        this(sig, new SimpleBufferSource());
+    public LogRegionPacker(Signature sig, String forcedLogRegionFormat) {
+        this(sig, new SimpleBufferSource(), forcedLogRegionFormat);
     }   
     
-    public LogRegionPacker(Signature sig, BufferSource src) {
+    public LogRegionPacker(Signature sig, BufferSource src, String forcedLogRegionFormat) {
         cType = sig;
         
         assert(cType == Signature.NONE || cType == Signature.ADLER32);
         
         this.source = ( src == null ) ? new SimpleBufferSource() : src;
+        this.forcedLogRegionFormat = forcedLogRegionFormat;
     }   
     
     @Override
@@ -108,8 +117,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         }
     }
     
-    public static LogRecord extract(Signature type, Chunk data, long match) throws FormatException, IOException {
-        long[] spreads = readRegionHeader(data,type == Signature.ADLER32);
+    public static LogRecord extract(Signature type, String forcedLogRegionFormat, Chunk data, long match) throws FormatException, IOException {
+        long[] spreads = readRegionHeader(forcedLogRegionFormat, data,type == Signature.ADLER32);
         long skip = 0;
         for ( long j : spreads ) {
           long mark = data.getLong(data.position() + skip + j + ByteBufferUtils.SHORT_SIZE);
@@ -132,8 +141,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return target;
     }
     
-    public static List<LogRecord> unpack(Signature type, Chunk data) throws FormatException {
-        readRegionHeader(data,type == Signature.ADLER32);
+    public static List<LogRecord> unpack(Signature type, String forcedLogRegionFormat, Chunk data) throws FormatException {
+        readRegionHeader(forcedLogRegionFormat, data,type == Signature.ADLER32);
         
         LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
                 
@@ -143,8 +152,8 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return queue;
     }
     
-     public static List<LogRecord> unpackInReverse(Signature type, Chunk data) throws FormatException {
-        readRegionHeader(data,type == Signature.ADLER32);
+     public static List<LogRecord> unpackInReverse(Signature type, String forcedLogRegionFormat, Chunk data) throws FormatException {
+        readRegionHeader(forcedLogRegionFormat, data,type == Signature.ADLER32);
         
         LinkedList<LogRecord> queue = new LinkedList<LogRecord>();
                 
@@ -157,7 +166,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
 
     @Override
     public List<LogRecord> unpack(Chunk data) throws FormatException {
-        readRegionHeader(data,false);
+        readRegionHeader(forcedLogRegionFormat, data,false);
         
         ArrayList<LogRecord> queue = new ArrayList<LogRecord>();
                 
@@ -236,15 +245,21 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         return cType == Signature.ADLER32;
     }
     
-    private static long[] readRegionHeader(Chunk data, boolean checksum) throws FormatException {
+    private static long[] readRegionHeader(String forcedLogRegionFormat, Chunk data, boolean checksum) throws FormatException {
         Chunk header = data.getChunk(ByteBufferUtils.LONG_SIZE * 2 + ByteBufferUtils.SHORT_SIZE + 2);
         try {
             short region = header.getShort();
             long check = header.getLong();
             long check2 = header.getLong();
-    //  ignore the region format for now
-    //        byte[] rf = new byte[2];
-    //        header.get(rf);
+
+            byte[] regionFormat;
+            if (FrsProperty.FORCE_LOG_REGION_FORMAT.defaultValue().equals(forcedLogRegionFormat)) {
+                regionFormat = new byte[2];
+                regionFormat[0] = header.get();
+                regionFormat[1] = header.get();
+            } else {
+                regionFormat = Arrays.copyOf(forcedLogRegionFormat.getBytes(US_ASCII), 2);
+            }
 
             if ( check != check2 ) {
                 throw new FormatException("log region has mismatched checksums");
@@ -254,8 +269,13 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 throw new FormatException("log region has an unrecognized version code");
             }
 
-            long[] spreads = readSpreads(data);
-            
+            long[] spreads;
+            if (Arrays.equals(NEW_REGION_FORMAT, regionFormat)) {
+                spreads = readSpreads(data);
+            } else {
+                spreads = new long[0];
+            }
+
             if ( check != 0 && checksum ) {
                 long value = data.getBuffers() == null ? 
                     checksum(data) : checksum(Arrays.asList(data.getBuffers()));
@@ -297,7 +317,7 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
         header.putShort(REGION_VERSION);
         header.putLong(checksum);
         header.putLong(checksum);
-        header.put(REGION_FORMAT);
+        header.put(NEW_REGION_FORMAT);
         header.flip();
 
         return header.remaining();

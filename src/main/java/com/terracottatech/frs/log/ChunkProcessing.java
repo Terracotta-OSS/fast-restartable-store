@@ -17,9 +17,11 @@ import java.util.concurrent.Callable;
 public class ChunkProcessing implements Callable<List<LogRecord>> {
     
     private final Chunk           base;
+    private final String forceLogRegionFormat;
 
-    public ChunkProcessing(Chunk base) {
+    public ChunkProcessing(Chunk base, String forceLogRegionFormat) {
         this.base = base;
+        this.forceLogRegionFormat = forceLogRegionFormat;
     }
 
     @Override
@@ -28,7 +30,7 @@ public class ChunkProcessing implements Callable<List<LogRecord>> {
         ((Loadable)base).load();
       }
       try {
-        List<LogRecord> records = LogRegionPacker.unpackInReverse(Signature.ADLER32, base);
+        List<LogRecord> records = LogRegionPacker.unpackInReverse(Signature.ADLER32, forceLogRegionFormat, base);
         return records;
       } finally {
         if ( base instanceof Closeable ) {

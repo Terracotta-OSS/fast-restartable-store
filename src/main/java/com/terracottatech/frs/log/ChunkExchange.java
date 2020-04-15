@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
 
+    private final String forceLogRegionFormat;
     private final BlockingQueue<Future<List<LogRecord>>> queue;
     private final ExecutorService    chunkProcessor;
     private final IOManager io;
@@ -36,8 +37,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     private long totalRead;
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
-    ChunkExchange(IOManager io, int maxQueue) {
+    ChunkExchange(IOManager io, String forceLogRegionFormat, int maxQueue) {
         this.io = io;
+        this.forceLogRegionFormat = forceLogRegionFormat;
         queue = new LinkedBlockingQueue<Future<List<LogRecord>>>(maxQueue);
         chunkProcessor = Executors.newCachedThreadPool(new ThreadFactory() {
             int count = 1;
@@ -130,7 +132,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
                 reading += (System.nanoTime() - last);
                 last = System.nanoTime();
                 fill += queue.size();
-                ChunkProcessing cp = new ChunkProcessing(chunk);
+                ChunkProcessing cp = new ChunkProcessing(chunk, forceLogRegionFormat);
                 Future<List<LogRecord>> f = chunkProcessor.submit(cp);
                 while ( f != null ) {
                   try {

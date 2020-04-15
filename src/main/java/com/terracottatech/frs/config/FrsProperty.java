@@ -38,7 +38,9 @@ public enum FrsProperty {
   COMPACTOR_SIZEBASED_THRESHOLD("compactor.sizeBased.threshold", Type.DOUBLE, 0.50),
   COMPACTOR_SIZEBASED_AMOUNT("compactor.sizeBased.amount", Type.DOUBLE, 0.05),
 
-  STORE_MAX_PAUSE_TIME_IN_MILLIS("store.maxPauseTimeInMillis", Type.INTEGER, 1000);
+  STORE_MAX_PAUSE_TIME_IN_MILLIS("store.maxPauseTimeInMillis", Type.INTEGER, 1000),
+
+  FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE");
 
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 

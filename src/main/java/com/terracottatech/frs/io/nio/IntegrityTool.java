@@ -15,6 +15,8 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.terracottatech.frs.config.FrsProperty.FORCE_LOG_REGION_FORMAT;
+
 /**
  *
  * @author mscott
@@ -92,7 +94,7 @@ public class IntegrityTool {
             count++;
             size += segment.position() - lastpos;
             try {
-                List<LogRecord> list = LogRegionPacker.unpack(Signature.ADLER32, c);
+                List<LogRecord> list = LogRegionPacker.unpack(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue(), c);
                 records += list.size();
                 for ( LogRecord r : list ) {
                     ByteBuffer[] bb = r.getPayload();

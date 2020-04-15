@@ -150,9 +150,9 @@ class MinimalReadbackStrategy extends BaseBufferReadbackStrategy {
             free(buffer);
           }
           if ( num >= 0 && SegmentHeaders.JUMP_LIST.validate(jump) ) {
-            int stretch = (num * ByteBufferUtils.INT_SIZE) + 8 + ByteBufferUtils.INT_SIZE;
+            long stretch = ((long) num * ByteBufferUtils.INT_SIZE) + 8 + ByteBufferUtils.INT_SIZE;
             if ( stretch < capacity ) {
-              ByteBuffer grab = allocate(stretch);
+              ByteBuffer grab = allocate((int) stretch);
               if ( grab != null ) {
                 try {
                   readDirect(capacity - stretch, grab);

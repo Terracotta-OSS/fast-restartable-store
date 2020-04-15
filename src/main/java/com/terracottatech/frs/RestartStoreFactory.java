@@ -67,7 +67,7 @@ public abstract class RestartStoreFactory {
     }
     
     IOManager ioManager = new NIOManager(configuration,writingSource);
-    ReadManager readManager = new ReadManagerImpl(ioManager);
+    ReadManager readManager = new ReadManagerImpl(ioManager, configuration.getString(FrsProperty.FORCE_LOG_REGION_FORMAT));
     LogManager logManager = new StagingLogManager(ioManager,writingSource,configuration);
     ActionManager actionManager = new ActionManagerImpl(logManager, objectManager,
                                                         createCodec(objectManager),

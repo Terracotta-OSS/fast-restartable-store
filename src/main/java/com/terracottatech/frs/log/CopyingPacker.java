@@ -18,8 +18,8 @@ public class CopyingPacker extends LogRegionPacker {
     private final BufferSource pool;
     private static final int FUTURE_SPACER = 64;
     
-    public CopyingPacker(Signature sig, BufferSource copyInto) {
-        super(sig);
+    public CopyingPacker(Signature sig, String forceLogRegionFormat, BufferSource copyInto) {
+        super(sig, forceLogRegionFormat);
         pool = copyInto;
     }   
 

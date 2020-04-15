@@ -6,6 +6,7 @@
 
 package com.terracottatech.frs.log;
 
+import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.io.Chunk;
 import com.terracottatech.frs.io.CopyingChunk;
 import java.nio.ByteBuffer;
@@ -17,6 +18,8 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import static com.terracottatech.frs.config.FrsProperty.FORCE_LOG_REGION_FORMAT;
 import static org.junit.Assert.*;
 import org.mockito.Mockito;
 import static org.mockito.Mockito.times;
@@ -68,7 +71,7 @@ public class LogRegionPackerTest {
         return list.iterator();
       }
     };
-    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32);
+    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue());
     Chunk result = instance.pack(payload);
     verifyChunkHeader(result);
     verifyHints(result,0);
@@ -96,7 +99,7 @@ public class LogRegionPackerTest {
         return list.iterator();
       }
     };
-    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32);
+    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32, (String) FrsProperty.FORCE_LOG_REGION_FORMAT.defaultValue());
     Chunk result = instance.pack(payload);
     verifyChunkHeader(result);
     verifyHints(result,255);
@@ -170,7 +173,7 @@ public class LogRegionPackerTest {
         return list.iterator();
       }
     };
-    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32);
+    LogRegionPacker instance = new LogRegionPacker(Signature.ADLER32, (String) FORCE_LOG_REGION_FORMAT.defaultValue());
     Chunk result = instance.pack(payload);
     Chunk check = new CopyingChunk(result);
     verifyChunkHeader(check);
@@ -180,7 +183,7 @@ public class LogRegionPackerTest {
     for (int x=0;x<1024;x++) {
       System.out.println("ITERATION: " + x);
       check.clear();
-      LogRecord lr = LogRegionPacker.extract(Signature.NONE,check,1000 + x);
+      LogRecord lr = LogRegionPacker.extract(Signature.NONE, (String) FORCE_LOG_REGION_FORMAT.defaultValue(), check,1000 + x);
       assertNotNull(lr);
     }
   }

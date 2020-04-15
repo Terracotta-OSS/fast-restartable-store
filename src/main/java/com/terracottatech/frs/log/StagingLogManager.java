@@ -57,7 +57,8 @@ public class StagingLogManager implements LogManager {
     
     private int MAX_QUEUE_SIZE;
     private int RECOVERY_QUEUE_SIZE = 64;
-    
+    private String forceLogRegionFormat;
+
     private ChunkExchange                               exchanger;
     private final BlockingQueue<WritingPackage>         queue = new ArrayBlockingQueue<WritingPackage>(8);
     
@@ -71,6 +72,7 @@ public class StagingLogManager implements LogManager {
         this(Signature.ADLER32,new AtomicCommitList( Constants.FIRST_LSN, 1024, 200),io, src);
         String checksum = config.getString(FrsProperty.IO_CHECKSUM);
         this.checksumStyle = Signature.valueOf(checksum);
+        this.forceLogRegionFormat = config.getString(FrsProperty.FORCE_LOG_REGION_FORMAT);
         this.MAX_QUEUE_SIZE = config.getInt(FrsProperty.IO_COMMIT_QUEUE_SIZE);
         this.RECOVERY_QUEUE_SIZE = config.getInt(FrsProperty.IO_RECOVERY_QUEUE_SIZE);
         String commitList = config.getString(FrsProperty.IO_COMMITLIST);
@@ -87,6 +89,7 @@ public class StagingLogManager implements LogManager {
         this.io = io;
         currentLsn.set(list.getBaseLsn());
         this.checksumStyle = check;
+        this.forceLogRegionFormat = (String) FrsProperty.FORCE_LOG_REGION_FORMAT.defaultValue();
         this.MAX_QUEUE_SIZE = 1024;
         this.buffers =  ( src != null ) ? src : new MaskingBufferSource(new SplittingBufferSource(512,16 * 1024 * 1024));
     }
@@ -167,7 +170,7 @@ public class StagingLogManager implements LogManager {
       long processing;
       
       volatile boolean        stopped = false;
-      private final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle,buffers);
+      private final LogRegionFactory  regionFactory = new CopyingPacker(checksumStyle, forceLogRegionFormat, buffers);
       private final ExecutorService   asyncPacker = Executors.newCachedThreadPool(new ThreadFactory() {
 
             int count = 1;
@@ -369,7 +372,7 @@ public class StagingLogManager implements LogManager {
     }
     
     private Future<Void> recover() {        
-        ChunkExchange ex = new ChunkExchange(io, RECOVERY_QUEUE_SIZE);
+        ChunkExchange ex = new ChunkExchange(io, forceLogRegionFormat, RECOVERY_QUEUE_SIZE);
         LOGGER.debug("recovery queue size: " + RECOVERY_QUEUE_SIZE);
         
         ex.recover();

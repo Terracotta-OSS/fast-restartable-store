@@ -26,12 +26,14 @@ public class ReadManagerImpl implements ReadManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(ReadManager.class);
 
   private final IOManager ioManager;
+  private final String forceLogRegionFormat;
   private final Cache cached = new Cache();
   private int hit;
   private int miss;
-  
-  public ReadManagerImpl(IOManager io) {
+
+  public ReadManagerImpl(IOManager io, String forceLogRegionFormat) {
     this.ioManager = io;
+    this.forceLogRegionFormat = forceLogRegionFormat;
   }
 // UNUSED  
   private synchronized Chunk check(long lsn) {
@@ -72,7 +74,7 @@ public class ReadManagerImpl implements ReadManager {
     Chunk c = ioManager.scan(marker);
     try {
 // maybe try and cache this
-        LogRecord send = LogRegionPacker.extract(Signature.NONE, c, marker);
+        LogRecord send = LogRegionPacker.extract(Signature.NONE, forceLogRegionFormat, c, marker);
         
         if ( send == null ) {
           throw new RuntimeException("not found");

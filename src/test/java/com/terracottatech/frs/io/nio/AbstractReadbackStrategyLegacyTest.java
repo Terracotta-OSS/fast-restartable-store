@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import org.junit.*;
 
+import static com.terracottatech.frs.config.FrsProperty.FORCE_LOG_REGION_FORMAT;
+
 /**
  *
  * @author mscott
@@ -66,14 +68,14 @@ public abstract class AbstractReadbackStrategyLegacyTest {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
         list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
         current += size;
-        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current);
+        manager.write(new LogRegionPacker(Signature.NONE, null).pack(list),current);
     }
     
     private void writePunyChunkWithMarkers(int size) throws Exception {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
         list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1)}, null));
         current+=size;
-        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current);
+        manager.write(new LogRegionPacker(Signature.NONE, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(list),current);
     }   
         
     

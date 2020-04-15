@@ -18,6 +18,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import org.junit.*;
 
+import static com.terracottatech.frs.config.FrsProperty.FORCE_LOG_REGION_FORMAT;
+
 /**
  *
  * @author mscott
@@ -60,7 +62,7 @@ public class IntegrityToolTest {
     private void writeChunkWithMarkers(int size) throws Exception {
         ArrayList<LogRecord> list = new ArrayList<LogRecord>();
         list.add(new LogRecordImpl(new ByteBuffer[] {ByteBuffer.allocate(1024)}, null));
-        manager.write(new LogRegionPacker(Signature.NONE).pack(list),current+=size);
+        manager.write(new LogRegionPacker(Signature.NONE, (String) FORCE_LOG_REGION_FORMAT.defaultValue()).pack(list),current+=size);
     }
         
     

@@ -233,8 +233,9 @@ public class CompactorImpl implements Compactor {
         // actions by just waiting until the latest compaction action is written to disk.
         if (compactedCount % compactActionThrottle == 0) {
           // While we're waiting, might as well update the lowest lsn so compaction provides continuous benefit.
-          logManager.updateLowestLsn(objectManager.getLowestLsn());
           written.get();
+          written = null;
+          logManager.updateLowestLsn(objectManager.getLowestLsn());
         }
       }
       LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);

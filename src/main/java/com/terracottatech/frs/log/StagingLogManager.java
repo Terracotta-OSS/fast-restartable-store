@@ -598,12 +598,11 @@ public class StagingLogManager implements LogManager {
 // this is not a guaranteed write.  consider returning a future that throws an exception
         return _append(record,false).getWriteFuture();
       }
-    
+
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        CommitList w = _append(record,true);
-        return new CommitListFuture(record.getLsn(), w);
-      }
+        return _append(record,true).getWriteFuture();
+    }
 
     @Override
     public Snapshot snapshot() throws ExecutionException {
@@ -675,8 +674,6 @@ public class StagingLogManager implements LogManager {
         };
       }
     }
-    
-    
 
     static class WritingPackage implements Runnable {
         private final CommitList                list;

@@ -5,7 +5,9 @@
 package com.terracottatech.frs.log;
 
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -24,8 +26,7 @@ public class StackingCommitList implements CommitList {
     private long endLsn;
 //    private long lowestLsn;
     private boolean closed = false;
-    private boolean written = false;
-    private Exception error;
+    private final CompletableFuture<Void> written = new CompletableFuture<>();
     private int count = 0;
     
     private final Object guard = new Object();
@@ -125,44 +126,17 @@ public class StackingCommitList implements CommitList {
         return syncing;
     }
 
-    private void waitForWrite() throws InterruptedException, ExecutionException {
-        waitForWrite(0);
-    }
-
-    private void waitForWrite(long millis) throws InterruptedException, ExecutionException {
-        long span = System.currentTimeMillis();
-        synchronized (guard) {
-            while (!this.written) {
-                if ( error != null ) throw new ExecutionException(error);
-                if (millis != 0 && System.currentTimeMillis() - span > millis) {
-                    return;
-                }
-                guard.wait(millis);
-            }
-        }
-    }
-
-    private boolean isWritten() {
-        synchronized (guard) {
-            return written;
-        }
-    }
-
     @Override
     public void written() {
-        synchronized (guard) {
-            written = true;
-            guard.notifyAll();
-        }
+        written.complete(null);
     }
     
     
     @Override
     public void exceptionThrown(Exception exp) {
-      CommitList chain = null;
+        CommitList chain = null;
+        written.completeExceptionally(exp);
         synchronized (guard) {
-            error = exp;
-            guard.notifyAll();
             if ( next != null ) {
               chain = next;
             }
@@ -195,45 +169,11 @@ public class StackingCommitList implements CommitList {
             throw new AssertionError();
         }
     }
-    
- //  Future interface
 
     @Override
-    public boolean cancel(boolean bln) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public Future<Void> getWriteFuture() {
+        return written;
     }
-    
-    private synchronized void checkForClose() {
-        if ( !closed ) {
-            closed = true;
-            this.notify();
-        }
-    }
-
-    @Override
-    public Void get() throws InterruptedException, ExecutionException {
-        checkForClose();
-        this.waitForWrite();
-        return null;
-    }
-
-    @Override
-    public Void get(long l, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-        checkForClose();
-        this.waitForWrite(tu.convert(l, TimeUnit.MILLISECONDS));
-        return null;
-    }
-
-    @Override
-    public boolean isCancelled() {
-        return false;
-    }
-
-    @Override
-    public boolean isDone() {
-        return this.isWritten();
-    } 
-    
     
 //  iterator interface
     @Override

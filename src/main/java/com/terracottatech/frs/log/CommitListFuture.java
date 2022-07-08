@@ -37,7 +37,7 @@ public class CommitListFuture implements Future<Void> {
   @Override
   public boolean isDone() {
     CommitList target = origin;
-    while ( target.isDone() ) {
+    while ( target.getWriteFuture().isDone() ) {
       if ( target.getEndLsn() >= lsn ) {
         return true;
       } else {
@@ -50,10 +50,10 @@ public class CommitListFuture implements Future<Void> {
   @Override
   public Void get() throws InterruptedException, ExecutionException {
     CommitList target = origin;
-    target.get();
+    target.getWriteFuture().get();
     while ( target.getEndLsn() < lsn ) {
       target = target.next();
-      target.get();
+      target.getWriteFuture().get();
     }
     return null;
   }
@@ -62,14 +62,14 @@ public class CommitListFuture implements Future<Void> {
   public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
     CommitList target = origin;
     long to = unit.toNanos(timeout) + System.nanoTime();
-    target.get(timeout,unit);
+    target.getWriteFuture().get(timeout,unit);
     while ( target.getEndLsn() < lsn ) {
       target = target.next();
       long ct = System.nanoTime();
       if ( ct > to ) {
         throw new TimeoutException();
       }
-      target.get(to - ct, TimeUnit.NANOSECONDS);
+      target.getWriteFuture().get(to - ct, TimeUnit.NANOSECONDS);
 
     }
     return null;

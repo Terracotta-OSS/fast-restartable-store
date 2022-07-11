@@ -6,10 +6,7 @@ package com.terracottatech.frs.log;
 
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  *
@@ -19,7 +16,7 @@ public class StackingCommitList implements CommitList {
 
     private final LogRecord[] regions;
 // set at construction    
-    private long baseLsn;
+    private final long baseLsn;
 //  half synchronized
     private volatile boolean syncing = false;
 //  these are synchronized     
@@ -31,7 +28,7 @@ public class StackingCommitList implements CommitList {
     
     private final Object guard = new Object();
     private volatile CommitList next;
-    private int wait;
+    private final int wait;
 
     public StackingCommitList(long startLsn, int maxSize, int wait) {
         baseLsn = startLsn;
@@ -134,12 +131,10 @@ public class StackingCommitList implements CommitList {
     
     @Override
     public void exceptionThrown(Exception exp) {
-        CommitList chain = null;
+        CommitList chain;
         written.completeExceptionally(exp);
         synchronized (guard) {
-            if ( next != null ) {
-              chain = next;
-            }
+            chain = next;
         }
         if ( chain != null ) {
           chain.exceptionThrown(exp);

@@ -676,8 +676,17 @@ public class StagingLogManager implements LogManager {
     }
 
     static class WritingPackage implements Runnable {
+        /**
+         * list of writes to make
+         */
         private final CommitList                list;
+        /**
+         * used to pack the byte buffer
+         */
         private volatile LogRegionFactory      factory;
+        /**
+         * bytes to write to disk
+         */
         private volatile Chunk                  data;
         
         WritingPackage(CommitList list, LogRegionFactory factory) {

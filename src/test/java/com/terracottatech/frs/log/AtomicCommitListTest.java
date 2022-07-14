@@ -83,7 +83,7 @@ public class AtomicCommitListTest {
       }.start();
     commitList.waitForContiguous();
     commitList.written();
-    commitList.get();
+    commitList.getWriteFuture().get();
     assertThat(System.currentTimeMillis()-time,lessThan(2000l));
   }
 
@@ -193,7 +193,7 @@ public class AtomicCommitListTest {
       }.start();
       
       try {
-          commitList.get();
+          commitList.getWriteFuture().get();
           fail();
       } catch ( ExecutionException ex ) {
           System.out.println("caught exception");

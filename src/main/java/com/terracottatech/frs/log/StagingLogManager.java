@@ -26,6 +26,7 @@ import java.util.Formatter;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -241,7 +242,7 @@ public class StagingLogManager implements LogManager {
   //  if in synchronous mode, wait here so more log records are batched in the next region
               if ( state.acceptRecords() && oldRegion.isSyncRequested() ) {
                   try {
-                      oldRegion.get();
+                      oldRegion.getWriteFuture().get();
                   } catch ( ExecutionException ee ) {
                       //  ignore this, this wait is a performace optimization
                   }
@@ -476,36 +477,15 @@ public class StagingLogManager implements LogManager {
     }
 
   private void queueEmptyWritingPackageForShutdown() {
-    // this trys to put an empty WritingPackage on the queue
+    // this tries to put an empty WritingPackage on the queue
     // so the daemon wakes up. This speeds shutdown,
     // as it will wake the daemon thread.
     queue.offer(new WritingPackage(new CommitList() {
-      @Override
-      public boolean cancel(boolean mayInterruptIfRunning) {
-        throw new UnsupportedOperationException();
+    @Override
+      public Future<Void> getWriteFuture() {
+        return CompletableFuture.completedFuture(null);
       }
-
-      @Override
-      public boolean isCancelled() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public boolean isDone() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Void get() throws InterruptedException, ExecutionException {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Void get(long timeout,
-                      TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-        throw new UnsupportedOperationException();
-      }
-
+        
       @Override
       public Iterator<LogRecord> iterator() {
         return Collections.EMPTY_LIST.iterator();
@@ -605,7 +585,7 @@ public class StagingLogManager implements LogManager {
         
     private void futureWait(CommitList mine) {
       try {                      
-          mine.get();
+          mine.getWriteFuture().get();
       } catch ( InterruptedException ie ) {
 
       } catch ( ExecutionException ee ) {
@@ -616,14 +596,13 @@ public class StagingLogManager implements LogManager {
     @Override
     public Future<Void> append(LogRecord record) {
 // this is not a guaranteed write.  consider returning a future that throws an exception
-        return _append(record,false);
+        return _append(record,false).getWriteFuture();
       }
-    
+
     @Override
     public Future<Void> appendAndSync(LogRecord record) {
-        CommitList w = _append(record,true);
-        return new CommitListFuture(record.getLsn(), w);
-      }
+        return _append(record,true).getWriteFuture();
+    }
 
     @Override
     public Snapshot snapshot() throws ExecutionException {
@@ -695,12 +674,19 @@ public class StagingLogManager implements LogManager {
         };
       }
     }
-    
-    
 
     static class WritingPackage implements Runnable {
+        /**
+         * list of writes to make
+         */
         private final CommitList                list;
+        /**
+         * used to pack the byte buffer
+         */
         private volatile LogRegionFactory      factory;
+        /**
+         * bytes to write to disk
+         */
         private volatile Chunk                  data;
         
         WritingPackage(CommitList list, LogRegionFactory factory) {

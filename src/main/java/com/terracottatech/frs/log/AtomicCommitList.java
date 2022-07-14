@@ -6,10 +6,10 @@ package com.terracottatech.frs.log;
 
 import com.terracottatech.frs.SnapshotRequest;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -28,8 +28,7 @@ public class AtomicCommitList implements CommitList {
 
     private final long baseLsn;
     private final AtomicLong syncRequest = new AtomicLong();
-    private boolean written = false;
-    private Exception error;
+    private final CompletableFuture<Void> written = new CompletableFuture<>();
     private volatile CommitList next;
     private final int      wait;
     private volatile boolean        atHead = false;
@@ -168,42 +167,14 @@ public class AtomicCommitList implements CommitList {
         return syncRequest.get() > 0;
     }
 
-    private void waitForWrite() throws InterruptedException,ExecutionException {
-        waitForWrite(0);
-    }
-
-    private void waitForWrite(long millis) throws InterruptedException,ExecutionException {
-        long span = System.currentTimeMillis();
-        synchronized (guard) {
-            while (!this.written) {
-                if ( error != null ) throw new ExecutionException(error);
-                if (millis != 0 && System.currentTimeMillis() - span > millis) {
-                    return;
-                }
-                guard.wait(millis);
-            }
-        }
-    }
-
-    private boolean isWritten() {
-        synchronized (guard) {
-            return written;
-        }
-    }
-    
-
-    private boolean isError() {
-        synchronized (guard) {
-            return error != null;
-        }
-    }    
+    @Override
+    public Future<Void> getWriteFuture() {
+        return written;
+    }  
 
     @Override
     public void written() {
-        synchronized (guard) {
-            written = true;
-            guard.notifyAll();
-        }
+        written.complete(null);
     }
     
     private boolean checkValues() {
@@ -234,13 +205,7 @@ public class AtomicCommitList implements CommitList {
         }
         assert(baseLsn == 0 || checkValues());
     }
-    
- //  Future interface
-    @Override
-    public boolean cancel(boolean bln) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-    
+
     private void checkForClosed() {
         if ( endLsn.get() == 0 ) {
             int size = regions.length() - (int)goLatch.getCount();
@@ -256,40 +221,15 @@ public class AtomicCommitList implements CommitList {
 
     @Override
     public void exceptionThrown(Exception exp) {
-      CommitList chain = null;
+        CommitList chain = null;
+        written.completeExceptionally(exp);
         synchronized (guard) {
-            error = exp;
-            guard.notifyAll();
-            if ( next != null ) {
-              chain = next;
-            }
+            chain = next;
         }
         if ( chain != null ) {
-          chain.exceptionThrown(exp);
+            chain.exceptionThrown(exp);
         }
-    }
-
-    @Override
-    public Void get() throws InterruptedException, ExecutionException {
-        this.waitForWrite();
-        return null;
-    }
-
-    @Override
-    public Void get(long time, TimeUnit tu) throws InterruptedException, ExecutionException, TimeoutException {
-        this.waitForWrite(tu.convert(time, TimeUnit.MILLISECONDS));
-        return null;
-    }
-
-    @Override
-    public boolean isCancelled() {
-        return false;
-    }
-
-    @Override
-    public boolean isDone() {
-        return (goLatch.getCount() == regions.length() || this.isWritten() || this.isError() );
-    }   
+    }  
     
 //  iterator interface
     @Override

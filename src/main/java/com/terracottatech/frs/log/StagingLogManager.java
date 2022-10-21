@@ -284,64 +284,46 @@ public class StagingLogManager implements LogManager {
         WriteQueuer queuer = new WriteQueuer();
         queuer.start();  
                 
-        long last = System.nanoTime();
-        long syncd = 0;
         while ( state.acceptRecords() || currentLsn.get() - 1 != highestOnDisk.get()) {
-          WritingPackage packer = null;
-          try {
-            long mark = System.nanoTime();
-            writing += (mark - last);
-            long curr = io.getCurrentMarker();
-            packer = (syncd >= curr) ? queue.poll(1000,TimeUnit.MILLISECONDS) : queue.poll();
-            last = System.nanoTime();
-            waiting += (last - mark);
+            long start = System.nanoTime();
+            try {
+              WritingPackage packer = queue.take();
+              long taken = System.nanoTime();
+              try {
+                waiting += (taken - start);
 
-            if (packer == null || packer.isEmpty()) {
-              packer = null;
-              syncd = io.getCurrentMarker();
-              io.sync();
-              continue;
-            }
+                if (packer.isEmpty()) {
+                  io.sync();
+                  continue;
+                }
 
-            Chunk c = packer.take();
-            if (io.getCurrentMarker()+1 != packer.baseLsn()) {
-                throw new AssertionError("lsns not sequenced " + io.getCurrentMarker()+1 + " != " + packer.baseLsn());
-            }
+                Chunk c = packer.take();
+                if (io.getCurrentMarker() + 1 != packer.baseLsn()) {
+                  throw new AssertionError("lsns not sequenced " + io.getCurrentMarker() + 1 + " != " + packer.baseLsn());
+                }
 
-            written += io.write(c,packer.endLsn());
+                written += io.write(c, packer.endLsn());
 
-            if ( c instanceof Closeable ) {
-              ((Closeable)c).close();
-            }
+                if (c instanceof Closeable) {
+                  ((Closeable) c).close();
+                }
 
-            if ( packer.doSync() ) {
-                syncd = io.getCurrentMarker();
-                io.sync();
-            }
+                if (packer.doSync()) {
+                  io.sync();
+                }
 
-            highestOnDisk.set(packer.endLsn());
-            packer.written();
-          } catch (IOException ioe) {
-            if ( packer != null ) {
-                packer.list.exceptionThrown(ioe);
+                highestOnDisk.set(packer.endLsn());
+                packer.written();
+              } catch (Exception e) {
+                packer.list.exceptionThrown(e);
+                state = state.checkException(e);
+                break;
+              } finally {
+                writing += (System.nanoTime() - taken);
+              }
+            } catch (InterruptedException ie) {
+              state = state.checkException(ie);
             }
-            state = state.checkException(ioe);
-            if ( packer != null ) {
-                packer.list.exceptionThrown(ioe);
-            }
-            break;
-          } catch (InterruptedException ie) {
-            if ( packer != null ) {
-                packer.list.exceptionThrown(ie);
-            }
-            state = state.checkException(ie);
-          } catch ( Exception t ) {
-            if ( packer != null ) {
-                packer.list.exceptionThrown(t);
-            }
-            state = state.checkException(t);
-            break;
-          }
         }
         
         try {

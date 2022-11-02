@@ -602,29 +602,33 @@ class NIOStreamImpl implements Stream {
       }
     }
     
-    synchronized void waitForSyncdMarker(long lsn) throws InterruptedException {
-        markerWaiters += 1;
-        try {
-            while (lsn > this.fsyncdMarker) {
-                this.wait();
+    boolean waitForWriteOf(long lsn) throws InterruptedException, IOException {
+        if (lsn > this.currentMarker) {
+            synchronized (this) {
+                markerWaiters += 1;
+                try {
+                    while (lsn > this.currentMarker) {
+                        wait();
+                    }
+                } finally {
+                    markerWaiters -= 1;
+                }
             }
-        } finally {
-            markerWaiters -= 1;        
+            return true;
+        } else {
+            return false;
         }
     }
-    
-    private synchronized boolean requiresFsync() {
-      return markerWaiters > 0;
-    }
-//  mostly called by the IO thread and should not be too expensive so ok to synchronize  
+
     private void updateCurrentMarker(long lsn) throws IOException {
         if ( lsn < currentMarker ) {
             throw new IllegalArgumentException("markers must always be increasing");
         }
         currentMarker = lsn;
-        if ( requiresFsync()) {
-          writeHead.fsync(false);
-          updateSyncMarker(writeHead.getMaximumMarker());
+        if (markerWaiters > 0) {
+            synchronized (this) {
+                notifyAll();
+            }
         }
     }
 
@@ -645,7 +649,7 @@ class NIOStreamImpl implements Stream {
         if ( loc > 0 ) {
             NIORandomAccess ra = createRandomAccess(filePool);
             try {
-              this.waitForSyncdMarker(loc);
+              this.waitForWriteOf(loc);
               ReadOnlySegment ro = ra.seek(loc);
               if ( ro == null ) {
                 throw new IOException("bad seek");

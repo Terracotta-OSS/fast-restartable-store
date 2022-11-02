@@ -289,13 +289,13 @@ public class NIOManagerTest {
             public Object answer(final InvocationOnMock invocationOnMock) throws Throwable {
                 final Long marker = (Long)invocationOnMock.getArguments()[0];
                 if (marker == triggerMarker) {
-                    System.out.format("waitForMarker(%s)%n", marker);
+                    System.out.format("waitForWriteOf(%s)%n", marker);
                     System.out.flush();
                     latch.countDown();          // Release the record loading thread
                 }
                 return invocationOnMock.callRealMethod();
             }
-        }).when(backend).waitForSyncdMarker(anyLong());
+        }).when(backend).waitForWriteOf(anyLong());
 
         final StagingLogManager lm =
             new StagingLogManager(Signature.ADLER32, new AtomicCommitList(Constants.FIRST_LSN, 100, 20), manager, src);

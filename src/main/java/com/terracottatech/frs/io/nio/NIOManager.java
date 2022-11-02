@@ -215,25 +215,14 @@ public class NIOManager implements IOManager {
         if (backend == null) {
             throw new IOException("stream is closed");
         }    
-        long curr = 0;
-        boolean waited = false;
         try {
-            if ( marker > this.backend.getSyncdMarker()) {
-              waited = true;
-     //  this does not need to be synchronized,
-     //  it's ok if this is a stale value.  It should always be increasing 
-                this.backend.waitForSyncdMarker(marker);
-            }
-            curr = this.backend.getSyncdMarker();
-            if ( marker > curr ) {
-                throw new AssertionError(marker + " " + curr + " " + waited);
-            }
+            boolean waited = this.backend.waitForWriteOf(marker);
             if ( reader == null ) {
                 this.reader = backend.createRandomAccess(getRandomAccessBufferSource());
             }
             Chunk c = this.reader.scan(marker);
             if ( c == null ) {
-                throw new AssertionError("Marker " + marker + ":" + curr + " not found in " + directory + " during scan; waited:" + waited);
+                throw new AssertionError("Marker " + marker + ":" + this.backend.getMarker() + " not found in " + directory + " during scan; waited:" + waited);
                 }
             return c;
         } catch ( InterruptedIOException ioe ) {

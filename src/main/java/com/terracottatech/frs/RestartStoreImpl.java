@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,8 +56,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final Configuration configuration;
 
   private final int maxPauseTime;
-  private final ExecutorService pauseTaskExecutorService;
-  private final ScheduledExecutorService pauseTimeOutService;
+  private final ScheduledExecutorService pauseExecutionService;
   private volatile Future<Future<Snapshot>> pauseTaskRef;
   private volatile ScheduledFuture<?> pauseTimerTaskRef;
 
@@ -75,8 +73,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     this.readManager = read;
     this.compactor = compactor;
     this.configuration = configuration;
-    this.pauseTaskExecutorService = Executors.newSingleThreadExecutor();
-    this.pauseTimeOutService = Executors.newSingleThreadScheduledExecutor();
+    this.pauseExecutionService = Executors.newScheduledThreadPool(0);
     this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
   }
 
@@ -116,6 +113,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       state = State.SHUTDOWN;
       compactor.shutdown();
       logManager.shutdown();
+      pauseExecutionService.shutdown();
     }
   }
 
@@ -210,13 +208,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       throw new IllegalStateException("RestartStore is not ready for pause. Current state " + state);
     }
     state = State.PAUSED;
-    pauseTimerTaskRef = pauseTimeOutService.schedule(new Runnable() {
+    pauseTimerTaskRef = pauseExecutionService.schedule(new Runnable() {
       @Override
       public void run() {
         forceResume();
       }
     }, maxPauseTime, TimeUnit.MILLISECONDS);
-    pauseTaskRef = pauseTaskExecutorService.submit(new Callable<Future<Snapshot>>() {
+    pauseTaskRef = pauseExecutionService.submit(new Callable<Future<Snapshot>>() {
       @Override
       public Future<Snapshot> call() throws Exception {
         compactor.pause();

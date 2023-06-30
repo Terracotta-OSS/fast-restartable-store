@@ -29,11 +29,13 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     private final   AppendableChunk                        data;
     private final   MarkerDictionary              boundaries;
     private final ReadWriteLock lock;
+    private final ChannelOpener opener;
     private long offset = 0;
     private long maxMarker = Long.MIN_VALUE;
         
-    public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
+    public MappedReadbackStrategy(FileChannel src, Direction dir, ChannelOpener opener) throws IOException {
       this.source = src;
+      this.opener = opener;
         MappedByteBuffer mapped = src.map(FileChannel.MapMode.READ_ONLY,0,(int)src.size());
 
         this.data = new AppendableChunk(new ByteBuffer[]{mapped});
@@ -57,6 +59,10 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
             offset = Long.MIN_VALUE;
         }
     }
+
+  public MappedReadbackStrategy(FileChannel src, Direction dir) throws IOException {
+      this(src, dir, null);
+  }
 
     @Override
     public boolean isConsistent() {
@@ -193,9 +199,13 @@ class MappedReadbackStrategy extends AbstractReadbackStrategy implements Closeab
     
     @Override
     public void close() throws IOException {
-        if ( source.isOpen() ) {
-            source.close();
+      if (opener == null) {
+        if (source.isOpen()) {
+          source.close();
         }
+      } else {
+        opener.close();
+      }
         boundaries.clear();
         data.destroy();
     }

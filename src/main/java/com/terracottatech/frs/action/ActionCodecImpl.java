@@ -18,6 +18,12 @@ import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
  * @author tim
  */
 public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
+  /* ActionCodecImpl.encode
+  4 bytes - ActionID.collection
+  4 bytes - ActionID.action
+  */
+  public static final long ACTION_HEADER_OVERHEAD = 8L;
+
   private static final ActionID NULL_ACTION_ID = new ActionID(-1, -1);
 
   private final Map<Class<? extends Action>, ActionID> classToId =

@@ -105,7 +105,6 @@ public class RestartStoreReadTest  {
         Assert.assertTrue(tuple.getIdentifier().getInt() == id);
         Assert.assertTrue(tuple.getKey().getInt() == key);
         Assert.assertTrue((tuple.getValue().get() & 0xff) == (value & 0xff));
-        System.out.println(id + " " + key);
         if ( tuple instanceof Disposable ) {
           ((Disposable)tuple).dispose();
         }

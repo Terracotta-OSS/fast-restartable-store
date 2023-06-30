@@ -154,6 +154,10 @@ class NIOStreamImpl implements Stream {
         return currentMarker;
     }
 
+    public long getSyncdMarker() {
+        return fsyncdMarker;
+    }
+    
     public long getMinimumMarker() {
         return lowestMarker;
     }
@@ -200,6 +204,7 @@ class NIOStreamImpl implements Stream {
                   }
                   if ( seg.last() ) {
                       updateCurrentMarker(seg.getMaximumMarker());
+                      updateSyncMarker(seg.getMaximumMarker());
                       this.lowestMarker = seg.getMinimumMarker();
                       this.lowestMarkerOnDisk = this.lowestMarker;
                       return true;                    
@@ -416,6 +421,7 @@ class NIOStreamImpl implements Stream {
                     } else {
                         seg.fsync(false);
                     }
+                    updateSyncMarker(seg.getMaximumMarker());
                     lowestMarkerOnDisk = seg.getMinimumMarker();
                     seg = pivot.exchange(seg);
                 }
@@ -432,19 +438,22 @@ class NIOStreamImpl implements Stream {
           return -2;
         }
         if (writeHead != null && !writeHead.isClosed()) {
-            long pos = writeHead.position();
-            if (syncer != null) {
+            if (this.currentMarker == this.fsyncdMarker) {
+              return writeHead.position();
+            } else if (syncer != null) {
                 syncer.pivot(writeHead);
             //  get it back
                 WritingSegment check = syncer.pivot(null);
                 assert(check == writeHead);
-                return pos;
+                return  writeHead.position();
             } else {
-                pos = writeHead.fsync(false);
-                this.fsyncdMarker = writeHead.getMaximumMarker();
+                long pos = writeHead.fsync(false);
+                updateSyncMarker(writeHead.getMaximumMarker());
                 this.lowestMarkerOnDisk = writeHead.getMinimumMarker();
+                return pos;
             }
-            return pos;
+        } else {
+          LOGGER.debug("no sync on a closed stream");
         }
         
         return -1;
@@ -541,36 +550,39 @@ class NIOStreamImpl implements Stream {
         return readHead.next(dir);
     }
     
-    synchronized void waitForMarker(long lsn) throws InterruptedException {
+    private synchronized void updateSyncMarker(long marker) {
+      this.fsyncdMarker = marker;
+      if ( this.currentMarker != this.fsyncdMarker ) {
+          throw new AssertionError("IO race");
+      }
+      if (markerWaiters > 0) {
+        notifyAll();
+      }
+    }
+    
+    synchronized void waitForSyncdMarker(long lsn) throws InterruptedException {
         markerWaiters += 1;
         try {
-            while (lsn > this.currentMarker ) {
+            while (lsn > this.fsyncdMarker) {
                 this.wait();
             }
- //  just make sure the current data is all the way down to disk before releasing
-            if ( lsn > this.fsyncdMarker && this.writeHead != null ) {
-                this.writeHead.fsync(true);
-                this.fsyncdMarker = this.currentMarker;
-            }
-        } catch ( IOException ioe ) {
-            throw new RuntimeException(ioe);
         } finally {
             markerWaiters -= 1;        
         }
     }
+    
+    private synchronized boolean requiresFsync() {
+      return markerWaiters > 0;
+    }
 //  mostly called by the IO thread and should not be too expensive so ok to synchronize  
-    private synchronized void updateCurrentMarker(long lsn) throws IOException {
+    private void updateCurrentMarker(long lsn) throws IOException {
         if ( lsn < currentMarker ) {
             throw new IllegalArgumentException("markers must always be increasing");
         }
         currentMarker = lsn;
-        if ( markerWaiters > 0 ) {
-            this.writeHead.fsync(true);
-            this.fsyncdMarker = this.currentMarker;
-            if ( this.currentMarker != writeHead.getMaximumMarker() ) {
-                throw new AssertionError("IO race");
-            }
-            this.notifyAll();
+        if ( requiresFsync()) {
+          writeHead.fsync(false);
+          updateSyncMarker(writeHead.getMaximumMarker());
         }
     }
 
@@ -591,7 +603,7 @@ class NIOStreamImpl implements Stream {
         if ( loc > 0 ) {
             NIORandomAccess ra = createRandomAccess(filePool);
             try {
-              this.waitForMarker(loc);
+              this.waitForSyncdMarker(loc);
               ReadOnlySegment ro = ra.seek(loc);
               if ( ro == null ) {
                 throw new IOException("bad seek");
@@ -672,6 +684,8 @@ class NIOStreamImpl implements Stream {
           syncer.pivot(nio);
         } else {
           nio.close();
+          this.currentMarker = nio.getMaximumMarker();
+          updateSyncMarker(this.currentMarker);
           lowestMarkerOnDisk = nio.getMinimumMarker();
         }
     }

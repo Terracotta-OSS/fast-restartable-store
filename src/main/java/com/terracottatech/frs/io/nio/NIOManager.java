@@ -215,28 +215,26 @@ public class NIOManager implements IOManager {
         if (backend == null) {
             throw new IOException("stream is closed");
         }    
+        long curr = 0;
+        boolean waited = false;
         try {
-            if ( marker > this.backend.getMarker() ) {
+            if ( marker > this.backend.getSyncdMarker()) {
+              waited = true;
      //  this does not need to be synchronized,
      //  it's ok if this is a stale value.  It should always be increasing 
-                this.backend.waitForMarker(marker);
+                this.backend.waitForSyncdMarker(marker);
+            }
+            curr = this.backend.getSyncdMarker();
+            if ( marker > curr ) {
+                throw new AssertionError(marker + " " + curr + " " + waited);
             }
             if ( reader == null ) {
                 this.reader = backend.createRandomAccess(getRandomAccessBufferSource());
             }
-            int attempts = 10;
-            Chunk c;
-            while ( (c = this.reader.scan(marker)) == null ) {
-                if (attempts-- == 0) {
-                    throw new IllegalStateException("failed to find marker " + marker + " in " + directory);
+            Chunk c = this.reader.scan(marker);
+            if ( c == null ) {
+                throw new AssertionError("Marker " + marker + ":" + curr + " not found in " + directory + " during scan; waited:" + waited);
                 }
-                if (this.isClosed()) {
-                    throw new IllegalStateException("closed during get operation");
-                }
-                LOGGER.info("Marker " + marker + " not found in " + directory + " during scan; retrying after fsync wait (attempts remaining = " + attempts + ")");
-                // TODO: Should reader be closed and re-opened? (https://support.microsoft.com/en-us/kb/981166)
-                this.backend.waitForMarker(marker);
-            }
             return c;
         } catch ( InterruptedIOException ioe ) {
             Thread.currentThread().interrupt();

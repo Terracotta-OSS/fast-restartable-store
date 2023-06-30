@@ -2,6 +2,7 @@ package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.IOManager;
+import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
@@ -10,9 +11,6 @@ import java.io.IOException;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_AMOUNT;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD;
 
-/**
- * @author tim
- */
 public class SizeBasedCompactionPolicy implements CompactionPolicy {
 
   private final IOManager ioManager;
@@ -40,7 +38,7 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
   }
 
   private boolean internalStartCompacting() {
-    if (getRatio() <= sizeThreshold) {
+    if (getRatio(objectManager, ioManager) <= sizeThreshold) {
       isCompacting = true;
       entriesToCompact = calculateEntriesToCompact();
       return true;
@@ -53,9 +51,15 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
     return (long) (objectManager.size() * compactionPercentage);
   }
 
-  private float getRatio() {
+  protected float getRatio(ObjectManager<?, ?, ?> objectManager, IOManager ioManager) {
     try {
-      return (float)(objectManager.sizeInBytes() * 1.0d / ioManager.getStatistics().getLiveSize());
+      long sizeInBytes = objectManager.sizeInBytes();
+      long size = objectManager.size();
+      long liveSize = ioManager.getStatistics().getLiveSize();
+      long minimumOverhead = LogRegionPacker.getMinimumRecordOverhead() * size;
+      long optimallyCompactedSize = sizeInBytes + minimumOverhead;
+
+      return (float) (((double) optimallyCompactedSize) / liveSize);
     } catch (IOException e) {
       throw new RuntimeException("Failed to get log size.", e);
     }

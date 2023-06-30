@@ -8,5 +8,5 @@ package com.terracottatech.frs.recovery;
  * @author tim
  */
 public interface RecoveryListener {
-  void recovered();
+  void recovered() throws InterruptedException;
 }

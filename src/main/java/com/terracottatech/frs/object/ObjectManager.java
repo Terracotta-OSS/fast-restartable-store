@@ -33,6 +33,19 @@ public interface ObjectManager<I, K, V> {
   void replayPut(I id, K key, V value, long lsn);
 
   /**
+   * Returns a number that determines the parallelism of replay during recovery.
+   *
+   * By default, there is no recovery parallelism.
+   *
+   * @param id identifier
+   * @param key key
+   * @return an integer indicating parallelism for this entry
+   */
+  default int replayConcurrency(I id, K key) {
+    return 1;
+  }
+
+  /**
    * Get and lock an entry to be compacted in the object manager
    *
    * @param ceilingLsn highest LSN eligible for compaction

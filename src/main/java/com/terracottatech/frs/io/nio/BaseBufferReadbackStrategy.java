@@ -24,17 +24,43 @@ import org.slf4j.LoggerFactory;
  *
  * @author mscott
  */
-public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
+abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrategy implements Closeable {
   protected static final Logger LOGGER = LoggerFactory.getLogger(ReadbackStrategy.class);
   protected static final ByteBuffer[] EMPTY = new ByteBuffer[]{};
   private final FileChannel channel;
   private final BufferSource source;
   private final AtomicInteger outchunks = new AtomicInteger();
+  private final ChannelOpener opener;
   private volatile boolean closeRequested = false;
 
-  public BaseBufferReadbackStrategy(Direction dir, FileChannel channel, BufferSource source) throws IOException {
+  private volatile long    lastKey = Long.MIN_VALUE;
+  private volatile boolean sealed = false;
+
+  BaseBufferReadbackStrategy(Direction dir, FileChannel channel, BufferSource source,
+                                    ChannelOpener opener) throws IOException {
         this.channel = channel;
         this.source = source;
+        this.opener = opener;
+  }
+
+  @Override 
+  public boolean isConsistent() { 
+    return this.sealed; 
+  }
+
+  @Override 
+  public long getMaximumMarker() { 
+    return this.lastKey;
+  }
+  
+  protected void seal(boolean consistent, long lastKey) { 
+    if (!sealed) {
+      // set the last key first so that is visible when sealed is visible
+      this.lastKey = lastKey;
+      this.sealed = consistent; 
+    } else { 
+      throw new AssertionError("already sealed"); 
+    } 
   }
 
   protected void addChunk(Chunk c) throws IOException {
@@ -50,7 +76,11 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
 
   protected void removeChunk(Chunk c) throws IOException {
     if (outchunks.decrementAndGet() == 0 && closeRequested) {
-      this.channel.close();
+      if (opener != null) {
+        this.opener.close();
+      } else {
+        this.channel.close();
+      }
     }
   }
 
@@ -64,9 +94,23 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
     return get;
   }
 
-  protected ByteBuffer readDirect(long position, ByteBuffer get) throws IOException {
-    int read = 0;
+  protected long readFullyFromPos(int amount, ByteBuffer get, long position) throws IOException {
     get.mark();
+    get.limit(get.position() + amount);
+    readDirectLoop(position, get);
+    get.reset();
+    return position + amount;
+  }
+
+  protected ByteBuffer readDirect(long position, ByteBuffer get) throws IOException {
+    get.mark();
+    readDirectLoop(position, get);
+    get.reset();
+    return get;
+  }
+
+  private ByteBuffer readDirectLoop(long position, ByteBuffer get) throws IOException {
+    int read = 0;
     while (get.hasRemaining()) {
       int amt = channel.read(get, position + read);
       if (amt < 0) {
@@ -75,7 +119,6 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
         read += amt;
       }
     }
-    get.reset();
     return get;
   }
 
@@ -139,7 +182,11 @@ public abstract class BaseBufferReadbackStrategy extends AbstractReadbackStrateg
   public void close() throws IOException {
     closeRequested = true;
     if (outchunks.get() == 0) {
-      this.channel.close();
+      if (opener != null) {
+        this.opener.close();
+      } else {
+        this.channel.close();
+      }
     }
   }
   

@@ -295,7 +295,7 @@ public class NIOManagerTest {
                 }
                 return invocationOnMock.callRealMethod();
             }
-        }).when(backend).waitForMarker(anyLong());
+        }).when(backend).waitForSyncdMarker(anyLong());
 
         final StagingLogManager lm =
             new StagingLogManager(Signature.ADLER32, new AtomicCommitList(Constants.FIRST_LSN, 100, 20), manager, src);

@@ -12,7 +12,7 @@ import java.nio.channels.FileChannel;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
@@ -26,16 +26,15 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
     protected static final Logger LOGGER = LoggerFactory.getLogger(ReadbackStrategy.class);
     private final   NavigableMap<Long,Marker>              boundaries;
     private final   ReentrantReadWriteLock                          block;
-    private long    lastKey = Long.MIN_VALUE;
-    private volatile boolean sealed;
     private long offset = 0;
     private long length = 0;    
     
-    public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source) throws IOException {
-        super(dir,channel,source);
-        boundaries = new TreeMap<Long,Marker>();
+    public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source,
+                                    ChannelOpener opener) throws IOException {
+        super(dir,channel,source,opener);
+        boundaries = new ConcurrentSkipListMap<Long,Marker>();
         length = channel.position();
-        sealed = createIndex(dir == Direction.RANDOM);
+        boolean sealed = createIndex(dir == Direction.RANDOM);
         if ( !sealed ) {
           block = new ReentrantReadWriteLock();
         } else {
@@ -52,18 +51,13 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
         }
     }
 
-    @Override
-    public boolean isConsistent() {
-      return sealed;
-    }
-    
-    @Override
-    public long getMaximumMarker() {
-      return lastKey;
-    }    
-    
+  public BufferedReadbackStrategy(Direction dir, FileChannel channel, BufferSource source) throws IOException {
+      this(dir, channel, source, null);
+  }
+
     private boolean createIndex(boolean full) throws IOException {
         long[] jumps = null;
+        long lastKey = Long.MIN_VALUE;
         long capacity = getChannel().size();
         if ( capacity > 8192 ) {
           ByteBuffer buffer = allocate(8);
@@ -112,6 +106,9 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
                     last = next;
                     buffer.reset();
                 }
+                if (!boundaries.isEmpty()) {
+                  lastKey = boundaries.lastKey();
+                }
               } else {
  //  don't care about the lsn for iteration so cheat, only need the last one
                 readDirect(jumps[jumps.length-1] - 20, buffer);
@@ -128,16 +125,15 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
               free(buffer);
             }
             length = getChannel().size();
-            lastKey = ( boundaries.isEmpty() ) ? Long.MIN_VALUE : boundaries.lastKey();
+            seal(true, lastKey);
             return true;
         }
     }  
     
     private boolean updateIndex() throws IOException {
       FileChannel channel = getChannel();
-      
         if ( length + 4 > getChannel().size() ) {
-            return sealed;
+            return isConsistent();
         } else {
             channel.position(length);
         }
@@ -150,7 +146,7 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
           try {
               readFully(4, buffer);
           } catch ( IOException ioe ) {
-              System.out.println("bad length " + length + " " + channel.position() + " " + channel.size());
+              LOGGER.warn("bad length " + length + " " + channel.position() + " " + channel.size());
               throw ioe;
           }
           chunkStart = buffer.getInt();
@@ -186,12 +182,10 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
         } finally {
             free(buffer);
         }
-        if ( SegmentHeaders.CLOSE_FILE.validate(chunkStart) ) {
-            sealed = true;
-        }
         length = start;
-        lastKey = ( boundaries.isEmpty() ) ? Long.MIN_VALUE : boundaries.lastKey();
-        return sealed;
+        long lastKey = ( boundaries.isEmpty() ) ? Long.MIN_VALUE : boundaries.lastKey();
+        seal(SegmentHeaders.CLOSE_FILE.validate(chunkStart), lastKey);
+        return isConsistent();
     }     
 
     @Override
@@ -214,7 +208,7 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
     @Override
     public boolean hasMore(Direction dir) throws IOException {
       try {
-          return ( dir == Direction.FORWARD ) ? ( lastKey >= offset ) : (boundaries.firstKey() <= offset );
+          return ( dir == Direction.FORWARD ) ? ( getMaximumMarker() >= offset ) : (boundaries.firstKey() <= offset );
       } catch ( NoSuchElementException no ) {
           return false;
       }
@@ -224,10 +218,10 @@ class BufferedReadbackStrategy extends BaseBufferReadbackStrategy {
     public Chunk scan(long marker) throws IOException {
       Lock lock = null;
       try {
-        if ( !sealed ) {
+        if ( !isConsistent()) {
           lock = block.readLock();
           lock.lock();
-          while ( marker > lastKey && !sealed ) {
+          while ( marker > getMaximumMarker() && !isConsistent() ) {
               // upgrade lock
               lock.unlock();
               Lock writer = block.writeLock();

@@ -34,4 +34,9 @@ public class NullActionManager implements ActionManager {
   @Override
   public void resume() {
   }
+
+  @Override
+  public LogRecord barrierAction() {
+    return null;
+  }
 }

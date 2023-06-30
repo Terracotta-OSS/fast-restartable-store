@@ -4,7 +4,10 @@
  */
 package com.terracottatech.frs.object;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectManagerStripe<I, K, V> {
+  private final ConcurrentHashMap<K, Integer> extractedHashCodes = new ConcurrentHashMap<>();
   
   @Override
   public Long getLowestLsn() {
@@ -40,8 +43,18 @@ public abstract class AbstractObjectManagerStripe<I, K, V> implements ObjectMana
 
   @Override
   public void replayPut(K key, V value, long lsn) {
-    int hash = extractHashCode(key);
+    Integer hash = extractedHashCodes.remove(key);
+    if (hash == null) {
+      hash = extractHashCode(key);
+    }
     getSegmentFor(hash, key).replayPut(hash, key, value, lsn);
+  }
+
+  @Override
+  public int replayConcurrency(K key) {
+    int hash = extractHashCode(key);
+    extractedHashCodes.put(key, hash);
+    return getSegmentFor(hash, key).hashCode();
   }
 
   @Override

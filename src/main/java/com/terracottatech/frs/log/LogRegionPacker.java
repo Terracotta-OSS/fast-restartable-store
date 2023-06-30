@@ -24,6 +24,9 @@ import java.util.zip.Adler32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.terracottatech.frs.PutAction.PUT_ACTION_OVERHEAD;
+import static com.terracottatech.frs.action.ActionCodecImpl.ACTION_HEADER_OVERHEAD;
+
 /**
  *
  * @author mscott
@@ -33,6 +36,15 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
     
     static final int LOG_RECORD_HEADER_SIZE = ByteBufferUtils.SHORT_SIZE + (2 * ByteBufferUtils.LONG_SIZE);
     static final int LOG_REGION_HEADER_SIZE = (2 * ByteBufferUtils.SHORT_SIZE) + (2 * ByteBufferUtils.LONG_SIZE);
+
+    /* LogRegionPacker.formRecordHeader
+    2 bytes - LR_FORMAT
+    8 bytes - lsn
+    8 bytes - payload length
+    */
+    private static final long RECORD_HEADER_OVERHEAD = 18;
+
+    private static final long MINIMUM_RECORD_OVERHEAD = RECORD_HEADER_OVERHEAD + ACTION_HEADER_OVERHEAD + PUT_ACTION_OVERHEAD;
 
     private final BufferSource source;
 
@@ -395,5 +407,9 @@ public class LogRegionPacker implements LogRegionFactory<LogRecord> {
                 }
             }
         }
+    }
+
+    public static long getMinimumRecordOverhead() {
+        return MINIMUM_RECORD_OVERHEAD;
     }
 }

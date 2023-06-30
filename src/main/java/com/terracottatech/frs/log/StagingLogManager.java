@@ -280,17 +280,20 @@ public class StagingLogManager implements LogManager {
         queuer.start();  
                 
         long last = System.nanoTime();
+        long syncd = 0;
         while ( state.acceptRecords() || currentLsn.get() - 1 != highestOnDisk.get()) {
           WritingPackage packer = null;
           try {
             long mark = System.nanoTime();
             writing += (mark - last);
-            
-            packer = queue.poll(1000,TimeUnit.MILLISECONDS);
+            long curr = io.getCurrentMarker();
+            packer = (syncd >= curr) ? queue.poll(1000,TimeUnit.MILLISECONDS) : queue.poll();
             last = System.nanoTime();
             waiting += (last - mark);
 
             if ( packer == null ) {
+                syncd = io.getCurrentMarker();
+                io.sync();
                 continue;
             }
            
@@ -306,6 +309,7 @@ public class StagingLogManager implements LogManager {
             } 
 
             if ( packer.doSync() ) {
+                syncd = io.getCurrentMarker();
                 io.sync();
             }
             

@@ -14,12 +14,11 @@ import static com.terracottatech.frs.util.ByteBufferUtils.LONG_SIZE;
 
 
 /**
- *
  * @author mscott
  */
 public abstract class AbstractChunk implements Chunk {
-    
-    
+
+
     private static class BufferReference {
         private final ByteBuffer current;
         private final int        position;
@@ -27,7 +26,7 @@ public abstract class AbstractChunk implements Chunk {
             current = buf;
             position = pos;
         }
-        
+
         public byte get() {
             return current.get(position);
         }
@@ -41,16 +40,16 @@ public abstract class AbstractChunk implements Chunk {
             return current.getLong(position);
         }
     }
-    
-    
+
+
     @Override
     public ByteBuffer[] getBuffers(long length) {
         ByteBuffer[] list = getBuffers();
         ArrayList<ByteBuffer> copy = new ArrayList<ByteBuffer>();
         long count = 0;
-        
+
         if ( length == 0 ) return new ByteBuffer[0];
-        
+
         for (ByteBuffer buffer : list ) {
             if ( !buffer.hasRemaining() ) {
                 continue;
@@ -71,8 +70,8 @@ public abstract class AbstractChunk implements Chunk {
             }
         }
         return copy.toArray(new ByteBuffer[copy.size()]);
-    }  
-    
+    }
+
 
     @Override
     public Chunk getChunk(long length) {
@@ -84,8 +83,8 @@ public abstract class AbstractChunk implements Chunk {
                 return list;
             }
         };
-    }    
-    
+    }
+
     private BufferReference scanTo(long position) {
         ByteBuffer[] list = getBuffers();
         long seek = 0;
@@ -95,143 +94,165 @@ public abstract class AbstractChunk implements Chunk {
             }
             seek += buffer.limit();
         }
-        throw new IndexOutOfBoundsException();
+        throw new IndexOutOfBoundsException("scanTo: position=" + position + " buffers.length=" + list.length);
     }
-    
-    private ByteBuffer findEnd(int size,boolean forPut) {
+
+    private ByteBuffer findEndForPut(int size) {
+        return getBuffers()[findEndForPut(size, 0)];
+    }
+
+    private int findEndForPut(int size, int from) {
         ByteBuffer[] list = getBuffers();
-        for (ByteBuffer buffer : list ) {
-            if ( forPut && buffer.isReadOnly() ) {
+        for (; from < list.length; from++) {
+            if (list[from].isReadOnly() || !list[from].hasRemaining()) {
                 continue;
-            } else if ( !buffer.hasRemaining() ) {
-                continue;
-            } else if ( buffer.remaining() < size ) {
-                if ( forPut ) buffer.limit(buffer.position());
-                else throw new BufferUnderflowException();
+            } else if (list[from].remaining() < size) {
+                list[from].limit(list[from].position());
                 continue;
             }
-            return buffer;
+            return from;
         }
-        throw new IndexOutOfBoundsException();
-    }    
+        throw new IndexOutOfBoundsException("findEndForPut: size=" + size + " from=" + from + " buffers.length=" + list.length);
+    }
+
+    private ByteBuffer findEndForGet(int size) {
+        return getBuffers()[findEndForGet(size, 0)];
+    }
+
+    private int findEndForGet(int size, int from) {
+        ByteBuffer[] list = getBuffers();
+        for (; from < list.length; from++) {
+            if (!list[from].hasRemaining()) {
+                continue;
+            } else if (list[from].remaining() < size) {
+                throw new BufferUnderflowException();
+            }
+            return from;
+        }
+        throw new IndexOutOfBoundsException("findEndForGet: size=" + size + " from=" + from + " buffers.length=" + list.length);
+    }
 
     @Override
     public byte get(long pos) {
         return scanTo(pos).get();
-    }   
-    
+    }
+
      @Override
     public short getShort(long pos) {
         return scanTo(pos).getShort();
-    }     
-    
+    }
+
     @Override
     public int getInt(long pos) {
         return scanTo(pos).getInt();
-    } 
-    
+    }
+
     @Override
     public long getLong(long pos) {
         return scanTo(pos).getLong();
-    }  
-    
+    }
+
     @Override
     public byte get() {
-        return findEnd(BYTE_SIZE,false).get();
-    } 
+        return findEndForGet(BYTE_SIZE).get();
+    }
 
     @Override
     public short getShort() {
-        return findEnd(SHORT_SIZE,false).getShort();
-    }    
-    
+        return findEndForGet(SHORT_SIZE).getShort();
+    }
+
     @Override
     public int getInt() {
-        return findEnd(INT_SIZE,false).getInt();
+        return findEndForGet(INT_SIZE).getInt();
     }
-    
+
     @Override
     public long getLong() {
-        return findEnd(LONG_SIZE,false).getLong();
-    }  
-     
+        return findEndForGet(LONG_SIZE).getLong();
+    }
+
     @Override
     public byte peek() {
-        ByteBuffer target = findEnd(BYTE_SIZE,false);
+        ByteBuffer target = findEndForGet(BYTE_SIZE);
         return target.get(target.position());
-    } 
+    }
 
     @Override
     public short peekShort() {
-        ByteBuffer target = findEnd(SHORT_SIZE,false);
+        ByteBuffer target = findEndForGet(SHORT_SIZE);
         return target.getShort(target.position());
-    }    
-    
+    }
+
     @Override
     public int peekInt() {
-        ByteBuffer target = findEnd(INT_SIZE,false);
+        ByteBuffer target = findEndForGet(INT_SIZE);
         return target.getInt(target.position());
     }
-    
+
     @Override
     public long peekLong() {
-        ByteBuffer target = findEnd(LONG_SIZE,false);
+        ByteBuffer target = findEndForGet(LONG_SIZE);
         return target.getLong(target.position());
-    }    
-    
+    }
+
     @Override
     public void put(byte v) {
-        findEnd(BYTE_SIZE,true).put(v);
+        findEndForPut(BYTE_SIZE).put(v);
     }
-    
+
     @Override
     public void putShort(short v) {
-        findEnd(SHORT_SIZE,true).putShort(v);
+        findEndForPut(SHORT_SIZE).putShort(v);
     }
-    
+
     @Override
     public void putInt(int v) {
-        findEnd(INT_SIZE,true).putInt(v);
+        findEndForPut(INT_SIZE).putInt(v);
     }
-    
+
     @Override
     public void putLong(long v) {
-        findEnd(LONG_SIZE,true).putLong(v);
+        findEndForPut(LONG_SIZE).putLong(v);
     }
 
     @Override
     public int get(byte[] buf) {
-        int count = 0;
-        while ( count < buf.length && this.hasRemaining() ) {
-            ByteBuffer target = findEnd(BYTE_SIZE,false);
+        int count = 0, from = 0;
+        while (count < buf.length && this.hasRemaining()) {
+            from = findEndForGet(BYTE_SIZE, from);
+            ByteBuffer target = getBuffers()[from];
             int pos = target.position();
             int sw = buf.length-count;
-            count += target.get(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;            
+            count += target.get(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;
         }
         return count;
     }
 
     @Override
     public int put(byte[] buf) {
-        int count = 0;
-        while ( count < buf.length ) {
-            ByteBuffer target = findEnd(BYTE_SIZE,true);
+        int count = 0, from = 0;
+        while (count < buf.length) {
+            from = findEndForPut(BYTE_SIZE, from);
+            ByteBuffer target = getBuffers()[from];
             int pos = target.position();
             int sw = buf.length-count;
-            count += target.put(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;            
+            count += target.put(buf,count,(sw > target.remaining()) ? target.remaining() : sw).position() - pos;
         }
         return count;
     }
-    
+
     @Override
     public void skip(long jump) {
-        long count = 0;
-        if ( jump == 0 ) {
+        if (jump == 0) {
             return;
         }
-        while ( count < jump ) {
-            ByteBuffer target = findEnd(SHORT_SIZE,false);
-            if ( jump - count > target.remaining() ) {
+        long count = 0;
+        int from = 0;
+        while (count < jump) {
+            from = findEndForGet(SHORT_SIZE, from);
+            ByteBuffer target = getBuffers()[from];
+            if (jump - count > target.remaining()) {
                 count += target.remaining();
                 target.position(target.limit());
             } else {
@@ -239,9 +260,9 @@ public abstract class AbstractChunk implements Chunk {
                 return;
             }
         }
-        throw new IndexOutOfBoundsException();
+        throw new IndexOutOfBoundsException("skip: jump=" + jump + " buffers.length=" + getBuffers().length);
     }
-    
+
     @Override
     public void flip() {
         ByteBuffer[] list = getBuffers();
@@ -249,16 +270,16 @@ public abstract class AbstractChunk implements Chunk {
             buf.flip();
         }
     }
-    
+
     @Override
     public void clear() {
         ByteBuffer[] list = getBuffers();
         for (ByteBuffer buf : list ) {
             buf.clear();
         }
-    } 
-    
-    
+    }
+
+
     @Override
     public long length()  {
         long len = 0;
@@ -288,7 +309,7 @@ public abstract class AbstractChunk implements Chunk {
         }
         return len;
     }
-    
+
     @Override
     public long position() {
         long position = 0;
@@ -296,7 +317,7 @@ public abstract class AbstractChunk implements Chunk {
             position += buf.position();
             if ( buf.hasRemaining() ) {
                 break;
-            } 
+            }
         }
         return position;
     }
@@ -307,6 +328,6 @@ public abstract class AbstractChunk implements Chunk {
             if ( buf.hasRemaining() ) return true;
         }
         return false;
-    }   
-    
+    }
+
 }

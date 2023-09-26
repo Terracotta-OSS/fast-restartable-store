@@ -1,45 +1,98 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<!--
+
+    Copyright (c) 2012-2023 Software AG, Darmstadt, Germany and/or Software AG USA Inc., Reston, VA, USA, and/or its subsidiaries and/or its affiliates and/or their licensors.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>forge-parent-ee</artifactId>
-    <groupId>org.terracotta.forge</groupId>
-    <version>4.13</version>
+    <groupId>org.terracotta</groupId>
+    <artifactId>terracotta-parent</artifactId>
+    <version>5.21</version>
   </parent>
-  <scm>
-    <connection>scm:git:git@github.softwareag.com:Terracotta-Legacy/fast-restartable-store.git</connection>
-    <developerConnection>scm:git:https://github.softwareag.com/Terracotta-Legacy/fast-restartable-store.git</developerConnection>
-  </scm>
-  
-  <groupId>com.terracottatech</groupId>
+
+  <groupId>org.terracotta</groupId>
   <artifactId>fast-restartable-store</artifactId>
   <version>1.6.9-SNAPSHOT</version>
   <packaging>jar</packaging>
+  <inceptionYear>2012</inceptionYear>
 
   <name>fast-restartable-store</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <slf4j.base.version>1.7.32</slf4j.base.version>
+    <slf4j.range.version>[${slf4j.base.version},1.7.9999)</slf4j.range.version>
+    <logback.base.version>1.2.11</logback.base.version>
+    <logback.range.version>[${logback.base.version},1.2.9999)</logback.range.version>
+  </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.range.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-jdk14</artifactId>
+      <version>${slf4j.range.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
+      <version>2.11.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest</artifactId>
+      <version>2.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>3.0.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
-  
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-  
+
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <source>${java.build.version}</source>
+          <target>${java.build.version}</target>
+          <compilerArgs>
+            <!-- TODO: FIX DEPRECATIONS -->
+            <arg>-Xlint:-deprecation</arg>
+            <arg>-Werror</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.terracotta</groupId>
         <artifactId>maven-forge-plugin</artifactId>
@@ -69,6 +122,53 @@
             <skip>true</skip>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.0.0</version>
+        <configuration>
+          <!-- TODO - FIX SPOTBUGS ISSUES IN THIS PROJECT (OSS MIGRATION) -->
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>4.2</version>
+        <configuration>
+          <inlineHeader><![CDATA[
+Copyright (c) ${license.git.copyrightExistenceYears} Software AG, Darmstadt, Germany and/or Software AG USA Inc., Reston, VA, USA, and/or its subsidiaries and/or its affiliates and/or their licensors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+                ]]></inlineHeader>
+          <excludes>
+            <exclude>**/src/test/resources/**</exclude>
+            <exclude>**/src/main/resources/**</exclude>
+            <exclude>**/.idea/**</exclude>
+            <exclude>**/nbproject/**</exclude>
+            <exclude>Jenkinsfile*</exclude>
+            <exclude>.m2/**</exclude>
+          </excludes>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>com.mycila</groupId>
+            <artifactId>license-maven-plugin-git</artifactId>
+            <!-- make sure you use the same version as license-maven-plugin -->
+            <version>4.2</version>
+          </dependency>
+        </dependencies>
+      </plugin>
     </plugins>
   </build>
 
@@ -87,17 +187,15 @@
     </profile>
   </profiles>
 
-  <distributionManagement>
+  <repositories>
+    <!-- required to resolve parent pom -->
     <repository>
-      <id>terracotta-ee-releases</id>
-      <name>Terracotta EE Releases Repository</name>
-      <url>${terracotta-ee-releases-url}</url>
+      <id>terracotta-releases</id>
+      <url>https://repo.terracotta.org/maven2</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
-    <snapshotRepository>
-      <id>terracotta-ee-snapshots</id>
-       <uniqueVersion>false</uniqueVersion>
-       <name>Terracotta EE Snapshots Repository</name>
-       <url>${terracotta-ee-snapshots-url}</url>
-    </snapshotRepository>
-  </distributionManagement>
+  </repositories>
+
 </project>

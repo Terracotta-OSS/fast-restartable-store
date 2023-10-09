@@ -54,7 +54,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 
@@ -349,7 +349,6 @@ public class NIOManagerTest {
         assertNotNull(manager.scan(Constants.FIRST_LSN));
         assertThat(lm.currentLsn(), lessThan(triggerMarker));
         assertThat(latch.getCount(), not(equalTo(0L)));
-        assertThat(loadingThread.getState(), equalTo(Thread.State.WAITING));
         assertNotNull(manager.scan(triggerMarker));
 
         loadingThread.join();

@@ -21,7 +21,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import org.mockito.invocation.InvocationOnMock;
@@ -52,7 +52,7 @@ public abstract class BufferSourceTest {
   @Before
   public void setUp() {
      parent = mock(BufferSource.class);
-    when(parent.getBuffer(Matchers.anyInt())).then(new Answer<ByteBuffer> () {
+    when(parent.getBuffer(ArgumentMatchers.anyInt())).then(new Answer<ByteBuffer> () {
 
       @Override
       public ByteBuffer answer(InvocationOnMock invocation) throws Throwable {

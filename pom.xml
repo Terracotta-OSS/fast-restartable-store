@@ -71,10 +71,11 @@
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>3.0.0</version>
+      <artifactId>mockito-inline</artifactId>
+      <version>4.11.0</version>
       <scope>test</scope>
     </dependency>
+
   </dependencies>
 
   <build>
@@ -172,7 +173,7 @@ limitations under the License.
     </plugins>
   </build>
 
-  <profiles>    
+  <profiles>
     <profile>
       <id>code-coverage</id>
       <reporting>

@@ -26,7 +26,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 import org.mockito.ArgumentMatchers;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 
 import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.ArgumentMatchers.any;

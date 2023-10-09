@@ -28,8 +28,8 @@ import static org.hamcrest.number.OrderingComparison.lessThan;
 
 import org.mockito.AdditionalMatchers;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
-import static org.mockito.Matchers.anyInt;
+import org.mockito.ArgumentMatchers;
+import static org.mockito.ArgumentMatchers.anyInt;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -128,18 +128,18 @@ public class HiLoBufferSourceTest extends BufferSourceTest {
     });
     
     ByteBuffer buf = src.getBuffer(1024);
-    Mockito.verify(lo).getBuffer(Matchers.eq(1024));
+    Mockito.verify(lo).getBuffer(ArgumentMatchers.eq(1024));
     src.returnBuffer(buf);
-    Mockito.verify(lo).returnBuffer(Matchers.eq(buf));
+    Mockito.verify(lo).returnBuffer(ArgumentMatchers.eq(buf));
     buf = src.getBuffer(4096);
-    Mockito.verify(hi).getBuffer(Matchers.eq(4096));
+    Mockito.verify(hi).getBuffer(ArgumentMatchers.eq(4096));
     src.returnBuffer(buf);
-    Mockito.verify(hi).returnBuffer(Matchers.eq(buf));
+    Mockito.verify(hi).returnBuffer(ArgumentMatchers.eq(buf));
     buf = src.getBuffer(10*1024*1024);
     Mockito.verify(cache).getBuffer(AdditionalMatchers.geq(10*1024*1024));
     assertNotNull(buf);
     src.returnBuffer(buf);
-    Mockito.verify(cache).returnBuffer(Matchers.eq(buf));
+    Mockito.verify(cache).returnBuffer(ArgumentMatchers.eq(buf));
   }
   
 }

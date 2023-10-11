@@ -21,7 +21,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -47,7 +47,7 @@ public class MaskingBufferSourceTest {
   @Before 
   public void setup() {
     parent = mock(BufferSource.class);
-    when(parent.getBuffer(Matchers.anyInt())).then(new Answer<ByteBuffer> () {
+    when(parent.getBuffer(ArgumentMatchers.anyInt())).then(new Answer<ByteBuffer> () {
 
       @Override
       public ByteBuffer answer(InvocationOnMock invocation) throws Throwable {
@@ -66,7 +66,7 @@ public class MaskingBufferSourceTest {
     System.out.println("getBuffer");
     int size = 1023;
     ByteBuffer answer = src.getBuffer(size);
-    verify(parent).getBuffer(Matchers.anyInt());
+    verify(parent).getBuffer(ArgumentMatchers.anyInt());
     assertEquals(answer.capacity(), size);
   }
 
@@ -78,7 +78,7 @@ public class MaskingBufferSourceTest {
     System.out.println("returnBuffer");
     int size = 1023;
     ByteBuffer answer = src.getBuffer(size);
-    verify(parent).getBuffer(Matchers.anyInt());
+    verify(parent).getBuffer(ArgumentMatchers.anyInt());
     src.returnBuffer(answer);
     ArgumentCaptor<ByteBuffer> capture = ArgumentCaptor.forClass(ByteBuffer.class);
     verify(parent).returnBuffer(capture.capture());
@@ -93,7 +93,7 @@ public class MaskingBufferSourceTest {
     System.out.println("returnBuffer");
     int size = 1023;
     ByteBuffer answer = src.getBuffer(size);
-    verify(parent).getBuffer(Matchers.anyInt());
+    verify(parent).getBuffer(ArgumentMatchers.anyInt());
     src.reclaim();
     ArgumentCaptor<ByteBuffer> capture = ArgumentCaptor.forClass(ByteBuffer.class);
     verify(parent).returnBuffer(capture.capture());

@@ -61,10 +61,8 @@ public class ConcurrentRecoveryManagerImplTest extends AbstractRecoveryManagerIm
     transactionActionFactory = new TransactionActionFactory();
     logManager = newLogManager();
     actionManager = newActionManager();
-    Runtime mockedRuntime = mock(Runtime.class);
-    when(mockedRuntime.availableProcessors()).thenReturn(numProcessors);
     recoveryManager = new RecoveryManagerImpl(logManager, actionManager,
-        Configuration.getConfiguration(testFolder.newFolder()), mockedRuntime);
+        Configuration.getConfiguration(testFolder.newFolder()), numProcessors);
   }
 
   private Action concurrentAction(boolean shouldReplay, int concurrency) {

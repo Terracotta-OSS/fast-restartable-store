@@ -56,14 +56,18 @@ public class RecoveryManagerImpl implements RecoveryManager {
   private final ReplayFilter replayFilter;
   private final Configuration configuration;
 
+  RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration, Runtime runtime) {
+    this(logManager, actionManager, configuration, runtime.availableProcessors());
+  }
+
   RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration,
-                             Runtime runtime) {
+                             int availableProcessors) {
     this.logManager = logManager;
     this.actionManager = actionManager;
     this.compressedSkipSet = configuration.getBoolean(FrsProperty.RECOVERY_COMPRESSED_SKIP_SET);
     this.replayFilter = new ReplayFilter(configuration.getInt(FrsProperty.RECOVERY_REPLAY_PER_BATCH_SIZE),
         configuration.getInt(FrsProperty.RECOVERY_REPLAY_TOTAL_BATCH_SIZE_MAX),
-        configuration.getDBHome(), runtime.availableProcessors());
+        configuration.getDBHome(), availableProcessors);
     this.configuration = configuration;
   }
 

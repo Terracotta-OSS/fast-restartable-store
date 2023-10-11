@@ -30,7 +30,7 @@ import junit.framework.Assert;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.*;
 
 /**
@@ -47,8 +47,8 @@ public class DeleteFilterTest {
   public void setUp() throws Exception {
     compactor = mock(Compactor.class);
     delegate = mock(Filter.class);
-    doReturn(true).when(delegate).filter(any(Action.class), anyLong(), Matchers.eq(true));
-    doReturn(false).when(delegate).filter(any(Action.class), anyLong(), Matchers.eq(false));
+    doReturn(true).when(delegate).filter(any(Action.class), anyLong(), ArgumentMatchers.eq(true));
+    doReturn(false).when(delegate).filter(any(Action.class), anyLong(), ArgumentMatchers.eq(false));
     objectManager = mock(ObjectManager.class);
     filter = new DeleteFilter(delegate);
     mapActionFactory = new MapActionFactory(objectManager, compactor);

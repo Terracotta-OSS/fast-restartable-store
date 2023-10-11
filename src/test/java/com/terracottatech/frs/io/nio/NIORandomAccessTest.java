@@ -38,7 +38,7 @@ import static org.junit.Assert.*;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.mockito.AdditionalMatchers;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -74,7 +74,7 @@ public class NIORandomAccessTest {
         stream = Mockito.mock(NIOStreamImpl.class);
         Mockito.when(stream.getAccessMethod()).thenReturn(NIOAccessMethod.STREAM);
         Mockito.when(stream.getStreamId()).thenReturn(UUID.randomUUID());
-        Mockito.when(stream.createFileBuffer(Matchers.any(FileChannel.class), Matchers.anyInt())).thenAnswer(new Answer<FileBuffer>() {
+        Mockito.when(stream.createFileBuffer(ArgumentMatchers.any(FileChannel.class), ArgumentMatchers.anyInt())).thenAnswer(new Answer<FileBuffer>() {
 
             @Override
             public FileBuffer answer(InvocationOnMock invocation) throws Throwable {
@@ -149,9 +149,9 @@ public class NIORandomAccessTest {
     public void testScanTooFast() throws Exception {
       final NIORandomAccess.FileCache mocked = Mockito.mock(NIORandomAccess.FileCache.class);
       final ReadOnlySegment seg = Mockito.mock(ReadOnlySegment.class);
-      Mockito.when(mocked.findSegment(Matchers.anyInt())).thenReturn(null);
-      Mockito.when(mocked.removeSegments(Matchers.anyInt())).thenReturn(mocked);
-      Mockito.when(mocked.addSegment(Matchers.any(ReadOnlySegment.class))).then(new Answer<Object> () {
+      Mockito.when(mocked.findSegment(ArgumentMatchers.anyInt())).thenReturn(null);
+      Mockito.when(mocked.removeSegments(ArgumentMatchers.anyInt())).thenReturn(mocked);
+      Mockito.when(mocked.addSegment(ArgumentMatchers.any(ReadOnlySegment.class))).then(new Answer<Object> () {
 
         @Override
         public Object answer(InvocationOnMock invocation) throws Throwable {
@@ -160,7 +160,7 @@ public class NIORandomAccessTest {
       });
       
       Mockito.when(seg.scan(AdditionalMatchers.geq(500L))).thenReturn(new WrappingChunk(ByteBuffer.wrap(new byte[0])));
-      Mockito.when(seg.load(Matchers.any(BufferSource.class))).thenReturn(seg);
+      Mockito.when(seg.load(ArgumentMatchers.any(BufferSource.class))).thenReturn(seg);
       Mockito.when(seg.getBaseMarker()).thenReturn(500L);
 
       ra.seedCache(mocked);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2023 Software AG, Darmstadt, Germany and/or Software AG USA Inc., Reston, VA, USA, and/or its subsidiaries and/or its affiliates and/or their licensors.
+ * Copyright (c) 2012-2024 Software AG, Darmstadt, Germany and/or Software AG USA Inc., Reston, VA, USA, and/or its subsidiaries and/or its affiliates and/or their licensors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -202,7 +202,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
         this.currentIndices[idx1] = nextIdx2;
         submitted++;
         batches[idx1][idx2] = new ReplayElement(element,lsn);
-        if (submitted - replayed  >= replayTotalBatchSize || nextIdx2 >= replayPerBatchSize - 1) {
+        if (submitted - replayed >= replayTotalBatchSize || nextIdx2 >= replayPerBatchSize) {
           submitJob(false);
         }
         return true;

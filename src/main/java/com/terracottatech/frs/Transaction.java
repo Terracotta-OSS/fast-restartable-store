@@ -15,11 +15,22 @@
  */
 package com.terracottatech.frs;
 
+import java.nio.ByteBuffer;
+
 /**
  *
  * @author cdennis
  */
 public interface Transaction<I, K, V> {
+
+    /**
+   * Record a put
+   *
+   * @param action instance of put action
+   * @return this
+   * @throws TransactionException
+   */
+  Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(PutAction action) throws TransactionException;
 
   /**
    * Record a put

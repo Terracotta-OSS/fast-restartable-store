@@ -100,10 +100,18 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
                           TransactionManager transactionManager, LogManager logManager,
                           ActionManager actionManager, ReadManager read, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
-    this(objectManager, transactionManager, logManager, actionManager, read, 
+    this(objectManager, transactionManager, logManager, actionManager, read,
          new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration,
                            actionManager),
          configuration);
+  }
+
+  protected ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> getObjectManager() {
+    return objectManager;
+  }
+
+  protected Compactor getCompactor() {
+    return compactor;
   }
 
   @Override
@@ -340,7 +348,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     return (stateToCheck != State.RUNNING && stateToCheck != State.RECOVERING && stateToCheck != State.PAUSED);
   }
 
-  private boolean isRecovering() {
+  protected boolean isRecovering() {
     return state == State.RECOVERING || (state == State.FROZEN && prevState == State.RECOVERING);
   }
 
@@ -402,12 +410,17 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     @Override
+    public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(PutAction action) throws TransactionException {
+      checkReadyState();
+      happened(action);
+      return this;
+    }
+
+    @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) throws
             TransactionException {
-      checkReadyState();
-      happened(new PutAction(objectManager, compactor, id, key, value, isRecovering()));
-      return this;
-  }
+      return put(new PutAction(objectManager, compactor, id, key, value, isRecovering()));
+    }
 
     @Override
     public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> delete(ByteBuffer id) throws
@@ -442,11 +455,16 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     @Override
-    public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) {
+    public Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(PutAction action) {
       checkReadyState();
       checkCommitted();
-      transactionManager.happened(handle, new PutAction(objectManager, compactor, id, key, value, isRecovering()));
+      transactionManager.happened(handle, action);
       return this;
+    }
+
+    @Override
+    public synchronized Transaction<ByteBuffer, ByteBuffer, ByteBuffer> put(ByteBuffer id, ByteBuffer key, ByteBuffer value) {
+      return put(new PutAction(objectManager, compactor, id, key, value, isRecovering()));
     }
 
     @Override

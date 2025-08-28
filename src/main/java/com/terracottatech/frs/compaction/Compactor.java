@@ -15,6 +15,8 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.object.ObjectManagerEntry;
+import java.nio.ByteBuffer;
 
 /**
  *
@@ -53,4 +55,11 @@ public interface Compactor {
    * Callback to tell the compactor to run right now, unless it's already running.
    */
   void compactNow();
+
+  /**
+   * Convert an entry in object manager to a compaction action.
+   * @param entry an entry in object manager.
+   * @return compaction action.
+   */
+  CompactionAction convertEntryToAction(ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry);
 }

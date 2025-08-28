@@ -27,6 +27,6 @@ public abstract class CompactionActions {
   private CompactionActions() {}
 
   public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
-    codec.registerAction(id, 0, CompactionAction.class, PutAction.FACTORY);
+    codec.registerAction(id, 0, DefaultCompactionAction.class, PutAction.FACTORY);
   }
 }

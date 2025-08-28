@@ -15,41 +15,32 @@
  */
 package com.terracottatech.frs.compaction;
 
-import com.terracottatech.frs.PutAction;
-import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.object.ObjectManagerEntry;
-
-import java.nio.ByteBuffer;
+import com.terracottatech.frs.action.Action;
 
 /**
- * @author tim
+ * Represents an action performed during the compaction process in the fast-restartable store.
+ * <p>
+ * CompactionAction extends the {@link Action} interface to provide specialized functionality
+ * for compaction operations. Compaction is the process of optimizing storage by removing
+ * unnecessary or redundant data and updating Log Sequence Numbers (LSNs) in the ObjectManager.
+ * <p>
+ * Implementations of this interface are responsible for updating the ObjectManager with new LSNs
+ * after the action has been recorded. This update cannot happen during the {@link Action#record(long)}
+ * method because the compactor typically holds the segment lock at that time.
+ * <p>
+ * CompactionActions are created and processed by the {@link Compactor} during its compaction cycle.
  */
-class CompactionAction extends PutAction {
-  private final ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry;
-  private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
-
-  private volatile Long lsn;
-
-  CompactionAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
-    super(objectManager, null, entry.getId(), entry.getKey(), entry.getValue(), entry.getLsn());
-    this.objectManager = objectManager;
-    this.entry = entry;
-  }
-
-  @Override
-  public void record(long lsn) {
-    this.lsn = lsn;
-  }
-
-  void updateObjectManager() {
-    while (lsn == null) {
-      // Just spin, this shouldn't take long.
-    }
-    objectManager.updateLsn(entry, lsn);
-  }
-
-  @Override
-  public void replay(long lsn) {
-    throw new UnsupportedOperationException("Compaction actions can't be replayed.");
-  }
+public interface CompactionAction extends Action {
+  /**
+   * Updates the ObjectManager with the new LSN after this compaction action has been recorded.
+   * <p>
+   * This method is called after the action has been sequenced (via {@link Action#record(long)})
+   * but typically before the compaction entry is released. It ensures that the ObjectManager's
+   * state is updated to reflect the compaction operation.
+   * <p>
+   * This method cannot be called during {@link Action#record(long)} because the compactor
+   * typically holds the segment lock at that time. Instead, it's called separately after
+   * the action has been sequenced.
+   */
+  void updateObjectManager();
 }

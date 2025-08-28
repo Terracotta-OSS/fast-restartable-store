@@ -110,6 +110,10 @@ public class CompactorImpl implements Compactor {
     throw new RestartStoreException("Unknown compaction policy " + policy);
   }
 
+  protected ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> getObjectManager() {
+    return objectManager;
+  }
+
   @Override
   public void startup() {
     if (!alive) {
@@ -148,12 +152,12 @@ public class CompactorImpl implements Compactor {
           // Flush in a dummy record to make sure everything for the updated lowest lsn
           // is on disk prior to cleaning up to the new lowest lsn.
           // If ObjectManager is empty, use the barrier lsn to invalidate the log
-          
+
           NullAction barrier = new NullAction();
           actionManager.happened(barrier).get();
-          
+
           long lowLsn = objectManager.getLowestLsn();
-          
+
           if ( lowLsn == Constants.ISEMPTY_LSN ) {
               lowLsn = barrier.getLsn();
           }
@@ -202,7 +206,7 @@ public class CompactorImpl implements Compactor {
      }
      long startLsn = 0;
      long lastLsn = 0;
- 
+
       LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
       while (compactedCount < liveSize && !signalPause) {
         ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
@@ -222,8 +226,7 @@ public class CompactorImpl implements Compactor {
         compactedCount++;
         Future<Void> written;
         try {
-          CompactionAction compactionAction =
-                  new CompactionAction(objectManager, compactionEntry);
+          CompactionAction compactionAction = convertEntryToAction(compactionEntry);
           written = actionManager.happened(compactionAction);
           // We can't update the object manager on Action.record() because the compactor
           // is holding onto the segment lock. Since we want to wait for the action to be
@@ -255,13 +258,19 @@ public class CompactorImpl implements Compactor {
   }
 
   @Override
+  public CompactionAction convertEntryToAction(
+      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
+    return new DefaultCompactionAction(objectManager, entry);
+  }
+
+  @Override
   public void generatedGarbage(long lsn) {
     try {
       compactionCondition.release();
     } catch ( Error e ) {
   //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
       LOGGER.warn("error generating garbage", e);
-    } 
+    }
   }
 
   @Override
@@ -272,7 +281,7 @@ public class CompactorImpl implements Compactor {
     } catch ( Error e ) {
   //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
       LOGGER.warn("error generating garbage", e);
-    } 
+    }
   }
 
   private synchronized boolean checkForPause() throws InterruptedException {

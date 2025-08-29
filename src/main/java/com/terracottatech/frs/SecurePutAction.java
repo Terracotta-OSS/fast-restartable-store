@@ -79,7 +79,7 @@ public class SecurePutAction extends PutAction {
     this.cipherManager = cipherManager;
   }
 
-  protected SecurePutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+  public SecurePutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
       Compactor compactor, CipherManager cipherManager, ByteBuffer id, ByteBuffer key,
       ByteBuffer iv, ByteBuffer value, long invalidatedLsn) {
     super(objectManager, compactor, id, key, value, invalidatedLsn);
@@ -87,7 +87,7 @@ public class SecurePutAction extends PutAction {
     this.cipherManager = cipherManager;
   }
 
-  protected SecurePutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+  public SecurePutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
       Compactor compactor, CipherManager cipherManager, ByteBuffer id, ByteBuffer key,
       ByteBuffer value, long invalidatedLsn) {
     this(objectManager, compactor, cipherManager, id, key,

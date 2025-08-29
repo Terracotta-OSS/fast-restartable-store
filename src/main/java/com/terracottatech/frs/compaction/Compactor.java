@@ -61,5 +61,5 @@ public interface Compactor {
    * @param entry an entry in object manager.
    * @return compaction action.
    */
-  CompactionAction convertEntryToAction(ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry);
+  CompactionAction convertToAction(ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry);
 }

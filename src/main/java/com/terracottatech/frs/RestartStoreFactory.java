@@ -58,13 +58,20 @@ public abstract class RestartStoreFactory {
     ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec = new ActionCodecImpl<>(objectManager);
     MapActions.registerActions(0, codec);
     TransactionActions.registerActions(1, codec);
+    return codec;
+  }
+
+  private static ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> amendCodec(
+      ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
+    // This register compaction action which does not enforces cipher mechanism
     CompactionActions.registerActions(2, codec);
     return codec;
   }
 
   private static ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> amendCodec(
       ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec, CipherManager cipherManager) {
-    EncryptionActions.registerActions(3, codec, cipherManager);
+    // This register compaction action which enforces cipher mechanism
+    EncryptionActions.registerActions(2, codec, cipherManager);
     return codec;
   }
 
@@ -101,6 +108,7 @@ public abstract class RestartStoreFactory {
       return new SecureRestartStoreImpl(objectManager, transactionManager, logManager,
           actionManager, readManager, ioManager, configuration, cipherManager);
     } else {
+      amendCodec(codec);
       return new RestartStoreImpl(objectManager, transactionManager, logManager,
           actionManager, readManager, ioManager, configuration);
     }

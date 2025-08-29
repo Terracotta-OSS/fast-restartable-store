@@ -15,10 +15,11 @@
  */
 package com.terracottatech.frs.compaction;
 
-import com.terracottatech.frs.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.terracottatech.frs.Constants;
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.RestartStoreException;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.NullAction;
@@ -226,7 +227,7 @@ public class CompactorImpl implements Compactor {
         compactedCount++;
         Future<Void> written;
         try {
-          CompactionAction compactionAction = convertEntryToAction(compactionEntry);
+          CompactionAction compactionAction = convertToAction(compactionEntry);
           written = actionManager.happened(compactionAction);
           // We can't update the object manager on Action.record() because the compactor
           // is holding onto the segment lock. Since we want to wait for the action to be
@@ -258,9 +259,11 @@ public class CompactorImpl implements Compactor {
   }
 
   @Override
-  public CompactionAction convertEntryToAction(
+  public CompactionAction convertToAction(
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
-    return new DefaultCompactionAction(objectManager, entry);
+    PutAction delegate = new PutAction(objectManager, null,
+        entry.getId(), entry.getKey(), entry.getValue(), entry.getLsn());
+    return new CompactionAction(objectManager, entry, delegate);
   }
 
   @Override

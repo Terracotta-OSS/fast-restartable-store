@@ -78,7 +78,7 @@ public class PutAction implements GettableAction {
     }
   }
 
-  protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
+  public PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
                     ByteBuffer key, ByteBuffer value, long invalidatedLsn) {
     this.objectManager = objectManager;
     this.compactor = compactor;
@@ -103,10 +103,10 @@ public class PutAction implements GettableAction {
     return value;
   }
 
-    @Override
-    public long getLsn() {
-        return markedLsn;
-    }
+  @Override
+  public long getLsn() {
+    return markedLsn;
+  }
 
   @Override
   public Set<Long> getInvalidatedLsns() {
@@ -143,7 +143,7 @@ public class PutAction implements GettableAction {
       compactor.generatedGarbage(invalidatedLsn);
     }
   }
-  
+
   @Override
   public void replay(long lsn) {
     objectManager.replayPut(getIdentifier(), getKey(), getValue(), lsn);

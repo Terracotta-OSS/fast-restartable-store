@@ -17,6 +17,7 @@ package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.CipherManager;
 import com.terracottatech.frs.RestartStoreException;
+import com.terracottatech.frs.SecurePutAction;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.io.IOManager;
@@ -51,8 +52,12 @@ public class SecureCompactorImpl extends CompactorImpl {
   }
 
   @Override
-  public CompactionAction convertEntryToAction(
+  public CompactionAction convertToAction(
       ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
-    return new SecureCompactionAction(getObjectManager(), entry, cipherManager);
+    ByteBuffer iv = cipherManager.generateInitializationVector();
+    ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = getObjectManager();
+    SecurePutAction delegate = new SecurePutAction(objectManager, null, cipherManager,
+        entry.getId(), entry.getKey(), iv, entry.getValue(), entry.getLsn());
+    return new CompactionAction(objectManager, entry, delegate);
   }
 }

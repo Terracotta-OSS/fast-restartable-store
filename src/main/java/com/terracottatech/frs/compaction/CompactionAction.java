@@ -15,22 +15,90 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.GettableAction;
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.object.ObjectManagerEntry;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Set;
 
 /**
- * Represents an action performed during the compaction process in the fast-restartable store.
- * <p>
- * CompactionAction extends the {@link Action} interface to provide specialized functionality
- * for compaction operations. Compaction is the process of optimizing storage by removing
- * unnecessary or redundant data and updating Log Sequence Numbers (LSNs) in the ObjectManager.
- * <p>
- * Implementations of this interface are responsible for updating the ObjectManager with new LSNs
- * after the action has been recorded. This update cannot happen during the {@link Action#record(long)}
- * method because the compactor typically holds the segment lock at that time.
- * <p>
- * CompactionActions are created and processed by the {@link Compactor} during its compaction cycle.
+ * @author prasa
  */
-public interface CompactionAction extends Action {
+public class CompactionAction implements GettableAction {
+  private final ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry;
+  private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+
+  private final PutAction delegate;
+  private volatile Long lsn;
+
+  CompactionAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+    ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry, PutAction action) {
+    this.objectManager = objectManager;
+    this.entry = entry;
+    this.delegate = action;
+  }
+
+  @Override
+  public ByteBuffer getIdentifier() {
+    return delegate.getIdentifier();
+  }
+
+  @Override
+  public ByteBuffer getKey() {
+    return delegate.getKey();
+  }
+
+  @Override
+  public ByteBuffer getValue() {
+    return delegate.getValue();
+  }
+
+  @Override
+  public long getLsn() {
+    return delegate.getLsn();
+  }
+
+  @Override
+  public Set<Long> getInvalidatedLsns() {
+    return delegate.getInvalidatedLsns();
+  }
+
+  @Override
+  public void setDisposable(Closeable c) {
+    delegate.setDisposable(c);
+  }
+
+  @Override
+  public void dispose() {
+    delegate.dispose();
+  }
+
+  @Override
+  public void close() throws IOException {
+    delegate.close();
+  }
+
+  @Override
+  public int replayConcurrency() {
+    return objectManager.replayConcurrency(getIdentifier(), getKey());
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return delegate.getPayload(codec);
+  }
+
+  @Override
+  public void record(long lsn) {
+    this.lsn = lsn;
+  }
+
   /**
    * Updates the ObjectManager with the new LSN after this compaction action has been recorded.
    * <p>
@@ -42,5 +110,15 @@ public interface CompactionAction extends Action {
    * typically holds the segment lock at that time. Instead, it's called separately after
    * the action has been sequenced.
    */
-  void updateObjectManager();
+  public void updateObjectManager() {
+    while (lsn == null) {
+      // Just spin, this shouldn't take long.
+    }
+    objectManager.updateLsn(entry, lsn);
+  }
+
+  @Override
+  public void replay(long lsn) {
+    throw new UnsupportedOperationException("Compaction actions can't be replayed.");
+  }
 }

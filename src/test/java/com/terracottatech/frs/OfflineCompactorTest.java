@@ -15,42 +15,68 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.config.FrsProperty;
-import com.terracottatech.frs.io.nio.NIOConstants;
-import com.terracottatech.frs.object.RegisterableObjectManager;
-import com.terracottatech.frs.object.SimpleRestartableMap;
-import com.terracottatech.frs.util.JUnitTestFolder;
-import junit.framework.Assert;
-import org.apache.commons.io.FileUtils;
-import org.junit.Rule;
-import org.junit.Test;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Formatter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 
+import org.apache.commons.io.FileUtils;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
 import static org.junit.Assert.assertTrue;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.terracottatech.frs.config.FrsProperty;
+import com.terracottatech.frs.io.nio.NIOConstants;
+import com.terracottatech.frs.object.RegisterableObjectManager;
+import com.terracottatech.frs.object.SimpleRestartableMap;
+import com.terracottatech.frs.util.JUnitTestFolder;
+
+import junit.framework.Assert;
+
 /**
  * @author tim
  */
+@RunWith(Parameterized.class)
 public abstract class OfflineCompactorTest {
   @Rule
   public JUnitTestFolder temporaryFolder = new JUnitTestFolder();
 
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   public abstract Properties configure(Properties props);
-  
+
+  public Map<String, String> convertToSystemProperty(Properties properties) {
+    Map<String, String> sysProperties = new HashMap<>();
+    for (FrsProperty property : FrsProperty.values()) {
+      String value = (String) properties.get(property.shortName());
+      if (value != null) {
+        sysProperties.put(property.property(), value);
+      }
+    }
+    return sysProperties;
+  }
+
   @Test
   public void testExistingOutputDirectory() throws Exception {
     File testFolder = temporaryFolder.newFolder();
@@ -63,7 +89,7 @@ public abstract class OfflineCompactorTest {
 
     try {
       OfflineCompactor.main(
-              new String[]{uncompacted.getAbsolutePath(), compacted.getAbsolutePath()});
+          new String[] { uncompacted.getAbsolutePath(), compacted.getAbsolutePath() });
       Assert.fail("Should have failed since output directory exists.");
     } catch (IOException e) {
       // expected
@@ -79,7 +105,7 @@ public abstract class OfflineCompactorTest {
 
     try {
       OfflineCompactor.main(
-              new String[]{uncompacted.getAbsolutePath(), compacted.getAbsolutePath()});
+          new String[] { uncompacted.getAbsolutePath(), compacted.getAbsolutePath() });
       Assert.fail("Should have failed since source directory is missing.");
     } catch (IOException e) {
       // expected
@@ -94,22 +120,18 @@ public abstract class OfflineCompactorTest {
     File compacted = new File(testFolder, "compacted");
 
     Properties properties = configure(new Properties());
-    properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(),
-                           "NoCompactionPolicy");
+    Map<String, String> sysProperties = convertToSystemProperty(properties);
+    properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(), "NoCompactionPolicy");
     properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(Integer.MAX_VALUE));
     properties.setProperty(FrsProperty.COMPACTOR_START_THRESHOLD.shortName(), Integer.toString(Integer.MAX_VALUE));
 
     {
       assertThat(uncompacted.mkdirs(), is(true));
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+          new RegisterableObjectManager<>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> uncompactedStore =
-              RestartStoreFactory.createStore(
-                      objectManager,
-                      uncompacted, properties);
-      SimpleRestartableMap map =
-              new SimpleRestartableMap(0, uncompactedStore,
-                                       false);
+          RestartStoreFactory.createStore(objectManager, uncompacted, properties);
+      SimpleRestartableMap map = new SimpleRestartableMap(0, uncompactedStore, false);
       objectManager.registerObject(map);
 
       uncompactedStore.startup().get();
@@ -126,30 +148,29 @@ public abstract class OfflineCompactorTest {
       assertThat(objectManager.size(), is(100L));
     }
 
+    sysProperties.forEach((name, value) -> {
+      System.out.println("Name : " + name + " Value : " + value);
+      System.setProperty(name, value);
+    });
     OfflineCompactor.main(new String[] { uncompacted.getAbsolutePath(), compacted.getAbsolutePath() });
+    sysProperties.forEach((name, value) -> System.clearProperty(name));
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
+          spy(new RegisterableObjectManager<>());
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> compactedStore =
-              RestartStoreFactory.createStore(objectManager, compacted, properties);
+          RestartStoreFactory.createStore(objectManager, compacted, properties);
 
-      SimpleRestartableMap map =
-              new SimpleRestartableMap(0, compactedStore,
-                                       false);
+      SimpleRestartableMap map = new SimpleRestartableMap(0, compactedStore, false);
       objectManager.registerObject(map);
 
       compactedStore.startup().get();
 
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> uncompactedObjectManager =
-              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+          new RegisterableObjectManager<>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> uncompactedStore =
-              RestartStoreFactory.createStore(
-                      uncompactedObjectManager,
-                      uncompacted, properties);
-      SimpleRestartableMap uncompactedMap =
-              new SimpleRestartableMap(0, uncompactedStore,
-                                       false);
+          RestartStoreFactory.createStore(uncompactedObjectManager, uncompacted, properties);
+      SimpleRestartableMap uncompactedMap = new SimpleRestartableMap(0, uncompactedStore, false);
       uncompactedObjectManager.registerObject(uncompactedMap);
 
       uncompactedStore.startup().get();
@@ -163,15 +184,14 @@ public abstract class OfflineCompactorTest {
 
       assertThat(objectManager.size(), is(100L));
       verify(objectManager, times(100)).replayPut(any(ByteBuffer.class),
-                                                  any(ByteBuffer.class), any(ByteBuffer.class),
-                                                  anyLong());
-        StringBuilder fn = new StringBuilder();
-        Formatter pfn = new Formatter(fn);
-  
-        assertTrue("make sure first file exists", new File(compacted,pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, 0).toString()).exists());
+          any(ByteBuffer.class), any(ByteBuffer.class), anyLong());
+      StringBuilder fn = new StringBuilder();
+      Formatter pfn = new Formatter(fn);
+
+      assertTrue("make sure first file exists",
+          new File(compacted, pfn.format(NIOConstants.SEGMENT_NAME_FORMAT, 0).toString()).exists());
     }
 
-    assertThat(FileUtils.sizeOfDirectory(compacted), lessThan(
-            FileUtils.sizeOfDirectory(uncompacted)));
+    assertThat(FileUtils.sizeOfDirectory(compacted), lessThan(FileUtils.sizeOfDirectory(uncompacted)));
   }
 }

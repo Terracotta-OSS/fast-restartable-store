@@ -18,12 +18,6 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.heap.HeapObjectManager;
-import junit.framework.Assert;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -38,10 +32,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 
+@RunWith(Parameterized.class)
 public class RestartStoreReadWriteMultiThreadTest {
-  
   static final int DIFFERENT_KEYS = 8;
   static final int CACHE_ID = 1;
   static final int BATCH_SIZE = 3;
@@ -50,23 +54,30 @@ public class RestartStoreReadWriteMultiThreadTest {
   static final int DATA_SIZE = 1000;
   static final int RECORD_COUNT = 20000;
   static final int ADDITIONAL_RECORD_COUNT = 100;
-  
+
+  @Parameter(0)
+  public Boolean encryptLog;
+
   private final AtomicBoolean stop = new AtomicBoolean(false);
   private final ConcurrentLinkedQueue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
 
   @Rule
-  public TemporaryFolder folder= new TemporaryFolder();
+  public TemporaryFolder folder = new TemporaryFolder();
 
-  private volatile ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> objectManager;
-  private volatile RestartStore restartStore;
-  
-  
+  private volatile ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
+  private volatile RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   public Properties setUpProperties() {
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), Boolean.toString(true));
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1 * 1024));
     properties.setProperty(FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD.shortName(), Double.toString(0.0d));
-    return  properties;
+    return CipherHelper.configure(encryptLog, properties);
   }
 
   @Before
@@ -74,7 +85,7 @@ public class RestartStoreReadWriteMultiThreadTest {
     Properties properties = setUpProperties();
     File temp = folder.newFolder();
     objectManager = new HeapObjectManager<>(CONCURRENCY_COUNT);
-    restartStore = RestartStoreFactory.createStore(objectManager, temp,properties);
+    restartStore = RestartStoreFactory.createStore(objectManager, temp, properties);
     restartStore.startup();
   }
 
@@ -87,10 +98,9 @@ public class RestartStoreReadWriteMultiThreadTest {
   public void testConcurrentReadWrite() throws Exception {
     List<Future> readerThreads = new ArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(DIFFERENT_KEYS);
-    for(int i = 0; i < DIFFERENT_KEYS; i++){
+    for (int i = 0; i < DIFFERENT_KEYS; i++) {
       readerThreads.add(executorService.submit(
-          ()->fetchRecords()
-      ));
+          () -> fetchRecords()));
     }
     upsertRecords(RECORD_COUNT);
     //No problem even if it fails => Already set to false
@@ -99,17 +109,16 @@ public class RestartStoreReadWriteMultiThreadTest {
       try {
         /*
         If fetching threads are not stopped already, keep updating records so that lsn keeps increasing.
-        This stops the potential of deadlock as we are artificially searching for look-ahead lsn in 
-        fetching threads. Otherwise, it might happen that fetching thread is waiting for a synced marker 
+        This stops the potential of deadlock as we are artificially searching for look-ahead lsn in
+        fetching threads. Otherwise, it might happen that fetching thread is waiting for a synced marker
         greater than the lsn in NIOManager and the synced marker is never generated as we stopped producing
         records. Before we come here, stop flag is already set, so fetching threads will quickly finish.
          */
-        while(!f.isDone()){
+        while (!f.isDone()) {
           upsertRecords(ADDITIONAL_RECORD_COUNT);
         }
         f.get();
-      }
-      catch (Exception ex){
+      } catch (Exception ex) {
         throw new RuntimeException(ex);
       }
     });
@@ -118,30 +127,29 @@ public class RestartStoreReadWriteMultiThreadTest {
     executorService.shutdown();
     Assert.assertTrue(exceptions.isEmpty());
   }
-  
+
   private void fetchRecords() {
     Random randomKeyGenerator = new Random();
-    while(!stop.get()){
+    while (!stop.get()) {
       int key = randomKeyGenerator.nextInt(DIFFERENT_KEYS);
       boolean addLookAhead = randomKeyGenerator.nextBoolean();
       try {
         long lsn = objectManager.getLsn(byteBufferWithInt(CACHE_ID), byteBufferWithInt(key));
-        if(addLookAhead){
+        if (addLookAhead) {
           int lsnLookAhead = randomKeyGenerator.nextInt(101);
           lsn += lsnLookAhead;
         }
-        if(lsn >= 0){
+        if (lsn >= 0) {
           restartStore.get(lsn);
         }
-      }
-      catch (IllegalArgumentException ex) {
+      } catch (IllegalArgumentException ex) {
         String message = ex.getMessage();
-        if(message != null && message.startsWith("action is not a gettable event")){
+        if (message != null && message.startsWith("action is not a gettable event")) {
           /*
           This is fine. We are trying to artificially increase the last visible
           lsn so that we can simulate the issue described in:
           https://itrac.eur.ad.sag/browse/TDB-3066
-          
+
           When we randomly increase lsn, we get a random lsn which may return a metadata (e.g. commit log).
           In that case, we are going to get IllegalArgumentException with a message "action is not a gettable event"
            */
@@ -150,22 +158,20 @@ public class RestartStoreReadWriteMultiThreadTest {
         exceptions.add(ex);
         //No problem even if it fails => Already set to false
         stop.compareAndSet(false, true);
-      }
-      catch (Exception ex) {
+      } catch (Exception ex) {
         exceptions.add(ex);
         //No problem even if it fails => Already set to false
         stop.compareAndSet(false, true);
-      }
-      catch (AssertionError ex) {
+      } catch (AssertionError ex) {
         String message = ex.getMessage();
-        if(message != null && message.startsWith("Marker")){
+        if (message != null && message.startsWith("Marker")) {
           /*
           This is fine. We are trying to artificially increase the last visible
           lsn so that we can simulate the issue described in:
           https://itrac.eur.ad.sag/browse/TDB-3066
-          
+
           When we randomly increase lsn, we get a random lsn which might not
-          be a valid one which makes the code throw AssertionError starting with 
+          be a valid one which makes the code throw AssertionError starting with
           the word "Marker"
            */
           continue;
@@ -176,10 +182,10 @@ public class RestartStoreReadWriteMultiThreadTest {
       }
     }
   }
-  
+
   private void upsertRecords(int numberOfIterations) throws Exception {
     byte[] vc = new byte[DATA_SIZE];
-    Arrays.fill(vc,(byte)(0xff));
+    Arrays.fill(vc, (byte) (0xff));
     int x = 0;
     Transaction trans = null;
     boolean transCommitStatus = false;
@@ -206,7 +212,7 @@ public class RestartStoreReadWriteMultiThreadTest {
       }
       Thread.yield();
     }
-    if(!transCommitStatus){
+    if (!transCommitStatus) {
       trans.commit();
     }
   }

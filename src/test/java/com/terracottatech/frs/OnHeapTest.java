@@ -38,12 +38,12 @@ import static org.hamcrest.core.Is.is;
  */
 public abstract class OnHeapTest {
     DecimalFormat df = new DecimalFormat("0000000000");
-        
+
     @Rule
     public JUnitTestFolder folder = new JUnitTestFolder();
 
     public abstract Properties configure(Properties props);
-    
+
     private Map<String, String> createMap(int id, RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore) {
       SimpleRestartableMap map = new SimpleRestartableMap(id, restartStore, false);
       objectManager.registerObject(map);
@@ -54,12 +54,11 @@ public abstract class OnHeapTest {
       return new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
     }
 
-    private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) throws
+    private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Properties properties) throws
             RestartStoreException, IOException {
-      return RestartStoreFactory.createStore(objectManager, folder.getRoot(),
-                                             configure(new Properties()));
+      return RestartStoreFactory.createStore(objectManager, folder.getRoot(), properties);
     }
-    
+
     private int addTransaction(int count, Map<String, String> map) throws Exception {
         String[] r = {"foo","bar","baz","boo","tim","sar","myr","chr"};
         String sk = df.format(count);
@@ -75,10 +74,11 @@ public abstract class OnHeapTest {
     @Test
     public void testIt() throws Exception {
       int count = 0;
+      Properties properties = configure(new Properties());
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         restartStore.startup().get();
 
@@ -92,7 +92,6 @@ public abstract class OnHeapTest {
         System.out.format("bytes in: %d\n",bin);
       }
 
-        
       File[] list = folder.getRoot().listFiles();
       long fl = 0;
       for ( File f : list  ){
@@ -104,7 +103,7 @@ public abstract class OnHeapTest {
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         long time = System.nanoTime();
         restartStore.startup().get();
@@ -123,7 +122,7 @@ public abstract class OnHeapTest {
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         long time = System.nanoTime();
         restartStore.startup().get();

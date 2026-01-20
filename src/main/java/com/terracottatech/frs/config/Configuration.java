@@ -53,7 +53,7 @@ public class Configuration {
     Object value = configuration.get(property);
     return value == null ? property.defaultValue() : value;
   }
-  
+
   public String getString(FrsProperty property) {
     return (String) getConfigurationValue(property);
   }
@@ -77,7 +77,11 @@ public class Configuration {
   public Boolean getBoolean(FrsProperty property) {
     return (Boolean) getConfigurationValue(property);
   }
-  
+
+  public byte [] getByteArray(FrsProperty property) {
+    return (byte []) getConfigurationValue(property);
+  }
+
   public File getDBHome() {
     return dbHome;
   }
@@ -105,7 +109,7 @@ public class Configuration {
     }
     return properties;
   }
-  
+
   private static Map<FrsProperty, Object> extractConfiguration(Properties properties, boolean shortNames, boolean tolerateMismatches) {
     Map<FrsProperty, Object> configuration = new EnumMap<FrsProperty, Object>(FrsProperty.class);
     if (tolerateMismatches) {

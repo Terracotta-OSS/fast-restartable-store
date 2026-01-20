@@ -26,6 +26,6 @@ public class StreamOfflineCompactorTest extends OfflineCompactorTest {
   @Override
   public Properties configure(Properties props) {
     props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "STREAM");
-    return props;
+    return CipherHelper.configure(encryptLog, props);
   }
 }

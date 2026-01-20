@@ -18,16 +18,27 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.config.FrsProperty;
 import java.util.Properties;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 /**
  *
  * @author mscott
  */
+@RunWith(Parameterized.class)
 public class StreamOnHeapTest extends OnHeapTest {
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
 
   @Override
   public Properties configure(Properties props) {
     props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "STREAM");
-    return props;
+    return CipherHelper.configure(encryptLog, props);
   }
-  
 }

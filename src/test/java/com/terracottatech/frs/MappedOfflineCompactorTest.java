@@ -27,7 +27,6 @@ public class MappedOfflineCompactorTest extends OfflineCompactorTest {
   @Override
   public Properties configure(Properties props) {
     props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
-    return props;
+    return CipherHelper.configure(encryptLog, props);
   }
-  
 }

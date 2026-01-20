@@ -15,12 +15,6 @@
  */
 package com.terracottatech.frs;
 
-import org.apache.commons.io.FileUtils;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
@@ -36,6 +30,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
+
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -46,6 +51,7 @@ import static org.junit.Assert.assertThat;
 /**
  * End to end test for FRS {@link RestartStore#freeze()} functionality
  */
+@RunWith(Parameterized.class)
 public class RestartStoreFreezeTest {
   private static final int NUM_MAPS = 4;
   private static final int SEGMENT_SIZE_KB = 16;
@@ -53,8 +59,16 @@ public class RestartStoreFreezeTest {
   private static final int NUM_ITEMS_IN_MAP2 = 20;
   private static final int PER_ENTRY_SIZE_KB = 1;
 
-  private final Properties properties = new Properties();
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   private final ExecutorService executorService = Executors.newFixedThreadPool(4);
+  private Properties properties = new Properties();
 
   public RestartStoreFreezeTest() {
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(SEGMENT_SIZE_KB * 1024));
@@ -62,6 +76,11 @@ public class RestartStoreFreezeTest {
 
   @Rule
   public TemporaryFolder folder = new TemporaryFolder();
+
+  @Before
+  public void setUp() {
+    properties = CipherHelper.configure(encryptLog, properties);
+  }
 
   @Ignore
   @Test

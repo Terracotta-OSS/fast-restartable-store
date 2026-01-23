@@ -92,7 +92,7 @@ public class EncryptedAction implements Action {
 
     ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 2];
 
-    output[0] = ByteBuffer.allocate(HEADER_SIZE)
+    output[0] = (ByteBuffer) ByteBuffer.allocate(HEADER_SIZE)
         .putInt(initializationVector.remaining())
         .putInt(length)
         .flip();

@@ -239,8 +239,6 @@ public class CompactorImpl implements Compactor {
           break;
         }
 
-        LOGGER.info("compacted 1 time");
-
         // To prevent filling up the write queue with compaction junk, risking crowding
         // out actual actions, we throttle a bit after some set number of compaction
         // actions by just waiting until the latest compaction action is written to disk.

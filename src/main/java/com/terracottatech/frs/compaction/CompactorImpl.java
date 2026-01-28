@@ -203,13 +203,13 @@ public class CompactorImpl implements Compactor {
      long startLsn = 0;
      long lastLsn = 0;
  
-      LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
+      LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
       while (compactedCount < liveSize && !signalPause) {
         ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
         if (compactionEntry == null) {
           if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
             rangeLsn <<= 1;
-            LOGGER.debug("bumping range to " + rangeLsn);
+            LOGGER.info("bumping range to " + rangeLsn);
             continue;
           } else {
             break;
@@ -239,6 +239,8 @@ public class CompactorImpl implements Compactor {
           break;
         }
 
+        LOGGER.info("compacted 1 time");
+
         // To prevent filling up the write queue with compaction junk, risking crowding
         // out actual actions, we throttle a bit after some set number of compaction
         // actions by just waiting until the latest compaction action is written to disk.
@@ -249,8 +251,8 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
         }
       }
-      LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
-      LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
+      LOGGER.info("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
+      LOGGER.info("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
     }
   }
 

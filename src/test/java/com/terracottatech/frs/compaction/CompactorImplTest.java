@@ -26,6 +26,8 @@ import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
@@ -47,6 +49,8 @@ import static org.mockito.Mockito.verify;
  * @author tim
  */
 public class CompactorImplTest {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CompactorImplTest.class);
+
   private CompactionTestObjectManager objectManager;
   private TransactionManager transactionManager;
   private ActionManager actionManager;
@@ -150,6 +154,8 @@ public class CompactorImplTest {
 
   @Test
   public void testPausing() throws Exception {
+    LOGGER.info("Starting CompactorImplTest.testPausing test");
+
     policy.compactCount = 1000;
 
     doReturn(0L).when(logManager).lowestLsn();
@@ -164,6 +170,8 @@ public class CompactorImplTest {
 
     verifyCompactedTimes(0);
 
+    LOGGER.info("In CompactorImplTest.testPausing test - policy compact count {}", policy.compactCount);
+
     compactor.unpause();
 
     compactor.compactNow();
@@ -171,6 +179,8 @@ public class CompactorImplTest {
     SECONDS.sleep(1);
 
     policy.waitForCompactionComplete();
+
+    LOGGER.info("In CompactorImplTest.testPausing test - policy compact count {}", policy.compactCount);
 
     verifyCompactedTimes(100);
     verify(policy).stoppedCompacting();

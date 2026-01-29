@@ -36,6 +36,7 @@ import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.isA;
@@ -182,7 +183,9 @@ public class CompactorImplTest {
 
     LOGGER.info("In CompactorImplTest.testPausing test - policy compact count {}", policy.compactCount);
 
-    verifyCompactedTimes(100);
+    verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
+    verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
+
     verify(policy).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();

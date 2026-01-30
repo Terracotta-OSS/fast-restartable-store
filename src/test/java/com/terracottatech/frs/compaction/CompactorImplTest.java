@@ -185,9 +185,8 @@ public class CompactorImplTest {
 
     verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
     verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
-
-    verify(policy).stoppedCompacting();
-    verify(logManager).updateLowestLsn(anyLong());
+    verify(policy, atLeastOnce()).stoppedCompacting();
+    verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 

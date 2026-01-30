@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.CipherHelper;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.RestartStoreFactory;
 import com.terracottatech.frs.config.FrsProperty;
@@ -22,8 +23,6 @@ import com.terracottatech.frs.log.LogRegionPacker;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
 import com.terracottatech.frs.util.JUnitTestFolder;
-import org.junit.Rule;
-import org.junit.Test;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -31,10 +30,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+@RunWith(Parameterized.class)
 public class LogFormatCompatibilityTest extends AbstractRecoveryManagerImplTest {
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
 
   @Rule
   public JUnitTestFolder folder = new JUnitTestFolder();
@@ -45,8 +58,11 @@ public class LogFormatCompatibilityTest extends AbstractRecoveryManagerImplTest 
     Path segment = new File(LogFormatCompatibilityTest.class.getResource("/logs/old/seg000000000.frs").toURI()).toPath();
     Files.copy(segment, dbHome.resolve(segment.getFileName()));
 
-    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
-    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager, dbHome.toFile(), new Properties());
+    Properties properties = CipherHelper.configure(encryptLog, new Properties());
+    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+        new RegisterableObjectManager<>();
+    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+        RestartStoreFactory.createStore(objectManager, dbHome.toFile(), properties);
     SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
     objectManager.registerObject(map);
     restartStore.startup().get();
@@ -65,8 +81,11 @@ public class LogFormatCompatibilityTest extends AbstractRecoveryManagerImplTest 
     Path segment = new File(LogFormatCompatibilityTest.class.getResource("/logs/misidentified/seg000000000.frs").toURI()).toPath();
     Files.copy(segment, dbHome.resolve(segment.getFileName()));
 
-    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
-    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager, dbHome.toFile(), new Properties());
+    Properties properties = CipherHelper.configure(encryptLog, new Properties());
+    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+        new RegisterableObjectManager<>();
+    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+        RestartStoreFactory.createStore(objectManager, dbHome.toFile(), properties);
     SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
     objectManager.registerObject(map);
     try {
@@ -83,10 +102,12 @@ public class LogFormatCompatibilityTest extends AbstractRecoveryManagerImplTest 
     Path segment = new File(LogFormatCompatibilityTest.class.getResource("/logs/misidentified/seg000000000.frs").toURI()).toPath();
     Files.copy(segment, dbHome.resolve(segment.getFileName()));
 
-    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
-    Properties properties = new Properties();
+    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
+        new RegisterableObjectManager<>();
+    Properties properties = CipherHelper.configure(encryptLog, new Properties());
     properties.put(FrsProperty.FORCE_LOG_REGION_FORMAT.shortName(), LogRegionPacker.NEW_REGION_FORMAT_STRING);
-    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager, dbHome.toFile(), properties);
+    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+        RestartStoreFactory.createStore(objectManager, dbHome.toFile(), properties);
     SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
     objectManager.registerObject(map);
     restartStore.startup().get();

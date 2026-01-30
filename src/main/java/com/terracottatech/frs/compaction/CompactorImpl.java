@@ -139,11 +139,15 @@ public class CompactorImpl implements Compactor {
     public void run() {
       while (alive) {
         try {
+          LOGGER.info("pre acquire semaphore count {}", compactionCondition.availablePermits());
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
+          LOGGER.info("post acquire semaphore count {}", compactionCondition.availablePermits());
 
           if (checkForPause()) {
+            LOGGER.info("Was paused semaphore count {}", compactionCondition.availablePermits());
             continue;
           }
+          LOGGER.info("Was not paused semaphore count {}", compactionCondition.availablePermits());
 
           // Flush in a dummy record to make sure everything for the updated lowest lsn
           // is on disk prior to cleaning up to the new lowest lsn.
@@ -203,13 +207,13 @@ public class CompactorImpl implements Compactor {
      long startLsn = 0;
      long lastLsn = 0;
  
-      LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
+      LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
       while (compactedCount < liveSize && !signalPause) {
         ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
         if (compactionEntry == null) {
           if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
             rangeLsn <<= 1;
-            LOGGER.debug("bumping range to " + rangeLsn);
+            LOGGER.info("bumping range to " + rangeLsn);
             continue;
           } else {
             break;
@@ -249,8 +253,8 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
         }
       }
-      LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
-      LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
+      LOGGER.info("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
+      LOGGER.info("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
     }
   }
 
@@ -267,8 +271,11 @@ public class CompactorImpl implements Compactor {
   @Override
   public void compactNow() {
     try {
-      compactionCondition.drainPermits();
+      LOGGER.info("drain permits, before count ({}), drain count ({}), after count ({})",
+              compactionCondition.availablePermits(), compactionCondition.drainPermits(),
+              compactionCondition.availablePermits());
       compactionCondition.release(startThreshold);
+      LOGGER.info("release permits, semaphore count {}", compactionCondition.availablePermits());
     } catch ( Error e ) {
   //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
       LOGGER.warn("error generating garbage", e);

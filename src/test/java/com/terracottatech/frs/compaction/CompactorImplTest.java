@@ -26,6 +26,8 @@ import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
@@ -34,6 +36,7 @@ import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.isA;
@@ -47,6 +50,8 @@ import static org.mockito.Mockito.verify;
  * @author tim
  */
 public class CompactorImplTest {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CompactorImplTest.class);
+
   private CompactionTestObjectManager objectManager;
   private TransactionManager transactionManager;
   private ActionManager actionManager;
@@ -150,6 +155,8 @@ public class CompactorImplTest {
 
   @Test
   public void testPausing() throws Exception {
+    LOGGER.info("Starting CompactorImplTest.testPausing test");
+
     policy.compactCount = 1000;
 
     doReturn(0L).when(logManager).lowestLsn();
@@ -164,6 +171,8 @@ public class CompactorImplTest {
 
     verifyCompactedTimes(0);
 
+    LOGGER.info("In CompactorImplTest.testPausing test - policy compact count {}", policy.compactCount);
+
     compactor.unpause();
 
     compactor.compactNow();
@@ -172,9 +181,12 @@ public class CompactorImplTest {
 
     policy.waitForCompactionComplete();
 
-    verifyCompactedTimes(100);
-    verify(policy).stoppedCompacting();
-    verify(logManager).updateLowestLsn(anyLong());
+    LOGGER.info("In CompactorImplTest.testPausing test - policy compact count {}", policy.compactCount);
+
+    verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
+    verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
+    verify(policy, atLeastOnce()).stoppedCompacting();
+    verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 

@@ -162,6 +162,8 @@ public class WrappedFileChannel extends FileChannel {
           }
           return null;
         } catch (ClosedChannelException | FileLockInterruptionException cce) {
+          System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
+                  ") during lock for thread (" + Thread.currentThread().getId() + ")");
           lock.unlock();
           try {
             interrupted |= reopen(cce);
@@ -237,7 +239,8 @@ public class WrappedFileChannel extends FileChannel {
           }
           return actionToTake.apply(currentChannel, u);
         } catch (ClosedChannelException cce) {
-          System.out.println("Oops : got exception, now reopening channel for thread (" + Thread.currentThread().getId() + ")");
+          System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
+                  ") during ops for thread (" + Thread.currentThread().getId() + ")");
           interrupted |= reopen(cce, pos);
           i = 0;
           for (ByteBuffer buf : bufs) {
@@ -323,36 +326,40 @@ public class WrappedFileChannel extends FileChannel {
   }
 
   private <R> R retryOnChannelSwitch(ChannelFunction<R> actionToTake) throws IOException {
-    FileChannel usedChannel = channel;
+    FileChannel usedChannel;
     // mask of any pending interrupts before entering the call
     boolean interrupted = Thread.interrupted();
     try {
       while (true) {
+        usedChannel = channel;
         try {
           return actionToTake.apply(usedChannel);
         } catch (ClosedChannelException cce) {
-          System.out.println("Oops : exception on retryOnChannelSwitch for thread (" + Thread.currentThread().getId() + ")");
+          System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
+                  ") during try-lock for thread (" + Thread.currentThread().getId() + ")");
           if (channelOpener.isClosed()) {
             throw cce;
           }
           interrupted |= Thread.interrupted();
 
-          System.out.println("Oops : time to switch the channel");
-
           ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
           lock.lock();
           try {
-            if (usedChannel != channel) {
-              usedChannel = channel;
-            } else {
+            if (usedChannel == channel) {
               // No other threads is reopening the channel, so channel hasn't switched yet
-              // TODO - do we need to trigger a reopen here
-              throw cce;
+              // TODO - we need to trigger a reopen here
+              // throw cce;
+              lock.unlock();
+              System.out.println("Oops : reopening channel for thread (" + Thread.currentThread().getId() + ")");
+              try {
+                interrupted |= reopen(cce);
+              } finally {
+                lock.lock();
+              }
             }
           } finally {
             lock.unlock();
           }
-          System.out.println("Oops : channel switched successfully");
         }
       }
     } finally {
@@ -373,7 +380,6 @@ public class WrappedFileChannel extends FileChannel {
   }
 
   private boolean reopen(IOException ioe, long pos) throws IOException {
-    System.out.println("Oops : reopen is called, with exception " + ioe.getClass().getSimpleName() + " position " + pos);
     if (channelOpener.isClosed()) {
       throw ioe;
     }
@@ -406,6 +412,7 @@ public class WrappedFileChannel extends FileChannel {
         // swap atomically after updating whether position is lost
         this.positionLost = pos < 0;
         this.channel = tmpChannel;
+        System.out.println("Oops : channel reopened by Thread (" + Thread.currentThread().getId() + ")");
       } // otherwise, this is just a cache refresh for this thread, try using that
     } finally {
       lock.unlock();
@@ -493,7 +500,8 @@ public class WrappedFileChannel extends FileChannel {
             lockedChannel.releaseLock(this);
             return;
           } catch (ClosedChannelException e) {
-            System.out.println("Not throwing exception during release");
+            System.out.println("Oops : exception (" + e.getClass().getSimpleName() +
+                    ") during release for thread (" + Thread.currentThread().getId() + ")");
             interrupted |= lockedChannel.reopen(e);
           }
         }

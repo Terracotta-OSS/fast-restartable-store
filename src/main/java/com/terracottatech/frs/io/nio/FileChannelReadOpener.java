@@ -30,6 +30,8 @@ class FileChannelReadOpener implements ChannelOpener {
   private FileInputStream currentStream;
   private volatile boolean closed;
 
+  protected volatile boolean dumpCloseTrace = false;
+
   FileChannelReadOpener(File fileToOpen) {
     this.fileToOpen = fileToOpen;
     this.currentStream = null;
@@ -65,6 +67,33 @@ class FileChannelReadOpener implements ChannelOpener {
   // explicit close
   @Override
   public synchronized void close() throws IOException {
+    if (dumpCloseTrace) {
+      // Check if invoked from test tearDown method
+      StackTraceElement[] stackTraces = Thread.currentThread().getStackTrace();
+      boolean invokedFromTestTearDown = false;
+      for (StackTraceElement element : stackTraces) {
+        String className = element.getClassName();
+        String methodName = element.getMethodName();
+        // Check if called from a test class tearDown method
+        if ((className.endsWith("Test") || className.contains(".test.")) &&
+            (methodName.equals("tearDown") || methodName.equals("after") ||
+              methodName.equals("afterEach") || methodName.equals("cleanup"))) {
+          invokedFromTestTearDown = true;
+          break;
+        }
+      }
+      if (!invokedFromTestTearDown) {
+        LOGGER.info("FileChannelReadOpener::Close NOT invoked from test tearDown method");
+        // Print the captured stack trace
+        final StringBuilder currentThreadStack = new StringBuilder();
+        currentThreadStack.append("Current thread stack trace:").append(System.lineSeparator());
+        for (StackTraceElement element : stackTraces) {
+          currentThreadStack.append("  at ").append(element.toString()).append(System.lineSeparator());
+        }
+        LOGGER.info(currentThreadStack.toString());
+      }
+    }
+
     if (LOGGER.isTraceEnabled()) {
       // For TDB-3758: to check where the premature close is coming from
       LOGGER.trace("Close invoked from ", new Exception());

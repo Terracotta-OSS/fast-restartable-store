@@ -223,6 +223,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedTryLocks() throws Exception {
+    System.out.println("Oops : running test testInterruptedTryLocks");
     long[] positions = {0L, 8 * BUF_LEN, 16 * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -236,6 +237,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedLocks() throws Exception {
+    System.out.println("Oops : running test testInterruptedLocks");
     long[] positions = {0L, 8 * BUF_LEN, 16 * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -608,6 +610,7 @@ public class WrappedFileChannelTest {
 
     TestReadChannelOpener(File fileToOpen) {
       super(fileToOpen);
+      super.dumpCloseTrace = true;
       this.reopenHappenedCount = new AtomicInteger(0);
       this.localReopen = new ThreadLocal<>();
     }

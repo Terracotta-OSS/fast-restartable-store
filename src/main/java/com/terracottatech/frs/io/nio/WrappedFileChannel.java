@@ -158,7 +158,7 @@ public class WrappedFileChannel extends FileChannel {
           FileLock l = currentChannel.lock(position, size, shared);
           if (l != null) {
             WrappedFileLock wl = new WrappedFileLock(this, l);
-            grantedLocks.add(wl);
+            addLock(wl);
             return wl;
           }
           return null;
@@ -186,7 +186,7 @@ public class WrappedFileChannel extends FileChannel {
     FileLock l = retryOnChannelSwitch(c -> c.tryLock(position, size, shared));
     if (l != null) {
       WrappedFileLock wl = new WrappedFileLock(this, l);
-      grantedLocks.add(wl);
+      addLock(wl);
       return wl;
     }
     return null;
@@ -369,9 +369,12 @@ public class WrappedFileChannel extends FileChannel {
     }
   }
 
-  private synchronized void releaseLock(WrappedFileLock releasedLock) throws IOException {
-    releasedLock.actual.release();
-    grantedLocks.remove(releasedLock);
+  private synchronized void removeLock(WrappedFileLock wfl) {
+    grantedLocks.remove(wfl);
+  }
+
+  private synchronized void addLock(WrappedFileLock wfl) {
+    grantedLocks.add(wfl);
   }
 
   private boolean reopen(IOException ioe) throws IOException {
@@ -433,6 +436,7 @@ public class WrappedFileChannel extends FileChannel {
         wl.actual.release();
       } catch (IOException ignored) {
         // ignore
+        System.out.println("Oops : ignoring exception while reacquiring locks");
       }
       FileLock fileLock = tmpChannel.tryLock(wl.position(), wl.size(), wl.isShared());
       if (fileLock == null) {
@@ -499,7 +503,8 @@ public class WrappedFileChannel extends FileChannel {
       try {
         while (true) {
           try {
-            lockedChannel.releaseLock(this);
+            actual.release();
+            lockedChannel.removeLock(this);
             return;
           } catch (ClosedChannelException e) {
             System.out.println("Oops : exception (" + e.getClass().getSimpleName() +

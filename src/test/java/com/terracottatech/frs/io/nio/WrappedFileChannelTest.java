@@ -98,6 +98,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testReadWrite() throws Exception {
+    System.out.println("Oops : running test testReadWrite");
     writeBuf(0L, true);
     ByteBuffer dst = readBuf(0L, true);
     assertThat(BIG_SRC.array().length, is(BIG_BUF_LEN));
@@ -107,6 +108,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testReadWriteWithPos() throws Exception {
+    System.out.println("Oops : running test testReadWriteWithPos");
     writeBuf(0L, false);
     writeBuf(BUF_LEN * 2, false);
     ByteBuffer dst = readBuf(0L, false);
@@ -117,6 +119,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testSize() throws Exception {
+    System.out.println("Oops : running test testSize");
     writeBuf(0L, false);
     writeBuf(BUF_LEN * 2, false);
     fileChannelForWrite.force(true);
@@ -127,12 +130,14 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedWrite() throws Exception {
+    System.out.println("Oops : running test testInterruptedWrite");
     testLoop(threadPool, false, false, writeLoopRunner(0L));
     assertThat(writeOpener.getReopenHappenedCount(), greaterThanOrEqualTo(1));
   }
 
   @Test
   public void testInterruptedWriteNoPos() throws Exception {
+    System.out.println("Oops : running test testInterruptedWriteNoPos");
     testLoop(threadPool, false, false, writeLoopRunner(-1L));
     assertThat(writeOpener.getReopenHappenedCount(), greaterThanOrEqualTo(1));
     fileChannelForRead.force(true);
@@ -143,6 +148,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedRead() throws Exception {
+    System.out.println("Oops : running test testInterruptedRead");
     writeBuf(0L, false);
     testLoop(threadPool, false, false, readLoopRunner(0L));
     assertThat(readOpener.getReopenHappenedCount(), greaterThanOrEqualTo(1));
@@ -150,6 +156,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedWrites() throws Exception {
+    System.out.println("Oops : running test testInterruptedWrites");
     testLoop(threadPool, false, false,
         writeLoopRunner(0L),
         writeLoopRunner(BUF_LEN * 2),
@@ -159,6 +166,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedReads() throws Exception {
+    System.out.println("Oops : running test testInterruptedReads");
     long[] positions = {0L, 2 * BUF_LEN, 8 * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -172,6 +180,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedReadsWithLock() throws Exception {
+    System.out.println("Oops : running test testInterruptedReadsWithLock");
     long[] positions = {0L, 32L * BUF_LEN, 64L * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -191,6 +200,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedWritesWithLock() throws Exception {
+    System.out.println("Oops : running test testInterruptedWritesWithLock");
     long[] positions = {0L, 8 * BUF_LEN, 16 * BUF_LEN, 32 * BUF_LEN, 64 * BUF_LEN};
     for (long position : positions) {
       if (position >= 32 * BUF_LEN) {
@@ -215,6 +225,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedScatteredRead() throws Exception {
+    System.out.println("Oops : running test testInterruptedScatteredRead");
     writeBuf(0L, true);
     testLoop(threadPool, true, true,
         scatteredReadLoopRunner(0));
@@ -223,6 +234,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedTryLocks() throws Exception {
+    System.out.println("Oops : running test testInterruptedTryLocks");
     long[] positions = {0L, 8 * BUF_LEN, 16 * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -236,6 +248,7 @@ public class WrappedFileChannelTest {
 
   @Test
   public void testInterruptedLocks() throws Exception {
+    System.out.println("Oops : running test testInterruptedLocks");
     long[] positions = {0L, 8 * BUF_LEN, 16 * BUF_LEN};
     for (long position : positions) {
       writeBuf(position, false);
@@ -608,6 +621,7 @@ public class WrappedFileChannelTest {
 
     TestReadChannelOpener(File fileToOpen) {
       super(fileToOpen);
+      super.dumpCloseTrace = true;
       this.reopenHappenedCount = new AtomicInteger(0);
       this.localReopen = new ThreadLocal<>();
     }

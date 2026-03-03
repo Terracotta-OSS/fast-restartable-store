@@ -153,8 +153,9 @@ public class WrappedFileChannel extends FileChannel {
     lock.lock();
     try {
       while (true) {
+        FileChannel currentChannel = channel;
         try {
-          FileLock l = channel.lock(position, size, shared);
+          FileLock l = currentChannel.lock(position, size, shared);
           if (l != null) {
             WrappedFileLock wl = new WrappedFileLock(this, l);
             grantedLocks.add(wl);
@@ -166,7 +167,7 @@ public class WrappedFileChannel extends FileChannel {
                   ") during lock for thread (" + Thread.currentThread().getId() + ")");
           lock.unlock();
           try {
-            interrupted |= reopen(cce);
+            interrupted |= reopen(currentChannel, cce);
           } finally {
             lock.lock();
           }
@@ -241,7 +242,7 @@ public class WrappedFileChannel extends FileChannel {
         } catch (ClosedChannelException cce) {
           System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
                   ") during ops for thread (" + Thread.currentThread().getId() + ")");
-          interrupted |= reopen(cce, pos);
+          interrupted |= reopen(currentChannel, cce, pos);
           i = 0;
           for (ByteBuffer buf : bufs) {
             buf.position(bufPositions[i++]);
@@ -284,7 +285,7 @@ public class WrappedFileChannel extends FileChannel {
   private <R> R retryOnInterrupt(ChannelFunction<R> actionToTake, boolean lockPosition, boolean posGained,
                                  boolean posImportant) throws IOException {
     boolean success = false;
-    FileChannel appliedChannel = channel;
+    FileChannel currentChannel = channel;
     final ReentrantLock lock = posLock;
     if (lockPosition) {
       lock.lock();
@@ -296,12 +297,12 @@ public class WrappedFileChannel extends FileChannel {
           throw new PositionLostException();
         }
         try {
-          appliedChannel = channel;
-          R r = actionToTake.apply(appliedChannel);
+          currentChannel = channel;
+          R r = actionToTake.apply(currentChannel);
           success = true;
           return r;
         } catch (ClosedChannelException | FileLockInterruptionException cce) {
-          interrupted |= reopen(cce);
+          interrupted |= reopen(currentChannel, cce);
         }
       }
     } finally {
@@ -312,10 +313,10 @@ public class WrappedFileChannel extends FileChannel {
         lock.unlock();
       }
       if (success && posGained) {
-        // TODO : If success, then channel == appliedChannel. Could not find a scenario where it will false.
-        if (channel == appliedChannel && this.positionLost) {
+        // TODO : If success, then channel == currentChannel. Could not find a scenario where it will false.
+        if (channel == currentChannel && this.positionLost) {
           synchronized (this) {
-            if (channel == appliedChannel) {
+            if (channel == currentChannel) {
               // we have regained the position if channel has not switched from underneath us
               this.positionLost = false;
             }
@@ -326,16 +327,16 @@ public class WrappedFileChannel extends FileChannel {
   }
 
   private <R> R retryOnChannelSwitch(ChannelFunction<R> actionToTake) throws IOException {
-    FileChannel usedChannel;
+    FileChannel currentChannel;
     // mask of any pending interrupts before entering the call
     boolean interrupted = Thread.interrupted();
     ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
     lock.lock();
     try {
       while (true) {
-        usedChannel = channel;
+        currentChannel = channel;
         try {
-          return actionToTake.apply(usedChannel);
+          return actionToTake.apply(currentChannel);
         } catch (ClosedChannelException cce) {
           System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
                   ") during try-lock for thread (" + Thread.currentThread().getId() + ")");
@@ -343,14 +344,14 @@ public class WrappedFileChannel extends FileChannel {
             throw cce;
           }
           interrupted |= Thread.interrupted();
-          if (usedChannel == channel) {
+          if (currentChannel == channel) {
             // No other threads is reopening the channel, so channel hasn't switched yet
             // TODO - we need to trigger a reopen here
             // throw cce;
             System.out.println("Oops : reopening channel for thread (" + Thread.currentThread().getId() + ")");
             lock.unlock();
             try {
-              interrupted |= reopen(cce);
+              interrupted |= reopen(currentChannel, cce);
             } finally {
               lock.lock();
             }
@@ -372,15 +373,18 @@ public class WrappedFileChannel extends FileChannel {
   }
 
   private boolean reopen(IOException ioe) throws IOException {
-    return reopen(ioe, -1);
+    return reopen(channel, ioe, -1);
   }
 
-  private boolean reopen(IOException ioe, long pos) throws IOException {
+  private boolean reopen(FileChannel previous, IOException ioe) throws IOException {
+    return reopen(previous, ioe, -1);
+  }
+
+  private boolean reopen(FileChannel previous, IOException ioe, long pos) throws IOException {
     if (channelOpener.isClosed()) {
       throw ioe;
     }
     boolean interrupted = Thread.interrupted();
-    FileChannel previous = channel;
 
     ReentrantReadWriteLock.WriteLock lock = rwLock.writeLock();
     lock.lock();

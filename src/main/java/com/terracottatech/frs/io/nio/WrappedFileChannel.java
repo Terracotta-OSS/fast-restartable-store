@@ -302,6 +302,8 @@ public class WrappedFileChannel extends FileChannel {
           success = true;
           return r;
         } catch (ClosedChannelException | FileLockInterruptionException cce) {
+          System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
+                  ") during other ops for thread (" + Thread.currentThread().getId() + ")");
           interrupted |= reopen(currentChannel, cce);
         }
       }

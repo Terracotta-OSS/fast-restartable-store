@@ -329,6 +329,8 @@ public class WrappedFileChannel extends FileChannel {
     FileChannel usedChannel;
     // mask of any pending interrupts before entering the call
     boolean interrupted = Thread.interrupted();
+    ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
+    lock.lock();
     try {
       while (true) {
         usedChannel = channel;
@@ -341,28 +343,22 @@ public class WrappedFileChannel extends FileChannel {
             throw cce;
           }
           interrupted |= Thread.interrupted();
-
-          ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
-          lock.lock();
-          try {
-            if (usedChannel == channel) {
-              // No other threads is reopening the channel, so channel hasn't switched yet
-              // TODO - we need to trigger a reopen here
-              // throw cce;
-              lock.unlock();
-              System.out.println("Oops : reopening channel for thread (" + Thread.currentThread().getId() + ")");
-              try {
-                interrupted |= reopen(cce);
-              } finally {
-                lock.lock();
-              }
-            }
-          } finally {
+          if (usedChannel == channel) {
+            // No other threads is reopening the channel, so channel hasn't switched yet
+            // TODO - we need to trigger a reopen here
+            // throw cce;
+            System.out.println("Oops : reopening channel for thread (" + Thread.currentThread().getId() + ")");
             lock.unlock();
+            try {
+              interrupted |= reopen(cce);
+            } finally {
+              lock.lock();
+            }
           }
         }
       }
     } finally {
+      lock.unlock();
       // now unmask the interrupt
       if (interrupted) {
         Thread.currentThread().interrupt();

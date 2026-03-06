@@ -213,10 +213,7 @@ public class WrappedFileChannel extends FileChannel {
     if (channelOpener.isClosed()) {
       throw new ClosedChannelException();
     }
-    boolean interrupted = Thread.interrupted();
     int[] bufPositions = new int[bufs.length];
-    long pos = -1;
-
     int i = 0;
     for (ByteBuffer buf : bufs) {
       bufPositions[i++] = buf.position();
@@ -225,6 +222,8 @@ public class WrappedFileChannel extends FileChannel {
     if (savePosition) {
       lock.lock();
     }
+    long pos = -1;
+    boolean interrupted = false;
     try {
       while (true) {
         FileChannel currentChannel = channel;
@@ -234,6 +233,7 @@ public class WrappedFileChannel extends FileChannel {
           throw new PositionLostException();
         }
         try {
+          interrupted |= Thread.interrupted();
           if (savePosition && pos < 0) {
             // if this is true, assumption is lock is held.
             pos = currentChannel.position();
@@ -290,12 +290,13 @@ public class WrappedFileChannel extends FileChannel {
     if (lockPosition) {
       lock.lock();
     }
-    boolean interrupted = Thread.interrupted();
+    boolean interrupted = false;
     try {
       while (true) {
         if (posImportant && this.positionLost) {
           throw new PositionLostException();
         }
+        interrupted |= Thread.interrupted();
         try {
           currentChannel = channel;
           R r = actionToTake.apply(currentChannel);

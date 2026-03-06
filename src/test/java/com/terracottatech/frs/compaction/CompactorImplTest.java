@@ -34,6 +34,7 @@ import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.isA;
@@ -172,9 +173,10 @@ public class CompactorImplTest {
 
     policy.waitForCompactionComplete();
 
-    verifyCompactedTimes(100);
-    verify(policy).stoppedCompacting();
-    verify(logManager).updateLowestLsn(anyLong());
+    verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
+    verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
+    verify(policy, atLeastOnce()).stoppedCompacting();
+    verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 

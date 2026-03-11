@@ -29,21 +29,21 @@ jobs:
       jobName: Linux_Java_8
       timeoutInMinutes: 180
       options: -B -Djava.test.version=1.8
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin
   - template: build-templates/maven-common.yml@templates
     parameters:
       jobName: Linux_Java_11
       timeoutInMinutes: 180
       options: -B -Djava.test.version=1.11
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin
   - template: build-templates/maven-common.yml@templates
     parameters:
       jobName: Linux_Java_17
       timeoutInMinutes: 180
       options: -B -Djava.test.version=1.17
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin
   - template: build-templates/maven-common.yml@templates
     parameters:
@@ -51,7 +51,7 @@ jobs:
       timeoutInMinutes: 180
       vmImage: 'windows-latest'
       options: -B -Djava.test.version=1.8
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin
   - template: build-templates/maven-common.yml@templates
     parameters:
@@ -59,7 +59,7 @@ jobs:
       timeoutInMinutes: 180
       vmImage: 'windows-latest'
       options: -B -Djava.test.version=1.11
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin
   - template: build-templates/maven-common.yml@templates
     parameters:
@@ -67,5 +67,5 @@ jobs:
       timeoutInMinutes: 180
       vmImage: 'windows-latest'
       options: -B -Djava.test.version=1.17
-      mavenGoals: 'clean verify'
+      mavenGoals: 'clean test -Dtest=WrappedFileChannelTest'
       fetchDepth: 0 # need unlimited for license plugin

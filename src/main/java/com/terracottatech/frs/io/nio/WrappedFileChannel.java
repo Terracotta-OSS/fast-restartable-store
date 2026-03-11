@@ -56,7 +56,7 @@ import java.util.function.Function;
 public class WrappedFileChannel extends FileChannel {
   private final ChannelOpener channelOpener;
   private final Set<WrappedFileLock> grantedLocks;
-  private final ReentrantReadWriteLock rwLock;
+  private final ReentrantReadWriteLock channelIOLock;
   private final ReentrantLock posLock;
   private volatile FileChannel channel;
   private volatile boolean positionLost;
@@ -67,7 +67,7 @@ public class WrappedFileChannel extends FileChannel {
     this.grantedLocks = Collections.newSetFromMap(new ConcurrentHashMap<WrappedFileLock, Boolean>());
     this.posLock = new ReentrantLock();
     this.positionLost = false;
-    this.rwLock = new ReentrantReadWriteLock();
+    this.channelIOLock = new ReentrantReadWriteLock();
   }
 
   @Override
@@ -150,7 +150,7 @@ public class WrappedFileChannel extends FileChannel {
     ChannelFunction<FileLock> actionToTake = channel -> {
       FileLock fl = channel.lock(position, size, shared);
       if (fl != null) {
-        WrappedFileLock wl = new WrappedFileLock(this, fl);
+        WrappedFileLock wl = new WrappedFileLock(fl);
         grantedLocks.add(wl);
         return wl;
       }
@@ -164,7 +164,7 @@ public class WrappedFileChannel extends FileChannel {
     ChannelFunction<FileLock> actionToTake = channel -> {
       FileLock fl = channel.tryLock(position, size, shared);
       if (fl != null) {
-        WrappedFileLock wl = new WrappedFileLock(this, fl);
+        WrappedFileLock wl = new WrappedFileLock(fl);
         grantedLocks.add(wl);
         return wl;
       }
@@ -202,7 +202,7 @@ public class WrappedFileChannel extends FileChannel {
     long pos = -1;
     boolean interrupted = Thread.interrupted();
     FileChannel currentChannel;
-    ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
+    ReentrantReadWriteLock.ReadLock lock = channelIOLock.readLock();
     lock.lock();
     try {
       while (true) {
@@ -288,13 +288,12 @@ public class WrappedFileChannel extends FileChannel {
 
   private <R> R retryOnInterrupt(ChannelFunction<R> actionToTake, boolean lockPosition, boolean posGained,
                                  boolean posImportant) throws IOException {
-    boolean success = false;
     if (lockPosition) {
       posLock.lock();
     }
     FileChannel currentChannel = channel;
     boolean interrupted = false;
-    ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
+    ReentrantReadWriteLock.ReadLock lock = channelIOLock.readLock();
     lock.lock();
     try {
       while (true) {
@@ -305,7 +304,9 @@ public class WrappedFileChannel extends FileChannel {
         try {
           currentChannel = channel;
           R r = actionToTake.apply(currentChannel);
-          success = true;
+          if (posGained && positionLost) {
+            positionLost = false;
+          }
           return r;
         } catch (ClosedChannelException | FileLockInterruptionException cce) {
           System.out.println("Oops : exception (" + cce.getClass().getSimpleName() +
@@ -323,17 +324,6 @@ public class WrappedFileChannel extends FileChannel {
       if (lockPosition) {
         posLock.unlock();
       }
-      if (success && posGained) {
-        // TODO : If success, then channel == currentChannel. Could not find a scenario where it will false.
-        if (channel == currentChannel && this.positionLost) {
-          synchronized (this) {
-            if (channel == currentChannel) {
-              // we have regained the position if channel has not switched from underneath us
-              this.positionLost = false;
-            }
-          }
-        }
-      }
       if (interrupted) {
         Thread.currentThread().interrupt();
       }
@@ -343,7 +333,7 @@ public class WrappedFileChannel extends FileChannel {
   private <R> R retryOnChannelSwitch(ChannelFunction<R> actionToTake) throws IOException {
     FileChannel currentChannel;
     boolean interrupted = false;
-    ReentrantReadWriteLock.ReadLock lock = rwLock.readLock();
+    ReentrantReadWriteLock.ReadLock lock = channelIOLock.readLock();
     lock.lock();
     try {
       while (true) {
@@ -388,7 +378,7 @@ public class WrappedFileChannel extends FileChannel {
       return interrupted;
     }
 
-    ReentrantReadWriteLock.WriteLock lock = rwLock.writeLock();
+    ReentrantReadWriteLock.WriteLock lock = channelIOLock.writeLock();
     lock.lock();
     try {
       if (previous == channel) {
@@ -479,14 +469,12 @@ public class WrappedFileChannel extends FileChannel {
     R apply(FileChannel channel, U u) throws IOException;
   }
 
-  private static final class WrappedFileLock extends FileLock {
+  private final class WrappedFileLock extends FileLock {
     private volatile FileLock actual;
-    private final WrappedFileChannel lockedChannel;
 
-    WrappedFileLock(WrappedFileChannel lockedChannel, FileLock actual) {
-      super(lockedChannel, actual.position(), actual.size(), actual.isShared());
+    WrappedFileLock(FileLock actual) {
+      super(WrappedFileChannel.this, actual.position(), actual.size(), actual.isShared());
       this.actual = actual;
-      this.lockedChannel = lockedChannel;
     }
 
     @Override
@@ -497,20 +485,20 @@ public class WrappedFileChannel extends FileChannel {
     @Override
     public void release() throws IOException {
       boolean interrupted = Thread.interrupted();
-      ReentrantReadWriteLock.ReadLock lock = lockedChannel.rwLock.readLock();
+      ReentrantReadWriteLock.ReadLock lock = channelIOLock.readLock();
       lock.lock();
       try {
         while (true) {
           try {
             actual.release();
-            lockedChannel.grantedLocks.remove(this);
+            grantedLocks.remove(this);
             return;
           } catch (ClosedChannelException e) {
             System.out.println("Oops : exception (" + e.getClass().getSimpleName() +
                     ") during release for thread (" + Thread.currentThread().getId() + ")");
             lock.unlock();
             try {
-              interrupted |= lockedChannel.reopen(e);
+              interrupted |= reopen(e);
             } finally {
               lock.lock();
             }

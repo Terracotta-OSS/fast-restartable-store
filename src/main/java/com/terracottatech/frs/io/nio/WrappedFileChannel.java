@@ -92,31 +92,54 @@ public class WrappedFileChannel extends FileChannel {
 
   @Override
   public long position() throws IOException {
-    return retryOnInterruptIfPosNotLost(FileChannel::position);
+    return retryOnChannelSwitch(channel -> {
+      if (positionLost) {
+        throw new PositionLostException();
+      }
+      return channel.position();
+    });
   }
 
   @Override
   public FileChannel position(final long newPosition) throws IOException {
     // position is regained even in a switched channel, if this method succeeds
-    retryOnInterruptLockPosAndPosGain(c -> c.position(newPosition));
-    return this;
+    posLock.lock();
+    try {
+      return retryOnChannelSwitch(channel -> {
+        channel.position(newPosition);
+        positionLost = false;
+        return this;
+      });
+    } finally {
+      posLock.unlock();
+    }
   }
 
   @Override
   public long size() throws IOException {
-    return retryOnInterrupt(FileChannel::size);
+    return retryOnChannelSwitch(FileChannel::size);
   }
 
   @Override
   public FileChannel truncate(final long size) throws IOException {
     // position may be gained only if truncate truncates less than current position. so assume worst case here
-    retryOnInterruptLockPos(c -> c.truncate(size));
-    return this;
+    posLock.lock();
+    try {
+      return retryOnChannelSwitch(channel -> {
+        channel.truncate(size);
+        return this;
+      });
+    } finally {
+      posLock.unlock();
+    }
   }
 
   @Override
   public void force(final boolean metaData) throws IOException {
-    retryOnInterrupt(FileChannel::force, metaData);
+    retryOnChannelSwitch(channel -> {
+      channel.force(metaData);
+      return null;
+    });
   }
 
   @Override
@@ -142,7 +165,7 @@ public class WrappedFileChannel extends FileChannel {
 
   @Override
   public MappedByteBuffer map(final MapMode mode, final long position, final long size) throws IOException {
-    return retryOnInterrupt(c -> c.map(mode, position, size));
+    return retryOnChannelSwitch(channel -> channel.map(mode, position, size));
   }
 
   @Override
@@ -182,19 +205,19 @@ public class WrappedFileChannel extends FileChannel {
     return retryOnInterruptWithPos(true, actionToTake, buf, new ByteBuffer[] {buf});
   }
 
-  private <R> R retryOnInterruptWithBufPosAndFilePos(ChannelBiFunction<R, ByteBuffer[]> actionToTake, ByteBuffer[] bufs) throws IOException {
-    return retryOnInterruptWithPos(true, actionToTake, bufs, bufs);
+  private <R> R retryOnInterruptWithBufPosAndFilePos(ChannelBiFunction<R, ByteBuffer[]> actionToTake, ByteBuffer[] buffers) throws IOException {
+    return retryOnInterruptWithPos(true, actionToTake, buffers, buffers);
   }
 
   private <R> R retryOnInterruptWithBufPos(ChannelBiFunction<R, ByteBuffer> actionToTake, ByteBuffer buf) throws IOException {
     return retryOnInterruptWithPos(false, actionToTake, buf, new ByteBuffer[] {buf});
   }
 
-  private <R, U> R retryOnInterruptWithPos(boolean savePosition, ChannelBiFunction<R, U> actionToTake, U u, ByteBuffer[] bufs) throws IOException {
+  private <R, U> R retryOnInterruptWithPos(boolean savePosition, ChannelBiFunction<R, U> actionToTake, U u, ByteBuffer[] buffers) throws IOException {
     if (channelOpener.isClosed()) {
       throw new ClosedChannelException();
     }
-    int[] bufPositions = storeBufPositions(bufs);
+    int[] bufPositions = storeBufPositions(buffers);
     if (savePosition) {
       posLock.lock();
     }
@@ -225,7 +248,7 @@ public class WrappedFileChannel extends FileChannel {
           } finally {
             lock.lock();
           }
-          reinstateBufPositions(bufs, bufPositions);
+          reinstateBufPositions(buffers, bufPositions);
         }
       }
     } finally {
@@ -253,52 +276,6 @@ public class WrappedFileChannel extends FileChannel {
       bufPositions[i++] = buf.position();
     }
     return bufPositions;
-  }
-
-  private <R> void retryOnInterrupt(ChannelBiConsumer<R> actionToTake, R r) throws IOException {
-    retryOnInterrupt((ChannelFunction<Void>) (c) -> {
-      actionToTake.accept(channel, r);
-      return null;
-    });
-  }
-
-  private <R> R retryOnInterrupt(ChannelFunction<R> actionToTake) throws IOException {
-    return retryOnInterrupt(actionToTake, false, false, false);
-  }
-
-  private <R> R retryOnInterruptIfPosNotLost(ChannelFunction<R> actionToTake) throws IOException {
-    return retryOnInterrupt(actionToTake, false, false, true);
-  }
-
-  private <R> R retryOnInterruptLockPos(ChannelFunction<R> actionToTake) throws IOException {
-    return retryOnInterrupt(actionToTake, true, false, false);
-  }
-
-  private <R> R retryOnInterruptLockPosAndPosGain(ChannelFunction<R> actionToTake) throws IOException {
-    return retryOnInterrupt(actionToTake, true, true, false);
-  }
-
-  private <R> R retryOnInterrupt(ChannelFunction<R> actionToTake, boolean lockPosition, boolean posGained,
-                                 boolean posImportant) throws IOException {
-    if (lockPosition) {
-      posLock.lock();
-    }
-    try {
-      return retryOnChannelSwitch(channel -> {
-        if (posImportant && this.positionLost) {
-          throw new PositionLostException();
-        }
-        R r = actionToTake.apply(channel);
-        if (posGained && positionLost) {
-          positionLost = false;
-        }
-        return r;
-      });
-    } finally {
-      if (lockPosition) {
-        posLock.unlock();
-      }
-    }
   }
 
   private <R> R retryOnChannelSwitch(ChannelFunction<R> actionToTake) throws IOException {
@@ -405,17 +382,6 @@ public class WrappedFileChannel extends FileChannel {
   @FunctionalInterface
   private interface ChannelFunction<R> {
     R apply(FileChannel channel) throws IOException;
-  }
-
-  /**
-   * Duplicate the {@link java.util.function.Consumer} interface here for channel usage as currently the Consumer
-   * interface does not allow throwing checked exceptions.
-   *
-   * @param <R> second input type
-   */
-  @FunctionalInterface
-  private interface ChannelBiConsumer<R> {
-    void accept(FileChannel channel, R r) throws IOException;
   }
 
   /**

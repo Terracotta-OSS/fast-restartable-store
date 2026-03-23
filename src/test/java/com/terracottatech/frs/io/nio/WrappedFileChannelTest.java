@@ -588,15 +588,12 @@ public class WrappedFileChannelTest {
           max = 100;
           sleepTime = (big) ? rand.nextInt(50) : rand.nextInt(10);
         }
-        // pause for sometime before issuing next interrupts
-        for (int i = 0; i < 10 + sleepTime; i++) {
-          try {
-            Thread.sleep(1);
-            if (runningThreads.isEmpty()) {
-              break;
-            }
-          } catch (InterruptedException ignored) {
+        try {
+          Thread.sleep(sleepTime);
+          if (runningThreads.isEmpty()) {
+            break;
           }
+        } catch (InterruptedException ignored) {
         }
       }
     });

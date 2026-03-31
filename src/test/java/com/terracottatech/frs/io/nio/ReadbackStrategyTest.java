@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
@@ -114,9 +115,7 @@ public class ReadbackStrategyTest {
         fis.close();
 
         System.gc();
-        if (!file.delete()) {
-            throw new AssertionError("not deleted");
-        }
+        Files.delete(file.toPath());
         assert (!file.exists());
     }
 

@@ -25,13 +25,20 @@ import com.terracottatech.frs.util.JUnitTestFolder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+
 /**
  *
  * @author mscott
@@ -42,33 +49,24 @@ public class ReadbackStrategyTest {
     File        src;
     
     @Rule
-    public JUnitTestFolder folder = new JUnitTestFolder();    
-    
+    public JUnitTestFolder folder = new JUnitTestFolder();
+
     public ReadbackStrategyTest() {
     }
 
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-    }
-
-    @AfterClass
-    public static void tearDownClass() throws Exception {
-    }
-    
     @Before
     public void setUp() throws Exception {
-        System.out.println(folder.getRoot());
+        System.out.println("Test Folder " + folder.getRoot());
         src = folder.newFile();
         FileChannel fc = new FileOutputStream(src).getChannel();
         ByteBuffer buf = ByteBuffer.allocate(1024);
         buffer = new FileBuffer(fc, ByteBuffer.allocate(8192));
-        WrappingChunk c = new WrappingChunk(buf);
-        for (int x=0;x<1024;x++) {
-            append(c,0);
-            c.clear();
+        WrappingChunk chunk = new WrappingChunk(buf);
+        for (int x = 0; x < 1024; x++) {
+            append(chunk, 0);
+            chunk.clear();
         }
-
-   }
+    }
 
     //  from nio segment code  
     public void append(Chunk c, long max) throws Exception {
@@ -85,120 +83,116 @@ public class ReadbackStrategyTest {
         buffer.put(SegmentHeaders.FILE_CHUNK.getBytes());
         buffer.write(raw.length + 2);
     }
-    
+
     @Test
     public void testDeleteFile() throws Exception {
-        File f = folder.newFile();
-        FileOutputStream fos = new FileOutputStream(f);
-        for (int x=0;x<1024;x++) fos.write(0x00AB);
+        File file = folder.newFile();
+        FileOutputStream fos = new FileOutputStream(file);
+        for (int x = 0; x < 1024; x++) fos.write(0x00AB);
         fos.close();
-        FileInputStream fis = new FileInputStream(f);
-        
+
+        FileInputStream fis = new FileInputStream(file);
         FileChannel buffer = fis.getChannel();
         buffer.close();
-        if ( !f.delete() ) {
+        if (!file.delete()) {
             throw new AssertionError("not deleted");
         }
-        assert(!f.exists());
-//        for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
+        assert (!file.exists());
     }
-    
+
     @Test
     public void testDeleteMappedFile() throws Exception {
-        File f = folder.newFile();
-        FileOutputStream fos = new FileOutputStream(f);
-        for (int x=0;x<1024;x++) fos.write(0x00AB);
+        File file = folder.newFile();
+        FileOutputStream fos = new FileOutputStream(file);
+        for (int x = 0; x < 1024; x++) fos.write(0x00AB);
         fos.close();
-        FileInputStream fis = new FileInputStream(f);
-        
-        MappedByteBuffer buffer = fis.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length());
-        fis.close();
-        for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
+
+        FileInputStream fis = new FileInputStream(file);
+        FileChannel channel = fis.getChannel();
+        MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, file.length());
+        for (int x = 0; x < 1024; x++) assert ((buffer.get(x) & 0xff) == 0xAB);
         buffer = null;
+        channel.close();
+        fis.close();
+
         System.gc();
-        if ( !f.delete() ) {
-            throw new AssertionError("not deleted");
-        }
-        assert(!f.exists());
-//        for (int x=0;x<1024;x++) assert((buffer.get(x) & 0xff) == 0xAB);
+        Files.delete(file.toPath());
+        assert (!file.exists());
     }
-    
+
     @Test
     public void testIntegrityReadback() throws Exception {
- //  testing normal close
+        //  testing normal close
         buffer.clear();
         buffer.put(SegmentHeaders.CLOSE_FILE.getBytes());
         buffer.write(1);
         buffer.close();
-        
-        buffer = new FileBuffer(new FileInputStream(src).getChannel(),ByteBuffer.allocateDirect(8192));
+
+        buffer = new FileBuffer(new FileInputStream(src).getChannel(), ByteBuffer.allocateDirect(8192));
         IntegrityReadbackStrategy i = new IntegrityReadbackStrategy(buffer);
         int count = 0;
-        while ( i.hasMore(Direction.FORWARD) ) {
+        while (i.hasMore(Direction.FORWARD)) {
             count++;
             i.iterate(Direction.FORWARD);
         }
-        assertThat(count,is(1024));
+        assertThat(count, is(1024));
         byte[] check = new byte[4];
         buffer.partition(4);
         buffer.read(1);
         buffer.get(check);
         System.out.println(new String(check));
-        assert(SegmentHeaders.CLOSE_FILE.validate(check));
+        assert (SegmentHeaders.CLOSE_FILE.validate(check));
     }
-    
-    
-    @Test @Ignore
+
+    @Test
+    @Ignore
     public void testIntegrityReadbackOnAbort() throws Exception {
-//  testing abort close
+        //  testing abort close
         buffer.sync(false);
-        
+
         final AtomicInteger count = new AtomicInteger();
         final ByteBuffer[] list = new ByteBuffer[8192];
-        for (int x=0;x<list.length;x++) {
+        for (int x = 0; x < list.length; x++) {
             list[x] = ByteBuffer.allocate(4);
         }
-//  cause really slow writes in the hopes of catching the thread mid-write
-        Thread t = new Thread() {
-            public void run() {
-                WrappingChunk c = new WrappingChunk(list);
-                while (true) {
-                    try {
-                        append(c,0);
-                        count.incrementAndGet();
-                        c.clear();
-                    } catch ( Exception e ) {
-                        e.printStackTrace();
-                        break;
-                    }
+        //  cause really slow writes in the hopes of catching the thread mid-write
+        Thread t = new Thread(() -> {
+            WrappingChunk c = new WrappingChunk(list);
+            while (true) {
+                try {
+                    append(c, 0);
+                    count.incrementAndGet();
+                    c.clear();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    break;
                 }
             }
-        };
-        
+        });
+
         t.start();
-        Thread.sleep((int)Math.round(Math.random()*1000));
+        Thread.sleep((int) Math.round(Math.random() * 1000));
         t.interrupt();
         buffer.close();
-                        
-        
-        buffer = new FileBuffer(new FileInputStream(src).getChannel(),ByteBuffer.allocate(8192));
+
+        buffer = new FileBuffer(new FileInputStream(src).getChannel(), ByteBuffer.allocate(8192));
         IntegrityReadbackStrategy i = new IntegrityReadbackStrategy(buffer);
         int check = 0;
-        while ( i.hasMore(Direction.FORWARD) ) {
+        while (i.hasMore(Direction.FORWARD)) {
             check++;
             i.iterate(Direction.FORWARD);
         }
-        assert(check > 1024);
+        assert (check > 1024);
 //        byte[] check = new byte[4];
 //        buffer.partition(4);
 //        buffer.read(1);
 //        buffer.get(check);
 //        System.out.println(new String(check));
 //        assert(SegmentHeaders.CLOSE_FILE.validate(check));
-    }    
-    
-    @After
-    public void tearDown() {
     }
 
+    @After
+    public void tearDown() throws IOException {
+        buffer.close();
+    }
 }

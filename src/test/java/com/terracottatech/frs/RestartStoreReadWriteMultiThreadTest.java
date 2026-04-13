@@ -18,7 +18,7 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.heap.HeapObjectManager;
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 
 public class RestartStoreReadWriteMultiThreadTest {
-  
+
   static final int DIFFERENT_KEYS = 8;
   static final int CACHE_ID = 1;
   static final int BATCH_SIZE = 3;
@@ -50,7 +50,7 @@ public class RestartStoreReadWriteMultiThreadTest {
   static final int DATA_SIZE = 1000;
   static final int RECORD_COUNT = 20000;
   static final int ADDITIONAL_RECORD_COUNT = 100;
-  
+
   private final AtomicBoolean stop = new AtomicBoolean(false);
   private final ConcurrentLinkedQueue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
 
@@ -58,13 +58,12 @@ public class RestartStoreReadWriteMultiThreadTest {
   public TemporaryFolder folder= new TemporaryFolder();
 
   private volatile ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> objectManager;
-  private volatile RestartStore restartStore;
-  
-  
+  private volatile RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore;
+
   public Properties setUpProperties() {
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), Boolean.toString(true));
-    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1 * 1024));
+    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1024));
     properties.setProperty(FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD.shortName(), Double.toString(0.0d));
     return  properties;
   }
@@ -87,10 +86,8 @@ public class RestartStoreReadWriteMultiThreadTest {
   public void testConcurrentReadWrite() throws Exception {
     List<Future> readerThreads = new ArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(DIFFERENT_KEYS);
-    for(int i = 0; i < DIFFERENT_KEYS; i++){
-      readerThreads.add(executorService.submit(
-          ()->fetchRecords()
-      ));
+    for (int i = 0; i < DIFFERENT_KEYS; i++) {
+      readerThreads.add(executorService.submit(this::fetchRecords));
     }
     upsertRecords(RECORD_COUNT);
     //No problem even if it fails => Already set to false
@@ -103,40 +100,39 @@ public class RestartStoreReadWriteMultiThreadTest {
         fetching threads. Otherwise, it might happen that fetching thread is waiting for a synced marker 
         greater than the lsn in NIOManager and the synced marker is never generated as we stopped producing
         records. Before we come here, stop flag is already set, so fetching threads will quickly finish.
-         */
-        while(!f.isDone()){
+        */
+        while (!f.isDone()) {
           upsertRecords(ADDITIONAL_RECORD_COUNT);
         }
         f.get();
-      }
-      catch (Exception ex){
+      } catch (Exception ex) {
+        ex.printStackTrace();
         throw new RuntimeException(ex);
       }
     });
     //Sysout so that we know the exceptions generated
-    exceptions.forEach(System.out::println);
+    exceptions.forEach(Throwable::printStackTrace);
     executorService.shutdown();
     Assert.assertTrue(exceptions.isEmpty());
   }
-  
+
   private void fetchRecords() {
     Random randomKeyGenerator = new Random();
-    while(!stop.get()){
+    while (!stop.get()) {
       int key = randomKeyGenerator.nextInt(DIFFERENT_KEYS);
       boolean addLookAhead = randomKeyGenerator.nextBoolean();
       try {
         long lsn = objectManager.getLsn(byteBufferWithInt(CACHE_ID), byteBufferWithInt(key));
-        if(addLookAhead){
+        if (addLookAhead) {
           int lsnLookAhead = randomKeyGenerator.nextInt(101);
           lsn += lsnLookAhead;
         }
-        if(lsn >= 0){
+        if (lsn >= 0) {
           restartStore.get(lsn);
         }
-      }
-      catch (IllegalArgumentException ex) {
+      } catch (IllegalArgumentException ex) {
         String message = ex.getMessage();
-        if(message != null && message.startsWith("action is not a gettable event")){
+        if (message != null && message.startsWith("action is not a gettable event")) {
           /*
           This is fine. We are trying to artificially increase the last visible
           lsn so that we can simulate the issue described in:
@@ -150,15 +146,13 @@ public class RestartStoreReadWriteMultiThreadTest {
         exceptions.add(ex);
         //No problem even if it fails => Already set to false
         stop.compareAndSet(false, true);
-      }
-      catch (Exception ex) {
+      } catch (Exception ex) {
         exceptions.add(ex);
         //No problem even if it fails => Already set to false
         stop.compareAndSet(false, true);
-      }
-      catch (AssertionError ex) {
+      } catch (AssertionError ex) {
         String message = ex.getMessage();
-        if(message != null && message.startsWith("Marker")){
+        if (message != null && message.startsWith("Marker")) {
           /*
           This is fine. We are trying to artificially increase the last visible
           lsn so that we can simulate the issue described in:
@@ -167,7 +161,7 @@ public class RestartStoreReadWriteMultiThreadTest {
           When we randomly increase lsn, we get a random lsn which might not
           be a valid one which makes the code throw AssertionError starting with 
           the word "Marker"
-           */
+          */
           continue;
         }
         exceptions.add(ex);
@@ -176,37 +170,30 @@ public class RestartStoreReadWriteMultiThreadTest {
       }
     }
   }
-  
+
   private void upsertRecords(int numberOfIterations) throws Exception {
     byte[] vc = new byte[DATA_SIZE];
-    Arrays.fill(vc,(byte)(0xff));
+    Arrays.fill(vc, (byte)(0xff));
     int x = 0;
-    Transaction trans = null;
+    Transaction<ByteBuffer, ByteBuffer, ByteBuffer> trans = null;
     boolean transCommitStatus = false;
     int operationCount = 0;
-
-    int batchSize = BATCH_SIZE;
     int nosyncCount = 0;
     while (x < numberOfIterations) {
-      int key = x++ % DIFFERENT_KEYS;
-      Thread.yield();
       if (operationCount == 0) {
         transCommitStatus = false;
         boolean doSync = (++nosyncCount % SYNC_SIZE) == 0;
         trans = restartStore.beginTransaction(doSync);
       }
-
+      int key = x++ % DIFFERENT_KEYS;
       trans.put(byteBufferWithInt(CACHE_ID), byteBufferWithInt(key), ByteBuffer.wrap(vc));
-      operationCount++;
-      Thread.yield();
-      if (operationCount == batchSize) {
+      if (++operationCount == BATCH_SIZE) {
         transCommitStatus = true;
         trans.commit();
         operationCount = 0;
       }
-      Thread.yield();
     }
-    if(!transCommitStatus){
+    if (trans != null && !transCommitStatus) {
       trans.commit();
     }
   }

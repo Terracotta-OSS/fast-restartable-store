@@ -17,6 +17,7 @@ package com.terracottatech.frs.cipher;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,6 +27,7 @@ import javax.crypto.SecretKey;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -62,6 +64,7 @@ public class AESCipherManagerTest {
     // Create test data
     String testString = "This is a test string for encryption and decryption";
     ByteBuffer plainBuffer = ByteBuffer.wrap(testString.getBytes(StandardCharsets.UTF_8));
+    ByteBuffer[] plainBuffers = new ByteBuffer[] { plainBuffer };
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
@@ -70,11 +73,24 @@ public class AESCipherManagerTest {
     ivCopy.flip();
 
     // Encrypt
-    ByteBuffer encryptedBuffer = cipherManager.encrypt(plainBuffer, iv);
-    assertNotNull("Encrypted buffers should not be null", encryptedBuffer);
+    ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
+    assertNotNull("Encrypted buffers should not be null", encryptedBuffers);
+    assertTrue("Should have at least one encrypted buffer", encryptedBuffers.length > 0);
+
+    // Combine encrypted buffers
+    int totalSize = 0;
+    for (ByteBuffer buffer : encryptedBuffers) {
+      totalSize += buffer.remaining();
+    }
+
+    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
+    for (ByteBuffer buffer : encryptedBuffers) {
+      combinedEncrypted.put(buffer);
+    }
+    combinedEncrypted.flip();
 
     // Decrypt
-    ByteBuffer decryptedBuffer = cipherManager.decrypt(encryptedBuffer, ivCopy);
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
     assertNotNull("Decrypted buffer should not be null", decryptedBuffer);
 
     // Verify decrypted content
@@ -83,5 +99,111 @@ public class AESCipherManagerTest {
     String decryptedString = new String(decryptedBytes, StandardCharsets.UTF_8);
 
     assertEquals("Decrypted string should match original", testString, decryptedString);
+  }
+
+  @Test
+  public void testEncryptDecryptLargeData() {
+    // Create a larger test data (100KB)
+    int dataSize = 100 * 1024; // 100KB
+    byte[] testData = new byte[dataSize];
+    for (int i = 0; i < dataSize; i++) {
+      testData[i] = (byte) (i % 256);
+    }
+
+    ByteBuffer plainBuffer = ByteBuffer.wrap(testData);
+    ByteBuffer[] plainBuffers = new ByteBuffer[] { plainBuffer };
+
+    // Generate IV
+    ByteBuffer iv = cipherManager.generateInitializationVector();
+    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
+    ivCopy.put(iv.duplicate());
+    ivCopy.flip();
+
+    // Encrypt
+    ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
+
+    // Combine encrypted buffers
+    int totalSize = 0;
+    for (ByteBuffer buffer : encryptedBuffers) {
+      totalSize += buffer.remaining();
+    }
+
+    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
+    for (ByteBuffer buffer : encryptedBuffers) {
+      combinedEncrypted.put(buffer);
+    }
+    combinedEncrypted.flip();
+
+    // Decrypt
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
+
+    // Verify decrypted content
+    byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];
+    decryptedBuffer.get(decryptedBytes);
+
+    assertArrayEquals("Decrypted data should match original", testData, decryptedBytes);
+  }
+
+  @Test
+  public void testEncryptDecryptMultipleBuffers() {
+    // Create multiple test buffers
+    List<ByteBuffer> buffers = new ArrayList<>();
+    List<String> testStrings = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      String testString = "Test string " + i + " for encryption and decryption";
+      testStrings.add(testString);
+      buffers.add(ByteBuffer.wrap(testString.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    ByteBuffer[] plainBuffers = buffers.toArray(new ByteBuffer[0]);
+
+    // Generate IV
+    ByteBuffer iv = cipherManager.generateInitializationVector();
+    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
+    ivCopy.put(iv.duplicate());
+    ivCopy.flip();
+
+    // Encrypt
+    ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
+
+    // Combine encrypted buffers
+    int totalSize = 0;
+    for (ByteBuffer buffer : encryptedBuffers) {
+      totalSize += buffer.remaining();
+    }
+
+    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
+    for (ByteBuffer buffer : encryptedBuffers) {
+      combinedEncrypted.put(buffer);
+    }
+    combinedEncrypted.flip();
+
+    // Decrypt
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
+
+    // Verify decrypted content
+    byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];
+    decryptedBuffer.get(decryptedBytes);
+    String decryptedString = new String(decryptedBytes, StandardCharsets.UTF_8);
+
+    // Combine original strings for comparison
+    StringBuilder expectedBuilder = new StringBuilder();
+    for (String str : testStrings) {
+      expectedBuilder.append(str);
+    }
+    String expectedString = expectedBuilder.toString();
+
+    assertEquals("Decrypted string should match original combined strings", expectedString, decryptedString);
+  }
+
+  @Test
+  public void testValidateAlgorithm() {
+    assertTrue("AES/CFB/PKCS5Padding should be a valid algorithm",
+        CipherManager.validateAlgorithm("AES/CFB/PKCS5Padding"));
+    assertTrue("AES/CBC/PKCS5Padding should be a valid algorithm",
+        CipherManager.validateAlgorithm("AES/CBC/PKCS5Padding"));
+    assertTrue("AES/GCM/NoPadding should be a valid algorithm",
+        CipherManager.validateAlgorithm("AES/GCM/NoPadding"));
   }
 }

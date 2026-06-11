@@ -58,11 +58,11 @@ public interface CipherManager {
       return true;
     } catch (NoSuchAlgorithmException e) {
       // Log specific error for debugging purposes
-      LOGGER.debug("Algorithm '{}' is not supported: {}", algorithm, e.getMessage());
+      LOGGER.debug("Algorithm '{}' is not supported", algorithm, e);
       return false;
     } catch (NoSuchPaddingException e) {
       // Log specific error for debugging purposes
-      LOGGER.debug("Padding mechanism for algorithm '{}' is not available: {}", algorithm, e.getMessage());
+      LOGGER.debug("Padding mechanism for algorithm '{}' is not available", algorithm, e);
       return false;
     }
   }
@@ -84,11 +84,11 @@ public interface CipherManager {
   /**
    * Encrypts the content of a ByteBuffer using the provided initialization vector.
    *
-   * @param plainBuffer The ByteBuffer containing the plain text data to be encrypted
+   * @param plainBuffer The ByteBuffer array containing the plain text data to be encrypted
    * @param ivBuffer The initialization vector to use for the encryption operation
-   * @return A ByteBuffer containing the encrypted data
+   * @return An array of ByteBuffer containing the encrypted data
    */
-  ByteBuffer encrypt(ByteBuffer plainBuffer, ByteBuffer ivBuffer);
+  ByteBuffer[] encrypt(ByteBuffer[] plainBuffer, ByteBuffer ivBuffer);
 
   /**
    * Decrypts the content of a ByteBuffer using the provided initialization vector.

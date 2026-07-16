@@ -113,9 +113,8 @@ public abstract class RestartStoreFactory {
 
     }
 
-    TransactionManager transactionManager = new TransactionManagerImpl(actionManager);
-    return new RestartStoreImpl(objectManager, transactionManager, logManager,
-        actionManager, readManager, ioManager, configuration);
+    return new RestartStoreImpl(objectManager, logManager,
+            actionManager, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

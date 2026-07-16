@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * @author tim
@@ -34,10 +36,10 @@ public class TransactionManagerImpl implements TransactionManager {
   private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
 
-  private final ActionManager           actionManager;
+  private final Supplier<ActionManager> actionManagerSupplier;
 
-  public TransactionManagerImpl(ActionManager actionManager) {
-    this.actionManager = actionManager;
+  public TransactionManagerImpl(Supplier<ActionManager> actionManagerSupplier) {
+    this.actionManagerSupplier = actionManagerSupplier;
   }
 
   @Override
@@ -58,7 +60,7 @@ public class TransactionManagerImpl implements TransactionManager {
     }
     TransactionCommitAction action = new TransactionCommitAction(handle, account.begin());
     if (synchronous) {
-      Future<Void> written = actionManager.syncHappened(action);
+      Future<Void> written = actionManagerSupplier.get().syncHappened(action);
       boolean interrupted = false;
       while (true) {
         try {
@@ -74,7 +76,7 @@ public class TransactionManagerImpl implements TransactionManager {
         Thread.currentThread().interrupt();
       }
     } else {
-      actionManager.happened(action);
+      actionManagerSupplier.get().happened(action);
     }
   }
 
@@ -86,7 +88,7 @@ public class TransactionManagerImpl implements TransactionManager {
               handle + " does not belong to a live transaction.");
     }
     Action transactionalAction = new TransactionalAction(handle, account.begin(), false, action, account);
-    actionManager.happened(transactionalAction);
+    actionManagerSupplier.get().happened(transactionalAction);
   }
 
   @Override

@@ -15,6 +15,10 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.cipher.AESCipherManager;
+import com.terracottatech.frs.cipher.CipherManager;
+import com.terracottatech.frs.cipher.EncryptingActionManager;
+import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +56,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author twu
@@ -68,7 +73,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final TransactionManager                                transactionManager;
   private final Compactor compactor;
   private final LogManager logManager;
-  private final ActionManager actionManager;
+  private final AtomicReference<ActionManager> actionManagerRef = new AtomicReference<>();
   private final ReadManager readManager;
   private final Configuration configuration;
 
@@ -81,30 +86,41 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private volatile State state = State.INIT;
   private volatile State prevState = state;
 
-  RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                   TransactionManager transactionManager, LogManager logManager,
-                   ActionManager actionManager, ReadManager read, Compactor compactor,
-                   Configuration configuration) {
-    this.transactionManager = transactionManager;
+//  RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+//                   TransactionManager transactionManager, LogManager logManager,
+//                   ActionManager actionManager, ReadManager read, Compactor compactor,
+//                   Configuration configuration) {
+//    this.transactionManager = transactionManager;
+//    this.objectManager = objectManager;
+//    this.logManager = logManager;
+//    this.actionManager = actionManager;
+//    this.readManager = read;
+//    this.compactor = compactor;
+//    this.configuration = configuration;
+//    this.pauseExecutionService = Executors.newScheduledThreadPool(0);
+//    this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
+//  }
+
+
+  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                          LogManager logManager,
+                          ActionManager actionManager, ReadManager read, IOManager ioManager,
+                          Configuration configuration) throws RestartStoreException {
     this.objectManager = objectManager;
     this.logManager = logManager;
-    this.actionManager = actionManager;
+    this.actionManagerRef.set(actionManager);
     this.readManager = read;
-    this.compactor = compactor;
+    this.transactionManager = new TransactionManagerImpl(() -> getActionManager());
+    this.compactor = new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, () -> getActionManager());
     this.configuration = configuration;
     this.pauseExecutionService = Executors.newScheduledThreadPool(0);
     this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
   }
 
-  public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                          TransactionManager transactionManager, LogManager logManager,
-                          ActionManager actionManager, ReadManager read, IOManager ioManager,
-                          Configuration configuration) throws RestartStoreException {
-    this(objectManager, transactionManager, logManager, actionManager, read, 
-         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration,
-                           actionManager),
-         configuration);
+  private ActionManager getActionManager() {
+    return actionManagerRef.get();
   }
+
 
   @Override
   public synchronized Future<Void> startup() throws InterruptedException,
@@ -120,7 +136,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       }
     }
     state = State.RECOVERING;
-    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, actionManager,
+    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, getActionManager(),
                                                               configuration);
     return recoveryManager.recover(this);
   }
@@ -166,7 +182,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         if ( c == null ) {
             return null;
         }
-        Action a = actionManager.extract(c);
+        Action a = getActionManager().extract(c);
         if ( a instanceof GettableAction ) {
           return (GettableAction)a;
         } else {
@@ -248,7 +264,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       @Override
       public Future<Snapshot> call() throws Exception {
         compactor.pause();
-        actionManager.pause();
+        actionManagerRef.get().pause();
         return new OuterSnapshotFuture(logManager.snapshotAsync());
       }
     });
@@ -274,7 +290,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         // for snapshots..compactor is unpaused after snapshots are closed
         compactor.unpause();
       }
-      actionManager.resume();
+      getActionManager().resume();
       state = State.RUNNING;
     } else {
       // state is frozen..means from Init or Recovered state..move back
@@ -303,12 +319,23 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         @Override
         public Future<Void> call() throws Exception {
           compactor.pause();
-          actionManager.pause();
-          return new OuterFreezeFuture(logManager.appendAndSync(actionManager.barrierAction()));
+          getActionManager().pause();
+          return new OuterFreezeFuture(logManager.appendAndSync(getActionManager().barrierAction()));
         }
       });
       return shutdownTaskRef;
     }
+  }
+
+  @Override
+  public void handleEncKeyChange(String key) {
+    long maxLsnWithOldKey = logManager.currentLsn();
+//    if(!(getActionManager() instanceof EncryptingActionManager)) {
+//      String algorithm = configuration.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM);
+//      CipherManager cipherManager = new AESCipherManager();
+//      actionManagerRef.set(new EncryptingActionManager(getActionManager()));
+//    }
+
   }
 
   /**
@@ -320,7 +347,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       return;
     }
     compactor.unpause();
-    actionManager.resume();
+    getActionManager().resume();
     pauseTaskRef.cancel(true);
     pauseTaskRef = null;
     pauseTimerTaskRef = null;
@@ -382,7 +409,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     private void happened(Action action) throws TransactionException {
       if (synchronous) {
         boolean interrupted = false;
-        Future<Void> written = actionManager.syncHappened(action);
+        Future<Void> written = getActionManager().syncHappened(action);
         while (true) {
           try {
             written.get();
@@ -397,7 +424,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
           Thread.currentThread().interrupt();
         }
       } else {
-        actionManager.happened(action);
+        getActionManager().happened(action);
       }
     }
 

@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RETRY_INTERVAL;
@@ -50,7 +51,7 @@ public class CompactorImpl implements Compactor {
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private final TransactionManager transactionManager;
-  private final ActionManager actionManager;
+  private final Supplier<ActionManager> actionManagerSupplier;
   private final LogManager logManager;
   private final boolean useLimiting = !Boolean.getBoolean("frs.compactor.limiter.disable");
 
@@ -68,12 +69,12 @@ public class CompactorImpl implements Compactor {
 
 
   CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                TransactionManager transactionManager, ActionManager actionManager, final LogManager logManager,
+                TransactionManager transactionManager, Supplier<ActionManager> actionManagerSupplier, final LogManager logManager,
                 CompactionPolicy policy, long runIntervalSeconds, long retryIntervalSeconds,
                 long compactActionThrottle, int startThreshold) {
     this.objectManager = objectManager;
     this.transactionManager = transactionManager;
-    this.actionManager = actionManager;
+    this.actionManagerSupplier = actionManagerSupplier;
     this.logManager = logManager;
     this.policy = policy;
     this.runIntervalSeconds = runIntervalSeconds;
@@ -84,8 +85,8 @@ public class CompactorImpl implements Compactor {
 
   public CompactorImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                        TransactionManager transactionManager, LogManager logManager,
-                       IOManager ioManager, Configuration configuration, ActionManager actionManager) throws RestartStoreException {
-    this(objectManager, transactionManager, actionManager, logManager,
+                       IOManager ioManager, Configuration configuration, Supplier<ActionManager> actionManagerSupplier) throws RestartStoreException {
+    this(objectManager, transactionManager, actionManagerSupplier, logManager,
          getPolicy(configuration, objectManager, logManager, ioManager),
          configuration.getLong(COMPACTOR_RUN_INTERVAL),
          configuration.getLong(COMPACTOR_RETRY_INTERVAL),
@@ -154,7 +155,7 @@ public class CompactorImpl implements Compactor {
           // If ObjectManager is empty, use the barrier lsn to invalidate the log
           
           NullAction barrier = new NullAction();
-          actionManager.happened(barrier).get();
+          actionManagerSupplier.get().happened(barrier).get();
           
           long lowLsn = objectManager.getLowestLsn();
           
@@ -173,7 +174,7 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(lowLsn);
 
           // Flush the new lowest LSN with a dummy record
-          actionManager.syncHappened(new NullAction()).get();
+          actionManagerSupplier.get().syncHappened(new NullAction()).get();
         } catch (InterruptedException e) {
           LOGGER.info("Compactor is interrupted. Shutting down.");
           return;
@@ -228,7 +229,7 @@ public class CompactorImpl implements Compactor {
         try {
           CompactionAction compactionAction =
                   new CompactionAction(objectManager, compactionEntry);
-          written = actionManager.happened(compactionAction);
+          written = actionManagerSupplier.get().happened(compactionAction);
           // We can't update the object manager on Action.record() because the compactor
           // is holding onto the segment lock. Since we want to wait for the action to be
           // sequenced anyways so we don't keep getting the same compaction keys, we may as

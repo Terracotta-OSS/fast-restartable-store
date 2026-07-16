@@ -130,4 +130,7 @@ public interface RestartStore<I, K, V> {
    * @return {@link Future} that completes when the freeze is complete.
    */
   Future<Future<Void>> freeze();
+
+  void handleEncKeyChange(String key);
+
 }

@@ -47,15 +47,12 @@ public abstract class BackupTest {
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
 
   public abstract Properties configure(Properties props);
-
   @Test
   public void testMissingSource() throws Exception {
     File folder = tempFolder.newFolder();
 
     try {
-      Backup.main(new String[] {
-          new File(folder, "bogus").getAbsolutePath(),
-          new File(folder, "bogus1").getAbsolutePath() });
+      Backup.main(new String[] { new File(folder, "bogus").getAbsolutePath(), new File(folder, "bogus1").getAbsolutePath()});
       Assert.fail("Should fail on missing source directory.");
     } catch (IOException e) {
       // expected
@@ -73,9 +70,9 @@ public abstract class BackupTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-          new RegisterableObjectManager<>();
-      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(objectManager, original, configure(new Properties()));
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
+                                                                                                      original, configure(new Properties()));
 
       restartStore.startup().get();
 
@@ -86,7 +83,7 @@ public abstract class BackupTest {
     assertThat(backupLockfile.delete(), is(true));
 
     try {
-      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
+      Backup.main(new String[] {original.getAbsolutePath(), copy.getAbsolutePath()});
       Assert.fail("Should have failed due to missing lock file.");
     } catch (IOException e) {
       //
@@ -115,7 +112,7 @@ public abstract class BackupTest {
     }
 
     try {
-      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
+      Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath()});
       Assert.fail("Should throw when destination directory exists.");
     } catch (IOException e) {
       // expected
@@ -130,15 +127,15 @@ public abstract class BackupTest {
     File copy = new File(folder, "copy");
 
     Properties properties = configure(new Properties());
-    //    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
+//    properties.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
 
     {
       assertThat(original.mkdirs(), is(true));
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-          new RegisterableObjectManager<>();
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
 
-      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(objectManager, original, properties);
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
+                                                                                                      original, properties);
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
       objectManager.registerObject(map);
 
@@ -155,10 +152,10 @@ public abstract class BackupTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-          new RegisterableObjectManager<>();
+              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
 
-      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(objectManager, copy, properties);
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
+                                                                                                      copy, properties);
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, false);
       objectManager.registerObject(map);
       restartStore.startup().get();
@@ -186,11 +183,10 @@ public abstract class BackupTest {
 
     {
 
-      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager =
-          new RegisterableObjectManager<>();
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
 
-      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(registerableObjectManager, original, properties);
+      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
+                                                                                                            original, properties);
 
       SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
@@ -205,20 +201,19 @@ public abstract class BackupTest {
     }
 
     {
-      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager =
-          new RegisterableObjectManager<>();
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
 
-      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(registerableObjectManager, original, properties);
+      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
+                                                                                                            original, properties);
 
       final SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
       restartStore.startup().get();
 
       assertThat(restartableMap.size(), is(100));
-
+      
       final AtomicBoolean done = new AtomicBoolean();
-      final AtomicReference<Throwable> error = new AtomicReference<>();
+      final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
       Thread garbageGeneration = new Thread() {
         @Override
         public void run() {
@@ -252,11 +247,10 @@ public abstract class BackupTest {
     }
 
     {
-      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager =
-          new RegisterableObjectManager<>();
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> registerableObjectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
 
-      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-          RestartStoreFactory.createStore(registerableObjectManager, copy, properties);
+      final RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(registerableObjectManager,
+                                                                                                            copy, properties);
 
       final SimpleRestartableMap restartableMap = new SimpleRestartableMap(0, restartStore, false);
       registerableObjectManager.registerObject(restartableMap);
@@ -283,8 +277,7 @@ public abstract class BackupTest {
 
     Properties properties = configure(new Properties());
     {
-      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-          new RegisterableObjectManager<>();
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, original, properties);
 
@@ -295,7 +288,7 @@ public abstract class BackupTest {
       for (int i = 0; i < 1000; i++) {
         map.put(Integer.toString(i), Integer.toString(i));
       }
-
+      
       Backup.main(new String[] { original.getAbsolutePath(), copy.getAbsolutePath() });
 
       restartStore.shutdown();
@@ -303,7 +296,7 @@ public abstract class BackupTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-          spy(new RegisterableObjectManager<>());
+              spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, copy, properties);
 
@@ -313,7 +306,7 @@ public abstract class BackupTest {
 
       assertThat(map.size(), is(1000));
       verify(objectManager, times(1000)).replayPut(any(ByteBuffer.class), any(ByteBuffer.class),
-          any(ByteBuffer.class), anyLong());
+                                                   any(ByteBuffer.class), anyLong());
 
       for (int i = 0; i < 1000; i++) {
         assertThat(map.get(Integer.toString(i)), is(Integer.toString(i)));

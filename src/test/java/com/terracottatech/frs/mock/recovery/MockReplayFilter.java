@@ -33,5 +33,9 @@ class MockReplayFilter implements Filter<Action> {
       return true;
     }
   }
-  
+
+  @Override
+  public void finish() {
+    
+  }
 }

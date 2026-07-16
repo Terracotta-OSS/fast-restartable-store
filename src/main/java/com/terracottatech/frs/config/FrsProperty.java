@@ -15,8 +15,6 @@
  */
 package com.terracottatech.frs.config;
 
-import java.util.Base64;
-
 public enum FrsProperty {
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
   IO_RANDOM_ACCESS("io.randomAccess", Type.BOOLEAN, false),
@@ -25,7 +23,7 @@ public enum FrsProperty {
   IO_COMMITLIST("io.commitList", Type.STRING, "ATOMIC"),
   IO_WAIT("io.wait", Type.INTEGER, 200),
   IO_DISABLE_SYNC("io.disableSync", Type.BOOLEAN, false),
-
+  
   IO_NIO_SEGMENT_SIZE("io.nio.segmentSize", Type.LONG, 512L * 1024 * 1024),
   IO_NIO_RECOVERY_MEMORY_SIZE("io.nio.recoveryMemorySize", Type.LONG, -1L),
   IO_NIO_POOL_MEMORY_SIZE("io.nio.memorySize", Type.LONG, 64L * 1024 * 1024),
@@ -35,13 +33,13 @@ public enum FrsProperty {
   IO_NIO_BUFFER_BUILDER("io.nio.bufferBuilder", Type.STRING, null),
   IO_NIO_ACCESS_METHOD("io.nio.accessMethod", Type.STRING, "STREAM"),
   IO_NIO_BUFFER_SOURCE("io.nio.bufferSource", Type.STRING, "HILO"),
-
+  
   RECOVERY_COMPRESSED_SKIP_SET("recovery.compressedSkipSet", Type.BOOLEAN, true),
   RECOVERY_REPLAY_PER_BATCH_SIZE("recovery.replayPerBatchSize", Type.INTEGER, 512),
   RECOVERY_REPLAY_TOTAL_BATCH_SIZE_MAX("recovery.replayTotalBatchSize", Type.INTEGER, 2048),
-
+  
   COMPACTOR_POLICY("compactor.policy", Type.STRING, "SizeBasedCompactionPolicy"),
-  COMPACTOR_THROTTLE_AMOUNT("compactor.throttleAmount", Type.LONG, 1000L),
+  COMPACTOR_THROTTLE_AMOUNT("compactor.throttleAmount", Type.LONG,  1000L),
   COMPACTOR_RUN_INTERVAL("compactor.runInterval", Type.LONG, 300L),
   COMPACTOR_START_THRESHOLD("compactor.startThreshold", Type.INTEGER, 50000),
   COMPACTOR_RETRY_INTERVAL("compactor.retryInterval", Type.LONG, 600L),
@@ -57,10 +55,9 @@ public enum FrsProperty {
 
   FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE"),
 
-  STORE_ENCRYPTION_ENABLE("store.encryptionEnable", Type.BOOLEAN, true),
-  STORE_ENCRYPTION_KEY("store.encryptionKey", Type.BYTEARRAY, null),
-  //AES_CTR AES_CBC, AES_GCM
-  STORE_ENCRYPTION_ALGORITHM("store.encryptionAlgorithm", Type.STRING, "AES/CFB/PKCS5Padding");
+  STORE_ENCRYPTION_ENABLE("store.encryptionEnable", Type.BOOLEAN, false),
+  STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS("store.encryptionKeyOldTokens", Type.STRING, null),
+  STORE_ENCRYPTION_NEW_TOKEN_AND_KEY("store.encryptionKeyNewToken", Type.STRING, null);
 
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 
@@ -125,12 +122,6 @@ public enum FrsProperty {
       @Override
       Double convert(String string) {
         return Double.valueOf(string);
-      }
-    },
-    BYTEARRAY {
-      @Override
-      byte[] convert(String string) {
-        return Base64.getDecoder().decode(string);
       }
     };
 

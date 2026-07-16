@@ -88,18 +88,18 @@ public class SkipsFilterTest {
     assertThat(filter.filter(action5, 5, false), is(true));
   }
 
-  private Action createAction(boolean replayReturn) {
+  private Action createAction(boolean replayReturn) throws RecoveryException {
     Action action = mock(Action.class);
     doReturn(replayReturn).when(delegate).filter(eq(action), anyLong(), eq(false));
     doReturn(false).when(delegate).filter(eq(action), anyLong(), eq(true));
     return action;
   }
 
-  private Action createAction(long previousLsn, boolean replayReturn) {
+  private Action createAction(long previousLsn, boolean replayReturn) throws RecoveryException {
     return createAction(Collections.singleton(previousLsn), replayReturn);
   }
 
-  private Action createAction(final Collection<Long> previousLsns, boolean replayReturn) {
+  private Action createAction(final Collection<Long> previousLsns, boolean replayReturn) throws RecoveryException {
     InvalidatingAction action = mock(InvalidatingAction.class);
     doReturn(replayReturn).when(delegate).filter(eq(action), anyLong(), anyBoolean());
     doReturn(new HashSet<Long>(previousLsns)).when(action).getInvalidatedLsns();

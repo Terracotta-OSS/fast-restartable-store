@@ -43,7 +43,7 @@ public class TransactionActionsTest {
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
-    actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
+    actionCodec = new ActionCodecImpl(objectManager);
     callback = mock(TransactionLSNCallback.class);
     mapActionFactory = new MapActionFactory(objectManager, mock(Compactor.class));
     TransactionActions.registerActions(0, actionCodec);

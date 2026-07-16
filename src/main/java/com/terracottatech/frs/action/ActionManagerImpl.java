@@ -31,31 +31,27 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author tim
  */
 public class ActionManagerImpl implements ActionManager {
-  private enum State {
-    NORMAL, WAITING_TO_PAUSE, PAUSED
-  }
 
   private final LogManager             logManager;
   private final ObjectManager<?, ?, ?> objectManager;
-  private final ActionCodec            actionCodec;
+  private final ActionCodec<?,?,?> actionCodec;
   private final LogRecordFactory       logRecordFactory;
 
   private final AtomicInteger          happeningCount;
-  private volatile State               happenState;
   private final ReentrantLock          stateLock;
-  private final Condition              happenedCondition;
+  private final Condition              idleCondition;
   private final Condition              resumeCondition;
+  private volatile int pauseRequestCount = 0;
 
   public ActionManagerImpl(LogManager logManager, ObjectManager<?, ?, ?> objectManager,
-                           ActionCodec actionCodec, LogRecordFactory logRecordFactory) {
+                           ActionCodec<?,?,?> actionCodec, LogRecordFactory logRecordFactory) {
     this.logManager = logManager;
     this.objectManager = objectManager;
     this.actionCodec = actionCodec;
     this.logRecordFactory = logRecordFactory;
     this.happeningCount = new AtomicInteger(0);
-    this.happenState = State.NORMAL;
     this.stateLock = new ReentrantLock();
-    this.happenedCondition = this.stateLock.newCondition();
+    this.idleCondition = this.stateLock.newCondition();
     this.resumeCondition = this.stateLock.newCondition();
   }
 
@@ -97,33 +93,23 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public void pause() {
+  public Future<Void> syncHappenedAndPause(Action action) throws InterruptedException {
     stateLock.lock();
     try {
-      if (happenState != State.NORMAL) {
-        return;
-      }
-      happenState = State.WAITING_TO_PAUSE;
-      // once we are out of normal state.. other thread entering happened at the same moment will
-      // get paused. If other thread has raced and won, the happening count will be non-zero and this
-      // thread will hold until the happened() thread completes.
-      if (happeningCount.get() == 0) {
-        happenState = State.PAUSED;
-      } else {
-        boolean interrupted = false;
-        while (happeningCount.get() != 0 && happenState == State.WAITING_TO_PAUSE) {
-          try {
-            this.happenedCondition.await();
-          } catch (InterruptedException ie) {
-            interrupted = true;
-          }
-        }
-        if (happenState == State.WAITING_TO_PAUSE) {
-          happenState = State.PAUSED;
-        }
-        if (interrupted) {
-          Thread.currentThread().interrupt();
-        }
+      pause();
+      return logManager.appendAndSync(wrapAction(action));
+    } finally {
+      stateLock.unlock();
+    }
+  }
+  
+  @Override
+  public void pause() throws InterruptedException {
+    stateLock.lock();
+    try {
+      pauseRequestCount++;
+      while(happeningCount.get() > 0) {
+        idleCondition.await();
       }
     } finally {
       stateLock.unlock();
@@ -134,20 +120,12 @@ public class ActionManagerImpl implements ActionManager {
   public void resume() {
     stateLock.lock();
     try {
-      if (happenState == State.NORMAL) {
-        return;
+      if (--pauseRequestCount == 0) {
+        resumeCondition.signalAll();
       }
-      happenState = State.NORMAL;
-      this.happenedCondition.signal();
-      this.resumeCondition.signalAll();
     } finally {
       stateLock.unlock();
     }
-  }
-
-  @Override
-  public LogRecord barrierAction() {
-    return wrapAction(new NullAction());
   }
 
   /**
@@ -155,29 +133,20 @@ public class ActionManagerImpl implements ActionManager {
    * Uses an optimistic approach to avoid holding the stateLock during normal operations.
    * <p>
    * Optimistically increment and do an unprotected check with a volatile read to avoid holding locks as action manager
-   * changing state from NORMAL to anything else is rare and happens only during backups.
+   * pause is rare operation done during backup and rotating enc key.
    */
   private void enterHappened() {
     happeningCount.incrementAndGet();
-    if (happenState != State.NORMAL) {
+    if (pauseRequestCount > 0) {
       stateLock.lock();
       try {
-        if (happenState != State.NORMAL) {
-          int happenedCnt = happeningCount.decrementAndGet();
+        if (pauseRequestCount > 0) {
           try {
-            if (happenedCnt == 0) {
-              this.happenedCondition.signal();
+            if (happeningCount.decrementAndGet() == 0) {
+              this.idleCondition.signalAll();
             }
-            boolean interrupted = false;
-            while (happenState != State.NORMAL) {
-              try {
-                resumeCondition.await();
-              } catch (InterruptedException e) {
-                interrupted = true;
-              }
-            }
-            if (interrupted) {
-              Thread.currentThread().interrupt();
+            while (pauseRequestCount > 0) {
+              resumeCondition.awaitUninterruptibly();
             }
           } finally {
             happeningCount.incrementAndGet();
@@ -190,13 +159,12 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   private void exitHappened() {
-    int numIn = happeningCount.decrementAndGet();
-    // ok to do a dirty check first..
-    if (happenState != State.NORMAL) {
+    int remaining = happeningCount.decrementAndGet();
+    if (pauseRequestCount > 0) {
       stateLock.lock();
       try {
-        if (numIn == 0 && happenState == State.WAITING_TO_PAUSE) {
-          this.happenedCondition.signal();
+        if (remaining == 0) {
+          idleCondition.signalAll();
         }
       } finally {
         stateLock.unlock();

@@ -15,7 +15,6 @@
  */
 package com.terracottatech.frs.action;
 
-import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -40,11 +39,6 @@ public class SimpleInvalidatingAction implements InvalidatingAction {
 
   @Override
   public void replay(long lsn) {
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 
   @Override

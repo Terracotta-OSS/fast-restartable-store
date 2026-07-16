@@ -45,8 +45,7 @@ public class CompactionActionsTest {
   public void setUp() throws Exception {
     compactor = mock(Compactor.class);
     objectManager = mock(ObjectManager.class);
-    codec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(
-            objectManager);
+    codec = new ActionCodecImpl(objectManager);
     CompactionActions.registerActions(0, codec);
     mapActionFactory = new MapActionFactory(objectManager, compactor);
   }

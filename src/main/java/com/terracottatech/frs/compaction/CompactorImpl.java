@@ -30,7 +30,12 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +68,7 @@ public class CompactorImpl implements Compactor {
   private final int startThreshold;
 
   private CompactorThread compactorThread;
-  private volatile boolean signalPause;
+  private volatile int pauseCount = 0;
   private boolean paused;
 
 
@@ -139,15 +144,11 @@ public class CompactorImpl implements Compactor {
     public void run() {
       while (alive) {
         try {
-          LOGGER.info("pre acquire semaphore count {}", compactionCondition.availablePermits());
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
-          LOGGER.info("post acquire semaphore count {}", compactionCondition.availablePermits());
 
           if (checkForPause()) {
-            LOGGER.info("Was paused semaphore count {}", compactionCondition.availablePermits());
             continue;
           }
-          LOGGER.info("Was not paused semaphore count {}", compactionCondition.availablePermits());
 
           // Flush in a dummy record to make sure everything for the updated lowest lsn
           // is on disk prior to cleaning up to the new lowest lsn.
@@ -207,13 +208,13 @@ public class CompactorImpl implements Compactor {
      long startLsn = 0;
      long lastLsn = 0;
  
-      LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
-      while (compactedCount < liveSize && !signalPause) {
+      LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
+      while (compactedCount < liveSize && pauseCount == 0) {
         ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
         if (compactionEntry == null) {
           if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
             rangeLsn <<= 1;
-            LOGGER.info("bumping range to " + rangeLsn);
+            LOGGER.debug("bumping range to " + rangeLsn);
             continue;
           } else {
             break;
@@ -253,8 +254,8 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
         }
       }
-      LOGGER.info("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
-      LOGGER.info("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
+      LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
+      LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
     }
   }
 
@@ -271,11 +272,8 @@ public class CompactorImpl implements Compactor {
   @Override
   public void compactNow() {
     try {
-      LOGGER.info("drain permits, before count ({}), drain count ({}), after count ({})",
-              compactionCondition.availablePermits(), compactionCondition.drainPermits(),
-              compactionCondition.availablePermits());
+      compactionCondition.drainPermits();
       compactionCondition.release(startThreshold);
-      LOGGER.info("release permits, semaphore count {}", compactionCondition.availablePermits());
     } catch ( Error e ) {
   //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
       LOGGER.warn("error generating garbage", e);
@@ -284,8 +282,7 @@ public class CompactorImpl implements Compactor {
 
   private synchronized boolean checkForPause() throws InterruptedException {
     boolean wasPaused = false;
-    if (signalPause) {
-      signalPause = false;
+    if (pauseCount > 0) {
       paused = true;
       notifyAll();
       while (paused) {
@@ -298,31 +295,75 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public synchronized void pause() {
-    if (paused) {
-      return;
-    }
-    signalPause = true;
-    compactNow();
-    boolean interrupted = false;
-    while (!paused && signalPause) {
-      try {
-        wait();
-      } catch (InterruptedException e) {
-        interrupted = true;
+    pauseCount++;
+    if (!paused) {
+      compactNow();
+      boolean interrupted = false;
+      while (!paused) {
+        try {
+          wait();
+        } catch (InterruptedException e) {
+          interrupted = true;
+        }
       }
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
   @Override
   public synchronized void unpause() {
-    if (!paused && !signalPause) {
-      return;
+    if (pauseCount > 0) {
+      pauseCount--;
     }
-    signalPause = false;
-    paused = false;
-    notifyAll();
+    if (pauseCount == 0) {
+      paused = false;
+      notifyAll();
+    }
+  }
+  
+  @Override
+  public CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService) {
+    return CompletableFuture.runAsync(() -> {
+      pause();
+      try {
+        rewrite(lsn);
+      } catch (ExecutionException | InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        unpause();
+      }
+    }, executorService);
+  }
+
+  private void rewrite(long lsn) throws ExecutionException, InterruptedException {
+    long liveSize = objectManager.size();
+    long compactedCount = 0;
+    List<Future<Void>> written = new ArrayList<>();
+    while (compactedCount < liveSize) {
+      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(lsn);
+      if (compactionEntry == null) {
+        break;
+      }
+      compactedCount++;
+      try {
+        CompactionAction compactionAction = new CompactionAction(objectManager, compactionEntry);
+        written.add(actionManager.happened(compactionAction));
+        compactionAction.updateObjectManager();
+      } finally {
+        objectManager.releaseCompactionEntry(compactionEntry);
+      }
+
+      if (compactedCount % compactActionThrottle == 0) {
+        for (Future<Void> fut : written) {
+          fut.get();
+        }
+        written = new ArrayList<>();
+      }
+    }
+    for (Future<Void> fut : written) {
+      fut.get();
+    }
   }
 }

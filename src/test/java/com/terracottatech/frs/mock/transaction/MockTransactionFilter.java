@@ -15,9 +15,11 @@
  */
 package com.terracottatech.frs.mock.transaction;
 
-import com.terracottatech.frs.mock.recovery.MockAbstractFilter;
+import com.terracottatech.frs.mock.recovery.AbstractAdaptingFilter;
 import com.terracottatech.frs.recovery.Filter;
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.recovery.RecoveryException;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,7 +27,7 @@ import java.util.Set;
  *
  * @author cdennis
  */
-public class MockTransactionFilter extends MockAbstractFilter<Action, Action> {
+public class MockTransactionFilter extends AbstractAdaptingFilter<Action, Action> {
 
   private final Set<Long> validTransactions = new HashSet<Long>();
 
@@ -34,7 +36,7 @@ public class MockTransactionFilter extends MockAbstractFilter<Action, Action> {
   }
   
   @Override
-  public boolean filter(Action element, long lsn, boolean filtered) {
+  public boolean filter(Action element, long lsn, boolean filtered) throws RecoveryException {
     if (element instanceof MockTransactionCommitAction) {
       validTransactions.add(((MockTransactionCommitAction) element).getId());
       return true;
@@ -56,5 +58,4 @@ public class MockTransactionFilter extends MockAbstractFilter<Action, Action> {
       return element;
     }
   }
-  
 }

@@ -30,5 +30,7 @@ public interface Filter<T> {
    *                 previous filter in the chain.
    * @return {@code true} if the record forms a valid part of the log.
    */
-  boolean filter(T element, long lsn, boolean filtered);
+  boolean filter(T element, long lsn, boolean filtered) throws RecoveryException;
+  
+  void finish() throws RecoveryException;
 }

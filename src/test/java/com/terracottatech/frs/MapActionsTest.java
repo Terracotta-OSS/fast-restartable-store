@@ -46,7 +46,7 @@ public class MapActionsTest {
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
-    actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
+    actionCodec = new ActionCodecImpl(objectManager);
     compactor = mock(Compactor.class);
 
     TransactionActions.registerActions(0, actionCodec);

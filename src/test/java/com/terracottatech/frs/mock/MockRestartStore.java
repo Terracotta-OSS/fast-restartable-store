@@ -23,6 +23,7 @@ import com.terracottatech.frs.Statistics;
 import com.terracottatech.frs.Transaction;
 import com.terracottatech.frs.Tuple;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.cipher.EncryptionInRecoveryListener;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.io.IOManager;
 import com.terracottatech.frs.log.LogManager;
@@ -34,11 +35,15 @@ import com.terracottatech.frs.mock.recovery.MockRecoveryManager;
 import com.terracottatech.frs.mock.transaction.MockTransactionManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.recovery.RecoveryException;
+import com.terracottatech.frs.recovery.RecoveryListener;
 import com.terracottatech.frs.recovery.RecoveryManager;
 import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.util.NullFuture;
 
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
+
+import static org.mockito.Mockito.mock;
 
 /**
  *
@@ -87,7 +92,7 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
                                                                   objManager);
     
     RecoveryManager recovery = new MockRecoveryManager(logManager, actionManager);
-    recovery.recover();
+    recovery.recover(mock(RecoveryListener.class), mock(EncryptionInRecoveryListener.class));
     
     return new MockRestartStore(txnManager, objManager, compactor);
   }
@@ -124,6 +129,21 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   @Override
   public Future<Future<Void>> freeze() {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean isUsingEncKey(String token) {
+    return false;
   }
 
 }

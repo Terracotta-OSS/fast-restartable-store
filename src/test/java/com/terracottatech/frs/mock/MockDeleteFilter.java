@@ -16,8 +16,9 @@
 package com.terracottatech.frs.mock;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.mock.recovery.MockAbstractFilter;
+import com.terracottatech.frs.recovery.AbstractFilter;
 import com.terracottatech.frs.recovery.Filter;
+import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,16 +27,16 @@ import java.util.Set;
  *
  * @author cdennis
  */
-public class MockDeleteFilter<I> extends MockAbstractFilter<Action, Action> {
+public class MockDeleteFilter<I> extends AbstractFilter<Action> {
 
-  private Set<I> deletedIds = new HashSet<I>();
+  private final Set<I> deletedIds = new HashSet<I>();
 
   public MockDeleteFilter(Filter<Action> next) {
     super(next);
   }
   
   @Override
-  public boolean filter(Action element, long lsn, boolean filtered) {
+  public boolean filter(Action element, long lsn, boolean filtered) throws RecoveryException {
     if (element instanceof MockDeleteAction<?>) {
       deletedIds.add(((MockDeleteAction<I>) element).getId());
       return true;
@@ -45,10 +46,4 @@ public class MockDeleteFilter<I> extends MockAbstractFilter<Action, Action> {
       return delegate(element, lsn, filtered);
     }
   }
-
-  @Override
-  protected Action convert(Action element) {
-    return element;
-  }
-  
 }

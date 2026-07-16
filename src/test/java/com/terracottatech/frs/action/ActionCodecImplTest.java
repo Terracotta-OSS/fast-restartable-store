@@ -37,7 +37,7 @@ public class ActionCodecImplTest {
   @Before
   public void setUp() throws Exception {
     objectManager = mock(ObjectManager.class);
-    actionCodec = new ActionCodecImpl<ByteBuffer, ByteBuffer, ByteBuffer>(objectManager);
+    actionCodec = new ActionCodecImpl(objectManager);
 
     TransactionActions.registerActions(0, actionCodec);
     MapActions.registerActions(1, actionCodec);
@@ -46,24 +46,20 @@ public class ActionCodecImplTest {
   @Test
   public void testAlreadyRegistered() throws Exception {
     try {
-      actionCodec.registerAction(0, 0, BogusAction.class, BogusAction.FACTORY);
-      fail("Replacing action registered to id 0 should have failed.");
+      actionCodec.registerAndBind(BogusAction.class, 0, 0, BogusAction.SUBCODEC);
+      fail("Replacing action subcodec registered to id 0,0 should have failed.");
     } catch (IllegalArgumentException e) {
       // expected
     }
 
-    actionCodec.registerAction(2, 0, BogusAction.class, BogusAction.FACTORY);
-    try {
-      actionCodec.registerAction(2, 1, BogusAction.class, BogusAction.FACTORY);
-      fail("Re-registering BogusAction should have failed.");
-    } catch (IllegalArgumentException e) {
-      // expected
-    }
+    actionCodec.registerAndBind(BogusAction.class, 2, 0, BogusAction.SUBCODEC);
+    // verify binding for class can be updated
+    actionCodec.bind(BogusAction.class, 3, 0);
   }
 
   private static class BogusAction implements Action {
-    static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-            mock(ActionFactory.class);
+    static final ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, BogusAction> SUBCODEC =
+            mock(ActionSubCodec.class);
 
     @Override
     public void record(long lsn) {
@@ -71,11 +67,6 @@ public class ActionCodecImplTest {
 
     @Override
     public void replay(long lsn) {
-    }
-
-    @Override
-    public ByteBuffer[] getPayload(ActionCodec codec) {
-      return new ByteBuffer[0];
     }
   }
 

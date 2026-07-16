@@ -16,22 +16,28 @@
 package com.terracottatech.frs.mock.recovery;
 
 import com.terracottatech.frs.recovery.Filter;
+import com.terracottatech.frs.recovery.RecoveryException;
 
 /**
  *
  * @author cdennis
  */
-public abstract class MockAbstractFilter<T, U> implements Filter<T> {
+public abstract class AbstractAdaptingFilter<T, U> implements Filter<T> {
   
-  private final Filter<U> next;
+  private final Filter<U> nextFilter;
   
-  public MockAbstractFilter(Filter<U> next) {
-    this.next = next;
+  public AbstractAdaptingFilter(Filter<U> nextFilter) {
+    this.nextFilter = nextFilter;
   }
 
-  protected final boolean delegate(T element, long lsn, boolean filtered) {
-    return next.filter(convert(element), lsn, filtered);
+  protected final boolean delegate(T element, long lsn, boolean filtered) throws RecoveryException {
+    return nextFilter.filter(convert(element), lsn, filtered);
   }
-  
+
+  @Override
+  public void finish() throws RecoveryException {
+    nextFilter.finish();
+  }
+
   protected abstract U convert(T element);
 }

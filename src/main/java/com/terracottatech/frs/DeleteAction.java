@@ -17,10 +17,8 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.util.ByteBufferUtils;
 import java.io.Closeable;
 import java.io.IOException;
 
@@ -29,14 +27,7 @@ import java.nio.ByteBuffer;
 /**
  * @author tim
  */
-class DeleteAction implements Action, DisposableLifecycle {
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY = new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-    @Override
-    public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                         ActionCodec codec, ByteBuffer[] buffers) {
-      return new DeleteAction(objectManager, null, ByteBufferUtils.getFirstNonEmpty(buffers), false);
-    }
-  };
+public class DeleteAction implements Action, DisposableLifecycle {
 
   private final ObjectManager<ByteBuffer, ?, ?> objectManager;
   private final Compactor compactor;
@@ -88,11 +79,6 @@ class DeleteAction implements Action, DisposableLifecycle {
   @Override
   public void replay(long lsn) {
     // nothing to do on replay
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[] { id.slice() };
   }
 
   @Override

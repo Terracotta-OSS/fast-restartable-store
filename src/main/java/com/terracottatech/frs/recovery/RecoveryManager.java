@@ -15,6 +15,8 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.cipher.EncryptionInRecoveryListener;
+
 import java.util.concurrent.Future;
 
 /**
@@ -23,7 +25,7 @@ import java.util.concurrent.Future;
  */
 public interface RecoveryManager {
 
-  public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
+  public Future<Void> recover(RecoveryListener listener, EncryptionInRecoveryListener encryptionInRecoveryListener) throws RecoveryException,
           InterruptedException;
   
 }

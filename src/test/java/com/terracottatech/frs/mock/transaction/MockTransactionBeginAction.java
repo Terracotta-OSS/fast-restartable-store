@@ -16,10 +16,8 @@
 package com.terracottatech.frs.mock.transaction;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 
 /**
  *
@@ -45,11 +43,6 @@ public class MockTransactionBeginAction implements Action, Serializable {
 
   public String toString() {
     return "Action: beginTransaction(" + id + ")";
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 
   public long getId() {

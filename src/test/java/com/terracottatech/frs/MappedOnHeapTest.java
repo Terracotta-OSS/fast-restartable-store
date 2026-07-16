@@ -16,7 +16,6 @@
 package com.terracottatech.frs;
 
 import com.terracottatech.frs.config.FrsProperty;
-
 import java.util.Properties;
 
 import org.junit.runner.RunWith;
@@ -42,4 +41,5 @@ public class MappedOnHeapTest extends OnHeapTest {
     props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
     return CipherHelper.configure(encryptLog, props);
   }
+  
 }

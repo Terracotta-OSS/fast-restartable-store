@@ -16,11 +16,9 @@
 package com.terracottatech.frs.mock;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.object.CompleteKey;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 
 /**
  *
@@ -51,10 +49,5 @@ public abstract class MockCompleteKeyAction<I, K> implements Action, Serializabl
 
   protected K getKey() {
     return key;
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 }

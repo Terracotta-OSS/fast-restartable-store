@@ -18,15 +18,10 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.heap.HeapObjectManager;
-
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Properties;
-
 import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -37,13 +32,16 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
+import java.util.Arrays;
+import java.util.Properties;
+import junit.framework.Assert;
 
 /**
  *
  * @author mscott
  */
 @RunWith(Parameterized.class)
-public class RestartStoreReadTest {
+public class RestartStoreReadTest  {
   @Parameter(0)
   public Boolean encryptLog;
 
@@ -53,26 +51,26 @@ public class RestartStoreReadTest {
   }
 
   @Rule
-  public TemporaryFolder folder = new TemporaryFolder();
+  public TemporaryFolder folder= new TemporaryFolder();
 
   RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restart;
-  ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> omgr;
+  ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> omgr;
   static Properties properties = new Properties();
-
+  
   public RestartStoreReadTest() {
   }
-
+  
   @BeforeClass
   public static void setUpClass() {
     properties = new Properties();
     properties.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), "true");
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(4 * 1024));
   }
-
+  
   @AfterClass
   public static void tearDownClass() {
   }
-
+  
   @Before
   public void setUp() throws Throwable {
     properties = CipherHelper.configure(encryptLog, properties);
@@ -83,7 +81,7 @@ public class RestartStoreReadTest {
     restart = RestartStoreFactory.createStore(omgr, storeHome, properties);
     restart.startup();
   }
-
+  
   @After
   public void tearDown() throws Exception {
     restart.shutdown();
@@ -93,12 +91,12 @@ public class RestartStoreReadTest {
   public void testWrite() throws Throwable {
     restart.beginTransaction(true).put(byteBufferWithInt(1), byteBufferWithInt(2), byteBufferWithInt(3)).commit();
     long lsn = omgr.getLsn(byteBufferWithInt(1), byteBufferWithInt(2));
-    Tuple<ByteBuffer, ByteBuffer, ByteBuffer> tuple = restart.get(lsn);
+    Tuple<ByteBuffer,ByteBuffer,ByteBuffer> tuple = restart.get(lsn);
     Assert.assertTrue(tuple.getIdentifier().getInt() == 1);
     Assert.assertTrue(tuple.getKey().getInt() == 2);
     Assert.assertTrue(tuple.getValue().getInt() == 3);
-    if (tuple instanceof Disposable) {
-      ((Disposable) tuple).dispose();
+    if ( tuple instanceof Disposable ) {
+      ((Disposable)tuple).dispose();
     }
     restart.beginTransaction(true).put(byteBufferWithInt(4), byteBufferWithInt(5), byteBufferWithInt(6)).commit();
     lsn = omgr.getLsn(byteBufferWithInt(4), byteBufferWithInt(5));
@@ -106,29 +104,29 @@ public class RestartStoreReadTest {
     Assert.assertTrue(tuple.getIdentifier().getInt() == 4);
     Assert.assertTrue(tuple.getKey().getInt() == 5);
     Assert.assertTrue(tuple.getValue().getInt() == 6);
-    if (tuple instanceof Disposable) {
-      ((Disposable) tuple).dispose();
+    if ( tuple instanceof Disposable ) {
+      ((Disposable)tuple).dispose();
     }
   }
-
+  
   @Test
   public void testLoop() throws Throwable {
     int x = 0;
-    while (x < 1000) {
-      int id = x++;
-      int key = x++;
-      int value = x++;
-      byte[] vc = new byte[1000];
-      Arrays.fill(vc, (byte) (value & 0xff));
-      restart.beginTransaction(true).put(byteBufferWithInt(id), byteBufferWithInt(key), ByteBuffer.wrap(vc)).commit();
-      long lsn = omgr.getLsn(byteBufferWithInt(id), byteBufferWithInt(key));
-      Tuple<ByteBuffer, ByteBuffer, ByteBuffer> tuple = restart.get(lsn);
-      Assert.assertTrue(tuple.getIdentifier().getInt() == id);
-      Assert.assertTrue(tuple.getKey().getInt() == key);
-      Assert.assertTrue((tuple.getValue().get() & 0xff) == (value & 0xff));
-      if (tuple instanceof Disposable) {
-        ((Disposable) tuple).dispose();
-      }
+    while (x<1000) {
+        int id = x++;
+        int key = x++;
+        int value = x++;
+        byte[] vc = new byte[1000];
+        Arrays.fill(vc,(byte)(value & 0xff));
+        restart.beginTransaction(true).put(byteBufferWithInt(id), byteBufferWithInt(key), ByteBuffer.wrap(vc)).commit();
+        long lsn = omgr.getLsn(byteBufferWithInt(id), byteBufferWithInt(key));
+        Tuple<ByteBuffer,ByteBuffer,ByteBuffer> tuple = restart.get(lsn);
+        Assert.assertTrue(tuple.getIdentifier().getInt() == id);
+        Assert.assertTrue(tuple.getKey().getInt() == key);
+        Assert.assertTrue((tuple.getValue().get() & 0xff) == (value & 0xff));
+        if ( tuple instanceof Disposable ) {
+          ((Disposable)tuple).dispose();
+        }
     }
   }
 }

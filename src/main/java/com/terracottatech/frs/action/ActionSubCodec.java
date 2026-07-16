@@ -13,21 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.terracottatech.frs.recovery;
+package com.terracottatech.frs.action;
 
-/**
- * @author tim
- */
-public abstract class AbstractAdaptingFilter<T, U> implements Filter<T> {
-  private final Filter<U> nextFilter;
+import com.terracottatech.frs.object.ObjectManager;
 
-  protected AbstractAdaptingFilter(Filter<U> nextFilter) {
-    this.nextFilter = nextFilter;
-  }
+import java.nio.ByteBuffer;
 
-  protected boolean delegate(T element, long lsn, boolean filtered) {
-    return nextFilter.filter(convert(element), lsn, filtered);
-  }
+public interface ActionSubCodec<I, K, V, T> {
 
-  protected abstract U convert(T element);
+  ByteBuffer[] encode(T action, ActionCodec<I, K, V> codec);
+
+  Action decode(ObjectManager<I, K, V> objectManager, ActionCodec<I, K, V> codec, ByteBuffer[] buffers);
+
 }

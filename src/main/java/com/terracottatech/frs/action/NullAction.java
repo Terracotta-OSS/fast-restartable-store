@@ -27,10 +27,16 @@ public class NullAction implements Action {
   
   private long lsn;
 
-  public static <I, K, V> ActionFactory<I, K, V> factory() {
-    return new ActionFactory<I, K, V>() {
+  public static ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, NullAction> subCodec() {
+    return new ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, NullAction>() {
+
       @Override
-      public Action create(ObjectManager<I, K, V> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+      public ByteBuffer[] encode(NullAction action, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
+        return new ByteBuffer[0];
+      }
+
+      @Override
+      public Action decode(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec, ByteBuffer[] buffers) {
         return INSTANCE;
       }
     };
@@ -47,10 +53,5 @@ public class NullAction implements Action {
 
   @Override
   public void replay(long lsn) {
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 }

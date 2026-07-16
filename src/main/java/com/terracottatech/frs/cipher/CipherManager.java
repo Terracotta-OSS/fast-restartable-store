@@ -101,5 +101,10 @@ public interface CipherManager {
    * @param ivBuffer The initialization vector to use for the decryption operation
    * @return A ByteBuffer containing the decrypted plain text data
    */
-  ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer);
+  ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer, String token);
+
+  /**
+   * @return The Current Token associated with the current SecretKey
+   */
+  String getCurrentToken();
 }

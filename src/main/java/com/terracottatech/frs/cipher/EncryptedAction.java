@@ -16,6 +16,7 @@
 package com.terracottatech.frs.cipher;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
@@ -38,17 +39,20 @@ public class EncryptedAction implements Action {
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
         ActionCodec codec, ByteBuffer[] buffers) {
       int ivLength = ByteBufferUtils.getInt(buffers);
+      int tokenLength = ByteBufferUtils.getInt(buffers);
       int payloadLength = ByteBufferUtils.getInt(buffers);
       ByteBuffer initializationVector = ByteBufferUtils.getBytes(ivLength, buffers);
+      ByteBuffer tokenBuffer = ByteBufferUtils.getBytes(tokenLength, buffers);
+      String tokenUsedForEncryption =  StandardCharsets.UTF_8.decode(tokenBuffer).toString();
       ByteBuffer encryptedPayload = ByteBufferUtils.getBytes(payloadLength, buffers);
 
-      ByteBuffer payload = cipherManager.decrypt(encryptedPayload, initializationVector);
+      ByteBuffer payload = cipherManager.decrypt(encryptedPayload, initializationVector, tokenUsedForEncryption);
 
       return codec.decode(new ByteBuffer[] { payload });
     }
   }
 
-  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 2;
+  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 3;
 
   private final Action delegate;
   private final CipherManager cipherManager;
@@ -90,14 +94,16 @@ public class EncryptedAction implements Action {
       length += buffer.remaining();
     }
 
-    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 2];
+    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 3];
 
+    byte[] ctoken =  cipherManager.getCurrentToken().getBytes(StandardCharsets.UTF_8);
     output[0] = (ByteBuffer) ByteBuffer.allocate(HEADER_SIZE)
-        .putInt(initializationVector.remaining())
+        .putInt(initializationVector.remaining()).putInt(ctoken.length)
         .putInt(length)
         .flip();
     output[1] = initializationVector.asReadOnlyBuffer();
-    System.arraycopy(encryptedValue, 0, output, 2, encryptedValue.length);
+    output[2] = ByteBuffer.wrap(ctoken);
+    System.arraycopy(encryptedValue, 0, output, 3, encryptedValue.length);
     return output;
   }
 

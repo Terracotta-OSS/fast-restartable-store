@@ -46,7 +46,8 @@ import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -92,8 +93,17 @@ public abstract class RestartStoreFactory {
     ActionManager actionManager;
     boolean encrypted = configuration.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE);
     if (encrypted) {
-      byte[] key = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_KEY);
-      CipherManager cipherManager = new AESCipherManager(configuration, Collections.singletonList(key));
+      String oldToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN);
+      byte[] oldKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_OLD_KEY);
+      String newToken =  configuration.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN);
+      byte[] newKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_NEW_KEY);
+
+      Map<String, byte[]> tokenToKeyMap = new HashMap<>();
+      if(oldToken != null && oldKey != null) {
+        tokenToKeyMap.put(oldToken, oldKey);
+      }
+      tokenToKeyMap.put(newToken, newKey);
+      CipherManager cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newToken);
       EncryptionActions.registerActions(3, codec, cipherManager);
       actionManager = new EncryptingActionManager(
           new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory()), cipherManager);

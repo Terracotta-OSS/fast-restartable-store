@@ -22,7 +22,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -40,7 +42,6 @@ import static org.mockito.Mockito.when;
 public class AESCipherManagerTest {
 
   private Configuration mockConfig;
-  private List<byte[]> keys;
   private AESCipherManager cipherManager;
   private static final String TEST_ALGORITHM = "AES/CFB/PKCS5Padding";
 
@@ -51,15 +52,14 @@ public class AESCipherManagerTest {
     when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM)).thenReturn(TEST_ALGORITHM);
 
     // Generate a test key
+    Map<String, byte[]> tokenToKey = new HashMap<>();
     KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
     keyGenerator.init(256);
     SecretKey secretKey = keyGenerator.generateKey();
-    byte[] keyBytes = secretKey.getEncoded();
-
-    keys = Collections.singletonList(keyBytes);
+    tokenToKey.put("token1", secretKey.getEncoded());
 
     // Create the cipher manager
-    cipherManager = new AESCipherManager(mockConfig, keys);
+    cipherManager = new AESCipherManager(mockConfig, tokenToKey, "token1");
   }
 
   @Test
@@ -100,7 +100,7 @@ public class AESCipherManagerTest {
     combinedEncrypted.flip();
 
     // Decrypt
-    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
     assertNotNull("Decrypted buffer should not be null", decryptedBuffer);
 
     // Verify decrypted content
@@ -145,7 +145,7 @@ public class AESCipherManagerTest {
     combinedEncrypted.flip();
 
     // Decrypt
-    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
 
     // Verify decrypted content
     byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];
@@ -190,7 +190,7 @@ public class AESCipherManagerTest {
     combinedEncrypted.flip();
 
     // Decrypt
-    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy);
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
 
     // Verify decrypted content
     byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];

@@ -58,7 +58,10 @@ public enum FrsProperty {
   FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE"),
 
   STORE_ENCRYPTION_ENABLE("store.encryptionEnable", Type.BOOLEAN, true),
-  STORE_ENCRYPTION_KEY("store.encryptionKey", Type.BYTEARRAY, null),
+  STORE_ENCRYPTION_OLD_TOKEN("store.encryptionKeyOldToken", Type.STRING, null),
+  STORE_ENCRYPTION_OLD_KEY("store.encryptionOldKey", Type.BYTEARRAY, null),
+  STORE_ENCRYPTION_NEW_TOKEN("store.encryptionKeyNewToken", Type.STRING, null),
+  STORE_ENCRYPTION_NEW_KEY("store.encryptionNewKey", Type.BYTEARRAY, null),
   //AES_CTR AES_CBC, AES_GCM
   STORE_ENCRYPTION_ALGORITHM("store.encryptionAlgorithm", Type.STRING, "AES/CFB/PKCS5Padding");
 

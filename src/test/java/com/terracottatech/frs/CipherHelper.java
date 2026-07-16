@@ -36,7 +36,8 @@ public class CipherHelper {
       keyGenerator.init(256);
       String cipherKeyStr = Base64.getEncoder().encodeToString(keyGenerator.generateKey().getEncoded());
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
-      props.setProperty(FrsProperty.STORE_ENCRYPTION_KEY.shortName(), cipherKeyStr);
+      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
+      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), cipherKeyStr);
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ALGORITHM.shortName(), "AES/CFB/PKCS5Padding");
     } else {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "false");

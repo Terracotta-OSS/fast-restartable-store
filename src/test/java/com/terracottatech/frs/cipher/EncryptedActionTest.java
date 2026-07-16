@@ -16,6 +16,7 @@
 package com.terracottatech.frs.cipher;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -23,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +40,7 @@ public class EncryptedActionTest {
     private ActionCodec mockCodec;
     private EncryptedAction encryptedAction;
     private ByteBuffer mockIV;
+    private ByteBuffer token;
 
     @Before
     public void setUp() {
@@ -51,9 +54,9 @@ public class EncryptedActionTest {
             mockIV.put((byte) i);
         }
         mockIV.flip();
-
+        token = ByteBuffer.wrap("token".getBytes(StandardCharsets.UTF_8));
         when(mockCipherManager.generateInitializationVector()).thenReturn(mockIV);
-
+        when(mockCipherManager.getCurrentToken()).thenReturn("token");
         encryptedAction = new EncryptedAction(mockAction, mockCipherManager);
     }
 
@@ -94,19 +97,23 @@ public class EncryptedActionTest {
 
         // Verify the result
         assertNotNull(result);
-        assertEquals(3, result.length); // Header + IV + encrypted payload
+        assertEquals(4, result.length); // Header + IV + token + encrypted payload
 
-        // Verify the header contains the correct IV length and payload length
+        // Verify the header contains the correct IV length, token length and payload length
         ByteBuffer header = result[0];
         header.rewind();
         assertEquals(mockIV.remaining(), header.getInt());
+        assertEquals(token.remaining(), header.getInt());
         assertEquals("encrypted data".getBytes().length, header.getInt());
 
         // Verify the IV is included
         assertEquals(mockIV, result[1]);
 
+        // Verify token is included
+        assertEquals(token, result[2]);
+
         // Verify the encrypted payload is included
-        assertEquals(encryptedPayload[0], result[2]);
+        assertEquals(encryptedPayload[0], result[3]);
 
         // Verify the interactions
         verify(mockCodec).encode(mockAction);
@@ -133,16 +140,17 @@ public class EncryptedActionTest {
         ByteBuffer encryptedPayload = ByteBuffer.wrap("encrypted data".getBytes());
         ByteBuffer decryptedPayload = ByteBuffer.wrap("decrypted data".getBytes());
 
-        // Create input buffers with header, IV, and encrypted payload
-        ByteBuffer header = ByteBuffer.allocate(8);
+        // Create input buffers with header, IV, token and encrypted payload
+        ByteBuffer header = ByteBuffer.allocate(12);
         header.putInt(ivBuffer.remaining());
+        header.putInt(token.remaining());
         header.putInt(encryptedPayload.remaining());
         header.flip();
 
-        ByteBuffer[] inputBuffers = new ByteBuffer[] { header, ivBuffer, encryptedPayload };
+        ByteBuffer[] inputBuffers = new ByteBuffer[] { header, ivBuffer, token, encryptedPayload };
 
         // Setup mock behavior
-        when(mockCipherManager.decrypt(any(ByteBuffer.class), any(ByteBuffer.class)))
+        when(mockCipherManager.decrypt(any(ByteBuffer.class), any(ByteBuffer.class), anyString()))
             .thenReturn(decryptedPayload);
 
         Action mockDecodedAction = mock(Action.class);
@@ -155,7 +163,7 @@ public class EncryptedActionTest {
         assertEquals(mockDecodedAction, result);
 
         // Verify the interactions
-        verify(mockCipherManager).decrypt(any(ByteBuffer.class), any(ByteBuffer.class));
+        verify(mockCipherManager).decrypt(any(ByteBuffer.class), any(ByteBuffer.class), anyString());
         verify(mockFactoryCodec).decode(any(ByteBuffer[].class));
     }
 

@@ -24,6 +24,8 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -40,13 +42,18 @@ import com.terracottatech.frs.config.FrsProperty;
 public class AESCipherManager implements CipherManager {
 
   private final String algorithm;
-  private final List<SecretKey> secretKeys;
 
-  public AESCipherManager(Configuration config, List<byte[]> keys) {
+  private final Map<String, SecretKey> tokenToKey = new ConcurrentHashMap<>();
+  private SecretKey currentSecretKey;
+  private String currentToken;
+
+  public AESCipherManager(Configuration config, Map<String, byte[]> tokenToKeyMap, String currentToken) {
     algorithm = config.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM);
-    secretKeys = keys.stream()
-        .map(key -> (SecretKey) new SecretKeySpec(key, "AES"))
-        .collect(java.util.stream.Collectors.toList());
+    tokenToKeyMap.entrySet().stream().forEach(entry ->
+      tokenToKey.put(entry.getKey(), new SecretKeySpec(entry.getValue(), "AES"))
+    );
+    currentSecretKey = tokenToKey.get(currentToken);
+    this.currentToken = currentToken;
   }
 
   private Cipher getCipher() {
@@ -95,8 +102,7 @@ public class AESCipherManager implements CipherManager {
 
   @Override
   public ByteBuffer[] encrypt(ByteBuffer[] input, ByteBuffer initializationVector) {
-    SecretKey secretKey = secretKeys.get(0);
-    Cipher cipher = getCipher(secretKey, Cipher.ENCRYPT_MODE, initializationVector);
+    Cipher cipher = getCipher(currentSecretKey, Cipher.ENCRYPT_MODE, initializationVector);
 
     List<ByteBuffer> outputs = new ArrayList<>();
 
@@ -135,8 +141,11 @@ public class AESCipherManager implements CipherManager {
   }
 
   @Override
-  public ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer) {
-    SecretKey secretKey = secretKeys.get(0);
+  public ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer, String token) {
+    SecretKey secretKey = tokenToKey.get(token);
+    if(secretKey == null) {
+      throw new AssertionError("Invalid token");
+    }
     Cipher cipher = getCipher(secretKey, Cipher.DECRYPT_MODE, ivBuffer);
     int retries = 3;
     int size = cipher.getOutputSize(cipherBuffer.capacity());
@@ -157,5 +166,10 @@ public class AESCipherManager implements CipherManager {
       }
     }
     throw new IllegalArgumentException("fail to decipher data");
+  }
+
+  @Override
+  public String getCurrentToken() {
+    return currentToken;
   }
 }

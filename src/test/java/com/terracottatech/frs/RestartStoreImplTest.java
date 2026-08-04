@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.ActionCodec;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -80,7 +81,7 @@ public class RestartStoreImplTest {
   }
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
-    return new RestartStoreImpl(objectManager, transactionManager, logManager,
+    return new RestartStoreImpl(objectManager, transactionManager, logManager, mock(ActionCodec.class),
                                 actionManager, readManager, compactor, configuration);
   }
 

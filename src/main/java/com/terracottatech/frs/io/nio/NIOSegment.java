@@ -67,24 +67,28 @@ public class NIOSegment {
     }
     
     NIOSegment openForHeader() throws IOException, HeaderException {
-        FileBuffer buffer = (parent != null ) ? 
-                parent.createFileBuffer(createFileChannel(), FILE_HEADER_SIZE) :
-                new FileBuffer(createFileChannel(), ByteBuffer.allocate(FILE_HEADER_SIZE));
-        
-        size = buffer.size();
+        try {
+            FileBuffer buffer = (parent != null) ?
+                    parent.createFileBuffer(createFileChannel(), FILE_HEADER_SIZE) :
+                    new FileBuffer(createFileChannel(), ByteBuffer.allocate(FILE_HEADER_SIZE));
 
-        if (size < FILE_HEADER_SIZE) {
+            size = buffer.size();
+
+            if (size < FILE_HEADER_SIZE) {
+                buffer.close();
+                throw new HeaderException("bad header", this);
+            }
+
+            buffer.read(1);
+            readFileHeader(buffer);
+            wasClosed = wasProperlyClosed(buffer);
+
             buffer.close();
-            throw new HeaderException("bad header", this);
-        }
-        
-        buffer.read(1);
-        readFileHeader(buffer);
-        wasClosed = wasProperlyClosed(buffer);
 
-        buffer.close();
-        
-        return this;
+            return this;
+        } catch (Throwable t) {
+            throw t;
+        }
     }      
     
     

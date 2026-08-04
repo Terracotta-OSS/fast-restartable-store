@@ -16,6 +16,7 @@
 package com.terracottatech.frs.mock.compaction;
 
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.compaction.CompactionPolicy;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
@@ -74,6 +75,16 @@ public class MockCompactor<I, K, V> implements Compactor {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public CompactionPolicy getPreviousCompactionPolicy() {
+    throw new UnsupportedOperationException("Implement me!");
+  }
+
+  @Override
+  public void updateCompactionPolicy(CompactionPolicy policy) {
+    throw new UnsupportedOperationException("Implement me!");
   }
 
   public void compact() {

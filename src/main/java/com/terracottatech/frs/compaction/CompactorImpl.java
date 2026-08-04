@@ -1,5 +1,5 @@
 /*
- * Copyright IBM Corp. 2024, 2025
+ * Copyright IBM Corp. 2024, 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
@@ -57,7 +58,8 @@ public class CompactorImpl implements Compactor {
 
   private final Semaphore compactionCondition = new Semaphore(0);
   private volatile boolean alive = false;
-  private final CompactionPolicy policy;
+  private final AtomicReference<CompactionPolicy> currentPolicyRef = new AtomicReference<>();
+  private final AtomicReference<CompactionPolicy> previousPolicyRef = new AtomicReference<>();
   private final long runIntervalSeconds;
   private final long retryIntervalSeconds;
   private final long compactActionThrottle;
@@ -76,7 +78,7 @@ public class CompactorImpl implements Compactor {
     this.transactionManager = transactionManager;
     this.actionManagerSupplier = actionManagerSupplier;
     this.logManager = logManager;
-    this.policy = policy;
+    currentPolicyRef.set(policy);
     this.runIntervalSeconds = runIntervalSeconds;
     this.retryIntervalSeconds = retryIntervalSeconds;
     this.compactActionThrottle = compactActionThrottle;
@@ -112,10 +114,21 @@ public class CompactorImpl implements Compactor {
   }
 
   @Override
+  public CompactionPolicy getPreviousCompactionPolicy() {
+    return previousPolicyRef.get();
+  }
+
+  @Override
+  public synchronized void updateCompactionPolicy(CompactionPolicy policy) {
+    previousPolicyRef.set(currentPolicyRef.get());
+    currentPolicyRef.set(policy);
+  }
+
+  @Override
   public void startup() {
     if (!alive) {
       alive = true;
-      LOGGER.info("using " + policy.getClass().getName() + " compaction policy");
+      LOGGER.info("using " + currentPolicyRef.get().getClass().getName() + " compaction policy");
       compactorThread = new CompactorThread();
       compactorThread.start();
     }
@@ -163,11 +176,11 @@ public class CompactorImpl implements Compactor {
               lowLsn = barrier.getLsn();
           }
 
-          if (policy.startCompacting() && alive) {
+          if (currentPolicyRef.get().startCompacting() && alive) {
             try {
               compact();
             } finally {
-              policy.stoppedCompacting();
+              currentPolicyRef.get().stoppedCompacting(signalPause);
             }
           }
 
@@ -209,8 +222,9 @@ public class CompactorImpl implements Compactor {
      long lastLsn = 0;
  
       LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
-      while (compactedCount < liveSize && !signalPause) {
-        ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
+      while (!signalPause) {
+        ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(
+                getHighestLsnForCompaction(baseLsn, rangeLsn, ceilingLsn));
         if (compactionEntry == null) {
           if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
             rangeLsn <<= 1;
@@ -240,7 +254,7 @@ public class CompactorImpl implements Compactor {
         }
 
         // Check with the policy if we need to stop.
-        if (!policy.compacted(compactionEntry)) {
+        if (!currentPolicyRef.get().compacted(compactionEntry)) {
           break;
         }
 
@@ -256,6 +270,15 @@ public class CompactorImpl implements Compactor {
       }
       LOGGER.info("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
       LOGGER.info("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
+    }
+  }
+
+  private long getHighestLsnForCompaction(long baseLsn, long rangeLsn, long ceilingLsn) {
+    if(!(currentPolicyRef.get() instanceof EncryptionCompactionPolicy)) {
+      return (useLimiting) ? baseLsn + rangeLsn : ceilingLsn;
+    } else {
+      EncryptionCompactionPolicy policy = (EncryptionCompactionPolicy) currentPolicyRef.get();
+      return policy.getHighestLsnToBeCompacted();
     }
   }
 

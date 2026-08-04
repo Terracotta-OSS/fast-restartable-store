@@ -25,6 +25,7 @@ import java.security.spec.InvalidParameterSpecException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.BadPaddingException;
@@ -44,8 +45,8 @@ public class AESCipherManager implements CipherManager {
   private final String algorithm;
 
   private final Map<String, SecretKey> tokenToKey = new ConcurrentHashMap<>();
-  private SecretKey currentSecretKey;
-  private String currentToken;
+  private volatile SecretKey currentSecretKey;
+  private volatile String currentToken;
 
   public AESCipherManager(Configuration config, Map<String, byte[]> tokenToKeyMap, String currentToken) {
     algorithm = config.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM);
@@ -171,5 +172,27 @@ public class AESCipherManager implements CipherManager {
   @Override
   public String getCurrentToken() {
     return currentToken;
+  }
+
+  @Override
+  public Optional<String> getPreviousToken() {
+    return tokenToKey.keySet().stream().filter(k -> !k.equals(getCurrentToken())).findFirst();
+  }
+
+  @Override
+  public boolean isUsingEncKey(String token) {
+    return tokenToKey.containsKey(token);
+  }
+
+  @Override
+  public void add(String token, byte[] key) {
+    tokenToKey.put(token, new SecretKeySpec(key, "AES"));
+    currentSecretKey = tokenToKey.get(token);
+    currentToken = token;
+  }
+
+  @Override
+  public void remove(String token) {
+    tokenToKey.remove(token);
   }
 }

@@ -375,7 +375,9 @@ class NIOStreamImpl implements Stream {
                 } catch ( HeaderException header ) {
 // this should not happen here, rethrow as a IOException
                     throw new IOException(header);
-                }
+                } catch (IOException e) {
+                throw e;
+            }
                 if (!seg.getStreamId().equals(streamId)) {
                     throw new IOException(BAD_STREAM_ID);
                 }

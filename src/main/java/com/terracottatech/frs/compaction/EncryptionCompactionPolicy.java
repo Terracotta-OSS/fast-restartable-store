@@ -1,5 +1,5 @@
 /*
- * Copyright IBM Corp. 2024, 2025
+ * Copyright IBM Corp. 2024, 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,37 @@
  */
 package com.terracottatech.frs.compaction;
 
+import com.terracottatech.frs.cipher.EncryptionCompletionListener;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
-/**
- * @author tim
- */
-public class NoCompactionPolicy implements CompactionPolicy {
+public class EncryptionCompactionPolicy implements CompactionPolicy {
+
+  private final EncryptionCompletionListener listener;
+  private final long maxLsn;
+
+  public EncryptionCompactionPolicy(EncryptionCompletionListener listener, long maxLsn) {
+    this.listener = listener;
+    this.maxLsn = maxLsn;
+  }
 
   @Override
   public boolean startCompacting() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean compacted(ObjectManagerEntry<?, ?, ?> entry) {
-    throw new AssertionError("Should not be compacting with a NoCompactionPolicy.");
+    return true;
   }
 
   @Override
   public void stoppedCompacting(boolean isPaused) {
-    throw new AssertionError("Should not be compacting with a NoCompactionPolicy.");
+    if (!isPaused) {
+      listener.handleEncryptionCompletionWithNewKey();
+    }
+  }
+
+  public long getHighestLsnToBeCompacted() {
+    return maxLsn;
   }
 }

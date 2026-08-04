@@ -16,6 +16,8 @@
 package com.terracottatech.frs.recovery;
 
 
+import com.terracottatech.frs.cipher.EncryptionBeginAction;
+import com.terracottatech.frs.cipher.EncryptionEndAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,6 +94,10 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
+    boolean isRecoveryDone = false;
+    boolean endEncMarkerSeen = false;
+    boolean partialWriteWithNewKey = false;
+    long maxLsnForEncStart = Integer.MAX_VALUE;
     try {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
@@ -110,20 +116,38 @@ public class RecoveryManagerImpl implements RecoveryManager {
         } else {
           logRecord.close();
         }
+
+        if (action instanceof EncryptionEndAction) {
+          endEncMarkerSeen = true;
+        }
+
+        if (action instanceof EncryptionBeginAction) {
+          if (endEncMarkerSeen) {
+            isRecoveryDone = true;
+            break;
+          } else {
+            partialWriteWithNewKey = true;
+            maxLsnForEncStart = logRecord.getLsn();
+          }
+        }
       }
-    } catch ( IOException ioe ) {
+    } catch (IOException ioe) {
       throw new RecoveryException("failed to restart", ioe);
     } finally {
       replayFilter.finish();
       replayFilter.checkError();
     }
 
-    if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
-      throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
+    if (partialWriteWithNewKey || isRecoveryDone) {
+      LOGGER.info("Recovery completed");
+    } else {
+      if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
+        throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
+      }
     }
 
     for (RecoveryListener listener : listeners) {
-      listener.recovered();
+      listener.recovered(partialWriteWithNewKey, maxLsnForEncStart);
     }
 
     LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);

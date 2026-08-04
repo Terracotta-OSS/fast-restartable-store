@@ -18,6 +18,7 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 
 /**
  *
@@ -131,6 +132,15 @@ public interface RestartStore<I, K, V> {
    */
   Future<Future<Void>> freeze();
 
-  void handleEncKeyChange(String key);
+  default void handleEncKeyChange(String newKeyToken, String newKey) {
 
+  }
+
+  default void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer) {
+
+  }
+
+  default boolean isUsingEncKey(String token) {
+    return false;
+  }
 }

@@ -46,7 +46,7 @@ public class TransactionManagerImplTest {
     actionManager = spy(new TxnManagerTestActionManager());
     doReturn(happenedFuture).when(actionManager).syncHappened(any(Action.class));
     callback = mock(TransactionLSNCallback.class);
-    transactionManager = new TransactionManagerImpl(actionManager);
+    transactionManager = new TransactionManagerImpl(() -> actionManager);
   }
 
   @Test

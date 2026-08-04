@@ -68,7 +68,7 @@ public class CompactorImplTest {
     actionManager = spy(new CompactionTestActionManager());
     policy = spy(new TestCompactionPolicy());
     logManager = mock(LogManager.class);
-    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
+    compactor = new CompactorImpl(objectManager, transactionManager, () -> actionManager,
                                   logManager, policy,
                                   60, 60, 1000, 2000);
   }
@@ -87,7 +87,7 @@ public class CompactorImplTest {
     SECONDS.sleep(1);
 
     verify(policy).startCompacting();
-    verify(policy, never()).stoppedCompacting();
+    verify(policy, never()).stoppedCompacting(false);
     verify(logManager).updateLowestLsn(anyLong());
 
     compactor.shutdown();
@@ -111,8 +111,8 @@ public class CompactorImplTest {
 
     policy.waitForCompactionComplete();
 
-    verifyCompactedTimes(1100);
-    verify(policy).stoppedCompacting();
+    verifyCompactedTimes(1500);
+    verify(policy).stoppedCompacting(false);
     verify(future, atLeastOnce()).get();
     verify(logManager, times(2)).updateLowestLsn(anyLong());
     compactor.shutdown();
@@ -120,7 +120,7 @@ public class CompactorImplTest {
   
   @Test
   public void testMaxPermits() throws Exception {
-    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
+    compactor = new CompactorImpl(objectManager, transactionManager, () -> actionManager,
                                   logManager, policy,
                                   60, 60, 1000, Integer.MAX_VALUE);
 //don't start the thread
@@ -148,7 +148,7 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(0);
-    verify(policy).stoppedCompacting();
+    verify(policy).stoppedCompacting(false);
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
@@ -185,7 +185,7 @@ public class CompactorImplTest {
 
     verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
     verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
-    verify(policy, atLeastOnce()).stoppedCompacting();
+    verify(policy, atLeastOnce()).stoppedCompacting(false);
     verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
@@ -257,7 +257,7 @@ public class CompactorImplTest {
     }
 
     @Override
-    public synchronized void stoppedCompacting() {
+    public synchronized void stoppedCompacting(boolean isPaused) {
       assert isCompacting;
       isCompacting = false;
       notifyAll();

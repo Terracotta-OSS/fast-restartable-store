@@ -1,5 +1,5 @@
 /*
- * Copyright IBM Corp. 2024, 2025
+ * Copyright IBM Corp. 2025, 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,5 +27,7 @@ public abstract class EncryptionActions {
       CipherManager cipherManager) {
     codec.registerAction(id, 0, EncryptedAction.class,
         new EncryptedAction.EncryptedActionFactory(cipherManager));
+    codec.registerAction(id, 1, EncryptionBeginAction.class, EncryptionBeginAction.factory());
+    codec.registerAction(id, 2, EncryptionEndAction.class, EncryptionEndAction.factory());
   }
 }

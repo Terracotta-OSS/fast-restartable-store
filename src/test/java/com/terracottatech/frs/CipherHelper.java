@@ -27,21 +27,24 @@ public class CipherHelper {
 
   public static Properties configure(boolean encryptLog, Properties props) {
     if (encryptLog) {
-      KeyGenerator keyGenerator;
-      try {
-        keyGenerator = KeyGenerator.getInstance("AES");
-      } catch (NoSuchAlgorithmException ex) {
-        throw new RuntimeException("test failed due to missing cipher algorithm", ex);
-      }
-      keyGenerator.init(256);
-      String cipherKeyStr = Base64.getEncoder().encodeToString(keyGenerator.generateKey().getEncoded());
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
       props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
-      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), cipherKeyStr);
+      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), generateNewKey());
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ALGORITHM.shortName(), "AES/CFB/PKCS5Padding");
     } else {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "false");
     }
     return props;
+  }
+
+  public static String generateNewKey() {
+    KeyGenerator keyGenerator;
+    try {
+      keyGenerator = KeyGenerator.getInstance("AES");
+    }  catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("test failed due to missing cipher algorithm", e);
+    }
+    keyGenerator.init(256);
+    return Base64.getEncoder().encodeToString(keyGenerator.generateKey().getEncoded());
   }
 }

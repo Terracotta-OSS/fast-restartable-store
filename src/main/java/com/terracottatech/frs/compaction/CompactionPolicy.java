@@ -39,5 +39,5 @@ public interface CompactionPolicy {
   /**
    * Notify this {@link CompactionPolicy} that compaction has finished.
    */
-  void stoppedCompacting();
+  void stoppedCompacting(boolean isPaused);
 }

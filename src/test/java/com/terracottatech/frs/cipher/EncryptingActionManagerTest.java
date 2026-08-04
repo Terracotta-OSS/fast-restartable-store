@@ -19,6 +19,8 @@ import java.util.concurrent.Future;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+
+import com.terracottatech.frs.action.NullAction;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -145,16 +147,16 @@ public class EncryptingActionManagerTest {
     @Test
     public void testBarrierAction() {
         // Setup
-        when(mockDelegate.barrierAction()).thenReturn(mockLogRecord);
+        when(mockDelegate.barrierAction(any(Action.class))).thenReturn(mockLogRecord);
 
         // Call the method under test
-        LogRecord result = encryptingActionManager.barrierAction();
+        LogRecord result = encryptingActionManager.barrierAction(new NullAction());
 
         // Verify the result
         assertSame(mockLogRecord, result);
 
         // Verify the delegate was called
-        verify(mockDelegate).barrierAction();
+        verify(mockDelegate).barrierAction(any(Action.class));
     }
 }
 

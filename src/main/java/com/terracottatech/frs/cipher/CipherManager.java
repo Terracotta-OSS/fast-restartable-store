@@ -17,6 +17,7 @@ package com.terracottatech.frs.cipher;
 
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.util.Optional;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
@@ -107,4 +108,12 @@ public interface CipherManager {
    * @return The Current Token associated with the current SecretKey
    */
   String getCurrentToken();
+
+  Optional<String> getPreviousToken();
+
+  boolean isUsingEncKey(String token);
+
+  void add(String token, byte[] key);
+
+  void remove(String token);
 }

@@ -19,6 +19,7 @@ import java.util.concurrent.Future;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.log.LogRecord;
 
 public class EncryptingActionManager implements ActionManager {
@@ -62,7 +63,7 @@ public class EncryptingActionManager implements ActionManager {
   }
 
   @Override
-  public LogRecord barrierAction() {
-    return delegate.barrierAction();
+  public LogRecord barrierAction(Action action) {
+    return delegate.barrierAction(action);
   }
 }

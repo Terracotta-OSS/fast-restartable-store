@@ -92,6 +92,7 @@ public abstract class RestartStoreFactory {
 
     ActionManager actionManager;
     boolean encrypted = configuration.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE);
+    CipherManager cipherManager = null;
     if (encrypted) {
       String oldToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN);
       byte[] oldKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_OLD_KEY);
@@ -103,7 +104,7 @@ public abstract class RestartStoreFactory {
         tokenToKeyMap.put(oldToken, oldKey);
       }
       tokenToKeyMap.put(newToken, newKey);
-      CipherManager cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newToken);
+      cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newToken);
       EncryptionActions.registerActions(3, codec, cipherManager);
       actionManager = new EncryptingActionManager(
           new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory()), cipherManager);
@@ -113,8 +114,8 @@ public abstract class RestartStoreFactory {
 
     }
 
-    return new RestartStoreImpl(objectManager, logManager,
-            actionManager, readManager, ioManager, configuration);
+    return new RestartStoreImpl(objectManager, logManager, codec,
+            actionManager, cipherManager, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

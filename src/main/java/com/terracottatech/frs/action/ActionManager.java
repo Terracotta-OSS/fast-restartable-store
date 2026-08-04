@@ -73,5 +73,5 @@ public interface ActionManager {
    *
    * @return a dummy Log record that can be used as a freeze marker
    */
-  LogRecord barrierAction();
+  LogRecord barrierAction(Action action);
 }

@@ -47,7 +47,7 @@ public class NullActionManager implements ActionManager {
   }
 
   @Override
-  public LogRecord barrierAction() {
+  public LogRecord barrierAction(Action action) {
     return null;
   }
 }

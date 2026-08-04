@@ -146,10 +146,9 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public LogRecord barrierAction() {
-    return wrapAction(new NullAction());
+  public LogRecord barrierAction(Action action) {
+    return wrapAction(action);
   }
-
   /**
    * Checks if gate is closed before executing the action manager 'happened' call.
    * Uses an optimistic approach to avoid holding the stateLock during normal operations.

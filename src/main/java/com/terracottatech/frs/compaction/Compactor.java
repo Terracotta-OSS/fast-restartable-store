@@ -53,4 +53,8 @@ public interface Compactor {
    * Callback to tell the compactor to run right now, unless it's already running.
    */
   void compactNow();
+
+  CompactionPolicy getPreviousCompactionPolicy();
+
+  void updateCompactionPolicy(CompactionPolicy policy);
 }

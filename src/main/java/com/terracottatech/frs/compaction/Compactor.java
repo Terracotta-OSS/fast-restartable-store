@@ -54,7 +54,17 @@ public interface Compactor {
    */
   void compactNow();
 
+  /**
+   * Get the compaction policy that was previously in use.
+   *
+   * @return the previous compaction policy
+   */
   CompactionPolicy getPreviousCompactionPolicy();
 
+  /**
+   * Update the compaction policy used by this compactor.
+   *
+   * @param policy the new compaction policy to use
+   */
   void updateCompactionPolicy(CompactionPolicy policy);
 }

@@ -104,16 +104,41 @@ public interface CipherManager {
    */
   ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer, String token);
 
+  
   /**
-   * @return The Current Token associated with the current SecretKey
+   * Gets the token identifying the encryption key currently in use.
+   *
+   * @return the token of the current encryption key
    */
   String getCurrentToken();
 
+  /**
+   * Gets the token identifying the previously used encryption key, if any.
+   *
+   * @return an Optional containing the previous key token, or empty if no previous key exists
+   */
   Optional<String> getPreviousToken();
 
+  /**
+   * Checks if the cipher manager is currently using the encryption key identified by the given token.
+   *
+   * @param token the token identifying the encryption key to check
+   * @return true if the specified encryption key is currently in use, false otherwise
+   */
   boolean isUsingEncKey(String token);
 
+  /**
+   * Adds a new encryption key to the cipher manager with the specified token identifier.
+   *
+   * @param token the token to identify this encryption key
+   * @param key the encryption key bytes to add
+   */
   void add(String token, byte[] key);
 
+  /**
+   * Removes the encryption key identified by the given token from the cipher manager.
+   *
+   * @param token the token identifying the encryption key to remove
+   */
   void remove(String token);
 }

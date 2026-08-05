@@ -132,14 +132,33 @@ public interface RestartStore<I, K, V> {
    */
   Future<Future<Void>> freeze();
 
+  
+  /**
+   * Starts encryption all the existing frs records with the provided key.
+   *
+   * @param newKeyToken the token identifying the new encryption key
+   * @param newKey Base64 encoded ncryption key to use
+   */
   default void handleEncKeyChange(String newKeyToken, String newKey) {
 
   }
 
+  /**
+   * Register a listener to be notified when encryption operations complete.
+   *
+   * @param encCompletionConsumer a consumer that accepts the RestartStore instance and key token
+   *                              when encryption operations complete
+   */
   default void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer) {
 
   }
-
+  
+  /**
+   * Check if this RestartStore is currently using the encryption key identified by the given token.
+   *
+   * @param token the token identifying the encryption key to check
+   * @return true if the store is using the specified encryption key, false otherwise
+   */
   default boolean isUsingEncKey(String token) {
     return false;
   }

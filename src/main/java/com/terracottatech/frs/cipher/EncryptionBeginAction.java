@@ -18,40 +18,20 @@ package com.terracottatech.frs.cipher;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
+import com.terracottatech.frs.action.BaseMarkerAction;
 import com.terracottatech.frs.object.ObjectManager;
 
 import java.nio.ByteBuffer;
 
-public class EncryptionBeginAction implements Action {
-    public static final Action INSTANCE = new EncryptionBeginAction();
+public class EncryptionBeginAction extends BaseMarkerAction {
+  public static final Action INSTANCE = new EncryptionBeginAction();
 
-    public static <I, K, V> ActionFactory<I, K, V> factory() {
-        return new ActionFactory<I, K, V>() {
-            @Override
-            public Action create(ObjectManager<I, K, V> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-                return INSTANCE;
-            }
-        };
-    }
-
-    private long lsn;
-
-    @Override
-    public void record(long lsn) {
-        this.lsn = lsn;
-    }
-
-    @Override
-    public void replay(long lsn) {
-
-    }
-
-    public long getLsn() {
-        return lsn;
-    }
-
-    @Override
-    public ByteBuffer[] getPayload(ActionCodec codec) {
-        return new ByteBuffer[0];
-    }
+  public static <I, K, V> ActionFactory<I, K, V> factory() {
+    return new ActionFactory<I, K, V>() {
+      @Override
+      public Action create(ObjectManager<I, K, V> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
+        return INSTANCE;
+      }
+    };
+  }
 }

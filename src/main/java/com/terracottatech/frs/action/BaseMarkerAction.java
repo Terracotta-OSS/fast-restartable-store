@@ -15,22 +15,28 @@
  */
 package com.terracottatech.frs.action;
 
-import com.terracottatech.frs.object.ObjectManager;
-
 import java.nio.ByteBuffer;
 
-/**
- * @author tim
- */
-public class NullAction extends BaseMarkerAction {
-  public static final Action INSTANCE = new NullAction();
+public class BaseMarkerAction implements Action {
+
+  private long lsn;
   
-  public static <I, K, V> ActionFactory<I, K, V> factory() {
-    return new ActionFactory<I, K, V>() {
-      @Override
-      public Action create(ObjectManager<I, K, V> objectManager, ActionCodec codec, ByteBuffer[] buffers) {
-        return INSTANCE;
-      }
-    };
+  @Override
+  public void record(long lsn) {
+    this.lsn = lsn;  
+  }
+
+  @Override
+  public void replay(long lsn) {
+
+  }
+
+  public long getLsn() {
+    return lsn;
+  }
+  
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[0];
   }
 }

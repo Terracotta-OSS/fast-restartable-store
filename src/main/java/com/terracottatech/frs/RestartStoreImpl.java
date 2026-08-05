@@ -174,7 +174,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     if (partialWriteWithNewKey) {
       handlePartialEncWithOldKey(maxLsn);
     } else {
-      // update keys while starting restart store but no markers found in log
+      // update keys if no markers found in log
       updateKeys();
     }
   }

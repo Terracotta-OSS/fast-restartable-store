@@ -41,4 +41,5 @@ public class StreamOnHeapTest extends OnHeapTest {
     props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "STREAM");
     return CipherHelper.configure(encryptLog, props);
   }
+  
 }

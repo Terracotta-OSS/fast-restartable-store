@@ -222,7 +222,7 @@ public class CompactorImpl implements Compactor {
      long lastLsn = 0;
  
       LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
-      while (!signalPause) {
+      while (compactedCount < liveSize && !signalPause) {
         ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(
                 getHighestLsnForCompaction(baseLsn, rangeLsn, ceilingLsn));
         if (compactionEntry == null) {

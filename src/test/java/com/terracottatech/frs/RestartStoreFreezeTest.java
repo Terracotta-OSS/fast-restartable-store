@@ -15,6 +15,12 @@
  */
 package com.terracottatech.frs;
 
+import org.apache.commons.io.FileUtils;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
 import com.terracottatech.frs.config.FrsProperty;
 import com.terracottatech.frs.object.RegisterableObjectManager;
 import com.terracottatech.frs.object.SimpleRestartableMap;
@@ -30,13 +36,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.io.FileUtils;
 
 import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;

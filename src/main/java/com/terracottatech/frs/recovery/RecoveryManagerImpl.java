@@ -97,7 +97,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     boolean isRecoveryDone = false;
     boolean endEncMarkerSeen = false;
     boolean partialWriteWithNewKey = false;
-    long maxLsnForEncStart = Integer.MAX_VALUE;
+    long maxLsnForEncStart = Long.MAX_VALUE;
     try {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
@@ -131,7 +131,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
           }
         }
       }
-    } catch (IOException ioe) {
+    } catch ( IOException ioe ) {
       throw new RecoveryException("failed to restart", ioe);
     } finally {
       replayFilter.finish();

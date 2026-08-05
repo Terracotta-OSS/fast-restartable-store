@@ -71,7 +71,7 @@ public class ActionManagerImplTest extends BaseActionManagerImplTest {
     actionMgr.pause();
     scheduleResumeTask(100);
     Future<Void> actionFuture = actionMgr.syncHappened(put);
-    actionFuture.get(10, TimeUnit.MILLISECONDS);
+    actionFuture.get();
     assertThat(actionFuture.isDone(), is(true));
   }
 

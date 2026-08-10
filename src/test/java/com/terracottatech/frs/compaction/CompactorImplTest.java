@@ -37,6 +37,7 @@ import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -83,7 +84,7 @@ public class CompactorImplTest {
     SECONDS.sleep(1);
 
     verify(policy).startCompacting();
-    verify(policy, never()).stoppedCompacting(false);
+    verify(policy, never()).stoppedCompacting(true);
     verify(logManager).updateLowestLsn(anyLong());
 
     compactor.shutdown();
@@ -108,7 +109,7 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(1100);
-    verify(policy).stoppedCompacting(false);
+    verify(policy).stoppedCompacting(true);
     verify(future, atLeastOnce()).get();
     verify(logManager, times(2)).updateLowestLsn(anyLong());
     compactor.shutdown();
@@ -144,7 +145,7 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(0);
-    verify(policy).stoppedCompacting(false);
+    verify(policy).stoppedCompacting(true);
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
@@ -175,11 +176,24 @@ public class CompactorImplTest {
 
     verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
     verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
-    verify(policy, atLeastOnce()).stoppedCompacting(false);
+    verify(policy, atLeastOnce()).stoppedCompacting(true);
     verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 
+  @Test
+  public void testCompactionInterrupted() throws Exception {
+    compactor.startup();
+    doThrow(new RuntimeException()).when(transactionManager).getLowestOpenTransactionLsn();
+
+    policy.compactCount = 1;
+    compactor.compactNow();
+    SECONDS.sleep(1);
+    compactor.shutdown();
+
+    verify(policy).stoppedCompacting(false);
+  }
+  
   private void verifyCompactedTimes(int times) {
     verify(actionManager, times(times)).happened(isA(CompactionAction.class));
     verify(policy, times(times)).compacted(any(ObjectManagerEntry.class));

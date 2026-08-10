@@ -177,10 +177,13 @@ public class CompactorImpl implements Compactor {
           }
 
           if (currentPolicyRef.get().startCompacting() && alive) {
+            boolean cleanCompactionFinish = false;
             try {
               compact();
+              // Ensure compaction finished cleanly.
+              cleanCompactionFinish = signalPause ? false : true;
             } finally {
-              currentPolicyRef.get().stoppedCompacting(signalPause);
+              currentPolicyRef.get().stoppedCompacting(cleanCompactionFinish);
             }
           }
 

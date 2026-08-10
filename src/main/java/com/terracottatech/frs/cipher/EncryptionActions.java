@@ -27,7 +27,5 @@ public abstract class EncryptionActions {
       CipherManager cipherManager) {
     codec.registerAction(id, 0, EncryptedAction.class,
         new EncryptedAction.EncryptedActionFactory(cipherManager));
-    codec.registerAction(id, 1, EncryptionBeginAction.class, EncryptionBeginAction.factory());
-    codec.registerAction(id, 2, EncryptionEndAction.class, EncryptionEndAction.factory());
   }
 }

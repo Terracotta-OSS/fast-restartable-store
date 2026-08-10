@@ -17,6 +17,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.recovery.RecoveryException;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 
@@ -139,7 +140,7 @@ public interface RestartStore<I, K, V> {
    * @param newKeyToken the token identifying the new encryption key
    * @param newKey Base64 encoded ncryption key to use
    */
-  default void handleEncKeyChange(String newKeyToken, String newKey) {
+  default void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException, ExecutionException {
 
   }
 

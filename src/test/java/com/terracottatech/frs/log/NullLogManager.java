@@ -79,5 +79,8 @@ public class NullLogManager implements LogManager {
       return null;      
   }
   
-  
+  @Override
+  public void cleanup() {
+
+  }
 }

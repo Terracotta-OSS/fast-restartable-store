@@ -374,6 +374,11 @@ public class StagingLogManager implements LogManager {
         return ex;
     }
 
+    @Override
+    public void cleanup() {
+      exchanger.cancel(false); // To ensure record reader finishes in case of recovery not going till lowest marker.
+    }
+    
     //  TODO:  re-examine when more runtime context is available.
     @Override
     public Iterator<LogRecord> startup() {      

@@ -92,6 +92,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   private final int maxPauseTime;
   private final ScheduledExecutorService pauseExecutionService;
+  private static final Object lock = new Object();
   private volatile Future<Future<Snapshot>> pauseTaskRef;
   private volatile Future<Future<Void>> shutdownTaskRef;
   private volatile ScheduledFuture<?> pauseTimerTaskRef;
@@ -162,7 +163,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized void recovered(boolean partialWriteWithNewKey, long maxLsn) throws InterruptedException {
+  public synchronized void recovered(boolean recoveryTillLowestMarker, boolean partialWriteWithNewKey, 
+                                     long maxLsn) throws InterruptedException {
     while (state == State.FROZEN) {
       LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
       this.wait();
@@ -171,7 +173,14 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       compactor.startup();
       state = State.RUNNING;
     }
+
+    if (!recoveryTillLowestMarker) {
+      LOGGER.debug("FRS reader thread in recovery is stopped");
+      logManager.cleanup();
+    }
+
     if (partialWriteWithNewKey) {
+      LOGGER.debug("update records with latest key during recovery");
       handlePartialEncWithOldKey(maxLsn);
     } else {
       // update keys if no markers found in log
@@ -289,9 +298,11 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     pauseTaskRef = pauseExecutionService.submit(new Callable<Future<Snapshot>>() {
       @Override
       public Future<Snapshot> call() throws Exception {
-        compactor.pause();
-        actionManagerRef.get().pause();
-        return new OuterSnapshotFuture(logManager.snapshotAsync());
+        synchronized (lock) {
+          compactor.pause();
+          actionManagerRef.get().pause();
+          return new OuterSnapshotFuture(logManager.snapshotAsync());
+        }
       }
     });
     return pauseTaskRef;
@@ -312,11 +323,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     pauseTimerTaskRef = null;
     shutdownTaskRef = null;
     if (state != State.FROZEN || prevState == State.RUNNING) {
-      if (state == State.FROZEN) {
-        // for snapshots..compactor is unpaused after snapshots are closed
-        compactor.unpause();
+      synchronized (lock) {
+        if (state == State.FROZEN) {
+          // for snapshots..compactor is unpaused after snapshots are closed
+          compactor.unpause();
+        }
+        getActionManager().resume();
       }
-      getActionManager().resume();
       state = State.RUNNING;
     } else {
       // state is frozen..means from Init or Recovered state..move back
@@ -354,68 +367,59 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   private void handlePartialEncWithOldKey(long maxLsnTillCompact) {
-    actionManagerRef.get().pause();
-
-    try {
-      logManager.appendAndSync(actionManagerRef.get().barrierAction(new EncryptionBeginAction())).get();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      throw new RuntimeException(e);
+    synchronized (lock) {
+      try {
+        compactor.pause();
+        compactor.updateCompactionPolicy(new EncryptionCompactionPolicy(this, maxLsnTillCompact));
+      } finally {
+        compactor.unpause();
+        compactor.compactNow();
+      }
     }
-
-    actionManagerRef.get().resume();
-    compactor.updateCompactionPolicy(new EncryptionCompactionPolicy(this, maxLsnTillCompact));
-    compactor.compactNow();
   }
 
   @Override
-  public void handleEncKeyChange(String newKeyToken, String newKey) {
-    actionManagerRef.get().pause();
-
-    byte[] b = Base64.getDecoder().decode(newKey);
-    if (!(getActionManager() instanceof EncryptingActionManager)) {
-      Map<String, byte[]> tokenToKeyMap = new HashMap<>();
-      tokenToKeyMap.put(newKeyToken, b);
-      CipherManager cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newKeyToken);
-      actionManagerRef.set(new EncryptingActionManager(getActionManager(), cipherManager));
-      EncryptionActions.registerActions(3, this.actionCodec, cipherManager);
-      cipherManagerRef.set(cipherManager);
-    } else {
-      cipherManagerRef.get().add(newKeyToken, b);
+  public void handleEncKeyChange(String newKeyToken, String newKey) throws ExecutionException, InterruptedException {
+    synchronized (lock) {
+      compactor.pause();
+      actionManagerRef.get().pause();
+      
+      EncryptionBeginAction beginAction = new EncryptionBeginAction();
+      try {
+        logManager.appendAndSync(actionManagerRef.get().barrierAction(beginAction)).get();
+        
+        byte[] b = Base64.getDecoder().decode(newKey);
+        if (!(getActionManager() instanceof EncryptingActionManager)) {
+          Map<String, byte[]> tokenToKeyMap = new HashMap<>();
+          tokenToKeyMap.put(newKeyToken, b);
+          CipherManager cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newKeyToken);
+          actionManagerRef.set(new EncryptingActionManager(getActionManager(), cipherManager));
+          EncryptionActions.registerActions(3, this.actionCodec, cipherManager);
+          cipherManagerRef.set(cipherManager);
+        } else {
+          cipherManagerRef.get().add(newKeyToken, b);
+        }
+        LOGGER.info("Encryption with new key initiated");
+        compactor.updateCompactionPolicy(new EncryptionCompactionPolicy(this, beginAction.getLsn()));
+      } finally {
+        compactor.unpause();
+        actionManagerRef.get().resume();
+      }
     }
-
-    EncryptionBeginAction beginAction = new EncryptionBeginAction();
-    try {
-      logManager.appendAndSync(actionManagerRef.get().barrierAction(beginAction)).get();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      throw new RuntimeException(e);
-    }
-
-    actionManagerRef.get().resume();
-    compactor.updateCompactionPolicy(new EncryptionCompactionPolicy(this, beginAction.getLsn()));
-    compactor.compactNow();
   }
 
   @Override
-  public void handleEncryptionCompletionWithNewKey() {
-    try {
-      logManager.appendAndSync(actionManagerRef.get().barrierAction(new EncryptionEndAction())).get();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    } catch (ExecutionException e) {
-      throw new RuntimeException(e);
-    }
+  public void handleEncryptionCompletionWithNewKey() throws ExecutionException, InterruptedException {
+    logManager.appendAndSync(actionManagerRef.get().barrierAction(new EncryptionEndAction())).get();
     // Change back the compaction policy to default one as encryption is done
     compactor.updateCompactionPolicy(compactor.getPreviousCompactionPolicy());
     updateKeys();
+    LOGGER.info("Encryption completed with latest key");
   }
 
   @Override
   public void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer) {
-      this.encCompletionConsumer = encCompletionConsumer;
+    this.encCompletionConsumer = encCompletionConsumer;
   }
 
   @Override
@@ -447,8 +451,10 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     if (state != State.PAUSED) {
       return;
     }
-    compactor.unpause();
-    getActionManager().resume();
+    synchronized (lock) {
+      compactor.unpause();
+      getActionManager().resume();
+    }
     pauseTaskRef.cancel(true);
     pauseTaskRef = null;
     pauseTimerTaskRef = null;
@@ -692,7 +698,9 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
     @Override
     public void close() throws IOException {
-      compactor.unpause();
+      synchronized (lock) {
+        compactor.unpause();
+      }
       inner.close();
     }
 

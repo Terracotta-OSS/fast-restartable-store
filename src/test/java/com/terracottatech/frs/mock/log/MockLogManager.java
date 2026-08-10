@@ -208,6 +208,11 @@ public class MockLogManager implements LogManager {
     public IOStatistics getIOStatistics() {
       throw new UnsupportedOperationException("Not supported yet.");
     }
-    
-    
+
+  @Override
+  public void cleanup() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+
 }

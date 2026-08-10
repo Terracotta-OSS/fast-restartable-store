@@ -15,6 +15,8 @@
  */
 package com.terracottatech.frs.cipher;
 
+import java.util.concurrent.ExecutionException;
+
 public interface EncryptionCompletionListener {
-  void handleEncryptionCompletionWithNewKey();
+  void handleEncryptionCompletionWithNewKey() throws ExecutionException, InterruptedException;
 }

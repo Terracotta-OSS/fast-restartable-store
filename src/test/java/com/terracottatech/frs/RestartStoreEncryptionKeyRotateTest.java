@@ -43,6 +43,7 @@ public class RestartStoreEncryptionKeyRotateTest {
   public void setUp() {
     properties = CipherHelper.configure(true, properties);
     properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(15));
+    properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), "1000000");
   }
 
   @Test
@@ -58,34 +59,39 @@ public class RestartStoreEncryptionKeyRotateTest {
     });
 
     restartStore.startup().get();
-    Map<String, String> map = createMap(restartStore, objectManager, 0);
+    Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+    Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
     for (int i = 0; i < 10000; ++i) {
-      map.put(String.valueOf(i), "val" + i);
+      map1.put(String.valueOf(i), "val" + i);
+      map2.put(String.valueOf(i), "val" + i);
     }
+
     restartStore.handleEncKeyChange("token2", CipherHelper.generateNewKey());
 
     // Get and Put should still work
     for (int i = 5000; i < 10000; ++i) {
-      assertThat(map.get(String.valueOf(i)), is("val" + i));
+      assertThat(map1.get(String.valueOf(i)), is("val" + i));
+      assertThat(map2.get(String.valueOf(i)), is("val" + i));
     }
 
     for (int i = 10000; i < 20000; ++i) {
-      map.put(String.valueOf(i), "val" + i);
+      map1.put(String.valueOf(i), "val" + i);
+      map2.put(String.valueOf(i), "val" + i);
     }
     latch.await();
 
     for (int i = 0; i < 20000; ++i) {
-      assertThat(map.get(String.valueOf(i)), is("val" + i));
+      assertThat(map1.get(String.valueOf(i)), is("val" + i));
+      assertThat(map2.get(String.valueOf(i)), is("val" + i));
     }
     assertThat(restartStore.isUsingEncKey("token1"), is(false));
     assertThat(restartStore.isUsingEncKey("token2"), is(true));
 
     restartStore.shutdown();
-
   }
 
   @Test
-  public void testRecordUpdatedWithNewEncKeyDuringPause() throws Exception {
+  public void testRecordUpdatedWithNewEncKeyDuringPauseAndResume() throws Exception {
     String newKey = "";
     File path = folder.newFolder();
     {
@@ -98,9 +104,11 @@ public class RestartStoreEncryptionKeyRotateTest {
       restartStore.registerEncCompletionListener((store, oldKey) -> latch.countDown());
 
       restartStore.startup().get();
-      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
       for (int i = 0; i < 10000; ++i) {
-        map.put(String.valueOf(i), "val" + i);
+        map1.put(String.valueOf(i), "val" + i);
+        map2.put(String.valueOf(i), "val" + i);
       }
       newKey = CipherHelper.generateNewKey();
       restartStore.handleEncKeyChange("token2", newKey);
@@ -114,17 +122,20 @@ public class RestartStoreEncryptionKeyRotateTest {
 
       //  Get and Put should still work
       for (int i = 5000; i < 10000; ++i) {
-        assertThat(map.get(String.valueOf(i)), is("val" + i));
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
       }
 
       for (int i = 10000; i < 20000; ++i) {
-        map.put(String.valueOf(i), "val" + i);
+        map1.put(String.valueOf(i), "val" + i);
+        map2.put(String.valueOf(i), "val" + i);
       }
       snapshotFuture.get().close(); // To unpause compactor
       latch.await();
 
       for (int i = 0; i < 20000; ++i) {
-        assertThat(map.get(String.valueOf(i)), is("val" + i));
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
       }
       assertThat(restartStore.isUsingEncKey("token1"), is(false));
       assertThat(restartStore.isUsingEncKey("token2"), is(true));
@@ -140,17 +151,19 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
       restartStore.startup().get();
       for (int i = 0; i < 20000; ++i) {
-        assertThat(map.get(String.valueOf(i)), is("val" + i));
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
       }
       restartStore.shutdown();
     }
   }
 
   @Test
-  public void testRecordUpdatePartially() throws Exception {
+  public void testRecordUpdatePartiallyAndFinishAfterRecovering() throws Exception {
     String newKey = "";
     String oldKey = "";
     File path = folder.newFolder();
@@ -160,9 +173,11 @@ public class RestartStoreEncryptionKeyRotateTest {
           RestartStoreFactory.createStore(objectManager, path, properties);
 
       restartStore.startup().get();
-      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
       for (int i = 0; i < 20000; ++i) {
-        map.put(String.valueOf(i), "val" + i);
+        map1.put(String.valueOf(i), "val" + i);
+        map2.put(String.valueOf(i), "val" + i);
       }
       oldKey = properties.getProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName());
       newKey = CipherHelper.generateNewKey();
@@ -180,8 +195,13 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      createMap(restartStore, objectManager, 0);
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
       restartStore.startup().get();
+      for (int i = 0; i < 20000; ++i) {
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
+      }
       restartStore.shutdown();
     }
 
@@ -197,22 +217,92 @@ public class RestartStoreEncryptionKeyRotateTest {
 
       CountDownLatch latch = new CountDownLatch(1);
       restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
-      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      createMap1(restartStore, objectManager, 0);
+      createMap2(restartStore, objectManager, 1);
       restartStore.startup().get();
-      latch.await();
-      for (int i = 0; i < 20000; ++i) {
-        assertThat(map.get(String.valueOf(i)), is("val" + i));
-      }
       latch.await();
       assertThat(restartStore.isUsingEncKey("token1"), is(false));
       assertThat(restartStore.isUsingEncKey("token2"), is(true));
       restartStore.shutdown();
     }
+
+    String latestKey = "";
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
+
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      restartStore.startup().get();
+
+      for (int i = 20000; i < 40000; i++) {
+        map1.put(String.valueOf(i), "val" + i);
+        map2.put(String.valueOf(i), "val" + i);
+      }
+      latestKey = CipherHelper.generateNewKey();
+      restartStore.handleEncKeyChange("token3", latestKey);
+      restartStore.shutdown();
+    }
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token2");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token3");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), latestKey);
+
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
+
+      createMap1(restartStore, objectManager, 0);
+      createMap2(restartStore, objectManager, 1);
+      restartStore.startup().get();
+      restartStore.shutdown();
+    }
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token2");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token3");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), latestKey);
+
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
+
+      CountDownLatch latch = new CountDownLatch(1);
+      restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
+      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      restartStore.startup().get();
+      latch.await();
+      for (int i = 0; i < 40000; ++i) {
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
+      }
+      assertThat(restartStore.isUsingEncKey("token1"), is(false));
+      assertThat(restartStore.isUsingEncKey("token2"), is(false));
+      assertThat(restartStore.isUsingEncKey("token3"), is(true));
+      restartStore.shutdown();
+    }
+
   }
 
-  private static Map<String, String> createMap(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
-                                               RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                               int identifier) {
+  private static Map<String, String> createMap1(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
+                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                                int identifier) {
+    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, true);
+    objectManager.registerObject(map);
+    return map;
+  }
+
+  private static Map<String, String> createMap2(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
+                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                                int identifier) {
     SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, false);
     objectManager.registerObject(map);
     return map;

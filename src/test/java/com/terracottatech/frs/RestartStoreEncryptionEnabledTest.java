@@ -23,11 +23,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,35 +40,69 @@ public class RestartStoreEncryptionEnabledTest {
   @Before
   public void setUp() {
     properties = CipherHelper.configure(false, properties);
-    properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(15));
+    properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(1));
   }
 
   @Test
   public void testStoreFromNoEncryptionToEncryption() throws Exception {
-    RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-    RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-        RestartStoreFactory.createStore(objectManager, folder.newFolder(), properties);
+    File path = folder.newFolder();
+    String newKey = "";
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
 
-    restartStore.startup().get();
-    Map<String, String> map = createMap(restartStore, objectManager, 0);
-    for (int i = 0; i < 100; ++i) {
-      map.put(String.valueOf(i), "val" + i);
+      restartStore.startup().get();
+      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      for (int i = 0; i < 100; ++i) {
+        map.put(String.valueOf(i), "val" + i);
+      }
+      newKey = CipherHelper.generateNewKey();
+
+      Thread t = new Thread(() -> {
+        for (int i = 100; i < 110; ++i) {
+          try {
+            Thread.sleep(100);
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+          map.put(String.valueOf(i), "val" + i);
+        }
+      });
+      t.start();
+
+      restartStore.handleEncKeyChange("token1", newKey);
+
+      Thread.sleep(3000); // sleep a bit to ensure records are encrypted since compactor is running very quickly
+
+      t.join();
+
+      assertThat(restartStore.isUsingEncKey("token1"), is(true));
+      restartStore.shutdown();
     }
-    restartStore.handleEncKeyChange("token1", CipherHelper.generateNewKey());
 
-    Thread.sleep(3000); // sleep to ensure records are encrypted
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
 
-    for (int i = 0; i < 100; ++i) {
-      assertThat(map.get(String.valueOf(i)), is("val" + i));
+      Map<String, String> map = createMap(restartStore, objectManager, 0);
+      restartStore.startup().get();
+
+      for (int i = 0; i < 110; ++i) {
+        assertThat(map.get(String.valueOf(i)), is("val" + i));
+      }
+      restartStore.shutdown();
     }
-    assertThat(restartStore.isUsingEncKey("token1"), is(true));
-    restartStore.shutdown();
   }
 
   private static Map<String, String> createMap(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                                int identifier) {
-    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, false);
+    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, true);
     objectManager.registerObject(map);
     return map;
   }

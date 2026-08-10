@@ -18,6 +18,8 @@ package com.terracottatech.frs.compaction;
 import com.terracottatech.frs.cipher.EncryptionCompletionListener;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
+import java.util.concurrent.ExecutionException;
+
 public class EncryptionCompactionPolicy implements CompactionPolicy {
 
   private final EncryptionCompletionListener listener;
@@ -39,8 +41,8 @@ public class EncryptionCompactionPolicy implements CompactionPolicy {
   }
 
   @Override
-  public void stoppedCompacting(boolean isPaused) {
-    if (!isPaused) {
+  public void stoppedCompacting(boolean isCompactedCleanly) throws ExecutionException, InterruptedException {
+    if (isCompactedCleanly) {
       listener.handleEncryptionCompletionWithNewKey();
     }
   }

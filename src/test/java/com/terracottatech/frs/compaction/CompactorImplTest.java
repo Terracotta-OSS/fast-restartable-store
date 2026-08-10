@@ -247,7 +247,7 @@ public class CompactorImplTest {
     }
 
     @Override
-    public synchronized void stoppedCompacting(boolean isPaused) {
+    public synchronized void stoppedCompacting(boolean isCompactedCleanly) {
       assert isCompacting;
       isCompacting = false;
       notifyAll();

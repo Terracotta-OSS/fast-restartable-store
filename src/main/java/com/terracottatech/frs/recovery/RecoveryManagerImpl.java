@@ -94,7 +94,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
-    boolean isRecoveryDone = false;
+    boolean recoveryTillLowestMarker = true;
     boolean endEncMarkerSeen = false;
     boolean partialWriteWithNewKey = false;
     long maxLsnForEncStart = Long.MAX_VALUE;
@@ -123,7 +123,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
         if (action instanceof EncryptionBeginAction) {
           if (endEncMarkerSeen) {
-            isRecoveryDone = true;
+            recoveryTillLowestMarker = false;
             break;
           } else {
             partialWriteWithNewKey = true;
@@ -138,7 +138,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
       replayFilter.checkError();
     }
 
-    if (partialWriteWithNewKey || isRecoveryDone) {
+    if (partialWriteWithNewKey || !recoveryTillLowestMarker) {
       LOGGER.info("Recovery completed");
     } else {
       if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
@@ -147,7 +147,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     for (RecoveryListener listener : listeners) {
-      listener.recovered(partialWriteWithNewKey, maxLsnForEncStart);
+      listener.recovered(recoveryTillLowestMarker, partialWriteWithNewKey, maxLsnForEncStart);
     }
 
     LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);

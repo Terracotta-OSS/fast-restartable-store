@@ -20,10 +20,10 @@ import java.nio.ByteBuffer;
 public class BaseMarkerAction implements Action {
 
   private long lsn;
-  
+
   @Override
   public void record(long lsn) {
-    this.lsn = lsn;  
+    this.lsn = lsn;
   }
 
   @Override
@@ -34,7 +34,7 @@ public class BaseMarkerAction implements Action {
   public long getLsn() {
     return lsn;
   }
-  
+
   @Override
   public ByteBuffer[] getPayload(ActionCodec codec) {
     return new ByteBuffer[0];

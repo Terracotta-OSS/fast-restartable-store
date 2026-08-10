@@ -44,12 +44,7 @@ public class EncryptingActionManager implements ActionManager {
 
   @Override
   public Action extract(LogRecord record) {
-    Action action = delegate.extract(record);
-    if (action instanceof EncryptedAction) {
-      return ((EncryptedAction) action).getDelegate();
-    } else {
-      return action;
-    }
+    return delegate.extract(record);
   }
 
   @Override

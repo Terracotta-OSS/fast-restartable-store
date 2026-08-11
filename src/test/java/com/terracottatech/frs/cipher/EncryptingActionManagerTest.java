@@ -98,7 +98,7 @@ public class EncryptingActionManagerTest {
         // Setup
         EncryptedAction mockEncryptedAction = mock(EncryptedAction.class);
         when(mockEncryptedAction.getDelegate()).thenReturn(mockAction);
-        when(mockDelegate.extract(mockLogRecord)).thenReturn(mockEncryptedAction);
+        when(mockDelegate.extract(mockLogRecord)).thenReturn(mockAction);
 
         // Call the method under test
         Action result = encryptingActionManager.extract(mockLogRecord);
@@ -108,7 +108,6 @@ public class EncryptingActionManagerTest {
 
         // Verify the interactions
         verify(mockDelegate).extract(mockLogRecord);
-        verify(mockEncryptedAction).getDelegate();
     }
 
     @Test

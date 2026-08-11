@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 /**
  * End to end test for FRS {@link RestartStore#freeze()} functionality
@@ -81,7 +82,7 @@ public class RestartStoreFreezeTest {
     RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restart = loadValuesAndFreeze(frsFolder, false);
     restart.resume();
     executorService.shutdown();
-    executorService.awaitTermination(40, TimeUnit.SECONDS);
+    assertTrue(executorService.awaitTermination(40, TimeUnit.SECONDS));
     restart.shutdown();
     assertStoredNewValues(frsFolder, false);
   }

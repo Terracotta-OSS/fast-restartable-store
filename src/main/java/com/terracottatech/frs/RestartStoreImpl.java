@@ -24,6 +24,8 @@ import com.terracottatech.frs.cipher.EncryptionActions;
 import com.terracottatech.frs.cipher.EncryptionBeginAction;
 import com.terracottatech.frs.cipher.EncryptionCompletionListener;
 import com.terracottatech.frs.cipher.EncryptionEndAction;
+import com.terracottatech.frs.cipher.EncryptionManager;
+import com.terracottatech.frs.cipher.EncryptionManagerImpl;
 import com.terracottatech.frs.compaction.EncryptionCompactionPolicy;
 import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import org.slf4j.Logger;
@@ -84,9 +86,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final TransactionManager                                transactionManager;
   private final Compactor compactor;
   private final LogManager logManager;
-  private final ActionCodec actionCodec;
-  private final AtomicReference<ActionManager> actionManagerRef = new AtomicReference<>();
-  private final AtomicReference<CipherManager> cipherManagerRef = new AtomicReference<>();
+  private final ActionManager actionManager;
+  private final EncryptionManager encryptionManager;
   private final ReadManager readManager;
   private final Configuration configuration;
 
@@ -110,8 +111,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
     this.logManager = logManager;
-    this.actionCodec = actionCodec;
-    this.actionManagerRef.set(actionManager);
+    this.encryptionManager = new EncryptionManagerImpl(configuration, actionCodec);
+    this.actionManager = new EncryptingActionManager(actionManager, this.encryptionManager);
     this.readManager = read;
     this.compactor = compactor;
     this.configuration = configuration;
@@ -121,28 +122,20 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                           LogManager logManager, ActionCodec codec,
-                          ActionManager actionManager, CipherManager cipherManager, ReadManager read, IOManager ioManager,
+                          ActionManager actionManager, ReadManager read, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
     this.objectManager = objectManager;
     this.logManager = logManager;
-    this.actionCodec = codec;
-    this.actionManagerRef.set(actionManager);
     this.readManager = read;
-    if (cipherManager != null) {
-      this.cipherManagerRef.set(cipherManager);
-    }
-    this.transactionManager = new TransactionManagerImpl(() -> getActionManager());
-    this.compactor = new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, () -> getActionManager());
+    this.encryptionManager = new EncryptionManagerImpl(configuration, codec);
+    this.actionManager = new EncryptingActionManager(actionManager, this.encryptionManager);
+    this.transactionManager = new TransactionManagerImpl(actionManager);
+    this.compactor = new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager);
     this.configuration = configuration;
     this.pauseExecutionService = Executors.newScheduledThreadPool(0);
     this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
   }
-
-  private ActionManager getActionManager() {
-    return actionManagerRef.get();
-  }
-
-
+  
   @Override
   public synchronized Future<Void> startup() throws InterruptedException,
           RecoveryException {
@@ -157,7 +150,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       }
     }
     state = State.RECOVERING;
-    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, getActionManager(),
+    RecoveryManager recoveryManager = new RecoveryManagerImpl(logManager, actionManager,
                                                               configuration);
     return recoveryManager.recover(this);
   }
@@ -217,7 +210,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         if ( c == null ) {
             return null;
         }
-        Action a = getActionManager().extract(c);
+        Action a = actionManager.extract(c);
         if ( a instanceof GettableAction ) {
           return (GettableAction)a;
         } else {
@@ -300,7 +293,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       public Future<Snapshot> call() throws Exception {
         synchronized (lock) {
           compactor.pause();
-          actionManagerRef.get().pause();
+          actionManager.pause();
           return new OuterSnapshotFuture(logManager.snapshotAsync());
         }
       }
@@ -328,7 +321,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
           // for snapshots..compactor is unpaused after snapshots are closed
           compactor.unpause();
         }
-        getActionManager().resume();
+        actionManager.resume();
       }
       state = State.RUNNING;
     } else {
@@ -359,8 +352,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         public Future<Void> call() throws Exception {
           synchronized (lock) {
             compactor.pause();
-            getActionManager().pause();
-            return new OuterFreezeFuture(logManager.appendAndSync(getActionManager().barrierAction(new NullAction())));
+            actionManager.pause();
+            return new OuterFreezeFuture(logManager.appendAndSync(actionManager.barrierAction(new NullAction())));
           }
         }
       });
@@ -384,35 +377,26 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   public void handleEncKeyChange(String newKeyToken, String newKey) throws ExecutionException, InterruptedException {
     synchronized (lock) {
       compactor.pause();
-      actionManagerRef.get().pause();
+      actionManager.pause();
       
       EncryptionBeginAction beginAction = new EncryptionBeginAction();
       try {
-        logManager.appendAndSync(actionManagerRef.get().barrierAction(beginAction)).get();
+        logManager.appendAndSync(actionManager.barrierAction(beginAction)).get();
         
         byte[] b = Base64.getDecoder().decode(newKey);
-        if (!(getActionManager() instanceof EncryptingActionManager)) {
-          Map<String, byte[]> tokenToKeyMap = new HashMap<>();
-          tokenToKeyMap.put(newKeyToken, b);
-          CipherManager cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newKeyToken);
-          actionManagerRef.set(new EncryptingActionManager(getActionManager(), cipherManager));
-          EncryptionActions.registerActions(3, this.actionCodec, cipherManager);
-          cipherManagerRef.set(cipherManager);
-        } else {
-          cipherManagerRef.get().add(newKeyToken, b);
-        }
+        encryptionManager.add(newKeyToken, b);
         LOGGER.info("Encryption with new key initiated");
         compactor.updateCompactionPolicy(new EncryptionCompactionPolicy(this, beginAction.getLsn()));
       } finally {
         compactor.unpause();
-        actionManagerRef.get().resume();
+        actionManager.resume();
       }
     }
   }
 
   @Override
   public void handleEncryptionCompletionWithNewKey() throws ExecutionException, InterruptedException {
-    logManager.appendAndSync(actionManagerRef.get().barrierAction(new EncryptionEndAction())).get();
+    logManager.appendAndSync(actionManager.barrierAction(new EncryptionEndAction())).get();
     // Change back the compaction policy to default one as encryption is done
     compactor.updateCompactionPolicy(compactor.getPreviousCompactionPolicy());
     updateKeys();
@@ -426,23 +410,16 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   @Override
   public boolean isUsingEncKey(String token) {
-    if(cipherManagerRef.get() != null) {
-      return cipherManagerRef.get().isUsingEncKey(token);
-    }
-    return false;
+    return encryptionManager.isUsingEncKey(token);
   }
 
   private void updateKeys() {
-    if (cipherManagerRef.get() != null) {
-      CipherManager cipherManager = cipherManagerRef.get();
-
-      cipherManager.getPreviousToken().ifPresent(oldToken -> {
-        cipherManager.remove(oldToken);
-        if(encCompletionConsumer != null) {
-          encCompletionConsumer.accept(this, oldToken);
-        }
-      });
-    }
+    encryptionManager.getPreviousToken().ifPresent(oldToken -> {
+      encryptionManager.remove(oldToken);
+      if (encCompletionConsumer != null) {
+        encCompletionConsumer.accept(this, oldToken);
+      }
+    });
   }
 
   /**
@@ -455,7 +432,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
     synchronized (lock) {
       compactor.unpause();
-      getActionManager().resume();
+      actionManager.resume();
     }
     pauseTaskRef.cancel(true);
     pauseTaskRef = null;
@@ -518,7 +495,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     private void happened(Action action) throws TransactionException {
       if (synchronous) {
         boolean interrupted = false;
-        Future<Void> written = getActionManager().syncHappened(action);
+        Future<Void> written = actionManager.syncHappened(action);
         while (true) {
           try {
             written.get();
@@ -533,7 +510,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
           Thread.currentThread().interrupt();
         }
       } else {
-        getActionManager().happened(action);
+        actionManager.happened(action);
       }
     }
 

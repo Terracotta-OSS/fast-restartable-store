@@ -19,10 +19,6 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
-import com.terracottatech.frs.cipher.AESCipherManager;
-import com.terracottatech.frs.cipher.CipherManager;
-import com.terracottatech.frs.cipher.EncryptingActionManager;
-import com.terracottatech.frs.cipher.EncryptionActions;
 import com.terracottatech.frs.compaction.CompactionActions;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
@@ -44,8 +40,6 @@ import com.terracottatech.frs.transaction.TransactionActions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -87,31 +81,10 @@ public abstract class RestartStoreFactory {
 
     ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec = createCodec(objectManager);
 
-    ActionManager actionManager;
-    boolean encrypted = configuration.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE);
-    CipherManager cipherManager = null;
-    if (encrypted) {
-      String oldToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN);
-      byte[] oldKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_OLD_KEY);
-      String newToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN);
-      byte[] newKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_NEW_KEY);
-
-      Map<String, byte[]> tokenToKeyMap = new HashMap<>();
-      if (oldToken != null && oldKey != null) {
-        tokenToKeyMap.put(oldToken, oldKey);
-      }
-      tokenToKeyMap.put(newToken, newKey);
-      cipherManager = new AESCipherManager(configuration, tokenToKeyMap, newToken);
-      EncryptionActions.registerActions(3, codec, cipherManager);
-      actionManager = new EncryptingActionManager(
-          new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory()), cipherManager);
-
-    } else {
-      actionManager = new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory());
-    }
+    ActionManager actionManager = new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory());
 
     return new RestartStoreImpl(objectManager, logManager, codec,
-        actionManager, cipherManager, readManager, ioManager, configuration);
+        actionManager, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

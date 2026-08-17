@@ -65,7 +65,7 @@ public class CompactorImplTest {
     actionManager = spy(new CompactionTestActionManager());
     policy = spy(new TestCompactionPolicy());
     logManager = mock(LogManager.class);
-    compactor = new CompactorImpl(objectManager, transactionManager, () -> actionManager,
+    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
                                   logManager, policy,
                                   60, 60, 1000, 2000);
   }
@@ -117,7 +117,7 @@ public class CompactorImplTest {
   
   @Test
   public void testMaxPermits() throws Exception {
-    compactor = new CompactorImpl(objectManager, transactionManager, () -> actionManager,
+    compactor = new CompactorImpl(objectManager, transactionManager, actionManager,
                                   logManager, policy,
                                   60, 60, 1000, Integer.MAX_VALUE);
 //don't start the thread

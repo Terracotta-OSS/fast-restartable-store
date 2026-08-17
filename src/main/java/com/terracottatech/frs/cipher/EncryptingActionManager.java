@@ -25,21 +25,21 @@ import com.terracottatech.frs.log.LogRecord;
 public class EncryptingActionManager implements ActionManager {
 
   private final ActionManager delegate;
-  private final CipherManager cipherManager;
+  private final EncryptionManager encryptionManager;
 
-  public EncryptingActionManager(ActionManager delegate, CipherManager cipherManager) {
+  public EncryptingActionManager(ActionManager delegate, EncryptionManager encryptionManager) {
     this.delegate = delegate;
-    this.cipherManager = cipherManager;
+    this.encryptionManager = encryptionManager;
   }
 
   @Override
   public Future<Void> syncHappened(Action action) {
-    return delegate.syncHappened(new EncryptedAction(action, cipherManager));
+    return delegate.syncHappened(encryptionManager.convert(action));
   }
 
   @Override
   public Future<Void> happened(Action action) {
-    return delegate.happened(new EncryptedAction(action, cipherManager));
+    return delegate.happened(encryptionManager.convert(action));
   }
 
   @Override

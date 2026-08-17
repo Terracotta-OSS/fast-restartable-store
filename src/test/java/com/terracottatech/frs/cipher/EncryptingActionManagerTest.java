@@ -35,128 +35,172 @@ import com.terracottatech.frs.log.LogRecord;
 
 public class EncryptingActionManagerTest {
 
-    private ActionManager mockDelegate;
-    private CipherManager mockCipherManager;
-    private EncryptingActionManager encryptingActionManager;
-    private Action mockAction;
-    private Future<Void> mockFuture;
-    private LogRecord mockLogRecord;
+  private ActionManager mockDelegate;
+  private EncryptionManager mockEncManager;
+  private EncryptingActionManager encryptingActionManager;
+  private Action mockAction;
+  private Future<Void> mockFuture;
+  private LogRecord mockLogRecord;
 
-    @Before
-    public void setUp() {
-        mockDelegate = mock(ActionManager.class);
-        mockCipherManager = mock(CipherManager.class);
-        mockAction = mock(Action.class);
-        mockFuture = mock(Future.class);
-        mockLogRecord = mock(LogRecord.class);
+  @Before
+  public void setUp() {
+    mockDelegate = mock(ActionManager.class);
+    mockEncManager = mock(EncryptionManager.class);
+    mockAction = mock(Action.class);
+    mockFuture = mock(Future.class);
+    mockLogRecord = mock(LogRecord.class);
 
-        encryptingActionManager = new EncryptingActionManager(mockDelegate, mockCipherManager);
-    }
+    encryptingActionManager = new EncryptingActionManager(mockDelegate, mockEncManager);
+  }
 
-    @Test
-    public void testHappened() {
-        // Setup
-        when(mockDelegate.happened(any(EncryptedAction.class))).thenReturn(mockFuture);
+  @Test
+  public void testEncryptedActionHappened() {
+    // Setup
+    when(mockDelegate.happened(any(EncryptedAction.class))).thenReturn(mockFuture);
+    EncryptedAction mockEncAction = mock(EncryptedAction.class);
+    when(mockEncAction.getDelegate()).thenReturn(mockAction);
+    when(mockEncManager.convert(any(Action.class))).thenReturn(mockEncAction);
+    // Call the method under test
+    Future<Void> result = encryptingActionManager.happened(mockAction);
 
-        // Call the method under test
-        Future<Void> result = encryptingActionManager.happened(mockAction);
+    // Verify the result
+    assertSame(mockFuture, result);
 
-        // Verify the result
-        assertSame(mockFuture, result);
+    // Verify that the delegate was called with an EncryptedAction
+    ArgumentCaptor<EncryptedAction> actionCaptor = ArgumentCaptor.forClass(EncryptedAction.class);
+    verify(mockDelegate).happened(actionCaptor.capture());
 
-        // Verify that the delegate was called with an EncryptedAction
-        ArgumentCaptor<EncryptedAction> actionCaptor = ArgumentCaptor.forClass(EncryptedAction.class);
-        verify(mockDelegate).happened(actionCaptor.capture());
+    // Verify that the EncryptedAction contains our original action
+    EncryptedAction encryptedAction = actionCaptor.getValue();
+    assertEquals(mockAction, encryptedAction.getDelegate());
+  }
 
-        // Verify that the EncryptedAction contains our original action
-        EncryptedAction encryptedAction = actionCaptor.getValue();
-        assertEquals(mockAction, encryptedAction.getDelegate());
-    }
+  @Test
+  public void testActionHappened() {
+    // Setup
+    when(mockDelegate.happened(any(Action.class))).thenReturn(mockFuture);
+    when(mockEncManager.convert(any(Action.class))).thenReturn(mockAction);
+    // Call the method under test
+    Future<Void> result = encryptingActionManager.happened(mockAction);
 
-    @Test
-    public void testSyncHappened() {
-        // Setup
-        when(mockDelegate.syncHappened(any(EncryptedAction.class))).thenReturn(mockFuture);
+    // Verify the result
+    assertSame(mockFuture, result);
 
-        // Call the method under test
-        Future<Void> result = encryptingActionManager.syncHappened(mockAction);
+    // Verify that the delegate was called with mockAction
+    ArgumentCaptor<Action> actionCaptor = ArgumentCaptor.forClass(Action.class);
+    verify(mockDelegate).happened(actionCaptor.capture());
 
-        // Verify the result
-        assertSame(mockFuture, result);
+    // Verify that the Action contains our original action
+    Action action = actionCaptor.getValue();
+    assertEquals(mockAction, action);
+  }
 
-        // Verify that the delegate was called with an EncryptedAction
-        ArgumentCaptor<EncryptedAction> actionCaptor = ArgumentCaptor.forClass(EncryptedAction.class);
-        verify(mockDelegate).syncHappened(actionCaptor.capture());
+  @Test
+  public void testEncryptedActionSyncHappened() {
+    // Setup
+    when(mockDelegate.syncHappened(any(EncryptedAction.class))).thenReturn(mockFuture);
+    EncryptedAction mockEncAction = mock(EncryptedAction.class);
+    when(mockEncAction.getDelegate()).thenReturn(mockAction);
+    when(mockEncManager.convert(any(Action.class))).thenReturn(mockEncAction);
+    // Call the method under test
+    Future<Void> result = encryptingActionManager.syncHappened(mockAction);
 
-        // Verify that the EncryptedAction contains our original action
-        EncryptedAction encryptedAction = actionCaptor.getValue();
-        assertEquals(mockAction, encryptedAction.getDelegate());
-    }
+    // Verify the result
+    assertSame(mockFuture, result);
 
-    @Test
-    public void testExtractWithEncryptedAction() {
-        // Setup
-        EncryptedAction mockEncryptedAction = mock(EncryptedAction.class);
-        when(mockEncryptedAction.getDelegate()).thenReturn(mockAction);
-        when(mockDelegate.extract(mockLogRecord)).thenReturn(mockAction);
+    // Verify that the delegate was called with an EncryptedAction
+    ArgumentCaptor<EncryptedAction> actionCaptor = ArgumentCaptor.forClass(EncryptedAction.class);
+    verify(mockDelegate).syncHappened(actionCaptor.capture());
 
-        // Call the method under test
-        Action result = encryptingActionManager.extract(mockLogRecord);
+    // Verify that the EncryptedAction contains our original action
+    EncryptedAction encryptedAction = actionCaptor.getValue();
+    assertEquals(mockAction, encryptedAction.getDelegate());
+  }
 
-        // Verify the result
-        assertSame(mockAction, result);
+  @Test
+  public void testActionSyncHappened() {
+    // Setup
+    when(mockDelegate.syncHappened(any(Action.class))).thenReturn(mockFuture);
+    when(mockEncManager.convert(any(Action.class))).thenReturn(mockAction);
+    // Call the method under test
+    Future<Void> result = encryptingActionManager.syncHappened(mockAction);
 
-        // Verify the interactions
-        verify(mockDelegate).extract(mockLogRecord);
-    }
+    // Verify the result
+    assertSame(mockFuture, result);
 
-    @Test
-    public void testExtractWithNonEncryptedAction() {
-        // Setup
-        when(mockDelegate.extract(mockLogRecord)).thenReturn(mockAction);
+    // Verify that the delegate was called with an Action
+    ArgumentCaptor<Action> actionCaptor = ArgumentCaptor.forClass(Action.class);
+    verify(mockDelegate).syncHappened(actionCaptor.capture());
 
-        // Call the method under test
-        Action result = encryptingActionManager.extract(mockLogRecord);
+    // Verify that the Action contains our original action
+    Action action = actionCaptor.getValue();
+    assertEquals(mockAction, action);
+  }
 
-        // Verify the result
-        assertSame(mockAction, result);
+  @Test
+  public void testExtractWithEncryptedAction() {
+    // Setup
+    EncryptedAction mockEncryptedAction = mock(EncryptedAction.class);
+    when(mockEncryptedAction.getDelegate()).thenReturn(mockAction);
+    when(mockDelegate.extract(mockLogRecord)).thenReturn(mockAction);
 
-        // Verify the interactions
-        verify(mockDelegate).extract(mockLogRecord);
-    }
+    // Call the method under test
+    Action result = encryptingActionManager.extract(mockLogRecord);
 
-    @Test
-    public void testPause() {
-        // Call the method under test
-        encryptingActionManager.pause();
+    // Verify the result
+    assertSame(mockAction, result);
 
-        // Verify the delegate was called
-        verify(mockDelegate).pause();
-    }
+    // Verify the interactions
+    verify(mockDelegate).extract(mockLogRecord);
+  }
 
-    @Test
-    public void testResume() {
-        // Call the method under test
-        encryptingActionManager.resume();
+  @Test
+  public void testExtractWithNonEncryptedAction() {
+    // Setup
+    when(mockDelegate.extract(mockLogRecord)).thenReturn(mockAction);
 
-        // Verify the delegate was called
-        verify(mockDelegate).resume();
-    }
+    // Call the method under test
+    Action result = encryptingActionManager.extract(mockLogRecord);
 
-    @Test
-    public void testBarrierAction() {
-        // Setup
-        when(mockDelegate.barrierAction(any(Action.class))).thenReturn(mockLogRecord);
+    // Verify the result
+    assertSame(mockAction, result);
 
-        // Call the method under test
-        LogRecord result = encryptingActionManager.barrierAction(new NullAction());
+    // Verify the interactions
+    verify(mockDelegate).extract(mockLogRecord);
+  }
 
-        // Verify the result
-        assertSame(mockLogRecord, result);
+  @Test
+  public void testPause() {
+    // Call the method under test
+    encryptingActionManager.pause();
 
-        // Verify the delegate was called
-        verify(mockDelegate).barrierAction(any(Action.class));
-    }
+    // Verify the delegate was called
+    verify(mockDelegate).pause();
+  }
+
+  @Test
+  public void testResume() {
+    // Call the method under test
+    encryptingActionManager.resume();
+
+    // Verify the delegate was called
+    verify(mockDelegate).resume();
+  }
+
+  @Test
+  public void testBarrierAction() {
+    // Setup
+    when(mockDelegate.barrierAction(any(Action.class))).thenReturn(mockLogRecord);
+
+    // Call the method under test
+    LogRecord result = encryptingActionManager.barrierAction(new NullAction());
+
+    // Verify the result
+    assertSame(mockLogRecord, result);
+
+    // Verify the delegate was called
+    verify(mockDelegate).barrierAction(any(Action.class));
+  }
 }
 
 // Made with Bob

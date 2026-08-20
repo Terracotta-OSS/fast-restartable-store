@@ -17,7 +17,6 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.recovery.RecoveryException;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 

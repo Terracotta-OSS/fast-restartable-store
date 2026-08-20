@@ -184,7 +184,7 @@ public class CompactorImplTest {
   }
 
   @Test
-  public void testInitiateRewriteTillLsn() throws Exception {
+  public void testCompactTillLsn() throws Exception {
     doReturn(1000L).when(objectManager).size();
 
     long reWriteTillLsn = 500;
@@ -208,7 +208,7 @@ public class CompactorImplTest {
 
     try {
       java.util.concurrent.CompletionStage<Void> completionStage =
-          compactor.initiateRewriteTillLsn(reWriteTillLsn, executorService);
+          compactor.compactTillLsn(reWriteTillLsn, executorService);
 
       // Wait for completion
       completionStage.toCompletableFuture().get();

@@ -57,5 +57,5 @@ public interface Compactor {
    */
   void compactNow();
   
-  CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService);
+  CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService);
 }

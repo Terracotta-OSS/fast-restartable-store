@@ -324,7 +324,7 @@ public class CompactorImpl implements Compactor {
   }
   
   @Override
-  public CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService) {
+  public CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService) {
     return CompletableFuture.runAsync(() -> {
       pause();
       internalReWriteInProgress = true;

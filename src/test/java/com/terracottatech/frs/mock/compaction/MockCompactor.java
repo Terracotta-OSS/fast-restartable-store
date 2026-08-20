@@ -79,7 +79,7 @@ public class MockCompactor<I, K, V> implements Compactor {
   }
 
   @Override
-  public CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService) {
+  public CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService) {
     throw new UnsupportedOperationException("unsupported");
   }
 

@@ -102,7 +102,7 @@ public class LegacySizeBasedCompactionPolicyTest {
   @Test(expected = IllegalStateException.class)
   public void testStopNotStarted() throws Exception {
     createPolicy(0.5, 0.05);
-    policy.stoppedCompacting(false);
+    policy.stoppedCompacting();
   }
 
   @Test

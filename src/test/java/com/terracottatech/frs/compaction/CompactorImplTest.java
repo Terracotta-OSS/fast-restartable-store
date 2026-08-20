@@ -26,6 +26,8 @@ import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
@@ -36,8 +38,8 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -84,7 +86,7 @@ public class CompactorImplTest {
     SECONDS.sleep(1);
 
     verify(policy).startCompacting();
-    verify(policy, never()).stoppedCompacting(true);
+    verify(policy, never()).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
 
     compactor.shutdown();
@@ -109,7 +111,7 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(1100);
-    verify(policy).stoppedCompacting(true);
+    verify(policy).stoppedCompacting();
     verify(future, atLeastOnce()).get();
     verify(logManager, times(2)).updateLowestLsn(anyLong());
     compactor.shutdown();
@@ -145,7 +147,7 @@ public class CompactorImplTest {
     policy.waitForCompactionComplete();
 
     verifyCompactedTimes(0);
-    verify(policy).stoppedCompacting(true);
+    verify(policy).stoppedCompacting();
     verify(logManager).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
@@ -176,24 +178,53 @@ public class CompactorImplTest {
 
     verify(actionManager, atLeast(100)).happened(isA(CompactionAction.class));
     verify(policy, atLeast(100)).compacted(any(ObjectManagerEntry.class));
-    verify(policy, atLeastOnce()).stoppedCompacting(true);
+    verify(policy, atLeastOnce()).stoppedCompacting();
     verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
   }
 
   @Test
-  public void testCompactionInterrupted() throws Exception {
+  public void testInitiateRewriteTillLsn() throws Exception {
+    doReturn(1000L).when(objectManager).size();
+
+    long reWriteTillLsn = 500;
+    
+    doAnswer(new Answer<ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>>() {
+      private long count = 0;
+
+      @Override
+      public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> answer(InvocationOnMock invocationOnMock) throws Throwable {
+        if (count >= reWriteTillLsn) {
+          return null;
+        }
+        count++;
+        return (ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>) invocationOnMock.callRealMethod();
+      }
+    }).when(objectManager).acquireCompactionEntry(anyLong());
     compactor.startup();
-    doThrow(new RuntimeException()).when(transactionManager).getLowestOpenTransactionLsn();
 
-    policy.compactCount = 1;
-    compactor.compactNow();
-    SECONDS.sleep(1);
-    compactor.shutdown();
+    java.util.concurrent.ExecutorService executorService =
+        java.util.concurrent.Executors.newSingleThreadExecutor();
 
-    verify(policy).stoppedCompacting(false);
+    try {
+      java.util.concurrent.CompletionStage<Void> completionStage =
+          compactor.initiateRewriteTillLsn(reWriteTillLsn, executorService);
+
+      // Wait for completion
+      completionStage.toCompletableFuture().get();
+
+      // Verify that compaction actions were triggered
+      // The rewrite should compact all entries up to reWriteTillLsn
+      verify(actionManager, times(500)).happened(isA(CompactionAction.class));
+      verify(objectManager, times(501)).acquireCompactionEntry(reWriteTillLsn);
+      verify(objectManager, times(500)).releaseCompactionEntry(any(ObjectManagerEntry.class));
+
+    } finally {
+      executorService.shutdown();
+      compactor.shutdown();
+    }
   }
-  
+
   private void verifyCompactedTimes(int times) {
     verify(actionManager, times(times)).happened(isA(CompactionAction.class));
     verify(policy, times(times)).compacted(any(ObjectManagerEntry.class));
@@ -261,7 +292,7 @@ public class CompactorImplTest {
     }
 
     @Override
-    public synchronized void stoppedCompacting(boolean isCompactedCleanly) {
+    public synchronized void stoppedCompacting() {
       assert isCompacting;
       isCompacting = false;
       notifyAll();

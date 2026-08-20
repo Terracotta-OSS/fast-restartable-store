@@ -21,7 +21,6 @@ import com.terracottatech.frs.config.FrsProperty;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +33,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -74,7 +74,7 @@ public class AESCipherManagerTest {
     // Create test data
     String testString = "This is a test string for encryption and decryption";
     ByteBuffer plainBuffer = ByteBuffer.wrap(testString.getBytes(StandardCharsets.UTF_8));
-    ByteBuffer[] plainBuffers = new ByteBuffer[] { plainBuffer };
+    ByteBuffer[] plainBuffers = new ByteBuffer[]{plainBuffer};
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
@@ -121,7 +121,7 @@ public class AESCipherManagerTest {
     }
 
     ByteBuffer plainBuffer = ByteBuffer.wrap(testData);
-    ByteBuffer[] plainBuffers = new ByteBuffer[] { plainBuffer };
+    ByteBuffer[] plainBuffers = new ByteBuffer[]{plainBuffer};
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
@@ -210,11 +210,136 @@ public class AESCipherManagerTest {
   @Test
   public void testValidateAlgorithm() {
     assertTrue("AES/CFB/PKCS5Padding should be a valid algorithm",
-               CipherManager.validateAlgorithm("AES/CFB/PKCS5Padding"));
+        CipherManager.validateAlgorithm("AES/CFB/PKCS5Padding"));
     assertTrue("AES/CBC/PKCS5Padding should be a valid algorithm",
-               CipherManager.validateAlgorithm("AES/CBC/PKCS5Padding"));
+        CipherManager.validateAlgorithm("AES/CBC/PKCS5Padding"));
     assertTrue("AES/GCM/NoPadding should be a valid algorithm",
-               CipherManager.validateAlgorithm("AES/GCM/NoPadding"));
+        CipherManager.validateAlgorithm("AES/GCM/NoPadding"));
+  }
+
+  @Test
+  public void testGetCurrentToken() {
+    String currentToken = cipherManager.getCurrentToken();
+    assertEquals("token1", currentToken);
+  }
+
+  @Test
+  public void testGetPreviousToken() throws Exception {
+    assertFalse(cipherManager.getPreviousToken().isPresent());
+    // Add a second token
+    KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+    keyGenerator.init(256);
+    SecretKey secretKey = keyGenerator.generateKey();
+    cipherManager.add("token2", secretKey.getEncoded());
+
+    // Now there should be a previous token
+    assertTrue(cipherManager.getPreviousToken().isPresent());
+    assertEquals("token1", cipherManager.getPreviousToken().get());
+  }
+
+  @Test
+  public void testIsUsingEncKey() throws Exception {
+    // Test with existing token
+    assertTrue(cipherManager.isUsingEncKey("token1"));
+
+    // Test with non-existing token
+    assertFalse(cipherManager.isUsingEncKey("token2"));
+  }
+
+  @Test
+  public void testAdd() throws Exception {
+    // Generate a new key
+    KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+    keyGenerator.init(256);
+    SecretKey secretKey = keyGenerator.generateKey();
+
+    // Add the new token
+    cipherManager.add("token2", secretKey.getEncoded());
+
+    // Verify the token was added
+    assertTrue(cipherManager.isUsingEncKey("token2"));
+    assertEquals("token2", cipherManager.getCurrentToken());
+
+    // Test encryption/decryption with the new token
+    String testString = "Test with new token";
+    ByteBuffer plainBuffer = ByteBuffer.wrap(testString.getBytes(StandardCharsets.UTF_8));
+    ByteBuffer[] plainBuffers = new ByteBuffer[]{plainBuffer};
+
+    ByteBuffer iv = cipherManager.generateInitializationVector();
+    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
+    ivCopy.put(iv.duplicate());
+    ivCopy.flip();
+
+    ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
+
+    int totalSize = 0;
+    for (ByteBuffer buffer : encryptedBuffers) {
+      totalSize += buffer.remaining();
+    }
+
+    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
+    for (ByteBuffer buffer : encryptedBuffers) {
+      combinedEncrypted.put(buffer);
+    }
+    combinedEncrypted.flip();
+
+    ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token2");
+    byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];
+    decryptedBuffer.get(decryptedBytes);
+    String decryptedString = new String(decryptedBytes, StandardCharsets.UTF_8);
+
+    assertEquals(testString, decryptedString);
+  }
+
+  @Test
+  public void testRemove() throws Exception {
+    // Add a second token
+    KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+    keyGenerator.init(256);
+    SecretKey secretKey = keyGenerator.generateKey();
+    cipherManager.add("token2", secretKey.getEncoded());
+
+    // Verify token2 exists
+    assertTrue(cipherManager.isUsingEncKey("token2"));
+
+    // Remove token1
+    cipherManager.remove("token1");
+
+    // Verify token1 was removed
+    assertFalse(cipherManager.isUsingEncKey("token1"));
+
+    // Verify token2 still exists
+    assertTrue(cipherManager.isUsingEncKey("token2"));
+  }
+
+  @Test(expected = AssertionError.class)
+  public void testDecryptWithInvalidToken() {
+    // Create test data
+    String testString = "Test string for invalid token";
+    ByteBuffer plainBuffer = ByteBuffer.wrap(testString.getBytes(StandardCharsets.UTF_8));
+    ByteBuffer[] plainBuffers = new ByteBuffer[]{plainBuffer};
+
+    // Generate IV and encrypt
+    ByteBuffer iv = cipherManager.generateInitializationVector();
+    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
+    ivCopy.put(iv.duplicate());
+    ivCopy.flip();
+
+    ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
+
+    int totalSize = 0;
+    for (ByteBuffer buffer : encryptedBuffers) {
+      totalSize += buffer.remaining();
+    }
+
+    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
+    for (ByteBuffer buffer : encryptedBuffers) {
+      combinedEncrypted.put(buffer);
+    }
+    combinedEncrypted.flip();
+
+    // Try to decrypt with invalid token - should throw AssertionError
+    cipherManager.decrypt(combinedEncrypted, ivCopy, "invalidToken");
   }
 }
 

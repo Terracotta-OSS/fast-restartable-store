@@ -81,10 +81,7 @@ public abstract class RestartStoreFactory {
 
     ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec = createCodec(objectManager);
 
-    ActionManager actionManager = new ActionManagerImpl(logManager, objectManager, codec, new MasterLogRecordFactory());
-
-    return new RestartStoreImpl(objectManager, logManager, codec,
-        actionManager, readManager, ioManager, configuration);
+    return new RestartStoreImpl(objectManager, logManager, codec, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

@@ -33,7 +33,7 @@ public class NoCompactionPolicy implements CompactionPolicy {
   }
 
   @Override
-  public void stoppedCompacting(boolean isCompactedCleanly) {
+  public void stoppedCompacting() {
     throw new AssertionError("Should not be compacting with a NoCompactionPolicy.");
   }
 }

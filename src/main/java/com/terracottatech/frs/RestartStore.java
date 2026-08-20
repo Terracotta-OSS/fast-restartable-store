@@ -140,9 +140,7 @@ public interface RestartStore<I, K, V> {
    * @param newKeyToken the token identifying the new encryption key
    * @param newKey Base64 encoded ncryption key to use
    */
-  default void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException, ExecutionException {
-
-  }
+  void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException;
 
   /**
    * Register a listener to be notified when encryption operations complete.
@@ -150,9 +148,7 @@ public interface RestartStore<I, K, V> {
    * @param encCompletionConsumer a consumer that accepts the RestartStore instance and key token
    *                              when encryption operations complete
    */
-  default void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer) {
-
-  }
+  void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer);
   
   /**
    * Check if this RestartStore is currently using the encryption key identified by the given token.
@@ -160,7 +156,5 @@ public interface RestartStore<I, K, V> {
    * @param token the token identifying the encryption key to check
    * @return true if the store is using the specified encryption key, false otherwise
    */
-  default boolean isUsingEncKey(String token) {
-    return false;
-  }
+  boolean isUsingEncKey(String token);
 }

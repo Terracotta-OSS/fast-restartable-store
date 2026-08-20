@@ -17,8 +17,6 @@ package com.terracottatech.frs.compaction;
 
 import com.terracottatech.frs.object.ObjectManagerEntry;
 
-import java.util.concurrent.ExecutionException;
-
 /**
  * @author tim
  */
@@ -41,5 +39,5 @@ public interface CompactionPolicy {
   /**
    * Notify this {@link CompactionPolicy} that compaction has finished.
    */
-  void stoppedCompacting(boolean isCompactedCleanly) throws ExecutionException, InterruptedException;
+  void stoppedCompacting();
 }

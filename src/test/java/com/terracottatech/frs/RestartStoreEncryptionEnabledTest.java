@@ -40,7 +40,6 @@ public class RestartStoreEncryptionEnabledTest {
   @Before
   public void setUp() {
     properties = CipherHelper.configure(false, properties);
-    properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(1));
   }
 
   @Test
@@ -73,7 +72,7 @@ public class RestartStoreEncryptionEnabledTest {
 
       restartStore.handleEncKeyChange("token1", newKey);
 
-      Thread.sleep(3000); // sleep a bit to ensure records are encrypted since compactor is running very quickly
+      Thread.sleep(3000);
 
       t.join();
 
@@ -102,7 +101,7 @@ public class RestartStoreEncryptionEnabledTest {
   private static Map<String, String> createMap(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                                int identifier) {
-    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, true);
+    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, false);
     objectManager.registerObject(map);
     return map;
   }

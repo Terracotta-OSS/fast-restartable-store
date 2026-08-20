@@ -57,7 +57,7 @@ public class LSNGapCompactionPolicyTest {
   @Test(expected = IllegalStateException.class)
   public void testStopWithoutStart() throws Exception {
     createPolicy(1, 0.5, 0.8);
-    policy.stoppedCompacting(false);
+    policy.stoppedCompacting();
   }
 
   @Test(expected = IllegalStateException.class)

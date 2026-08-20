@@ -30,12 +30,13 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_POLICY;
 import static com.terracottatech.frs.config.FrsProperty.COMPACTOR_RETRY_INTERVAL;
@@ -58,8 +59,7 @@ public class CompactorImpl implements Compactor {
 
   private final Semaphore compactionCondition = new Semaphore(0);
   private volatile boolean alive = false;
-  private final AtomicReference<CompactionPolicy> currentPolicyRef = new AtomicReference<>();
-  private final AtomicReference<CompactionPolicy> previousPolicyRef = new AtomicReference<>();
+  private final CompactionPolicy policy;
   private final long runIntervalSeconds;
   private final long retryIntervalSeconds;
   private final long compactActionThrottle;
@@ -67,6 +67,7 @@ public class CompactorImpl implements Compactor {
 
   private CompactorThread compactorThread;
   private volatile boolean signalPause;
+  private volatile boolean internalReWriteInProgress;
   private boolean paused;
 
 
@@ -78,7 +79,7 @@ public class CompactorImpl implements Compactor {
     this.transactionManager = transactionManager;
     this.actionManager = actionManager;
     this.logManager = logManager;
-    currentPolicyRef.set(policy);
+    this.policy = policy;
     this.runIntervalSeconds = runIntervalSeconds;
     this.retryIntervalSeconds = retryIntervalSeconds;
     this.compactActionThrottle = compactActionThrottle;
@@ -114,21 +115,10 @@ public class CompactorImpl implements Compactor {
   }
 
   @Override
-  public CompactionPolicy getPreviousCompactionPolicy() {
-    return previousPolicyRef.get();
-  }
-
-  @Override
-  public synchronized void updateCompactionPolicy(CompactionPolicy policy) {
-    previousPolicyRef.set(currentPolicyRef.get());
-    currentPolicyRef.set(policy);
-  }
-
-  @Override
   public void startup() {
     if (!alive) {
       alive = true;
-      LOGGER.info("using " + currentPolicyRef.get().getClass().getName() + " compaction policy");
+      LOGGER.info("using " + policy.getClass().getName() + " compaction policy");
       compactorThread = new CompactorThread();
       compactorThread.start();
     }
@@ -153,15 +143,11 @@ public class CompactorImpl implements Compactor {
     public void run() {
       while (alive) {
         try {
-          LOGGER.info("pre acquire semaphore count {}", compactionCondition.availablePermits());
           compactionCondition.tryAcquire(startThreshold, runIntervalSeconds, SECONDS);
-          LOGGER.info("post acquire semaphore count {}", compactionCondition.availablePermits());
 
           if (checkForPause()) {
-            LOGGER.info("Was paused semaphore count {}", compactionCondition.availablePermits());
             continue;
           }
-          LOGGER.info("Was not paused semaphore count {}", compactionCondition.availablePermits());
 
           // Flush in a dummy record to make sure everything for the updated lowest lsn
           // is on disk prior to cleaning up to the new lowest lsn.
@@ -176,14 +162,11 @@ public class CompactorImpl implements Compactor {
               lowLsn = barrier.getLsn();
           }
 
-          if (currentPolicyRef.get().startCompacting() && alive) {
-            boolean cleanCompactionFinish = false;
+          if (policy.startCompacting() && alive) {
             try {
               compact();
-              // Ensure compaction finished cleanly.
-              cleanCompactionFinish = signalPause ? false : true;
             } finally {
-              currentPolicyRef.get().stoppedCompacting(cleanCompactionFinish);
+              policy.stoppedCompacting();
             }
           }
 
@@ -224,14 +207,13 @@ public class CompactorImpl implements Compactor {
      long startLsn = 0;
      long lastLsn = 0;
  
-      LOGGER.info("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
+      LOGGER.debug("range is " + rangeLsn + " ceiling:" + ceilingLsn + " base:" + baseLsn + " live:" + liveSize);
       while (compactedCount < liveSize && !signalPause) {
-        ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(
-                getHighestLsnForCompaction(baseLsn, rangeLsn, ceilingLsn));
+        ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry((useLimiting)?baseLsn + rangeLsn:ceilingLsn);
         if (compactionEntry == null) {
           if (useLimiting && baseLsn + rangeLsn <= Math.min(logManager.currentLsn(), ceilingLsn) ) {
             rangeLsn <<= 1;
-            LOGGER.info("bumping range to " + rangeLsn);
+            LOGGER.debug("bumping range to " + rangeLsn);
             continue;
           } else {
             break;
@@ -257,7 +239,7 @@ public class CompactorImpl implements Compactor {
         }
 
         // Check with the policy if we need to stop.
-        if (!currentPolicyRef.get().compacted(compactionEntry)) {
+        if (!policy.compacted(compactionEntry)) {
           break;
         }
 
@@ -271,17 +253,8 @@ public class CompactorImpl implements Compactor {
           logManager.updateLowestLsn(objectManager.getLowestLsn());
         }
       }
-      LOGGER.info("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
-      LOGGER.info("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
-    }
-  }
-
-  private long getHighestLsnForCompaction(long baseLsn, long rangeLsn, long ceilingLsn) {
-    if(!(currentPolicyRef.get() instanceof EncryptionCompactionPolicy)) {
-      return (useLimiting) ? baseLsn + rangeLsn : ceilingLsn;
-    } else {
-      EncryptionCompactionPolicy policy = (EncryptionCompactionPolicy) currentPolicyRef.get();
-      return policy.getHighestLsnToBeCompacted();
+      LOGGER.debug("compaction base lsn:" + baseLsn + " start lsn:" + baseLsn + " end lsn:" + lastLsn + " live size:" + liveSize);
+      LOGGER.debug("compacted " + compactedCount + " entries in " + TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()-startTime) + " secs.");
     }
   }
 
@@ -298,11 +271,8 @@ public class CompactorImpl implements Compactor {
   @Override
   public void compactNow() {
     try {
-      LOGGER.info("drain permits, before count ({}), drain count ({}), after count ({})",
-              compactionCondition.availablePermits(), compactionCondition.drainPermits(),
-              compactionCondition.availablePermits());
+      compactionCondition.drainPermits();
       compactionCondition.release(startThreshold);
-      LOGGER.info("release permits, semaphore count {}", compactionCondition.availablePermits());
     } catch ( Error e ) {
   //  in rare instances, the maximum number of permits can be exceeded.  This should not cause a crash
       LOGGER.warn("error generating garbage", e);
@@ -345,11 +315,52 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public synchronized void unpause() {
-    if (!paused && !signalPause) {
+    if (internalReWriteInProgress || (!paused && !signalPause)) {
       return;
     }
     signalPause = false;
     paused = false;
     notifyAll();
+  }
+  
+  @Override
+  public CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService) {
+    return CompletableFuture.runAsync(() -> {
+      pause();
+      internalReWriteInProgress = true;
+      try {
+        rewrite(lsn);
+      } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        internalReWriteInProgress = false;
+      }
+    }, executorService);
+  }
+
+  private void rewrite(long lsn) throws ExecutionException, InterruptedException {
+    long liveSize = objectManager.size();
+    long compactedCount = 0;
+    while (compactedCount < liveSize) {
+      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(lsn);
+      if (compactionEntry == null) {
+        break;
+      }
+      compactedCount++;
+      Future<Void> written;
+      try {
+        CompactionAction compactionAction = new CompactionAction(objectManager, compactionEntry);
+        written = actionManager.happened(compactionAction);
+        compactionAction.updateObjectManager();
+      } finally {
+        objectManager.releaseCompactionEntry(compactionEntry);
+      }
+
+      if (compactedCount % compactActionThrottle == 0) {
+        written.get();
+      }
+    }
   }
 }

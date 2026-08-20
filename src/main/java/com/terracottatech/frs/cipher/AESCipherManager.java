@@ -145,7 +145,7 @@ public class AESCipherManager implements CipherManager {
   public ByteBuffer decrypt(ByteBuffer cipherBuffer, ByteBuffer ivBuffer, String token) {
     SecretKey secretKey = tokenToKey.get(token);
     if(secretKey == null) {
-      throw new AssertionError("Invalid token");
+      throw new AssertionError(String.format("Invalid token: %s", token));
     }
     Cipher cipher = getCipher(secretKey, Cipher.DECRYPT_MODE, ivBuffer);
     int retries = 3;

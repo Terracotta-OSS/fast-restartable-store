@@ -22,6 +22,7 @@ import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
 
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -78,13 +79,8 @@ public class MockCompactor<I, K, V> implements Compactor {
   }
 
   @Override
-  public CompactionPolicy getPreviousCompactionPolicy() {
-    throw new UnsupportedOperationException("Implement me!");
-  }
-
-  @Override
-  public void updateCompactionPolicy(CompactionPolicy policy) {
-    throw new UnsupportedOperationException("Implement me!");
+  public CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService) {
+    throw new UnsupportedOperationException("unsupported");
   }
 
   public void compact() {

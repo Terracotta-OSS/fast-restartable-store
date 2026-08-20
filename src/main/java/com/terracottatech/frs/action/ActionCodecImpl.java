@@ -48,8 +48,6 @@ public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
   public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
     this.objectManager = objectManager;
     registerAction(NULL_ACTION_ID, NullAction.class, NullAction.<I, K, V>factory());
-    registerAction(new ActionID(-1, 0), EncryptionBeginAction.class, EncryptionBeginAction.factory());
-    registerAction(new ActionID(-1, 1), EncryptionEndAction.class, EncryptionEndAction.factory());
   }
 
   private synchronized void registerAction(ActionID id, Class<? extends Action> actionClass, ActionFactory<I, K, V> actionFactory) {

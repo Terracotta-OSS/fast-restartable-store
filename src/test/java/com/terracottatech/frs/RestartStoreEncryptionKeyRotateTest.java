@@ -42,7 +42,6 @@ public class RestartStoreEncryptionKeyRotateTest {
   @Before
   public void setUp() {
     properties = CipherHelper.configure(true, properties);
-    properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(15));
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), "1000000");
   }
 
@@ -59,8 +58,8 @@ public class RestartStoreEncryptionKeyRotateTest {
     });
 
     restartStore.startup().get();
-    Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-    Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+    Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+    Map<String, String> map2 = createMap(restartStore, objectManager, 1);
     for (int i = 0; i < 10000; ++i) {
       map1.put(String.valueOf(i), "val" + i);
       map2.put(String.valueOf(i), "val" + i);
@@ -104,8 +103,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       restartStore.registerEncCompletionListener((store, oldKey) -> latch.countDown());
 
       restartStore.startup().get();
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       for (int i = 0; i < 10000; ++i) {
         map1.put(String.valueOf(i), "val" + i);
         map2.put(String.valueOf(i), "val" + i);
@@ -130,7 +129,7 @@ public class RestartStoreEncryptionKeyRotateTest {
         map1.put(String.valueOf(i), "val" + i);
         map2.put(String.valueOf(i), "val" + i);
       }
-      snapshotFuture.get().close(); // To unpause compactor
+      snapshotFuture.get().close();
       latch.await();
 
       for (int i = 0; i < 20000; ++i) {
@@ -151,8 +150,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
       for (int i = 0; i < 20000; ++i) {
         assertThat(map1.get(String.valueOf(i)), is("val" + i));
@@ -173,8 +172,8 @@ public class RestartStoreEncryptionKeyRotateTest {
           RestartStoreFactory.createStore(objectManager, path, properties);
 
       restartStore.startup().get();
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       for (int i = 0; i < 20000; ++i) {
         map1.put(String.valueOf(i), "val" + i);
         map2.put(String.valueOf(i), "val" + i);
@@ -195,8 +194,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
       for (int i = 0; i < 20000; ++i) {
         assertThat(map1.get(String.valueOf(i)), is("val" + i));
@@ -217,8 +216,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
       CountDownLatch latch = new CountDownLatch(1);
       restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
-      createMap1(restartStore, objectManager, 0);
-      createMap2(restartStore, objectManager, 1);
+      createMap(restartStore, objectManager, 0);
+      createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
       latch.await();
       assertThat(restartStore.isUsingEncKey("token1"), is(false));
@@ -235,8 +234,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
 
       for (int i = 20000; i < 40000; i++) {
@@ -258,8 +257,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 
-      createMap1(restartStore, objectManager, 0);
-      createMap2(restartStore, objectManager, 1);
+      createMap(restartStore, objectManager, 0);
+      createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
       restartStore.shutdown();
     }
@@ -276,8 +275,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
       CountDownLatch latch = new CountDownLatch(1);
       restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
-      Map<String, String> map1 = createMap1(restartStore, objectManager, 0);
-      Map<String, String> map2 = createMap2(restartStore, objectManager, 1);
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
       latch.await();
       for (int i = 0; i < 40000; ++i) {
@@ -292,17 +291,9 @@ public class RestartStoreEncryptionKeyRotateTest {
 
   }
 
-  private static Map<String, String> createMap1(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
-                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                                int identifier) {
-    SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, true);
-    objectManager.registerObject(map);
-    return map;
-  }
-
-  private static Map<String, String> createMap2(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
-                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                                int identifier) {
+  private static Map<String, String> createMap(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
+                                               RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
+                                               int identifier) {
     SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, false);
     objectManager.registerObject(map);
     return map;

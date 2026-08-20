@@ -39,6 +39,7 @@ import com.terracottatech.frs.transaction.TransactionManager;
 import com.terracottatech.frs.util.NullFuture;
 
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 
 /**
  *
@@ -124,6 +125,21 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   @Override
   public Future<Future<Void>> freeze() {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void registerEncCompletionListener(BiConsumer<RestartStore<?, ?, ?>, String> encCompletionConsumer) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean isUsingEncKey(String token) {
+    return false;
   }
 
 }

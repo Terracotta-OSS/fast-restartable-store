@@ -89,7 +89,7 @@ public class SizeBasedCompactionPolicy implements CompactionPolicy {
   }
 
   @Override
-  public void stoppedCompacting(boolean isCompactedCleanly) {
+  public void stoppedCompacting() {
     if (!isCompacting) {
       throw new IllegalStateException("Compaction is not started.");
     }

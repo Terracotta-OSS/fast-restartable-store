@@ -10,13 +10,13 @@ import java.util.Map;
 import java.util.Optional;
 
 public class EncryptionManagerImpl implements EncryptionManager {
-  
+
   private final ActionCodec actionCodec;
   private final Configuration configuration;
-  
+
   private volatile EncryptionHandler cipherKeyHandler;
   private volatile boolean encryptEnabled = false;
-  
+
   public EncryptionManagerImpl(Configuration configuration, ActionCodec actionCodec) {
     this.configuration = configuration;
     this.actionCodec = actionCodec;
@@ -38,7 +38,7 @@ public class EncryptionManagerImpl implements EncryptionManager {
       cipherKeyHandler = new NoEncryptionHandler();
     }
   }
-  
+
   @Override
   public Optional<String> getPreviousToken() {
     return cipherKeyHandler.getPreviousToken();
@@ -51,7 +51,7 @@ public class EncryptionManagerImpl implements EncryptionManager {
 
   @Override
   public void add(String token, byte[] key) {
-    if(encryptEnabled) {
+    if (encryptEnabled) {
       cipherKeyHandler.add(token, key);
     } else {
       Map<String, byte[]> tokenToKeyMap = new HashMap<>();

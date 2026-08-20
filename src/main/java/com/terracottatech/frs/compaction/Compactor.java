@@ -16,6 +16,9 @@
 package com.terracottatech.frs.compaction;
 
 
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+
 /**
  *
  * @author cdennis
@@ -53,18 +56,6 @@ public interface Compactor {
    * Callback to tell the compactor to run right now, unless it's already running.
    */
   void compactNow();
-
-  /**
-   * Get the compaction policy that was previously in use.
-   *
-   * @return the previous compaction policy
-   */
-  CompactionPolicy getPreviousCompactionPolicy();
-
-  /**
-   * Update the compaction policy used by this compactor.
-   *
-   * @param policy the new compaction policy to use
-   */
-  void updateCompactionPolicy(CompactionPolicy policy);
+  
+  CompletionStage<Void> initiateRewriteTillLsn(long lsn, ExecutorService executorService);
 }

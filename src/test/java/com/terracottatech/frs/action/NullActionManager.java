@@ -16,6 +16,8 @@
 package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.transaction.TransactionAccount;
+import com.terracottatech.frs.transaction.TransactionHandle;
 
 import java.util.concurrent.Future;
 
@@ -30,6 +32,11 @@ public class NullActionManager implements ActionManager {
 
   @Override
   public Future<Void> happened(Action action) {
+    return null;
+  }
+
+  @Override
+  public Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account) {
     return null;
   }
 

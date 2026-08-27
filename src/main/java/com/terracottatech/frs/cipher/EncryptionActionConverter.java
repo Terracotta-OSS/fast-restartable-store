@@ -15,19 +15,20 @@
  */
 package com.terracottatech.frs.cipher;
 
-import com.terracottatech.frs.action.ActionCodec;
+import com.terracottatech.frs.PutAction;
+import com.terracottatech.frs.action.Action;
 
-import java.nio.ByteBuffer;
+public class EncryptionActionConverter {
+  private final CipherManager cipherManager;
 
-/**
- * @author prasanta
- */
-public abstract class EncryptionActions {
-  public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec,
-                                     CipherManager cipherManager) {
-    codec.registerAction(id, 0, PutEncryptedAction.class,
-        new PutEncryptedAction.EncryptedActionFactory(cipherManager));
-    codec.registerAction(id, 1, EncryptionBeginAction.class, EncryptionBeginAction.factory());
-    codec.registerAction(id, 2, EncryptionEndAction.class, EncryptionEndAction.factory());
+  public EncryptionActionConverter(CipherManager cipherManager) {
+    this.cipherManager = cipherManager;
+  }
+
+  public Action convert(Action action) {
+    if (action instanceof PutAction) {
+      return new PutEncryptedAction((PutAction) action, cipherManager);
+    }
+    return action;
   }
 }

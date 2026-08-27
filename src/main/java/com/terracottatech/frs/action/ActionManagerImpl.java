@@ -21,6 +21,9 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordFactory;
 import com.terracottatech.frs.object.ObjectManager;
+import com.terracottatech.frs.transaction.TransactionAccount;
+import com.terracottatech.frs.transaction.TransactionHandle;
+import com.terracottatech.frs.transaction.TransactionalAction;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
@@ -90,6 +93,19 @@ public class ActionManagerImpl implements ActionManager {
     }
   }
 
+  @Override
+  public Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account) {
+    enterHappened();
+    try {
+      Action wrapped = encryptionManager.convert(action);
+      Action transactionalAction = new TransactionalAction(handle, account.begin(), false, wrapped, account);
+      LogRecord logRecord = logRecordFactory.createLogRecord(actionCodec.encode(transactionalAction), transactionalAction);
+      return logManager.append(logRecord);
+    } finally {
+      exitHappened();
+    }
+  } 
+  
   @Override
   public Action extract(LogRecord record) {
     Action a = actionCodec.decode(record.getPayload());

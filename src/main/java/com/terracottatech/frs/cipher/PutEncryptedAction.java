@@ -18,13 +18,14 @@ package com.terracottatech.frs.cipher;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
-public class EncryptedAction implements Action {
+public class PutEncryptedAction implements Action {
 
   public static class EncryptedActionFactory implements ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> {
 
@@ -37,30 +38,25 @@ public class EncryptedAction implements Action {
     @SuppressWarnings("rawtypes")
     @Override
     public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-        ActionCodec codec, ByteBuffer[] buffers) {
-      int ivLength = ByteBufferUtils.getInt(buffers);
-      int tokenLength = ByteBufferUtils.getInt(buffers);
-      int payloadLength = ByteBufferUtils.getInt(buffers);
-      ByteBuffer initializationVector = ByteBufferUtils.getBytes(ivLength, buffers);
-      ByteBuffer tokenBuffer = ByteBufferUtils.getBytes(tokenLength, buffers);
-      String tokenUsedForEncryption =  StandardCharsets.UTF_8.decode(tokenBuffer).toString();
-      ByteBuffer encryptedPayload = ByteBufferUtils.getBytes(payloadLength, buffers);
+                         ActionCodec codec, ByteBuffer[] buffers) {
+      
+      long invalidatedLsn = ByteBufferUtils.getLong(buffers);
+      int len = ByteBufferUtils.getInt(buffers);
+      ByteBuffer identifier = ByteBufferUtils.getBytes(len, buffers);
 
-      ByteBuffer payload = cipherManager.decrypt(encryptedPayload, initializationVector, tokenUsedForEncryption);
-
-      return codec.decode(new ByteBuffer[] { payload });
+      return new LazyDecryptingPutAction(objectManager, cipherManager, invalidatedLsn, identifier, buffers, codec);
     }
   }
 
   private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 3;
 
-  private final Action delegate;
+  private final PutAction delegate;
   private final CipherManager cipherManager;
   // buffer contains initialization vector which introduces randomness and
   // ensure same plaintext encrypts to different ciphertexts each time
   private final ByteBuffer initializationVector;
 
-  public EncryptedAction(Action delegate, CipherManager cipherManager) {
+  public PutEncryptedAction(PutAction delegate, CipherManager cipherManager) {
     this.delegate = delegate;
     this.cipherManager = cipherManager;
     this.initializationVector = cipherManager.generateInitializationVector();
@@ -88,22 +84,32 @@ public class EncryptedAction implements Action {
     // and initialization vector instead of the original value
     ByteBuffer[] delegatePayload = codec.encode(delegate);
 
+    ByteBuffer identifier = delegate.getIdentifier();
+    long invalidatedLsn = delegate.getInvalidatedLsns().stream().findFirst().get();
+    ByteBuffer metaData = ByteBuffer.allocate(identifier.remaining() + 12);
+    metaData.putLong(invalidatedLsn);
+    metaData.putInt(identifier.remaining());
+    metaData.put(identifier.duplicate());
+
     ByteBuffer[] encryptedValue = cipherManager.encrypt(delegatePayload, initializationVector);
     int length = 0;
     for (ByteBuffer buffer : encryptedValue) {
       length += buffer.remaining();
     }
 
-    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 3];
+    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 4];
 
-    byte[] ctoken =  cipherManager.getCurrentToken().getBytes(StandardCharsets.UTF_8);
-    output[0] = (ByteBuffer) ByteBuffer.allocate(HEADER_SIZE)
+    output[0] = metaData;
+    byte[] ctoken = cipherManager.getCurrentToken().getBytes(StandardCharsets.UTF_8);
+    output[1] = ByteBuffer.allocate(HEADER_SIZE)
         .putInt(initializationVector.remaining()).putInt(ctoken.length)
-        .putInt(length)
-        .flip();
-    output[1] = initializationVector.asReadOnlyBuffer();
-    output[2] = ByteBuffer.wrap(ctoken);
-    System.arraycopy(encryptedValue, 0, output, 3, encryptedValue.length);
+        .putInt(length);
+    
+    output[0].flip();
+    output[1].flip();
+    output[2] = initializationVector.asReadOnlyBuffer();
+    output[3] = ByteBuffer.wrap(ctoken);
+    System.arraycopy(encryptedValue, 0, output, 4, encryptedValue.length);
     return output;
   }
 
@@ -116,7 +122,7 @@ public class EncryptedAction implements Action {
       return false;
     }
 
-    EncryptedAction that = (EncryptedAction) o;
+    PutEncryptedAction that = (PutEncryptedAction) o;
     return delegate.equals(that.delegate);
   }
 

@@ -25,9 +25,11 @@ import java.util.Optional;
 public class DefaultEncryptionHandler implements EncryptionHandler {
   
   private final CipherManager cipherManager;
+  private final EncryptionActionConverter converter;
   
   public DefaultEncryptionHandler(Configuration config, ActionCodec codec, Map<String, byte[]> tokenToKeyMap, String currentToken) {
     cipherManager = new AESCipherManager(config, tokenToKeyMap, currentToken);
+    this.converter = new EncryptionActionConverter(cipherManager);
     EncryptionActions.registerActions(3, codec, cipherManager);
   }
   
@@ -53,6 +55,6 @@ public class DefaultEncryptionHandler implements EncryptionHandler {
 
   @Override
   public Action convert(Action action) {
-    return new EncryptedAction(action, cipherManager);
+    return converter.convert(action);
   }
 }

@@ -254,7 +254,7 @@ public class EncryptionManagerImplTest {
 
     // Verify conversion occurred (the actual conversion logic is in the handler)
     assertNotNull("Converted action should not be null", convertedAction);
-    assertTrue(convertedAction instanceof EncryptedAction);
+    assertTrue(convertedAction instanceof PutEncryptedAction);
   }
 
   @Test

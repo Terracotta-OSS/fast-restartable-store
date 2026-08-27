@@ -21,6 +21,8 @@ import com.terracottatech.frs.action.NullActionManager;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -90,9 +92,15 @@ public class TransactionManagerImplTest {
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    verify(actionManager).happened(new TransactionalAction(handle, true, false, action, callback));
+    verify(actionManager).happenedTransactionally(eq(action), eq(handle), any(TransactionAccount.class));
+    assertThat("First call to happened should cause account.begin() to return true", 
+               actionManager.getLastBeginResult(action), is(true));
+    
     transactionManager.happened(handle, action);
-    verify(actionManager).happened(new TransactionalAction(handle, false, false, action, callback));
+    verify(actionManager, times(2)).happenedTransactionally(eq(action), eq(handle), any(TransactionAccount.class));
+    assertThat("Second call to happened should cause account.begin() to return false", 
+               actionManager.getLastBeginResult(action), is(false));
+    
     transactionManager.commit(handle, true);
     try {
       transactionManager.happened(handle, action);
@@ -125,10 +133,26 @@ public class TransactionManagerImplTest {
 
   private class TxnManagerTestActionManager extends NullActionManager {
     long lsn = 0;
+    private Map<Action, Boolean> lastBeginResult = new HashMap<>();
+    
     @Override
     public Future<Void> happened(Action action) {
       action.record(lsn++);
       return happenedFuture;
+    }
+
+    @Override
+    public Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account) {
+      action.record(lsn);
+      boolean res = account.begin();
+      account.setLsn(lsn);
+      lsn++;
+      lastBeginResult.put(action, res);
+      return happenedFuture;
+    }
+
+    public boolean getLastBeginResult(Action action) {
+      return lastBeginResult.get(action);
     }
   }
 }

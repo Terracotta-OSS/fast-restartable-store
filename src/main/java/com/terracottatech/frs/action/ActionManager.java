@@ -16,6 +16,9 @@
 package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.log.LogRecord;
+import com.terracottatech.frs.transaction.TransactionAccount;
+import com.terracottatech.frs.transaction.TransactionHandle;
+import com.terracottatech.frs.transaction.TransactionManagerImpl;
 
 import java.util.concurrent.Future;
 
@@ -41,6 +44,8 @@ public interface ActionManager {
    */
   Future<Void> happened(Action action);
 
+  Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account);
+  
   /**
    * Extract the {@link Action} from the given {@link LogRecord}
    *

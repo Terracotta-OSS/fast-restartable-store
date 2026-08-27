@@ -237,7 +237,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
     @Override
     public boolean cancel(boolean bln) {
         ioDone = true;
-        master.setDone(false);
+        master.setDone();
         return true;
     }
 
@@ -337,7 +337,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             }
             
             if ( list.isEmpty() || list.get(0).getLsn() < lowestLsn) {
-                setDone(true);
+                setDone();
                 return false;
             } else {
                 return true;
@@ -355,7 +355,7 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             LogRecord head = list.remove(0);
             
             if ( head.getLsn() < lowestLsn ) {
-                setDone(true);
+                setDone();
                 throw new NoSuchElementException("earliest valid record has been already been recovered " + head.getLsn() + " < " + lowestLsn);
             }
             
@@ -385,9 +385,9 @@ public class ChunkExchange implements Iterable<LogRecord>, Future<Void> {
             return isDone;
         }
 
-        synchronized void setDone(boolean recoverTillLowestMarker) {
+        synchronized void setDone() {
             checkReadException();
-            if (recoverTillLowestMarker && lowestLsn >= 100 && lsn != lowestLsn) {
+            if ( lowestLsn >= 100 && lsn != lowestLsn) {
                 throw new RuntimeException("bad recovery lowest lsn: " + lowestLsn + " lsn:" + lsn);
             } else {
                 LOGGER.debug("lowest lsn: " + lowestLsn + " lsn:" + lsn);

@@ -18,6 +18,7 @@ package com.terracottatech.frs.recovery;
 
 import com.terracottatech.frs.cipher.EncryptionBeginAction;
 import com.terracottatech.frs.cipher.EncryptionEndAction;
+import com.terracottatech.frs.cipher.EncryptionFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,15 +90,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
                                                  compressedSkipSet);
+    EncryptionFilter encryptionFilter = new EncryptionFilter(skipsFilter);
     Filter<Action> progressLoggingFilter =
-            new ProgressLoggingFilter(replayFilter.dbHome, skipsFilter, logManager.lowestLsn());
+            new ProgressLoggingFilter(replayFilter.dbHome, encryptionFilter, logManager.lowestLsn());
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
-    boolean recoveryTillLowestMarker = true;
-    boolean endEncMarkerSeen = false;
-    boolean partialWriteWithNewKey = false;
-    long maxLsnForEncStart = Long.MAX_VALUE;
     try {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
@@ -116,20 +114,6 @@ public class RecoveryManagerImpl implements RecoveryManager {
         } else {
           logRecord.close();
         }
-
-        if (action instanceof EncryptionEndAction) {
-          endEncMarkerSeen = true;
-        }
-
-        if (action instanceof EncryptionBeginAction) {
-          if (endEncMarkerSeen) {
-            recoveryTillLowestMarker = false;
-            break;
-          } else {
-            partialWriteWithNewKey = true;
-            maxLsnForEncStart = logRecord.getLsn();
-          }
-        }
       }
     } catch ( IOException ioe ) {
       throw new RecoveryException("failed to restart", ioe);
@@ -138,16 +122,12 @@ public class RecoveryManagerImpl implements RecoveryManager {
       replayFilter.checkError();
     }
 
-    if (partialWriteWithNewKey || !recoveryTillLowestMarker) {
-      LOGGER.info("Recovery completed");
-    } else {
-      if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
-        throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
-      }
+    if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
+      throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
     }
 
     for (RecoveryListener listener : listeners) {
-      listener.recovered(recoveryTillLowestMarker, partialWriteWithNewKey, maxLsnForEncStart);
+      listener.recovered(encryptionFilter.isPartialRecovery(), encryptionFilter.getMaxLsnForPartialEnc());
     }
 
     LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);

@@ -47,6 +47,4 @@ public interface LogManager {
   Future<Snapshot> snapshotAsync();
   
   IOStatistics getIOStatistics();
-  
-  void cleanup();
 }

@@ -164,8 +164,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized void recovered(boolean recoveryTillLowestMarker, boolean partialWriteWithNewKey, 
-                                     long maxLsn) throws InterruptedException {
+  public synchronized void recovered(boolean partialWriteWithNewKey, long maxLsn) throws InterruptedException {
     while (state == State.FROZEN) {
       LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
       this.wait();
@@ -173,11 +172,6 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     if (state == State.RECOVERING) {
       compactor.startup();
       state = State.RUNNING;
-    }
-
-    if (!recoveryTillLowestMarker) {
-      LOGGER.debug("FRS reader thread in recovery is stopped");
-      logManager.cleanup();
     }
 
     if (partialWriteWithNewKey) {

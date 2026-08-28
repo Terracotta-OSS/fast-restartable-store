@@ -17,8 +17,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionManagerImpl;
-import com.terracottatech.frs.cipher.EncryptionBeginAction;
-import com.terracottatech.frs.cipher.EncryptionEndAction;
+import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.cipher.EncryptionManager;
 import com.terracottatech.frs.cipher.EncryptionManagerImpl;
 import com.terracottatech.frs.log.MasterLogRecordFactory;
@@ -51,6 +50,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
+import java.nio.LongBuffer;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.concurrent.Callable;
@@ -164,7 +164,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized void recovered(boolean partialWriteWithNewKey, long maxLsn) throws InterruptedException {
+  public synchronized void recovered(String latestEncToken, boolean partialWriteWithNewKey, long maxLsn) throws InterruptedException {
     while (state == State.FROZEN) {
       LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
       this.wait();
@@ -175,11 +175,17 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     if (partialWriteWithNewKey) {
-      LOGGER.info("update records with latest key during recovery");
+      LOGGER.info("records from both old and new token found in log records");
       initiateRewrite(maxLsn);
     } else {
-      // update keys if no markers found in log
-      updateKeys();
+      if(latestEncToken != null && !latestEncToken.equals(encryptionManager.getCurrToken())) {
+        // latest token found in log record doesn't match current token for this frs store, rewrite everything with curr token
+        LOGGER.info("records with latest token completely absent in log records");
+        initiateRewrite(Long.MAX_VALUE);
+      } else {
+        // update keys if log doesn't have any previous tokens being used
+        updateKeys();
+      }
     }
   }
 
@@ -359,12 +365,12 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   @Override
   public void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException {
-    EncryptionBeginAction beginAction = new EncryptionBeginAction();
     try {
+      NullAction action = new NullAction();
+      actionManager.pause(action);
       encryptionManager.add(newKeyToken, Base64.getDecoder().decode(newKey));
-      actionManager.pause(beginAction);
       LOGGER.info("Encryption with new key initiated");
-      initiateRewrite(beginAction.getLsn());
+      initiateRewrite(action.getLsn());
     } finally {
       actionManager.resume();
     }
@@ -377,7 +383,6 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
           if (ex != null) {
             LOGGER.info("Encryption failed with latest key", ex);
           } else {
-            actionManager.happened(new EncryptionEndAction());
             updateKeys();
             LOGGER.info("Encryption completed with latest key");
           }

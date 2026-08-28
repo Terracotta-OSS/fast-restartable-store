@@ -32,7 +32,12 @@ public class DefaultEncryptionHandler implements EncryptionHandler {
     this.converter = new EncryptionActionConverter(cipherManager);
     EncryptionActions.registerActions(3, codec, cipherManager);
   }
-  
+
+  @Override
+  public String getCurrToken() {
+    return cipherManager.getCurrentToken();
+  }
+
   @Override
   public Optional<String> getPreviousToken() {
     return cipherManager.getPreviousToken();

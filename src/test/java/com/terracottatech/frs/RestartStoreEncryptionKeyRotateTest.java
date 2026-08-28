@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -142,6 +143,7 @@ public class RestartStoreEncryptionKeyRotateTest {
       restartStore.shutdown();
     }
 
+    removeOldToken();
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
       properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
@@ -224,7 +226,8 @@ public class RestartStoreEncryptionKeyRotateTest {
       assertThat(restartStore.isUsingEncKey("token2"), is(true));
       restartStore.shutdown();
     }
-
+    
+    removeOldToken();
     String latestKey = "";
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
@@ -244,6 +247,7 @@ public class RestartStoreEncryptionKeyRotateTest {
       }
       latestKey = CipherHelper.generateNewKey();
       restartStore.handleEncKeyChange("token3", latestKey);
+      Thread.sleep(100);
       restartStore.shutdown();
     }
 
@@ -297,5 +301,11 @@ public class RestartStoreEncryptionKeyRotateTest {
     SimpleRestartableMap map = new SimpleRestartableMap(identifier, restartStore, false);
     objectManager.registerObject(map);
     return map;
+  }
+  
+  
+  private void removeOldToken() {
+    properties.remove(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName());
+    properties.remove(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName());
   }
 }

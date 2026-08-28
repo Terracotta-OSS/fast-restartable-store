@@ -21,6 +21,8 @@ import java.util.Optional;
 
 public interface EncryptionHandler {
 
+  String getCurrToken();
+  
   Optional<String> getPreviousToken();
 
   boolean isUsingEncKey(String token);

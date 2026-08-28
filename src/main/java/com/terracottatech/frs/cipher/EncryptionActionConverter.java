@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.cipher;
 
+import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
 
@@ -26,8 +27,8 @@ public class EncryptionActionConverter {
   }
 
   public Action convert(Action action) {
-    if (action instanceof PutAction) {
-      return new PutEncryptedAction((PutAction) action, cipherManager);
+    if (action instanceof GettableAction) {
+      return new EncryptedGettableAction((GettableAction) action, cipherManager);
     }
     return action;
   }

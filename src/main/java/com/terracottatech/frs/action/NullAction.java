@@ -22,9 +22,11 @@ import java.nio.ByteBuffer;
 /**
  * @author tim
  */
-public class NullAction extends BaseMarkerAction {
+public class NullAction implements Action {
   public static final Action INSTANCE = new NullAction();
   
+  private long lsn;
+
   public static <I, K, V> ActionFactory<I, K, V> factory() {
     return new ActionFactory<I, K, V>() {
       @Override
@@ -32,5 +34,23 @@ public class NullAction extends BaseMarkerAction {
         return INSTANCE;
       }
     };
+  }
+
+  @Override
+  public void record(long lsn) {
+      this.lsn = lsn;
+  }
+  
+  public long getLsn() {
+      return lsn;
+  }
+
+  @Override
+  public void replay(long lsn) {
+  }
+
+  @Override
+  public ByteBuffer[] getPayload(ActionCodec codec) {
+    return new ByteBuffer[0];
   }
 }

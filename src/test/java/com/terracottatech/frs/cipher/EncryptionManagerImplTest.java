@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.cipher;
 
+import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.config.Configuration;
@@ -247,14 +248,14 @@ public class EncryptionManagerImplTest {
     EncryptionManager manager = new EncryptionManagerImpl(mockConfig, mockActionCodec);
 
     // Create a mock action
-    Action mockAction = mock(Action.class);
+    Action mockAction = mock(GettableAction.class);
 
     // Convert the action to EncryptedAction
     Action convertedAction = manager.convert(mockAction);
 
     // Verify conversion occurred (the actual conversion logic is in the handler)
     assertNotNull("Converted action should not be null", convertedAction);
-    assertTrue(convertedAction instanceof PutEncryptedAction);
+    assertTrue(convertedAction instanceof EncryptedGettableAction);
   }
 
   @Test

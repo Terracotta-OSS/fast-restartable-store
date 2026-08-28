@@ -22,6 +22,11 @@ import java.util.Optional;
 public class NoEncryptionHandler implements EncryptionHandler {
 
   @Override
+  public String getCurrToken() {
+    throw new UnsupportedOperationException("operation unsupported");
+  }
+
+  @Override
   public Optional<String> getPreviousToken() {
     return Optional.empty();
   }

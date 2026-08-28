@@ -19,5 +19,5 @@ package com.terracottatech.frs.recovery;
  * @author tim
  */
 public interface RecoveryListener {
-  void recovered(boolean partialEncWithNewKey, long maxLsnForEncStart) throws InterruptedException;
+  void recovered(String latestEncToken, boolean partialEncWithNewKey, long maxLsnForEncStart) throws InterruptedException;
 }

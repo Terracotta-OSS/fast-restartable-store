@@ -24,7 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.terracottatech.frs.PutAction;
+import com.terracottatech.frs.GettableAction;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -36,18 +36,18 @@ import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.object.ObjectManager;
 
-public class PutEncryptedActionTest {
+public class EncryptedGettableActionTest {
 
-  private PutAction mockAction;
+  private GettableAction mockAction;
   private CipherManager mockCipherManager;
   private ActionCodec mockCodec;
-  private PutEncryptedAction encryptedAction;
+  private EncryptedGettableAction encryptedAction;
   private ByteBuffer mockIV;
   private ByteBuffer token;
 
   @Before
   public void setUp() {
-    mockAction = mock(PutAction.class);
+    mockAction = mock(GettableAction.class);
     mockCipherManager = mock(CipherManager.class);
     mockCodec = mock(ActionCodec.class);
     mockIV = ByteBuffer.allocate(16);
@@ -60,7 +60,7 @@ public class PutEncryptedActionTest {
     token = ByteBuffer.wrap("token".getBytes(StandardCharsets.UTF_8));
     when(mockCipherManager.generateInitializationVector()).thenReturn(mockIV);
     when(mockCipherManager.getCurrentToken()).thenReturn("token");
-    encryptedAction = new PutEncryptedAction(mockAction, mockCipherManager);
+    encryptedAction = new EncryptedGettableAction(mockAction, mockCipherManager);
   }
 
   @Test
@@ -96,8 +96,10 @@ public class PutEncryptedActionTest {
     ByteBuffer identifer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
     Set<Long> inv = new HashSet<>();
     inv.add(102L);
+    String token = "token1";
     when(mockAction.getIdentifier()).thenReturn(identifer);
     when(mockAction.getInvalidatedLsns()).thenReturn(inv);
+    when(mockCipherManager.getCurrentToken()).thenReturn(token);
     when(mockCodec.encode(mockAction)).thenReturn(originalPayload);
     when(mockCipherManager.encrypt(originalPayload, mockIV)).thenReturn(encryptedPayload);
 
@@ -106,30 +108,31 @@ public class PutEncryptedActionTest {
 
     // Verify the result
     assertNotNull(result);
-    assertEquals(5, result.length); // MetaData + Header + IV + token + encrypted payload
+    assertEquals(4, result.length); // MetaData + Header + IV + encrypted payload
 
     // Verify the metadata
     ByteBuffer metaData = result[0];
     assertEquals(metaData.getLong(), 102L);
     assertEquals(metaData.getInt(), id.length());
-    String decodedIdentifier = StandardCharsets.UTF_8.decode(metaData).toString();
+    byte[] idbytes = new byte[id.length()];
+    metaData.get(idbytes);
+    String decodedIdentifier = new String(idbytes, StandardCharsets.UTF_8);
     assertEquals(decodedIdentifier, id);
+    assertEquals(metaData.getInt(), token.length());
+    String decodedToken = StandardCharsets.UTF_8.decode(metaData).toString();
+    assertEquals(decodedToken, token);
 
-    // Verify the header contains the correct IV length, token length and payload length
+    // Verify the header contains the correct IV length and payload length
     ByteBuffer header = result[1];
     header.rewind();
     assertEquals(mockIV.remaining(), header.getInt());
-    assertEquals(token.remaining(), header.getInt());
     assertEquals("encrypted data".getBytes().length, header.getInt());
 
     // Verify the IV is included
     assertEquals(mockIV, result[2]);
 
-    // Verify token is included
-    assertEquals(token, result[3]);
-
     // Verify the encrypted payload is included
-    assertEquals(encryptedPayload[0], result[4]);
+    assertEquals(encryptedPayload[0], result[3]);
 
     // Verify the interactions
     verify(mockCodec).encode(mockAction);
@@ -139,8 +142,8 @@ public class PutEncryptedActionTest {
   @Test
   public void testEncryptedActionFactory() {
     // Setup
-    PutEncryptedAction.EncryptedActionFactory factory =
-        new PutEncryptedAction.EncryptedActionFactory(mockCipherManager);
+    EncryptedGettableAction.EncryptedActionFactory factory =
+        new EncryptedGettableAction.EncryptedActionFactory(mockCipherManager);
 
     ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = mock(ObjectManager.class);
 
@@ -149,13 +152,17 @@ public class PutEncryptedActionTest {
     String identifierString = "testIdentifier";
     byte[] identifierBytes = identifierString.getBytes(StandardCharsets.UTF_8);
     int identifierLength = identifierBytes.length;
-
+    String token = "mytoken";
+    byte[] tokenBytes = token.getBytes(StandardCharsets.UTF_8);
+    int tokenLength = tokenBytes.length;
     // Create buffers array with the expected format:
-    // [invalidatedLsn (8 bytes), length (4 bytes), identifier bytes, ...]
-    ByteBuffer buffer = ByteBuffer.allocate(8 + 4 + identifierLength + 100); // Extra space for other data
+    // [invalidatedLsn (8 bytes), length (4 bytes), identifier bytes, tokenlength (4bytes), token bytes, ...]
+    ByteBuffer buffer = ByteBuffer.allocate(8 + 4 + identifierLength + 4 + tokenLength + 100); // Extra space for other data
     buffer.putLong(expectedInvalidatedLsn);
     buffer.putInt(identifierLength);
     buffer.put(identifierBytes);
+    buffer.putInt(tokenLength);
+    buffer.put(tokenBytes);
     buffer.flip();
 
     ByteBuffer[] buffers = new ByteBuffer[]{buffer};
@@ -165,10 +172,10 @@ public class PutEncryptedActionTest {
 
     // Verify the result
     assertNotNull(result);
-    assertTrue(result instanceof LazyDecryptingPutAction);
+    assertTrue(result instanceof LazyDecryptingGettableAction);
 
     // Verify the created action has the correct identifier
-    LazyDecryptingPutAction lazyAction = (LazyDecryptingPutAction) result;
+    LazyDecryptingGettableAction lazyAction = (LazyDecryptingGettableAction) result;
     ByteBuffer resultIdentifier = lazyAction.getIdentifier();
     assertNotNull(resultIdentifier);
 
@@ -182,13 +189,17 @@ public class PutEncryptedActionTest {
     assertNotNull(invalidatedLsns);
     assertEquals(1, invalidatedLsns.size());
     assertTrue(invalidatedLsns.contains(expectedInvalidatedLsn));
+
+    // Verify the token
+    String resultToken = lazyAction.getToken();
+    assertEquals(token, resultToken);
   }
 
   @Test
   public void testEqualsAndHashCode() {
     // Create two EncryptedAction objects with the same delegate
-    PutEncryptedAction action1 = new PutEncryptedAction(mockAction, mockCipherManager);
-    PutEncryptedAction action2 = new PutEncryptedAction(mockAction, mockCipherManager);
+    EncryptedGettableAction action1 = new EncryptedGettableAction(mockAction, mockCipherManager);
+    EncryptedGettableAction action2 = new EncryptedGettableAction(mockAction, mockCipherManager);
 
     // Test equals
     assertEquals(action1, action2);
@@ -197,8 +208,8 @@ public class PutEncryptedActionTest {
     assertEquals(action1.hashCode(), action2.hashCode());
 
     // Create an EncryptedAction with a different delegate
-    PutAction differentMockAction = mock(PutAction.class);
-    PutEncryptedAction differentAction = new PutEncryptedAction(differentMockAction, mockCipherManager);
+    GettableAction differentMockAction = mock(GettableAction.class);
+    EncryptedGettableAction differentAction = new EncryptedGettableAction(differentMockAction, mockCipherManager);
 
     // They should not be equal
     assertTrue(!action1.equals(differentAction));

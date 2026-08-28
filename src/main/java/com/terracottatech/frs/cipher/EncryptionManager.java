@@ -20,6 +20,8 @@ import com.terracottatech.frs.action.Action;
 import java.util.Optional;
 
 public interface EncryptionManager {
+  
+  String getCurrToken();
   /**
    * Gets the token identifying the previously used encryption key, if any.
    *

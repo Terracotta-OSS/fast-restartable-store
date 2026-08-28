@@ -55,6 +55,11 @@ public class EncryptionManagerImpl implements EncryptionManager {
   }
 
   @Override
+  public String getCurrToken() {
+    return cipherKeyHandler.getCurrToken();
+  }
+
+  @Override
   public Optional<String> getPreviousToken() {
     return cipherKeyHandler.getPreviousToken();
   }

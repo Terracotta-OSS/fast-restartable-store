@@ -13,30 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.terracottatech.frs.action;
+package com.terracottatech.frs.cipher;
 
-import java.nio.ByteBuffer;
-
-public class BaseMarkerAction implements Action {
-
-  private long lsn;
-
-  @Override
-  public void record(long lsn) {
-    this.lsn = lsn;
-  }
-
-  @Override
-  public void replay(long lsn) {
-
-  }
-
-  public long getLsn() {
-    return lsn;
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
-  }
+public interface EncryptedAction {
+  String getToken();
 }

@@ -15,8 +15,6 @@
  */
 package com.terracottatech.frs.action;
 
-import com.terracottatech.frs.cipher.EncryptionBeginAction;
-import com.terracottatech.frs.cipher.EncryptionEndAction;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 

@@ -25,9 +25,7 @@ import java.nio.ByteBuffer;
 public abstract class EncryptionActions {
   public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec,
                                      CipherManager cipherManager) {
-    codec.registerAction(id, 0, PutEncryptedAction.class,
-        new PutEncryptedAction.EncryptedActionFactory(cipherManager));
-    codec.registerAction(id, 1, EncryptionBeginAction.class, EncryptionBeginAction.factory());
-    codec.registerAction(id, 2, EncryptionEndAction.class, EncryptionEndAction.factory());
+    codec.registerAction(id, 0, EncryptedGettableAction.class,
+        new EncryptedGettableAction.EncryptedActionFactory(cipherManager));
   }
 }

@@ -18,14 +18,14 @@ package com.terracottatech.frs.cipher;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-import com.terracottatech.frs.PutAction;
+import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
 
-public class PutEncryptedAction implements Action {
+public class EncryptedGettableAction implements Action {
 
   public static class EncryptedActionFactory implements ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> {
 
@@ -43,20 +43,22 @@ public class PutEncryptedAction implements Action {
       long invalidatedLsn = ByteBufferUtils.getLong(buffers);
       int len = ByteBufferUtils.getInt(buffers);
       ByteBuffer identifier = ByteBufferUtils.getBytes(len, buffers);
-
-      return new LazyDecryptingPutAction(objectManager, cipherManager, invalidatedLsn, identifier, buffers, codec);
+      int tokenLength = ByteBufferUtils.getInt(buffers);
+      ByteBuffer tokenBuffer = ByteBufferUtils.getBytes(tokenLength, buffers);
+      String token = StandardCharsets.UTF_8.decode(tokenBuffer).toString();
+      return new LazyDecryptingGettableAction(objectManager, cipherManager, invalidatedLsn, identifier, token, buffers, codec);
     }
   }
 
-  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 3;
+  private static final int HEADER_SIZE = ByteBufferUtils.INT_SIZE * 2;
 
-  private final PutAction delegate;
+  private final GettableAction delegate;
   private final CipherManager cipherManager;
   // buffer contains initialization vector which introduces randomness and
   // ensure same plaintext encrypts to different ciphertexts each time
   private final ByteBuffer initializationVector;
 
-  public PutEncryptedAction(PutAction delegate, CipherManager cipherManager) {
+  public EncryptedGettableAction(GettableAction delegate, CipherManager cipherManager) {
     this.delegate = delegate;
     this.cipherManager = cipherManager;
     this.initializationVector = cipherManager.generateInitializationVector();
@@ -86,10 +88,14 @@ public class PutEncryptedAction implements Action {
 
     ByteBuffer identifier = delegate.getIdentifier();
     long invalidatedLsn = delegate.getInvalidatedLsns().stream().findFirst().get();
-    ByteBuffer metaData = ByteBuffer.allocate(identifier.remaining() + 12);
+    byte[] ctoken = cipherManager.getCurrentToken().getBytes(StandardCharsets.UTF_8);
+    int size = identifier.remaining() + 16 + ctoken.length; // 16 for invalidatedLsn + len(ctoken)
+    ByteBuffer metaData = ByteBuffer.allocate(size);
     metaData.putLong(invalidatedLsn);
     metaData.putInt(identifier.remaining());
     metaData.put(identifier.duplicate());
+    metaData.putInt(ctoken.length);
+    metaData.put(ctoken);
 
     ByteBuffer[] encryptedValue = cipherManager.encrypt(delegatePayload, initializationVector);
     int length = 0;
@@ -97,19 +103,17 @@ public class PutEncryptedAction implements Action {
       length += buffer.remaining();
     }
 
-    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 4];
+    ByteBuffer[] output = new ByteBuffer[encryptedValue.length + 3];
 
     output[0] = metaData;
-    byte[] ctoken = cipherManager.getCurrentToken().getBytes(StandardCharsets.UTF_8);
     output[1] = ByteBuffer.allocate(HEADER_SIZE)
-        .putInt(initializationVector.remaining()).putInt(ctoken.length)
+        .putInt(initializationVector.remaining())
         .putInt(length);
     
     output[0].flip();
     output[1].flip();
     output[2] = initializationVector.asReadOnlyBuffer();
-    output[3] = ByteBuffer.wrap(ctoken);
-    System.arraycopy(encryptedValue, 0, output, 4, encryptedValue.length);
+    System.arraycopy(encryptedValue, 0, output, 3, encryptedValue.length);
     return output;
   }
 
@@ -122,7 +126,7 @@ public class PutEncryptedAction implements Action {
       return false;
     }
 
-    PutEncryptedAction that = (PutEncryptedAction) o;
+    EncryptedGettableAction that = (EncryptedGettableAction) o;
     return delegate.equals(that.delegate);
   }
 

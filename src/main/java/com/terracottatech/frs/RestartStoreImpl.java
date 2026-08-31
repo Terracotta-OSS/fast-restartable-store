@@ -50,7 +50,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
-import java.nio.LongBuffer;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.concurrent.Callable;
@@ -64,7 +63,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * @author twu
@@ -95,17 +94,17 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private volatile State state = State.INIT;
   private volatile State prevState = state;
 
-  private BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer;
+  private Consumer<EncryptionCompletionEvent> encCompletionConsumer;
 
   // For testing purpose
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                    TransactionManager transactionManager, LogManager logManager, ActionCodec actionCodec,
-                   ActionManager actionManager, ReadManager read, Compactor compactor,
+                   ActionManager actionManager, EncryptionManager encryptionManager, ReadManager read, Compactor compactor,
                    Configuration configuration) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
     this.logManager = logManager;
-    this.encryptionManager = new EncryptionManagerImpl(configuration, actionCodec);
+    this.encryptionManager = encryptionManager;
     this.actionManager = actionManager;
     this.readManager = read;
     this.compactor = compactor;
@@ -381,7 +380,10 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         .whenComplete((res, ex) -> {
           compactor.unpause();
           if (ex != null) {
-            LOGGER.info("Encryption failed with latest key", ex);
+            if(state == State.RUNNING) {
+              LOGGER.info("Encryption failed with latest key", ex);
+              encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, null, ex));
+            }
           } else {
             updateKeys();
             LOGGER.info("Encryption completed with latest key");
@@ -390,7 +392,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer) {
+  public void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer) {
     this.encCompletionConsumer = encCompletionConsumer;
   }
 
@@ -403,7 +405,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     encryptionManager.getPreviousToken().ifPresent(oldToken -> {
       encryptionManager.remove(oldToken);
       if (encCompletionConsumer != null) {
-        encCompletionConsumer.accept(this, oldToken);
+        encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, oldToken, null));
       }
     });
   }
@@ -668,6 +670,34 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     @Override
     public Iterator<File> iterator() {
       return inner.iterator();
+    }
+  }
+  
+  private static class EncryptionCompletionEventImpl implements EncryptionCompletionEvent {
+
+    private final RestartStore<?,?,?> restartStore;
+    private final String token;
+    private final Throwable error;
+    
+    private EncryptionCompletionEventImpl(RestartStore<?,?,?> restartStore, String token, Throwable error) {
+      this.restartStore = restartStore;
+      this.token = token;
+      this.error = error;
+    }
+    
+    @Override
+    public Throwable getError() {
+      return error;
+    }
+
+    @Override
+    public RestartStore<?, ?, ?> getRestartStore() {
+      return restartStore;
+    }
+
+    @Override
+    public String getExpiredToken() {
+      return token;
     }
   }
 }

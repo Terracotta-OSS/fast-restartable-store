@@ -19,6 +19,7 @@ import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  *
@@ -131,7 +132,6 @@ public interface RestartStore<I, K, V> {
    * @return {@link Future} that completes when the freeze is complete.
    */
   Future<Future<Void>> freeze();
-
   
   /**
    * Starts encryption all the existing frs records with the provided key.
@@ -144,10 +144,9 @@ public interface RestartStore<I, K, V> {
   /**
    * Register a listener to be notified when encryption operations complete.
    *
-   * @param encCompletionConsumer a consumer that accepts the RestartStore instance and key token
-   *                              when encryption operations complete
+   * @param encCompletionConsumer 
    */
-  void registerEncCompletionListener(BiConsumer<RestartStore<?,?,?>, String> encCompletionConsumer);
+  void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer);
   
   /**
    * Check if this RestartStore is currently using the encryption key identified by the given token.
@@ -156,4 +155,11 @@ public interface RestartStore<I, K, V> {
    * @return true if the store is using the specified encryption key, false otherwise
    */
   boolean isUsingEncKey(String token);
+  
+  interface EncryptionCompletionEvent {
+    Throwable getError();
+    RestartStore<?, ?, ?> getRestartStore();
+    String getExpiredToken();
+  }
+  
 }

@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -54,7 +53,7 @@ public class RestartStoreEncryptionKeyRotateTest {
 
     CountDownLatch latch = new CountDownLatch(1);
 
-    restartStore.registerEncCompletionListener((store, oldKey) -> {
+    restartStore.registerEncCompletionListener((event) -> {
       latch.countDown();
     });
 
@@ -101,7 +100,7 @@ public class RestartStoreEncryptionKeyRotateTest {
 
       CountDownLatch latch = new CountDownLatch(1);
 
-      restartStore.registerEncCompletionListener((store, oldKey) -> latch.countDown());
+      restartStore.registerEncCompletionListener(event -> latch.countDown());
 
       restartStore.startup().get();
       Map<String, String> map1 = createMap(restartStore, objectManager, 0);
@@ -217,7 +216,7 @@ public class RestartStoreEncryptionKeyRotateTest {
           RestartStoreFactory.createStore(objectManager, path, properties);
 
       CountDownLatch latch = new CountDownLatch(1);
-      restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
+      restartStore.registerEncCompletionListener(event -> latch.countDown());
       createMap(restartStore, objectManager, 0);
       createMap(restartStore, objectManager, 1);
       restartStore.startup().get();
@@ -278,7 +277,7 @@ public class RestartStoreEncryptionKeyRotateTest {
           RestartStoreFactory.createStore(objectManager, path, properties);
 
       CountDownLatch latch = new CountDownLatch(1);
-      restartStore.registerEncCompletionListener((store, oldK) -> latch.countDown());
+      restartStore.registerEncCompletionListener(event -> latch.countDown());
       Map<String, String> map1 = createMap(restartStore, objectManager, 0);
       Map<String, String> map2 = createMap(restartStore, objectManager, 1);
       restartStore.startup().get();

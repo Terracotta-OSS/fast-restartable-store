@@ -40,6 +40,7 @@ import com.terracottatech.frs.util.NullFuture;
 
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  *
@@ -133,7 +134,7 @@ public class MockRestartStore implements RestartStore<Long, String, String> {
   }
 
   @Override
-  public void registerEncCompletionListener(BiConsumer<RestartStore<?, ?, ?>, String> encCompletionConsumer) {
+  public void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer) {
     throw new UnsupportedOperationException();
   }
 

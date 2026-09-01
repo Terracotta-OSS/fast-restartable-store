@@ -45,7 +45,6 @@ public class EncryptionManagerImplTest {
   private byte[] testKey2;
   private static final String TOKEN1 = "token1";
   private static final String TOKEN2 = "token2";
-  private static final String TEST_ALGORITHM = "AES/CFB/PKCS5Padding";
 
   @Before
   public void setUp() throws Exception {
@@ -60,9 +59,6 @@ public class EncryptionManagerImplTest {
 
     SecretKey secretKey2 = keyGenerator.generateKey();
     testKey2 = secretKey2.getEncoded();
-
-    // Setup default mock behavior
-    when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM)).thenReturn(TEST_ALGORITHM);
   }
 
   @Test

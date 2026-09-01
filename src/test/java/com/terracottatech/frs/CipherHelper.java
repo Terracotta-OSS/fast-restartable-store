@@ -30,7 +30,6 @@ public class CipherHelper {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
       props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
       props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), generateNewKey());
-      props.setProperty(FrsProperty.STORE_ENCRYPTION_ALGORITHM.shortName(), "AES/CFB/PKCS5Padding");
     } else {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "false");
     }

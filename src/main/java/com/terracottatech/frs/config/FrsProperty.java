@@ -61,9 +61,7 @@ public enum FrsProperty {
   STORE_ENCRYPTION_OLD_TOKEN("store.encryptionKeyOldToken", Type.STRING, null),
   STORE_ENCRYPTION_OLD_KEY("store.encryptionOldKey", Type.BYTEARRAY, null),
   STORE_ENCRYPTION_NEW_TOKEN("store.encryptionKeyNewToken", Type.STRING, null),
-  STORE_ENCRYPTION_NEW_KEY("store.encryptionNewKey", Type.BYTEARRAY, null),
-  //AES_CTR AES_CBC, AES_GCM
-  STORE_ENCRYPTION_ALGORITHM("store.encryptionAlgorithm", Type.STRING, "AES/CFB/PKCS5Padding");
+  STORE_ENCRYPTION_NEW_KEY("store.encryptionNewKey", Type.BYTEARRAY, null);
 
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 

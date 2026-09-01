@@ -15,9 +15,6 @@
  */
 package com.terracottatech.frs.cipher;
 
-import com.terracottatech.frs.config.Configuration;
-import com.terracottatech.frs.config.FrsProperty;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -36,21 +33,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class AESCipherManagerTest {
 
-  private Configuration mockConfig;
   private AESCipherManager cipherManager;
-  private static final String TEST_ALGORITHM = "AES/CFB/PKCS5Padding";
 
   @Before
   public void setUp() throws Exception {
-    // Create a mock configuration
-    mockConfig = mock(Configuration.class);
-    when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_ALGORITHM)).thenReturn(TEST_ALGORITHM);
-
     // Generate a test key
     Map<String, byte[]> tokenToKey = new HashMap<>();
     KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
@@ -59,7 +48,7 @@ public class AESCipherManagerTest {
     tokenToKey.put("token1", secretKey.getEncoded());
 
     // Create the cipher manager
-    cipherManager = new AESCipherManager(mockConfig, tokenToKey, "token1");
+    cipherManager = new AESCipherManager(tokenToKey, "token1");
   }
 
   @Test
@@ -78,26 +67,14 @@ public class AESCipherManagerTest {
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
-    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
-    ivCopy.put(iv.duplicate());
-    ivCopy.flip();
+    ByteBuffer ivCopy = copyBuffer(iv);
 
     // Encrypt
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
     assertNotNull("Encrypted buffers should not be null", encryptedBuffers);
     assertTrue("Should have at least one encrypted buffer", encryptedBuffers.length > 0);
-
-    // Combine encrypted buffers
-    int totalSize = 0;
-    for (ByteBuffer buffer : encryptedBuffers) {
-      totalSize += buffer.remaining();
-    }
-
-    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
-    for (ByteBuffer buffer : encryptedBuffers) {
-      combinedEncrypted.put(buffer);
-    }
-    combinedEncrypted.flip();
+    
+    ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Decrypt
     ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
@@ -125,24 +102,12 @@ public class AESCipherManagerTest {
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
-    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
-    ivCopy.put(iv.duplicate());
-    ivCopy.flip();
+    ByteBuffer ivCopy = copyBuffer(iv);
 
     // Encrypt
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
-
-    // Combine encrypted buffers
-    int totalSize = 0;
-    for (ByteBuffer buffer : encryptedBuffers) {
-      totalSize += buffer.remaining();
-    }
-
-    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
-    for (ByteBuffer buffer : encryptedBuffers) {
-      combinedEncrypted.put(buffer);
-    }
-    combinedEncrypted.flip();
+    
+    ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Decrypt
     ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
@@ -170,24 +135,12 @@ public class AESCipherManagerTest {
 
     // Generate IV
     ByteBuffer iv = cipherManager.generateInitializationVector();
-    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
-    ivCopy.put(iv.duplicate());
-    ivCopy.flip();
+    ByteBuffer ivCopy = copyBuffer(iv);
 
     // Encrypt
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
 
-    // Combine encrypted buffers
-    int totalSize = 0;
-    for (ByteBuffer buffer : encryptedBuffers) {
-      totalSize += buffer.remaining();
-    }
-
-    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
-    for (ByteBuffer buffer : encryptedBuffers) {
-      combinedEncrypted.put(buffer);
-    }
-    combinedEncrypted.flip();
+    ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Decrypt
     ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token1");
@@ -205,16 +158,6 @@ public class AESCipherManagerTest {
     String expectedString = expectedBuilder.toString();
 
     assertEquals("Decrypted string should match original combined strings", expectedString, decryptedString);
-  }
-
-  @Test
-  public void testValidateAlgorithm() {
-    assertTrue("AES/CFB/PKCS5Padding should be a valid algorithm",
-        CipherManager.validateAlgorithm("AES/CFB/PKCS5Padding"));
-    assertTrue("AES/CBC/PKCS5Padding should be a valid algorithm",
-        CipherManager.validateAlgorithm("AES/CBC/PKCS5Padding"));
-    assertTrue("AES/GCM/NoPadding should be a valid algorithm",
-        CipherManager.validateAlgorithm("AES/GCM/NoPadding"));
   }
 
   @Test
@@ -266,22 +209,11 @@ public class AESCipherManagerTest {
     ByteBuffer[] plainBuffers = new ByteBuffer[]{plainBuffer};
 
     ByteBuffer iv = cipherManager.generateInitializationVector();
-    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
-    ivCopy.put(iv.duplicate());
-    ivCopy.flip();
+    ByteBuffer ivCopy = copyBuffer(iv);
 
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
 
-    int totalSize = 0;
-    for (ByteBuffer buffer : encryptedBuffers) {
-      totalSize += buffer.remaining();
-    }
-
-    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
-    for (ByteBuffer buffer : encryptedBuffers) {
-      combinedEncrypted.put(buffer);
-    }
-    combinedEncrypted.flip();
+    ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     ByteBuffer decryptedBuffer = cipherManager.decrypt(combinedEncrypted, ivCopy, "token2");
     byte[] decryptedBytes = new byte[decryptedBuffer.remaining()];
@@ -321,26 +253,29 @@ public class AESCipherManagerTest {
 
     // Generate IV and encrypt
     ByteBuffer iv = cipherManager.generateInitializationVector();
-    ByteBuffer ivCopy = ByteBuffer.allocate(iv.capacity());
-    ivCopy.put(iv.duplicate());
-    ivCopy.flip();
+    ByteBuffer ivCopy = copyBuffer(iv);
 
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
 
-    int totalSize = 0;
-    for (ByteBuffer buffer : encryptedBuffers) {
-      totalSize += buffer.remaining();
-    }
-
-    ByteBuffer combinedEncrypted = ByteBuffer.allocate(totalSize);
-    for (ByteBuffer buffer : encryptedBuffers) {
-      combinedEncrypted.put(buffer);
-    }
-    combinedEncrypted.flip();
+    ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Try to decrypt with invalid token - should throw AssertionError
     cipherManager.decrypt(combinedEncrypted, ivCopy, "invalidToken");
   }
-}
+  
+  private static ByteBuffer copyBuffer(ByteBuffer src) {
+    ByteBuffer copy = ByteBuffer.allocate(src.remaining());
+    copy.put(src.duplicate());
+    copy.flip();
+    return copy;
+  }
 
-// Made with Bob
+  private static ByteBuffer combine(ByteBuffer[] buffers) {
+    int total = 0;
+    for (ByteBuffer b : buffers) total += b.remaining();
+    ByteBuffer out = ByteBuffer.allocate(total);
+    for (ByteBuffer b : buffers) out.put(b);
+    out.flip();
+    return out;
+  }
+}

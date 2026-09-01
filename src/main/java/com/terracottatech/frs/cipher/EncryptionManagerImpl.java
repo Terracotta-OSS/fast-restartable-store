@@ -47,7 +47,7 @@ public class EncryptionManagerImpl implements EncryptionManager {
         tokenToKeyMap.put(oldToken, oldKey);
       }
       tokenToKeyMap.put(newToken, newKey);
-      cipherKeyHandler = new DefaultEncryptionHandler(configuration, actionCodec, tokenToKeyMap, newToken);
+      cipherKeyHandler = new DefaultEncryptionHandler(actionCodec, tokenToKeyMap, newToken);
       encryptEnabled = true;
     } else {
       cipherKeyHandler = new NoEncryptionHandler();
@@ -76,7 +76,7 @@ public class EncryptionManagerImpl implements EncryptionManager {
     } else {
       Map<String, byte[]> tokenToKeyMap = new HashMap<>();
       tokenToKeyMap.put(token, key);
-      cipherKeyHandler = new DefaultEncryptionHandler(configuration, actionCodec, tokenToKeyMap, token);
+      cipherKeyHandler = new DefaultEncryptionHandler(actionCodec, tokenToKeyMap, token);
     }
   }
 

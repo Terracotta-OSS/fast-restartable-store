@@ -184,7 +184,7 @@ public class AESCipherManagerTest {
   }
 
   @Test
-  public void testIsUsingEncKey() throws Exception {
+  public void testIsUsingEncKey() {
     // Test with existing token
     assertTrue(cipherManager.isUsingEncKey("token1"));
 
@@ -275,7 +275,7 @@ public class AESCipherManagerTest {
     assertFalse(cipherManager.isUsingEncKey("token2"));
 
     // Verify token3 still exists
-    assertFalse(cipherManager.isUsingEncKey("token3"));
+    assertTrue(cipherManager.isUsingEncKey("token3"));
   }
 
   @Test(expected = AssertionError.class)

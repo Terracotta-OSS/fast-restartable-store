@@ -86,16 +86,15 @@ public class AESGCMCipherDelegate implements CipherAlgorithmDelegate {
     ByteBuffer cipherBuffer = useDirect ? ByteBuffer.allocateDirect(totalOutputSize) :
         ByteBuffer.allocate(totalOutputSize);
 
-    for (ByteBuffer inputBuffer : input) {
+    for (int i=0;i<input.length-1;++i) {
       try {
-        cipher.update(inputBuffer, cipherBuffer);
+        cipher.update(input[i], cipherBuffer);
       } catch (ShortBufferException e) {
         throw new IllegalStateException("unexpected ShortBufferException during GCM encrypt update", e);
       }
     }
-    ByteBuffer emptyInput = ByteBuffer.allocate(0);
     try {
-      cipher.doFinal(emptyInput, cipherBuffer);
+      cipher.doFinal(input[input.length-1], cipherBuffer);
     } catch (ShortBufferException e) {
       throw new IllegalStateException("unexpected ShortBufferException during GCM encrypt update", e);
     } catch (IllegalBlockSizeException e) {

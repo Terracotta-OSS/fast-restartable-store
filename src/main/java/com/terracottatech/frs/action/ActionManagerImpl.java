@@ -116,7 +116,7 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public Future<Void> pause(Action action) throws InterruptedException {
+  public Future<Void> syncHappenedAndPause(Action action) throws InterruptedException {
     stateLock.lock();
     try {
       while (happenState != State.NORMAL) {
@@ -144,7 +144,7 @@ public class ActionManagerImpl implements ActionManager {
   
   @Override
   public Future<Void> pause() throws InterruptedException {
-    return pause(new NullAction());
+    return syncHappenedAndPause(new NullAction());
   }
 
   @Override

@@ -21,7 +21,6 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collections;
 
@@ -31,6 +30,7 @@ import javax.crypto.SecretKey;
 import org.junit.Before;
 import org.junit.Test;
 
+import static com.terracottatech.frs.cipher.EncryptionManagerImpl.MULTIPLE_TOKEN_KEY_DELIMETER;
 import static com.terracottatech.frs.cipher.EncryptionManagerImpl.TOKEN_KEY_DELIMITER;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -46,8 +46,10 @@ public class EncryptionManagerImplTest {
   private ActionCodec mockActionCodec;
   private String testKey1;
   private String testKey2;
+  private String testKey3;
   private static final String TOKEN1 = "token1";
   private static final String TOKEN2 = "token2";
+  private static final String TOKEN3 = "token3";
 
   @Before
   public void setUp() throws Exception {
@@ -62,6 +64,9 @@ public class EncryptionManagerImplTest {
 
     SecretKey secretKey2 = keyGenerator.generateKey();
     testKey2 = Base64.getEncoder().encodeToString(secretKey2.getEncoded());
+
+    SecretKey secretKey3 = keyGenerator.generateKey();
+    testKey3 = Base64.getEncoder().encodeToString(secretKey3.getEncoded());
   }
 
   @Test
@@ -211,7 +216,7 @@ public class EncryptionManagerImplTest {
     // Setup config for enabled encryption
     when(mockConfig.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE)).thenReturn(true);
     when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY)).thenReturn(TOKEN1 + TOKEN_KEY_DELIMITER + testKey1);
-    
+
     EncryptionManager manager = new EncryptionManagerImpl(mockConfig, mockActionCodec);
 
     // Create a mock action
@@ -244,7 +249,7 @@ public class EncryptionManagerImplTest {
   }
 
   @Test
-  public void testMultipleAddOperations() throws NoSuchAlgorithmException {
+  public void testMultipleAddOperations() {
     // Setup config for enabled encryption
     when(mockConfig.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE)).thenReturn(true);
     when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY)).thenReturn(TOKEN1 + TOKEN_KEY_DELIMITER + testKey1);
@@ -253,18 +258,33 @@ public class EncryptionManagerImplTest {
 
     // Add multiple tokens
     manager.add(TOKEN2, Base64.getDecoder().decode(testKey2));
-
-    KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-    keyGenerator.init(256);
-    SecretKey secretKey = keyGenerator.generateKey();
-    String testKey3 = Base64.getEncoder().encodeToString(secretKey.getEncoded());
-    
-    manager.add("token3", Base64.getDecoder().decode(testKey3));
+    manager.add(TOKEN3, Base64.getDecoder().decode(testKey3));
 
     // Verify all tokens are present
     assertTrue("TOKEN1 should be present", manager.isUsingEncKey(TOKEN1));
     assertTrue("TOKEN2 should be present", manager.isUsingEncKey(TOKEN2));
-    assertTrue("token3 should be present", manager.isUsingEncKey("token3"));
+    assertTrue("token3 should be present", manager.isUsingEncKey(TOKEN3));
+  }
+
+  @Test
+  public void testMultipleRemoveOperations() {
+    when(mockConfig.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE)).thenReturn(true);
+    String oldTokenAndKeys = TOKEN1 + TOKEN_KEY_DELIMITER + testKey1 + MULTIPLE_TOKEN_KEY_DELIMETER +
+        TOKEN2 + TOKEN_KEY_DELIMITER + testKey2;
+    when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS)).thenReturn(oldTokenAndKeys);
+    when(mockConfig.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY)).thenReturn(TOKEN3 + TOKEN_KEY_DELIMITER + testKey3);
+
+    EncryptionManager manager = new EncryptionManagerImpl(mockConfig, mockActionCodec);
+
+    assertTrue("TOKEN1 should be present", manager.isUsingEncKey(TOKEN1));
+    assertTrue("TOKEN2 should be present", manager.isUsingEncKey(TOKEN2));
+    assertTrue("token3 should be present", manager.isUsingEncKey(TOKEN3));
+
+    manager.remove(manager.getPreviousTokens());
+
+    assertFalse(manager.isUsingEncKey(TOKEN1));
+    assertFalse(manager.isUsingEncKey(TOKEN2));
+    assertTrue(manager.isUsingEncKey(TOKEN3));
   }
 }
 

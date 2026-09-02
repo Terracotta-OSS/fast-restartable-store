@@ -369,7 +369,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   public void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException {
     try {
       NullAction action = new NullAction();
-      actionManager.pause(action);
+      actionManager.syncHappenedAndPause(action);
       encryptionManager.add(newKeyToken, Base64.getDecoder().decode(newKey));
       LOGGER.info("Encryption with new key initiated");
       initiateRewrite(action.getLsn());

@@ -18,7 +18,6 @@ package com.terracottatech.frs.action;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.transaction.TransactionAccount;
 import com.terracottatech.frs.transaction.TransactionHandle;
-import com.terracottatech.frs.transaction.TransactionManagerImpl;
 
 import java.util.concurrent.Future;
 
@@ -44,6 +43,18 @@ public interface ActionManager {
    */
   Future<Void> happened(Action action);
 
+  /**
+   * Record the given {@link Action} as part of an ongoing transaction and append it to the log stream.
+   *
+   * @param action  the {@link Action} to record; must not be {@code null}
+   * @param handle  the {@link TransactionHandle} that identifies the enclosing transaction;
+   *                must not be {@code null}
+   * @param account the {@link TransactionAccount} for the enclosing transaction, used both to
+   *                determine whether this is the first action in the transaction
+   *                ({@link TransactionAccount#begin()}) and as the LSN callback; must not be
+   *                {@code null}
+   * @return a {@link Future} that completes when the log record has been written to disk
+   */
   Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account);
   
   /**
@@ -61,9 +72,9 @@ public interface ActionManager {
    * {@link ActionManager#syncHappened(Action)} calls will block at entry, until the action manager
    * is resumed. This call comes out iff no more pending {@code happened()} and {@code syncHappened()} exists
    * in any threads and all incoming calls starts blocking, thereby guaranteeing that the gate is completely
-   * closed and the {@link  NullAction} is appended to logrecord
+   * closed.
    * 
-   * @return the future pointing to when the {@link NullAction} is getting synced to disk.
+   * @return the future that completes when the gating action is flushed to disk.
    */
   Future<Void> pause() throws InterruptedException;
 
@@ -76,9 +87,9 @@ public interface ActionManager {
    * in any threads and all incoming calls starts blocking, thereby guaranteeing that the gate is completely
    * closed and the action is appended to logrecord
    *
-   * @return the future pointing to when the action is getting synced to disk.
+   * @return the future that completes when the action is flushed to disk.
    */
-  Future<Void> pause(Action action) throws InterruptedException;
+  Future<Void> syncHappenedAndPause(Action action) throws InterruptedException;
   
   /**
    * Resume action manager.

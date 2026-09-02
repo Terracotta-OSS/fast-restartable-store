@@ -17,10 +17,9 @@ package com.terracottatech.frs.cipher;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.config.Configuration;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class DefaultEncryptionHandler implements EncryptionHandler {
   
@@ -39,8 +38,8 @@ public class DefaultEncryptionHandler implements EncryptionHandler {
   }
 
   @Override
-  public Optional<String> getPreviousToken() {
-    return cipherManager.getPreviousToken();
+  public List<String> getPreviousTokens() {
+    return cipherManager.getPreviousTokens();
   }
 
   @Override
@@ -54,8 +53,8 @@ public class DefaultEncryptionHandler implements EncryptionHandler {
   }
 
   @Override
-  public void remove(String token) {
-    cipherManager.remove(token);
+  public void remove(List<String> tokens) {
+    cipherManager.remove(tokens);
   }
 
   @Override

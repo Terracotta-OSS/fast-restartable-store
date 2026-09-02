@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.terracottatech.frs.cipher.EncryptionManagerImpl.TOKEN_KEY_DELIMITER;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -83,8 +84,7 @@ public class RestartStoreEncryptionEnabledTest {
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
       properties.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token1" + TOKEN_KEY_DELIMITER + newKey);
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
 

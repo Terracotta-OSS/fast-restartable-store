@@ -35,7 +35,7 @@ import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.Optional;
+import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -48,6 +48,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
@@ -361,7 +362,8 @@ public class RestartStoreImplTest {
     Consumer<RestartStore.EncryptionCompletionEvent> listener = encryptionCompletionEvent -> {
       try {
         assertNull(encryptionCompletionEvent.getError());
-        assertThat(encryptionCompletionEvent.getExpiredToken(), is("old-tok"));
+        assertThat(encryptionCompletionEvent.getExpiredTokens().size(), is(1));
+        assertTrue(encryptionCompletionEvent.getExpiredTokens().contains("old-tok"));
         assertThat(encryptionCompletionEvent.getRestartStore(), is(restartStore));
       } catch (AssertionError e) {
         exceptionRef.set(e);
@@ -371,7 +373,7 @@ public class RestartStoreImplTest {
     };
     restartStore.registerEncCompletionListener(listener);
 
-    when(encryptionManager.getPreviousToken()).thenReturn(Optional.of("old-tok"));
+    when(encryptionManager.getPreviousTokens()).thenReturn(Collections.singletonList("old-tok"));
     restartStore.handleEncKeyChange("tok", CipherHelper.generateNewKey());
     latch.await();
 
@@ -388,7 +390,7 @@ public class RestartStoreImplTest {
     Consumer<RestartStore.EncryptionCompletionEvent> listener = encryptionCompletionEvent -> {
       try {
         assertThat(encryptionCompletionEvent.getError().getMessage(), is("Rewrite failed"));
-        assertNull(encryptionCompletionEvent.getExpiredToken());
+        assertNull(encryptionCompletionEvent.getExpiredTokens());
         assertThat(encryptionCompletionEvent.getRestartStore(), is(restartStore));
       } catch (AssertionError e) {
         exceptionRef.set(e);

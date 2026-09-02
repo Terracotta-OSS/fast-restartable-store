@@ -25,13 +25,20 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static com.terracottatech.frs.cipher.EncryptionManagerImpl.MULTIPLE_TOKEN_KEY_DELIMETER;
+import static com.terracottatech.frs.cipher.EncryptionManagerImpl.TOKEN_KEY_DELIMITER;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 public class RestartStoreEncryptionKeyRotateTest {
   @Rule
@@ -142,11 +149,10 @@ public class RestartStoreEncryptionKeyRotateTest {
       restartStore.shutdown();
     }
 
-    removeOldToken();
+    removeOldTokenAndKey();
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -165,7 +171,7 @@ public class RestartStoreEncryptionKeyRotateTest {
   @Test
   public void testRecordUpdatePartiallyAndFinishAfterRecovering() throws Exception {
     String newKey = "";
-    String oldKey = "";
+    String oldTokenAndKey = "";
     File path = folder.newFolder();
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
@@ -179,7 +185,7 @@ public class RestartStoreEncryptionKeyRotateTest {
         map1.put(String.valueOf(i), "val" + i);
         map2.put(String.valueOf(i), "val" + i);
       }
-      oldKey = properties.getProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName());
+      oldTokenAndKey = properties.getProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName());
       newKey = CipherHelper.generateNewKey();
       restartStore.handleEncKeyChange("token2", newKey);
       restartStore.shutdown();
@@ -187,10 +193,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token1");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), oldKey);
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName(), oldTokenAndKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -207,10 +211,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token1");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), oldKey);
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName(), oldTokenAndKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -225,13 +227,12 @@ public class RestartStoreEncryptionKeyRotateTest {
       assertThat(restartStore.isUsingEncKey("token2"), is(true));
       restartStore.shutdown();
     }
-    
-    removeOldToken();
+
+    removeOldTokenAndKey();
     String latestKey = "";
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -252,10 +253,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), newKey);
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token3");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), latestKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token3" + TOKEN_KEY_DELIMITER + latestKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -268,10 +267,8 @@ public class RestartStoreEncryptionKeyRotateTest {
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName(), "token2");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName(), newKey);
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token3");
-      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), latestKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName(), "token2" + TOKEN_KEY_DELIMITER + newKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token3" + TOKEN_KEY_DELIMITER + latestKey);
 
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
           RestartStoreFactory.createStore(objectManager, path, properties);
@@ -294,6 +291,70 @@ public class RestartStoreEncryptionKeyRotateTest {
 
   }
 
+  @Test
+  public void testPartialWriteWithKeyAndThenRestartWithNewKey() throws Exception {
+    String newKey = "";
+    String oldTokenAndKey = "";
+    File path = folder.newFolder();
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
+
+      restartStore.startup().get();
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
+      for (int i = 0; i < 20000; ++i) {
+        map1.put(String.valueOf(i), "val" + i);
+        map2.put(String.valueOf(i), "val" + i);
+      }
+      for(int i=0;i<1000;++i) {
+        map1.remove(String.valueOf(i));
+        map2.remove(String.valueOf(i));
+      }
+      
+      oldTokenAndKey = properties.getProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName());
+      newKey = CipherHelper.generateNewKey();
+      restartStore.handleEncKeyChange("token2", newKey);
+      Thread.sleep(100);
+      oldTokenAndKey = oldTokenAndKey.concat(MULTIPLE_TOKEN_KEY_DELIMETER + "token2" + TOKEN_KEY_DELIMITER + newKey);
+      restartStore.shutdown();
+    }
+
+    {
+      RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<>();
+      String latestKey = CipherHelper.generateNewKey();
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName(), oldTokenAndKey);
+      properties.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token3" + TOKEN_KEY_DELIMITER + latestKey);
+      
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, path, properties);
+
+      CountDownLatch latch = new CountDownLatch(1);
+      List<String> expiredTokens = new ArrayList<>();
+      
+      restartStore.registerEncCompletionListener(event ->  {
+        expiredTokens.addAll(event.getExpiredTokens());
+        latch.countDown();
+      });
+      
+      Map<String, String> map1 = createMap(restartStore, objectManager, 0);
+      Map<String, String> map2 = createMap(restartStore, objectManager, 1);
+      restartStore.startup().get();
+      latch.await();
+      for (int i = 1000; i < 20000; ++i) {
+        assertThat(map1.get(String.valueOf(i)), is("val" + i));
+        assertThat(map2.get(String.valueOf(i)), is("val" + i));
+      }
+      assertThat(map1.size(), is(19000));
+      assertThat(map2.size(), is(19000));
+      assertThat(expiredTokens.size(), is(2));
+      assertTrue(expiredTokens.contains("token1"));
+      assertTrue(expiredTokens.contains("token2"));
+      restartStore.shutdown();
+    }
+  }
+  
   private static Map<String, String> createMap(RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore,
                                                RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                                                int identifier) {
@@ -301,10 +362,9 @@ public class RestartStoreEncryptionKeyRotateTest {
     objectManager.registerObject(map);
     return map;
   }
-  
-  
-  private void removeOldToken() {
-    properties.remove(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN.shortName());
-    properties.remove(FrsProperty.STORE_ENCRYPTION_OLD_KEY.shortName());
+
+
+  private void removeOldTokenAndKey() {
+    properties.remove(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS.shortName());
   }
 }

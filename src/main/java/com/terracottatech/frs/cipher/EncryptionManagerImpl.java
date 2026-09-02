@@ -20,12 +20,16 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
 
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class EncryptionManagerImpl implements EncryptionManager {
 
+  public static final String TOKEN_KEY_DELIMITER = ":";
+  public static final String MULTIPLE_TOKEN_KEY_DELIMETER = ",";
+  
   private final ActionCodec actionCodec;
   private final Configuration configuration;
 
@@ -37,16 +41,25 @@ public class EncryptionManagerImpl implements EncryptionManager {
     this.actionCodec = actionCodec;
     boolean encrypted = configuration.getBoolean(FrsProperty.STORE_ENCRYPTION_ENABLE);
     if (encrypted) {
-      String oldToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKEN);
-      byte[] oldKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_OLD_KEY);
-      String newToken = configuration.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN);
-      byte[] newKey = configuration.getByteArray(FrsProperty.STORE_ENCRYPTION_NEW_KEY);
-
+      String oldTokenAndKeys = configuration.getString(FrsProperty.STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS);
+      String newTokenAndKey = configuration.getString(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY);
       Map<String, byte[]> tokenToKeyMap = new HashMap<>();
-      if (oldToken != null && oldKey != null) {
-        tokenToKeyMap.put(oldToken, oldKey);
+      
+      if(oldTokenAndKeys != null) {
+        String[] oldTokensSplit = oldTokenAndKeys.split(MULTIPLE_TOKEN_KEY_DELIMETER);
+        for (int i = 0; i < oldTokensSplit.length; ++i) {
+          String[] oldTokenAndKey = oldTokensSplit[i].split(TOKEN_KEY_DELIMITER);
+          String oldToken = oldTokenAndKey[0];
+          byte[] oldKey = Base64.getDecoder().decode(oldTokenAndKey[1]);
+          tokenToKeyMap.put(oldToken, oldKey);
+        }
       }
+      
+      String[] newTokenSplit = newTokenAndKey.split(TOKEN_KEY_DELIMITER);
+      String newToken = newTokenSplit[0];
+      byte[] newKey = Base64.getDecoder().decode(newTokenSplit[1]);
       tokenToKeyMap.put(newToken, newKey);
+      
       cipherKeyHandler = new DefaultEncryptionHandler(actionCodec, tokenToKeyMap, newToken);
       encryptEnabled = true;
     } else {
@@ -60,8 +73,8 @@ public class EncryptionManagerImpl implements EncryptionManager {
   }
 
   @Override
-  public Optional<String> getPreviousToken() {
-    return cipherKeyHandler.getPreviousToken();
+  public List<String> getPreviousTokens() {
+    return cipherKeyHandler.getPreviousTokens();
   }
 
   @Override
@@ -81,8 +94,8 @@ public class EncryptionManagerImpl implements EncryptionManager {
   }
 
   @Override
-  public void remove(String token) {
-    cipherKeyHandler.remove(token);
+  public void remove(List<String> tokens) {
+    cipherKeyHandler.remove(tokens);
   }
 
   @Override

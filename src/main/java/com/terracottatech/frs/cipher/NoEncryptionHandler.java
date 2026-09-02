@@ -17,7 +17,8 @@ package com.terracottatech.frs.cipher;
 
 import com.terracottatech.frs.action.Action;
 
-import java.util.Optional;
+import java.util.Collections;
+import java.util.List;
 
 public class NoEncryptionHandler implements EncryptionHandler {
 
@@ -27,8 +28,8 @@ public class NoEncryptionHandler implements EncryptionHandler {
   }
 
   @Override
-  public Optional<String> getPreviousToken() {
-    return Optional.empty();
+  public List<String> getPreviousTokens() {
+    return Collections.emptyList();
   }
 
   @Override
@@ -42,7 +43,7 @@ public class NoEncryptionHandler implements EncryptionHandler {
   }
 
   @Override
-  public void remove(String token) {
+  public void remove(List<String> tokens) {
     throw new UnsupportedOperationException("operation unsupported");
   }
 

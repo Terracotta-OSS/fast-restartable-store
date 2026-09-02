@@ -15,8 +15,6 @@
  */
 package com.terracottatech.frs.config;
 
-import java.util.Base64;
-
 public enum FrsProperty {
   IO_CHECKSUM("io.checksum", Type.STRING, "ADLER32"),
   IO_RANDOM_ACCESS("io.randomAccess", Type.BOOLEAN, false),
@@ -58,10 +56,8 @@ public enum FrsProperty {
   FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE"),
 
   STORE_ENCRYPTION_ENABLE("store.encryptionEnable", Type.BOOLEAN, false),
-  STORE_ENCRYPTION_OLD_TOKEN("store.encryptionKeyOldToken", Type.STRING, null),
-  STORE_ENCRYPTION_OLD_KEY("store.encryptionOldKey", Type.BYTEARRAY, null),
-  STORE_ENCRYPTION_NEW_TOKEN("store.encryptionKeyNewToken", Type.STRING, null),
-  STORE_ENCRYPTION_NEW_KEY("store.encryptionNewKey", Type.BYTEARRAY, null);
+  STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS("store.encryptionKeyOldTokens", Type.STRING, null),
+  STORE_ENCRYPTION_NEW_TOKEN_AND_KEY("store.encryptionKeyNewToken", Type.STRING, null);
 
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 
@@ -126,12 +122,6 @@ public enum FrsProperty {
       @Override
       Double convert(String string) {
         return Double.valueOf(string);
-      }
-    },
-    BYTEARRAY {
-      @Override
-      byte[] convert(String string) {
-        return Base64.getDecoder().decode(string);
       }
     };
 

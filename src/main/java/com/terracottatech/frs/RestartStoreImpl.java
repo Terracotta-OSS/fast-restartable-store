@@ -50,8 +50,11 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -174,7 +177,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     if (partialWriteWithNewKey) {
-      LOGGER.info("records from both old and new token found in log records");
+      LOGGER.info("records from mixed tokens found in log records");
       initiateRewrite(maxLsn);
     } else {
       if(latestEncToken != null && !latestEncToken.equals(encryptionManager.getCurrToken())) {
@@ -382,7 +385,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
           if (ex != null) {
             if(state == State.RUNNING) {
               LOGGER.info("Encryption failed with latest key", ex);
-              encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, null, ex));
+              encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, Collections.emptyList(), ex));
             }
           } else {
             updateKeys();
@@ -402,12 +405,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   private void updateKeys() {
-    encryptionManager.getPreviousToken().ifPresent(oldToken -> {
-      encryptionManager.remove(oldToken);
-      if (encCompletionConsumer != null) {
-        encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, oldToken, null));
+    List<String> oldTokens = encryptionManager.getPreviousTokens();
+    if(!oldTokens.isEmpty()) {
+      encryptionManager.remove(oldTokens);
+      if(encCompletionConsumer != null) {
+        encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, oldTokens, null));
       }
-    });
+    }
   }
 
   /**
@@ -676,12 +680,12 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private static class EncryptionCompletionEventImpl implements EncryptionCompletionEvent {
 
     private final RestartStore<?,?,?> restartStore;
-    private final String token;
+    private final List<String> tokens = new ArrayList<>();
     private final Throwable error;
     
-    private EncryptionCompletionEventImpl(RestartStore<?,?,?> restartStore, String token, Throwable error) {
+    private EncryptionCompletionEventImpl(RestartStore<?,?,?> restartStore, List<String> tokens, Throwable error) {
       this.restartStore = restartStore;
-      this.token = token;
+      this.tokens.addAll(tokens);
       this.error = error;
     }
     
@@ -696,8 +700,8 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     }
 
     @Override
-    public String getExpiredToken() {
-      return token;
+    public List<String> getExpiredTokens() {
+      return tokens;
     }
   }
 }

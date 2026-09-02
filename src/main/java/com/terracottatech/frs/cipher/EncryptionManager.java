@@ -17,6 +17,7 @@ package com.terracottatech.frs.cipher;
 
 import com.terracottatech.frs.action.Action;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface EncryptionManager {
@@ -25,9 +26,9 @@ public interface EncryptionManager {
   /**
    * Gets the token identifying the previously used encryption key, if any.
    *
-   * @return an Optional containing the previous key token, or empty if no previous key exists
+   * @return list of previous key tokens
    */
-  Optional<String> getPreviousToken();
+  List<String> getPreviousTokens();
 
   /**
    * Checks if the encryption key identified by the given token is being used.
@@ -46,11 +47,11 @@ public interface EncryptionManager {
   void add(String token, byte[] key);
 
   /**
-   * Removes the encryption key identified by the given token.
+   * Removes the encryption key identified by the given tokens.
    *
-   * @param token the token identifying the encryption key to remove
+   * @param tokens list of tokens identifying the encryption key to remove
    */
-  void remove(String token);
+  void remove(List<String> tokens);
   
   Action convert(Action action);
 }

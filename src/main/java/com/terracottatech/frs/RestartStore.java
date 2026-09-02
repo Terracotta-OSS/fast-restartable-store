@@ -17,6 +17,7 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.recovery.RecoveryException;
 
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -159,7 +160,7 @@ public interface RestartStore<I, K, V> {
   interface EncryptionCompletionEvent {
     Throwable getError();
     RestartStore<?, ?, ?> getRestartStore();
-    String getExpiredToken();
+    List<String> getExpiredTokens();
   }
   
 }

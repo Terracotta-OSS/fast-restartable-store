@@ -17,6 +17,7 @@ package com.terracottatech.frs.cipher;
 
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Optional;
 
 import javax.crypto.Cipher;
@@ -115,9 +116,9 @@ public interface CipherManager {
   /**
    * Gets the token identifying the previously used encryption key, if any.
    *
-   * @return an Optional containing the previous key token, or empty if no previous key exists
+   * @return list containing the previous tokens
    */
-  Optional<String> getPreviousToken();
+  List<String> getPreviousTokens();
 
   /**
    * Checks if the cipher manager is currently using the encryption key identified by the given token.
@@ -138,7 +139,7 @@ public interface CipherManager {
   /**
    * Removes the encryption key identified by the given token from the cipher manager.
    *
-   * @param token the token identifying the encryption key to remove
+   * @param tokens list of tokens identifying the encryption key to remove
    */
-  void remove(String token);
+  void remove(List<String> tokens);
 }

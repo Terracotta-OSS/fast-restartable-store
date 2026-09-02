@@ -17,19 +17,19 @@ package com.terracottatech.frs.cipher;
 
 import com.terracottatech.frs.action.Action;
 
-import java.util.Optional;
+import java.util.List;
 
 public interface EncryptionHandler {
 
   String getCurrToken();
   
-  Optional<String> getPreviousToken();
+  List<String> getPreviousTokens();
 
   boolean isUsingEncKey(String token);
 
   void add(String token, byte[] key);
 
-  void remove(String token);
+  void remove(List<String> tokens);
 
   Action convert(Action action);
 }

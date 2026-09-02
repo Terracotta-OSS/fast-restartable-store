@@ -23,13 +23,14 @@ import javax.crypto.KeyGenerator;
 
 import com.terracottatech.frs.config.FrsProperty;
 
+import static com.terracottatech.frs.cipher.EncryptionManagerImpl.TOKEN_KEY_DELIMITER;
+
 public class CipherHelper {
 
   public static Properties configure(boolean encryptLog, Properties props) {
     if (encryptLog) {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "true");
-      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN.shortName(), "token1");
-      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_KEY.shortName(), generateNewKey());
+      props.setProperty(FrsProperty.STORE_ENCRYPTION_NEW_TOKEN_AND_KEY.shortName(), "token1" + TOKEN_KEY_DELIMITER + generateNewKey());
     } else {
       props.setProperty(FrsProperty.STORE_ENCRYPTION_ENABLE.shortName(), "false");
     }

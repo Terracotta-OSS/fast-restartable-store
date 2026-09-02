@@ -18,6 +18,7 @@ package com.terracottatech.frs.cipher;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +26,11 @@ import java.util.Map;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -73,7 +76,7 @@ public class AESCipherManagerTest {
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
     assertNotNull("Encrypted buffers should not be null", encryptedBuffers);
     assertTrue("Should have at least one encrypted buffer", encryptedBuffers.length > 0);
-    
+
     ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Decrypt
@@ -106,7 +109,7 @@ public class AESCipherManagerTest {
 
     // Encrypt
     ByteBuffer[] encryptedBuffers = cipherManager.encrypt(plainBuffers, iv);
-    
+
     ByteBuffer combinedEncrypted = combine(encryptedBuffers);
 
     // Decrypt
@@ -168,7 +171,7 @@ public class AESCipherManagerTest {
 
   @Test
   public void testGetPreviousToken() throws Exception {
-    assertFalse(cipherManager.getPreviousToken().isPresent());
+    assertTrue(cipherManager.getPreviousTokens().isEmpty());
     // Add a second token
     KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
     keyGenerator.init(256);
@@ -176,8 +179,8 @@ public class AESCipherManagerTest {
     cipherManager.add("token2", secretKey.getEncoded());
 
     // Now there should be a previous token
-    assertTrue(cipherManager.getPreviousToken().isPresent());
-    assertEquals("token1", cipherManager.getPreviousToken().get());
+    assertFalse(cipherManager.getPreviousTokens().isEmpty());
+    assertEquals("token1", cipherManager.getPreviousTokens().get(0));
   }
 
   @Test
@@ -235,13 +238,44 @@ public class AESCipherManagerTest {
     assertTrue(cipherManager.isUsingEncKey("token2"));
 
     // Remove token1
-    cipherManager.remove("token1");
+    cipherManager.remove(Collections.singletonList("token1"));
 
     // Verify token1 was removed
     assertFalse(cipherManager.isUsingEncKey("token1"));
 
     // Verify token2 still exists
     assertTrue(cipherManager.isUsingEncKey("token2"));
+  }
+
+  @Test
+  public void testMultipleRemove() throws Exception {
+    // Add a second token
+    KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+    keyGenerator.init(256);
+    SecretKey secretKey = keyGenerator.generateKey();
+    cipherManager.add("token2", secretKey.getEncoded());
+
+    // Add a third token
+    SecretKey secretKey1 = keyGenerator.generateKey();
+    cipherManager.add("token3", secretKey1.getEncoded());
+
+    assertTrue(cipherManager.isUsingEncKey("token2"));
+    assertTrue(cipherManager.isUsingEncKey("token3"));
+
+    List<String> list = cipherManager.getPreviousTokens();
+    assertThat(list.size(), CoreMatchers.is(2));
+    assertTrue(list.contains("token1"));
+    assertTrue(list.contains("token2"));
+
+    // Remove token1 and token2
+    cipherManager.remove(list);
+
+    // Verify token1 was removed
+    assertFalse(cipherManager.isUsingEncKey("token1"));
+    assertFalse(cipherManager.isUsingEncKey("token2"));
+
+    // Verify token3 still exists
+    assertFalse(cipherManager.isUsingEncKey("token3"));
   }
 
   @Test(expected = AssertionError.class)
@@ -262,7 +296,7 @@ public class AESCipherManagerTest {
     // Try to decrypt with invalid token - should throw AssertionError
     cipherManager.decrypt(combinedEncrypted, ivCopy, "invalidToken");
   }
-  
+
   private static ByteBuffer copyBuffer(ByteBuffer src) {
     ByteBuffer copy = ByteBuffer.allocate(src.remaining());
     copy.put(src.duplicate());

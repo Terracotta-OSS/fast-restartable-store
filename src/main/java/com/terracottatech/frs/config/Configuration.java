@@ -78,10 +78,6 @@ public class Configuration {
     return (Boolean) getConfigurationValue(property);
   }
 
-  public byte[] getByteArray(FrsProperty property) {
-    return (byte[]) getConfigurationValue(property);
-  }
-
   public File getDBHome() {
     return dbHome;
   }

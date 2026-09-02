@@ -51,7 +51,7 @@ public class NullActionManager implements ActionManager {
   }
 
   @Override
-  public Future<Void> pause(Action action) {
+  public Future<Void> syncHappenedAndPause(Action action) {
     return null;
   }
 

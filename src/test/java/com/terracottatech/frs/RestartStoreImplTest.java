@@ -322,12 +322,12 @@ public class RestartStoreImplTest {
       NullAction nullAction = inv.getArgument(0);
       nullAction.record(barrierLsn);
       return null;
-    }).when(actionManager).pause(any(NullAction.class));
+    }).when(actionManager).syncHappenedAndPause(any(NullAction.class));
     stubCompactTillLsnToComplete(false);
 
     restartStore.handleEncKeyChange("new-token", CipherHelper.generateNewKey());
 
-    verify(actionManager).pause(any(NullAction.class));
+    verify(actionManager).syncHappenedAndPause(any(NullAction.class));
     verify(encryptionManager).add(eq("new-token"), any());
     verify(actionManager).resume();
     verify(compactor).compactTillLsn(eq(barrierLsn), any());
@@ -390,7 +390,7 @@ public class RestartStoreImplTest {
     Consumer<RestartStore.EncryptionCompletionEvent> listener = encryptionCompletionEvent -> {
       try {
         assertThat(encryptionCompletionEvent.getError().getMessage(), is("Rewrite failed"));
-        assertNull(encryptionCompletionEvent.getExpiredTokens());
+        assertTrue(encryptionCompletionEvent.getExpiredTokens().isEmpty());
         assertThat(encryptionCompletionEvent.getRestartStore(), is(restartStore));
       } catch (AssertionError e) {
         exceptionRef.set(e);

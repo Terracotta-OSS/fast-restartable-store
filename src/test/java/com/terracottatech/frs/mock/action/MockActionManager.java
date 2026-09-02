@@ -71,7 +71,7 @@ public class MockActionManager implements ActionManager {
   }
 
   @Override
-  public Future<Void> pause(Action action) throws InterruptedException {
+  public Future<Void> syncHappenedAndPause(Action action) throws InterruptedException {
     return null;
   }
 

@@ -36,40 +36,6 @@ import org.slf4j.LoggerFactory;
  * key management.
  */
 public interface CipherManager {
-  static final Logger LOGGER = LoggerFactory.getLogger(CipherManager.class);
-
-  /**
-   * Validates if the provided encryption algorithm is supported by the JVM.
-   *
-   * <p>
-   * This method checks whether the specified algorithm is available for use with the Cipher class
-   * in the current Java environment. It attempts to create a Cipher instance with the given
-   * algorithm name.
-   *
-   * @param algorithm The encryption algorithm name to validate (e.g., "AES/GCM/NoPadding")
-   * @return {@code true} if the algorithm is supported, {@code false} otherwise
-   * @throws IllegalArgumentException if the algorithm parameter is null or empty
-   */
-  public static boolean validateAlgorithm(String algorithm) {
-    // Input validation
-    if (algorithm == null || algorithm.trim().isEmpty()) {
-      throw new IllegalArgumentException("Algorithm name cannot be null or empty");
-    }
-
-    try {
-      // Attempt to create a Cipher instance with the specified algorithm
-      Cipher.getInstance(algorithm);
-      return true;
-    } catch (NoSuchAlgorithmException e) {
-      // Log specific error for debugging purposes
-      LOGGER.debug("Algorithm '{}' is not supported", algorithm, e);
-      return false;
-    } catch (NoSuchPaddingException e) {
-      // Log specific error for debugging purposes
-      LOGGER.debug("Padding mechanism for algorithm '{}' is not available", algorithm, e);
-      return false;
-    }
-  }
 
   /**
    * Generates a secure initialization vector (IV) for encryption operations.

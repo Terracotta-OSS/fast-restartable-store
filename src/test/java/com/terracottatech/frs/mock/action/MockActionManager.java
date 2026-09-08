@@ -22,8 +22,6 @@ import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.transaction.TransactionAccount;
-import com.terracottatech.frs.transaction.TransactionHandle;
 
 /**
  *
@@ -42,11 +40,6 @@ public class MockActionManager implements ActionManager {
   public Future<Void> happened(Action action) {
     LogRecord record = new MockLogRecord(action);
     return logManager.append(record);
-  }
-
-  @Override
-  public Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account) {
-    return null;
   }
 
   public void asyncHappened(Action action) {

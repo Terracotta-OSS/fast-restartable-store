@@ -18,11 +18,11 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.NullActionManager;
+import com.terracottatech.frs.cipher.EncryptedGettableAction;
+import com.terracottatech.frs.cipher.EncryptionManager;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -37,6 +37,7 @@ import static org.mockito.Mockito.*;
 public class TransactionManagerImplTest {
   private TransactionManager transactionManager;
   private TxnManagerTestActionManager actionManager;
+  private EncryptionManager encryptionManager;
   private Future<Void> happenedFuture;
   private Action action;
   private TransactionLSNCallback callback;
@@ -46,9 +47,11 @@ public class TransactionManagerImplTest {
     happenedFuture = mock(Future.class);
     action = mock(Action.class);
     actionManager = spy(new TxnManagerTestActionManager());
+    encryptionManager = mock(EncryptionManager.class);
+    doReturn(action).when(encryptionManager).convert(any(Action.class));
     doReturn(happenedFuture).when(actionManager).syncHappened(any(Action.class));
     callback = mock(TransactionLSNCallback.class);
-    transactionManager = new TransactionManagerImpl(actionManager);
+    transactionManager = new TransactionManagerImpl(actionManager, encryptionManager);
   }
 
   @Test
@@ -92,15 +95,27 @@ public class TransactionManagerImplTest {
   public void testHappened() throws Exception {
     TransactionHandle handle = transactionManager.begin();
     transactionManager.happened(handle, action);
-    verify(actionManager).happenedTransactionally(eq(action), eq(handle), any(TransactionAccount.class));
-    assertThat("First call to happened should cause account.begin() to return true", 
-               actionManager.getLastBeginResult(action), is(true));
-    
+    verify(actionManager).happened(new TransactionalAction(handle, true, false, action, callback));
     transactionManager.happened(handle, action);
-    verify(actionManager, times(2)).happenedTransactionally(eq(action), eq(handle), any(TransactionAccount.class));
-    assertThat("Second call to happened should cause account.begin() to return false", 
-               actionManager.getLastBeginResult(action), is(false));
-    
+    verify(actionManager).happened(new TransactionalAction(handle, false, false, action, callback));
+    transactionManager.commit(handle, true);
+    try {
+      transactionManager.happened(handle, action);
+      fail("Using a committed transaction handle should throw.");
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testHappenedEncryptedAction() throws Exception {
+    TransactionHandle handle = transactionManager.begin();
+    EncryptedGettableAction encryptedGettableAction = mock(EncryptedGettableAction.class);
+    doReturn(encryptedGettableAction).when(encryptionManager).convert(any(Action.class));
+    transactionManager.happened(handle, action);
+    verify(actionManager).happened(new TransactionalAction(handle, true, false, encryptedGettableAction, callback));
+    transactionManager.happened(handle, action);
+    verify(actionManager).happened(new TransactionalAction(handle, false, false, encryptedGettableAction, callback));
     transactionManager.commit(handle, true);
     try {
       transactionManager.happened(handle, action);
@@ -133,26 +148,10 @@ public class TransactionManagerImplTest {
 
   private class TxnManagerTestActionManager extends NullActionManager {
     long lsn = 0;
-    private Map<Action, Boolean> lastBeginResult = new HashMap<>();
-    
     @Override
     public Future<Void> happened(Action action) {
       action.record(lsn++);
       return happenedFuture;
-    }
-
-    @Override
-    public Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account) {
-      action.record(lsn);
-      boolean res = account.begin();
-      account.setLsn(lsn);
-      lsn++;
-      lastBeginResult.put(action, res);
-      return happenedFuture;
-    }
-
-    public boolean getLastBeginResult(Action action) {
-      return lastBeginResult.get(action);
     }
   }
 }

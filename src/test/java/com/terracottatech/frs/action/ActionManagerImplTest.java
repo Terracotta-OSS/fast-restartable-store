@@ -15,8 +15,6 @@
  */
 package com.terracottatech.frs.action;
 
-import com.terracottatech.frs.transaction.TransactionAccount;
-import com.terracottatech.frs.transaction.TransactionHandle;
 import org.junit.Test;
 
 import com.terracottatech.frs.log.LogRecord;
@@ -30,7 +28,6 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class ActionManagerImplTest extends BaseActionManagerImplTest {
@@ -127,18 +124,6 @@ public class ActionManagerImplTest extends BaseActionManagerImplTest {
     } finally {
       executor.shutdownNow();
     }
-  }
-
-  @Test
-  public void testHappenedTransactionally() throws Exception {
-    Action action = mock(Action.class);
-    TransactionHandle handle = mock(TransactionHandle.class);
-    TransactionAccount account = mock(TransactionAccount.class);
-    when(logMgr.append(any(LogRecord.class))).thenAnswer(answerOnAppend(false, true, 0));
-    Future<Void> future = actionMgr.happenedTransactionally(action, handle, account);
-    future.get(1, TimeUnit.SECONDS);
-    verify(account).begin();
-    assertThat(future.isDone(), is(true));
   }
 
 }

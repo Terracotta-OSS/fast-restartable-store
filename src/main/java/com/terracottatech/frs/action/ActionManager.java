@@ -16,8 +16,6 @@
 package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.log.LogRecord;
-import com.terracottatech.frs.transaction.TransactionAccount;
-import com.terracottatech.frs.transaction.TransactionHandle;
 
 import java.util.concurrent.Future;
 
@@ -42,20 +40,6 @@ public interface ActionManager {
    * @return {@link Future} that represents when the {@link Action} is written to disk.
    */
   Future<Void> happened(Action action);
-
-  /**
-   * Record the given {@link Action} as part of an ongoing transaction and append it to the log stream.
-   *
-   * @param action  the {@link Action} to record; must not be {@code null}
-   * @param handle  the {@link TransactionHandle} that identifies the enclosing transaction;
-   *                must not be {@code null}
-   * @param account the {@link TransactionAccount} for the enclosing transaction, used both to
-   *                determine whether this is the first action in the transaction
-   *                ({@link TransactionAccount#begin()}) and as the LSN callback; must not be
-   *                {@code null}
-   * @return a {@link Future} that completes when the log record has been written to disk
-   */
-  Future<Void> happenedTransactionally(Action action, TransactionHandle handle, TransactionAccount account);
   
   /**
    * Extract the {@link Action} from the given {@link LogRecord}

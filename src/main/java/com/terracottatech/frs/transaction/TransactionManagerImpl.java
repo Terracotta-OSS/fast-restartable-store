@@ -18,6 +18,7 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.cipher.EncryptionManager;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,11 +34,13 @@ public class TransactionManagerImpl implements TransactionManager {
           new AtomicLong();
   private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
-
+  private final EncryptionManager encryptionManager;
+  
   private final ActionManager           actionManager;
 
-  public TransactionManagerImpl(ActionManager actionManager) {
+  public TransactionManagerImpl(ActionManager actionManager, EncryptionManager encryptionManager) {
     this.actionManager = actionManager;
+    this.encryptionManager = encryptionManager;
   }
 
   @Override
@@ -85,15 +88,38 @@ public class TransactionManagerImpl implements TransactionManager {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    actionManager.happenedTransactionally(action, handle, account);
+    actionManager.happened(new TransactionalAction(handle, account.begin(), false, encryptionManager.convert(action), account));
   }
 
   @Override
   public long getLowestOpenTransactionLsn() {
     Long lowest = Long.MAX_VALUE;
     for (TransactionAccount account : liveTransactions.values()) {
-      lowest = Math.min(account.getLsn(), lowest);
+      lowest = Math.min(account.lsn, lowest);
     }
     return lowest;
+  }
+
+  private static class TransactionAccount implements TransactionLSNCallback {
+    private long lsn = Long.MAX_VALUE;
+    private boolean beginWritten = false;
+
+    synchronized boolean begin() {
+      if (beginWritten) {
+        return false;
+      } else {
+        beginWritten = true;
+        return true;
+      }
+    }
+
+    public synchronized void setLsn(long lsn) {
+      if (this.lsn == Long.MAX_VALUE) {
+        this.lsn = lsn;
+      } else {
+        // This shouldn't happen as we're getting LSNs in increasing order
+        assert lsn > this.lsn;
+      }
+    }
   }
 }

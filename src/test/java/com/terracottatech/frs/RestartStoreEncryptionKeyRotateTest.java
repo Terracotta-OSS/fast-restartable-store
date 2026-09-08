@@ -26,13 +26,11 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.terracottatech.frs.cipher.EncryptionManagerImpl.MULTIPLE_TOKEN_KEY_DELIMETER;
 import static com.terracottatech.frs.cipher.EncryptionManagerImpl.TOKEN_KEY_DELIMITER;

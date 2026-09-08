@@ -126,7 +126,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     this.readManager = read;
     this.encryptionManager = new EncryptionManagerImpl(configuration, codec);
     this.actionManager = new ActionManagerImpl(logManager, objectManager, encryptionManager, codec, new MasterLogRecordFactory());
-    this.transactionManager = new TransactionManagerImpl(actionManager);
+    this.transactionManager = new TransactionManagerImpl(actionManager, encryptionManager);
     this.compactor = new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager);
     this.configuration = configuration;
     this.pauseExecutionService = Executors.newScheduledThreadPool(0);

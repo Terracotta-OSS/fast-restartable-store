@@ -13,20 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.terracottatech.frs;
+package com.terracottatech.frs.cipher;
 
-import com.terracottatech.frs.config.FrsProperty;
-import java.util.Properties;
+import com.terracottatech.frs.action.Action;
 
-/**
- *
- * @author mscott
- */
-public class MappedOfflineCompactorTest extends OfflineCompactorTest {
+import java.util.List;
 
-  @Override
-  public Properties configure(Properties props) {
-    props.setProperty(FrsProperty.IO_NIO_ACCESS_METHOD.shortName(), "MAPPED");
-    return CipherHelper.configure(encryptLog, props);
-  }
+public interface EncryptionHandler {
+
+  String getCurrToken();
+  
+  List<String> getPreviousTokens();
+
+  boolean isUsingEncKey(String token);
+
+  void add(String token, byte[] key);
+
+  void remove(List<String> tokens);
+
+  Action convert(Action action);
 }

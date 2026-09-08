@@ -16,6 +16,7 @@
 package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.DisposableLifecycle;
+import com.terracottatech.frs.cipher.EncryptionManager;
 import com.terracottatech.frs.log.LogManager;
 import com.terracottatech.frs.log.LogRecord;
 import com.terracottatech.frs.log.LogRecordFactory;
@@ -37,6 +38,7 @@ public class ActionManagerImpl implements ActionManager {
 
   private final LogManager             logManager;
   private final ObjectManager<?, ?, ?> objectManager;
+  private final EncryptionManager encryptionManager;
   private final ActionCodec            actionCodec;
   private final LogRecordFactory       logRecordFactory;
 
@@ -47,9 +49,10 @@ public class ActionManagerImpl implements ActionManager {
   private final Condition              resumeCondition;
 
   public ActionManagerImpl(LogManager logManager, ObjectManager<?, ?, ?> objectManager,
-                           ActionCodec actionCodec, LogRecordFactory logRecordFactory) {
+                           EncryptionManager encryptionManager, ActionCodec actionCodec, LogRecordFactory logRecordFactory) {
     this.logManager = logManager;
     this.objectManager = objectManager;
+    this.encryptionManager = encryptionManager;
     this.actionCodec = actionCodec;
     this.logRecordFactory = logRecordFactory;
     this.happeningCount = new AtomicInteger(0);
@@ -60,7 +63,7 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   private LogRecord wrapAction(Action action) {
-    ByteBuffer[] payload = actionCodec.encode(action);
+    ByteBuffer[] payload = actionCodec.encode(encryptionManager.convert(action));
     return logRecordFactory.createLogRecord(payload, action);
   }
 
@@ -97,11 +100,11 @@ public class ActionManagerImpl implements ActionManager {
   }
 
   @Override
-  public void pause() {
+  public Future<Void> syncHappenedAndPause(Action action) throws InterruptedException {
     stateLock.lock();
     try {
-      if (happenState != State.NORMAL) {
-        return;
+      while (happenState != State.NORMAL) {
+        happenedCondition.await();
       }
       happenState = State.WAITING_TO_PAUSE;
       // once we are out of normal state.. other thread entering happened at the same moment will
@@ -110,24 +113,22 @@ public class ActionManagerImpl implements ActionManager {
       if (happeningCount.get() == 0) {
         happenState = State.PAUSED;
       } else {
-        boolean interrupted = false;
         while (happeningCount.get() != 0 && happenState == State.WAITING_TO_PAUSE) {
-          try {
             this.happenedCondition.await();
-          } catch (InterruptedException ie) {
-            interrupted = true;
-          }
         }
         if (happenState == State.WAITING_TO_PAUSE) {
           happenState = State.PAUSED;
         }
-        if (interrupted) {
-          Thread.currentThread().interrupt();
-        }
       }
+      return logManager.appendAndSync(wrapAction(action));
     } finally {
       stateLock.unlock();
     }
+  }
+  
+  @Override
+  public Future<Void> pause() throws InterruptedException {
+    return syncHappenedAndPause(new NullAction());
   }
 
   @Override
@@ -138,16 +139,11 @@ public class ActionManagerImpl implements ActionManager {
         return;
       }
       happenState = State.NORMAL;
-      this.happenedCondition.signal();
+      this.happenedCondition.signalAll();
       this.resumeCondition.signalAll();
     } finally {
       stateLock.unlock();
     }
-  }
-
-  @Override
-  public LogRecord barrierAction() {
-    return wrapAction(new NullAction());
   }
 
   /**

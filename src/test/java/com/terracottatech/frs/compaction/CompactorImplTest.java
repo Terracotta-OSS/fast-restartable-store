@@ -26,6 +26,8 @@ import com.terracottatech.frs.object.NullObjectManager;
 import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.object.SimpleObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
@@ -36,6 +38,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
@@ -178,6 +181,48 @@ public class CompactorImplTest {
     verify(policy, atLeastOnce()).stoppedCompacting();
     verify(logManager, atLeastOnce()).updateLowestLsn(anyLong());
     compactor.shutdown();
+  }
+
+  @Test
+  public void testCompactTillLsn() throws Exception {
+    doReturn(1000L).when(objectManager).size();
+
+    long reWriteTillLsn = 500;
+    
+    doAnswer(new Answer<ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>>() {
+      private long count = 0;
+
+      @Override
+      public ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> answer(InvocationOnMock invocationOnMock) throws Throwable {
+        if (count >= reWriteTillLsn) {
+          return null;
+        }
+        count++;
+        return (ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer>) invocationOnMock.callRealMethod();
+      }
+    }).when(objectManager).acquireCompactionEntry(anyLong());
+    compactor.startup();
+
+    java.util.concurrent.ExecutorService executorService =
+        java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    try {
+      java.util.concurrent.CompletionStage<Void> completionStage =
+          compactor.compactTillLsn(reWriteTillLsn, executorService);
+
+      // Wait for completion
+      completionStage.toCompletableFuture().get();
+
+      // Verify that compaction actions were triggered
+      // The rewrite should compact all entries up to reWriteTillLsn
+      verify(actionManager, times(500)).happened(isA(CompactionAction.class));
+      verify(objectManager, times(501)).acquireCompactionEntry(reWriteTillLsn);
+      verify(objectManager, times(500)).releaseCompactionEntry(any(ObjectManagerEntry.class));
+
+    } finally {
+      executorService.shutdown();
+      compactor.shutdown();
+    }
   }
 
   private void verifyCompactedTimes(int times) {

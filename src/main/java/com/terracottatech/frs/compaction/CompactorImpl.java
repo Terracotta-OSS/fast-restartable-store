@@ -30,7 +30,10 @@ import com.terracottatech.frs.object.ObjectManagerEntry;
 import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +67,7 @@ public class CompactorImpl implements Compactor {
 
   private CompactorThread compactorThread;
   private volatile boolean signalPause;
+  private volatile boolean internalReWriteInProgress;
   private boolean paused;
 
 
@@ -311,11 +315,52 @@ public class CompactorImpl implements Compactor {
 
   @Override
   public synchronized void unpause() {
-    if (!paused && !signalPause) {
+    if (internalReWriteInProgress || (!paused && !signalPause)) {
       return;
     }
     signalPause = false;
     paused = false;
     notifyAll();
+  }
+  
+  @Override
+  public CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService) {
+    return CompletableFuture.runAsync(() -> {
+      pause();
+      internalReWriteInProgress = true;
+      try {
+        rewrite(lsn);
+      } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } finally {
+        internalReWriteInProgress = false;
+      }
+    }, executorService);
+  }
+
+  private void rewrite(long lsn) throws ExecutionException, InterruptedException {
+    long liveSize = objectManager.size();
+    long compactedCount = 0;
+    while (compactedCount < liveSize) {
+      ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> compactionEntry = objectManager.acquireCompactionEntry(lsn);
+      if (compactionEntry == null) {
+        break;
+      }
+      compactedCount++;
+      Future<Void> written;
+      try {
+        CompactionAction compactionAction = new CompactionAction(objectManager, compactionEntry);
+        written = actionManager.happened(compactionAction);
+        compactionAction.updateObjectManager();
+      } finally {
+        objectManager.releaseCompactionEntry(compactionEntry);
+      }
+
+      if (compactedCount % compactActionThrottle == 0) {
+        written.get();
+      }
+    }
   }
 }

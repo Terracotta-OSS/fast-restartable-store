@@ -19,7 +19,8 @@ import org.junit.Test;
 
 import com.terracottatech.frs.log.LogRecord;
 
-import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +55,7 @@ public class ActionManagerImplTest extends BaseActionManagerImplTest {
     Action put1 = mock(Action.class);
     Action put2 = mock(Action.class);
     when(logMgr.append(any(LogRecord.class))).thenAnswer(answerOnAppend(false, true, 0));
+    when(logMgr.appendAndSync(any(LogRecord.class))).thenAnswer(answerOnAppend(false, true, 0));
     actionMgr.pause();
     scheduleResumeTask(100);
     Future<Void> actionFuture1 = actionMgr.happened(put1);
@@ -71,7 +73,7 @@ public class ActionManagerImplTest extends BaseActionManagerImplTest {
     actionMgr.pause();
     scheduleResumeTask(100);
     Future<Void> actionFuture = actionMgr.syncHappened(put);
-    actionFuture.get(10, TimeUnit.MILLISECONDS);
+    actionFuture.get(1, TimeUnit.SECONDS);
     assertThat(actionFuture.isDone(), is(true));
   }
 
@@ -95,4 +97,33 @@ public class ActionManagerImplTest extends BaseActionManagerImplTest {
     actionFuture.get();
     assertThat(actionFuture.isDone(), is(true));
   }
+
+  @Test
+  public void testAnotherPauseHangsUntillResume() throws Exception {
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    try {
+      when(logMgr.appendAndSync(any(LogRecord.class))).thenAnswer(answerOnAppend(false, false, 0));
+      Future<Void> f = actionMgr.pause();
+      f.get();
+      assertThat(f.isDone(), is(true));
+
+      Future<?> anotherPause = executor.submit(() -> {
+        try {
+          actionMgr.pause();
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      });
+
+      Thread.sleep(50);
+      assertThat(anotherPause.isDone(), is(false));
+
+      actionMgr.resume();
+      anotherPause.get();
+      assertThat(anotherPause.isDone(), is(true));
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
 }

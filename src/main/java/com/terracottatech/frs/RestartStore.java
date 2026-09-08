@@ -17,7 +17,10 @@ package com.terracottatech.frs;
 
 import com.terracottatech.frs.recovery.RecoveryException;
 
+import java.util.List;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  *
@@ -130,4 +133,34 @@ public interface RestartStore<I, K, V> {
    * @return {@link Future} that completes when the freeze is complete.
    */
   Future<Future<Void>> freeze();
+  
+  /**
+   * Starts encryption all the existing frs records with the provided key.
+   *
+   * @param newKeyToken the token identifying the new encryption key
+   * @param newKey Base64 encoded ncryption key to use
+   */
+  void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException;
+
+  /**
+   * Register a listener to be notified when encryption operations complete.
+   *
+   * @param encCompletionConsumer 
+   */
+  void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer);
+  
+  /**
+   * Check if this RestartStore is currently using the encryption key identified by the given token.
+   *
+   * @param token the token identifying the encryption key to check
+   * @return true if the store is using the specified encryption key, false otherwise
+   */
+  boolean isUsingEncKey(String token);
+  
+  interface EncryptionCompletionEvent {
+    Throwable getError();
+    RestartStore<?, ?, ?> getRestartStore();
+    List<String> getExpiredTokens();
+  }
+  
 }

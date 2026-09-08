@@ -36,16 +36,35 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 
+@RunWith(Parameterized.class)
 public class PauseResumeTest {
   private static final int MAX_ITERATIONS = 10;
+
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
 
   @Rule
   public final TemporaryFolder tmpFolder = new TemporaryFolder();
   public Properties properties = new Properties();
+
+  @Before
+  public void setUp() {
+    properties = CipherHelper.configure(encryptLog, properties);
+  }
 
   @Test
   public void testFullPeriodicBackup() throws Exception {

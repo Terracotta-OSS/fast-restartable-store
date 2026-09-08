@@ -15,7 +15,7 @@
  */
 package com.terracottatech.frs.recovery;
 
-
+import com.terracottatech.frs.cipher.EncryptedAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +56,10 @@ public class RecoveryManagerImpl implements RecoveryManager {
   private final ReplayFilter replayFilter;
   private final Configuration configuration;
 
+  private boolean isPartialEnc;
+  private long maxLsnTillReEnc;
+  private String latestEncToken;
+  
   RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration, Runtime runtime) {
     this(logManager, actionManager, configuration, runtime.availableProcessors());
   }
@@ -123,7 +127,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     for (RecoveryListener listener : listeners) {
-      listener.recovered();
+      listener.recovered(latestEncToken, isPartialEnc, maxLsnTillReEnc);
     }
 
     LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);
@@ -156,7 +160,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
   }
 
-  private static class ReplayFilter implements Filter<Action> {
+  private class ReplayFilter implements Filter<Action> {
     private final AtomicInteger              threadId        = new AtomicInteger();
     private final AtomicReference<Throwable> firstError      = new AtomicReference<>();
     private final ForkJoinPool replayPool;
@@ -202,6 +206,17 @@ public class RecoveryManagerImpl implements RecoveryManager {
         this.currentIndices[idx1] = nextIdx2;
         submitted++;
         batches[idx1][idx2] = new ReplayElement(element,lsn);
+        if (element instanceof EncryptedAction && !isPartialEnc) {
+          EncryptedAction action = (EncryptedAction) element;
+          if (latestEncToken == null) {
+            latestEncToken = action.getToken();
+          } else {
+            if (!latestEncToken.equals(action.getToken())) {
+              isPartialEnc = true;
+              maxLsnTillReEnc = lsn+1;
+            }
+          }
+        }
         if (submitted - replayed  >= replayTotalBatchSize || nextIdx2 >= replayPerBatchSize - 1) {
           submitJob(false);
         }

@@ -18,6 +18,8 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.NullActionManager;
+import com.terracottatech.frs.cipher.EncryptedGettableAction;
+import com.terracottatech.frs.cipher.EncryptionManager;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.*;
 public class TransactionManagerImplTest {
   private TransactionManager transactionManager;
   private TxnManagerTestActionManager actionManager;
+  private EncryptionManager encryptionManager;
   private Future<Void> happenedFuture;
   private Action action;
   private TransactionLSNCallback callback;
@@ -44,9 +47,11 @@ public class TransactionManagerImplTest {
     happenedFuture = mock(Future.class);
     action = mock(Action.class);
     actionManager = spy(new TxnManagerTestActionManager());
+    encryptionManager = mock(EncryptionManager.class);
+    doReturn(action).when(encryptionManager).convert(any(Action.class));
     doReturn(happenedFuture).when(actionManager).syncHappened(any(Action.class));
     callback = mock(TransactionLSNCallback.class);
-    transactionManager = new TransactionManagerImpl(actionManager);
+    transactionManager = new TransactionManagerImpl(actionManager, encryptionManager);
   }
 
   @Test
@@ -93,6 +98,24 @@ public class TransactionManagerImplTest {
     verify(actionManager).happened(new TransactionalAction(handle, true, false, action, callback));
     transactionManager.happened(handle, action);
     verify(actionManager).happened(new TransactionalAction(handle, false, false, action, callback));
+    transactionManager.commit(handle, true);
+    try {
+      transactionManager.happened(handle, action);
+      fail("Using a committed transaction handle should throw.");
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testHappenedEncryptedAction() throws Exception {
+    TransactionHandle handle = transactionManager.begin();
+    EncryptedGettableAction encryptedGettableAction = mock(EncryptedGettableAction.class);
+    doReturn(encryptedGettableAction).when(encryptionManager).convert(any(Action.class));
+    transactionManager.happened(handle, action);
+    verify(actionManager).happened(new TransactionalAction(handle, true, false, encryptedGettableAction, callback));
+    transactionManager.happened(handle, action);
+    verify(actionManager).happened(new TransactionalAction(handle, false, false, encryptedGettableAction, callback));
     transactionManager.commit(handle, true);
     try {
       transactionManager.happened(handle, action);

@@ -39,6 +39,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -48,16 +52,26 @@ import org.junit.Before;
 /**
  * @author tim
  */
+@RunWith(Parameterized.class)
 public class SnapshotTest {
+  @Parameter(0)
+  public Boolean encryptLog;
+
   @Rule
   public JUnitTestFolder tempFolder = new JUnitTestFolder();
   
   public Properties properties = new Properties();
 
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   @Before
   public void setupProperties() {
     properties = new Properties();
     properties.put(FrsProperty.IO_NIO_POOL_MEMORY_SIZE.shortName(), Integer.toString(64 * 1024 * 1024));
+    properties = CipherHelper.configure(encryptLog, properties);
   }
   
   @Test

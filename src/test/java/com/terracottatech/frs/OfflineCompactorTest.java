@@ -29,6 +29,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Formatter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 
@@ -36,6 +38,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.number.OrderingComparison.lessThan;
 import static org.junit.Assert.assertTrue;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.spy;
@@ -45,12 +50,32 @@ import static org.mockito.Mockito.verify;
 /**
  * @author tim
  */
+@RunWith(Parameterized.class)
 public abstract class OfflineCompactorTest {
   @Rule
   public JUnitTestFolder temporaryFolder = new JUnitTestFolder();
 
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   public abstract Properties configure(Properties props);
-  
+
+  public Map<String, String> convertToSystemProperty(Properties properties) {
+    Map<String, String> sysProperties = new HashMap<>();
+    for (FrsProperty property : FrsProperty.values()) {
+      String value = (String) properties.get(property.shortName());
+      if (value != null) {
+        sysProperties.put(property.property(), value);
+      }
+    }
+    return sysProperties;
+  }
+
   @Test
   public void testExistingOutputDirectory() throws Exception {
     File testFolder = temporaryFolder.newFolder();
@@ -94,8 +119,8 @@ public abstract class OfflineCompactorTest {
     File compacted = new File(testFolder, "compacted");
 
     Properties properties = configure(new Properties());
-    properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(),
-                           "NoCompactionPolicy");
+    Map<String, String> sysProperties = convertToSystemProperty(properties);
+    properties.setProperty(FrsProperty.COMPACTOR_POLICY.shortName(), "NoCompactionPolicy");
     properties.setProperty(FrsProperty.COMPACTOR_RUN_INTERVAL.shortName(), Integer.toString(Integer.MAX_VALUE));
     properties.setProperty(FrsProperty.COMPACTOR_START_THRESHOLD.shortName(), Integer.toString(Integer.MAX_VALUE));
 
@@ -126,7 +151,12 @@ public abstract class OfflineCompactorTest {
       assertThat(objectManager.size(), is(100L));
     }
 
+    sysProperties.forEach((name, value) -> {
+      System.out.println("Name : " + name + " Value : " + value);
+      System.setProperty(name, value);
+    });
     OfflineCompactor.main(new String[] { uncompacted.getAbsolutePath(), compacted.getAbsolutePath() });
+    sysProperties.forEach((name, value) -> System.clearProperty(name));
 
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =

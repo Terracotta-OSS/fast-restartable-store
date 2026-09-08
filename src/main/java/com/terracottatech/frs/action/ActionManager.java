@@ -57,9 +57,24 @@ public interface ActionManager {
    * is resumed. This call comes out iff no more pending {@code happened()} and {@code syncHappened()} exists
    * in any threads and all incoming calls starts blocking, thereby guaranteeing that the gate is completely
    * closed.
+   * 
+   * @return the future that completes when the gating action is flushed to disk.
    */
-  void pause();
+  Future<Void> pause() throws InterruptedException;
 
+  /**
+   * Pause action manager.
+   * <p>
+   * On a return from this method, all {@link ActionManager#happened(Action)} and
+   * {@link ActionManager#syncHappened(Action)} calls will block at entry, until the action manager
+   * is resumed. This call comes out iff no more pending {@code happened()} and {@code syncHappened()} exists
+   * in any threads and all incoming calls starts blocking, thereby guaranteeing that the gate is completely
+   * closed and the action is appended to logrecord
+   *
+   * @return the future that completes when the action is flushed to disk.
+   */
+  Future<Void> syncHappenedAndPause(Action action) throws InterruptedException;
+  
   /**
    * Resume action manager.
    * <p>
@@ -67,11 +82,4 @@ public interface ActionManager {
    * unblock itself and continue processing.
    */
   void resume();
-
-  /**
-   * Return a dummy barrier action as a log record that can be used as a freeze marker.
-   *
-   * @return a dummy Log record that can be used as a freeze marker
-   */
-  LogRecord barrierAction();
 }

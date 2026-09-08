@@ -16,6 +16,9 @@
 package com.terracottatech.frs.compaction;
 
 
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+
 /**
  *
  * @author cdennis
@@ -53,4 +56,6 @@ public interface Compactor {
    * Callback to tell the compactor to run right now, unless it's already running.
    */
   void compactNow();
+  
+  CompletionStage<Void> compactTillLsn(long lsn, ExecutorService executorService);
 }

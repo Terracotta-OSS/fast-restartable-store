@@ -18,6 +18,7 @@ package com.terracottatech.frs.transaction;
 import com.terracottatech.frs.TransactionException;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionManager;
+import com.terracottatech.frs.cipher.EncryptionManager;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,11 +34,12 @@ public class TransactionManagerImpl implements TransactionManager {
           new AtomicLong();
   private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
-
+  private final EncryptionManager encryptionManager;
   private final ActionManager           actionManager;
 
-  public TransactionManagerImpl(ActionManager actionManager) {
+  public TransactionManagerImpl(ActionManager actionManager, EncryptionManager encryptionManager) {
     this.actionManager = actionManager;
+    this.encryptionManager = encryptionManager;
   }
 
   @Override
@@ -85,8 +87,7 @@ public class TransactionManagerImpl implements TransactionManager {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    Action transactionalAction = new TransactionalAction(handle, account.begin(), false, action, account);
-    actionManager.happened(transactionalAction);
+    actionManager.happened(new TransactionalAction(handle, account.begin(), false, encryptionManager.convert(action), account));
   }
 
   @Override

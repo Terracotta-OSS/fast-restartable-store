@@ -15,6 +15,8 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.NullAction;
+import com.terracottatech.frs.cipher.EncryptionManager;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -32,18 +34,31 @@ import com.terracottatech.frs.transaction.TransactionManager;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * @author tim
@@ -52,6 +67,7 @@ public class RestartStoreImplTest {
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>  restartStore;
   private ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
   private ActionManager                                     actionManager;
+  private EncryptionManager                                 encryptionManager;
   private ReadManager                                     readManager;
   private Compactor                                         compactor;
   private TransactionManager                                transactionManager;
@@ -68,6 +84,7 @@ public class RestartStoreImplTest {
     transactionManager = mock(TransactionManager.class);
     doReturn(handle).when(transactionManager).begin();
     objectManager = mock(ObjectManager.class);
+    encryptionManager = mock(EncryptionManager.class);
     actionManager = mock(ActionManager.class);
     syncHappenedFuture = mock(Future.class);
     doReturn(syncHappenedFuture).when(actionManager).syncHappened(any(Action.class));
@@ -81,7 +98,7 @@ public class RestartStoreImplTest {
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
     return new RestartStoreImpl(objectManager, transactionManager, logManager,
-                                actionManager, readManager, compactor, configuration);
+                                actionManager, encryptionManager, readManager, compactor, configuration);
   }
 
   @Test
@@ -246,7 +263,7 @@ public class RestartStoreImplTest {
     verify(compactor).pause();
     verify(compactor).unpause();
   }
-  
+
   @Test
   public void testStatistics() throws Exception {
     restartStore.getStatistics();
@@ -287,6 +304,114 @@ public class RestartStoreImplTest {
     } catch (NotPausedException e) {
       verify(actionManager).resume();
       verify(compactor).unpause();
+    }
+  }
+
+  /**
+   * handleEncKeyChange() must call {@link Compactor#compactTillLsn} with exactly the LSN
+   * that was recorded on the {@link NullAction} barrier by {@link ActionManager#pause(Action)}.
+   * This ensures re-encryption covers all records written before the key change.
+   */
+  @Test
+  public void testHandleEncKeyChangeTriggersCompactionTillPauseActionLsn() throws Exception {
+    long barrierLsn = 42L;
+    // Simulate ActionManager stamping the NullAction with its LSN on pause
+    doAnswer(inv -> {
+      NullAction nullAction = inv.getArgument(0);
+      nullAction.record(barrierLsn);
+      return null;
+    }).when(actionManager).syncHappenedAndPause(any(NullAction.class));
+    stubCompactTillLsnToComplete(false);
+
+    restartStore.handleEncKeyChange("new-token", CipherHelper.generateNewKey());
+
+    verify(actionManager).syncHappenedAndPause(any(NullAction.class));
+    verify(encryptionManager).add(eq("new-token"), any());
+    verify(actionManager).resume();
+    verify(compactor).compactTillLsn(eq(barrierLsn), any());
+  }
+
+  /**
+   * handleEncKeyChange() must call {@link ActionManager#resume()} in its finally block
+   * even when an exception is thrown (e.g. invalid Base64 key material), so that the gate
+   * is never left closed.
+   */
+  @Test
+  public void testHandleEncKeyChangeAlwaysResumesActionManager() throws Exception {
+    // Pass an invalid Base64 string to force an exception inside the try block
+    try {
+      restartStore.handleEncKeyChange("new-token", "not-valid-base64!!!");
+    } catch (IllegalArgumentException e) {
+      // expected — Base64.getDecoder().decode() throws on illegal input
+    }
+
+    verify(actionManager).resume();
+  }
+
+  /**
+   * After a successful re-encryption compaction, the registered
+   * {@link RestartStore.EncryptionCompletionEvent} listener must be invoked exactly once.
+   */
+  @Test
+  public void testHandleEncKeyChangeNotifiesListenerOnSuccess() throws Exception {
+    stubCompactTillLsnToComplete(false);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
+    Consumer<RestartStore.EncryptionCompletionEvent> listener = encryptionCompletionEvent -> {
+      try {
+        assertNull(encryptionCompletionEvent.getError());
+        assertThat(encryptionCompletionEvent.getExpiredTokens().size(), is(1));
+        assertTrue(encryptionCompletionEvent.getExpiredTokens().contains("old-tok"));
+        assertThat(encryptionCompletionEvent.getRestartStore(), is(restartStore));
+      } catch (AssertionError e) {
+        exceptionRef.set(e);
+      } finally {
+        latch.countDown();
+      }
+    };
+    restartStore.registerEncCompletionListener(listener);
+
+    when(encryptionManager.getPreviousTokens()).thenReturn(Collections.singletonList("old-tok"));
+    restartStore.handleEncKeyChange("tok", CipherHelper.generateNewKey());
+    latch.await();
+
+    if (exceptionRef.get() != null) {
+      throw new AssertionError("Assertion failed in listener", exceptionRef.get());
+    }
+  }
+
+  @Test
+  public void testHandleEncKeyChangeNotifiesListenerOnFailure() throws Exception {
+    stubCompactTillLsnToComplete(true);
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
+    Consumer<RestartStore.EncryptionCompletionEvent> listener = encryptionCompletionEvent -> {
+      try {
+        assertThat(encryptionCompletionEvent.getError().getMessage(), is("Rewrite failed"));
+        assertTrue(encryptionCompletionEvent.getExpiredTokens().isEmpty());
+        assertThat(encryptionCompletionEvent.getRestartStore(), is(restartStore));
+      } catch (AssertionError e) {
+        exceptionRef.set(e);
+      } finally {
+        latch.countDown();
+      }
+    };
+    restartStore.registerEncCompletionListener(listener);
+    restartStore.handleEncKeyChange("tok", CipherHelper.generateNewKey());
+    latch.await();
+    if (exceptionRef.get() != null) {
+      throw new AssertionError("Assertion failed in listener", exceptionRef.get());
+    }
+  }
+
+  private void stubCompactTillLsnToComplete(boolean shouldFail) {
+    if (shouldFail) {
+      CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+      failedFuture.completeExceptionally(new RuntimeException("Rewrite failed"));
+      doReturn(failedFuture).when(compactor).compactTillLsn(anyLong(), any());
+    } else {
+      doReturn(CompletableFuture.completedFuture(null))
+          .when(compactor).compactTillLsn(anyLong(), any());
     }
   }
 }

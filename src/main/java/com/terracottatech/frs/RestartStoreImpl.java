@@ -15,6 +15,8 @@
  */
 package com.terracottatech.frs;
 
+import com.terracottatech.frs.action.NullAction;
+import com.terracottatech.frs.cipher.EncryptionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,21 +45,28 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /**
  * @author twu
  */
-public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>,
-        RecoveryListener {
+public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, ByteBuffer>, RecoveryListener {
   private static final Logger LOGGER = LoggerFactory.getLogger(RestartStoreImpl.class);
 
   private enum State {
@@ -69,11 +78,13 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private final Compactor compactor;
   private final LogManager logManager;
   private final ActionManager actionManager;
+  private final EncryptionManager encryptionManager;
   private final ReadManager readManager;
   private final Configuration configuration;
 
   private final int maxPauseTime;
   private final ScheduledExecutorService pauseExecutionService;
+  private final ExecutorService executorService;
   private volatile Future<Future<Snapshot>> pauseTaskRef;
   private volatile Future<Future<Void>> shutdownTaskRef;
   private volatile ScheduledFuture<?> pauseTimerTaskRef;
@@ -81,31 +92,47 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   private volatile State state = State.INIT;
   private volatile State prevState = state;
 
+  private Consumer<EncryptionCompletionEvent> encCompletionConsumer;
+
+  // For testing purpose
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
                    TransactionManager transactionManager, LogManager logManager,
-                   ActionManager actionManager, ReadManager read, Compactor compactor,
+                   ActionManager actionManager, EncryptionManager encryptionManager, ReadManager read, Compactor compactor,
                    Configuration configuration) {
     this.transactionManager = transactionManager;
     this.objectManager = objectManager;
     this.logManager = logManager;
+    this.encryptionManager = encryptionManager;
     this.actionManager = actionManager;
     this.readManager = read;
     this.compactor = compactor;
     this.configuration = configuration;
     this.pauseExecutionService = Executors.newScheduledThreadPool(0);
+    this.executorService = Executors.newSingleThreadExecutor(getThreadFactory());
     this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                          TransactionManager transactionManager, LogManager logManager,
-                          ActionManager actionManager, ReadManager read, IOManager ioManager,
+                          TransactionManager transactionManager, LogManager logManager, ActionManager actionManager,
+                          EncryptionManager encryptionManager, ReadManager read, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
-    this(objectManager, transactionManager, logManager, actionManager, read, 
-         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration,
-                           actionManager),
-         configuration);
+    this(objectManager, transactionManager, logManager, actionManager, encryptionManager, read,
+        new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager),
+        configuration);
   }
 
+  private ThreadFactory getThreadFactory() {
+    AtomicLong count = new AtomicLong(1);
+    return new ThreadFactory() {
+      @Override
+      public Thread newThread(Runnable r) {
+        Thread t = new Thread(r, "[encrypter-" + count.getAndIncrement() + "-thread]");
+        t.setDaemon(true);
+        return t;
+      }
+    };
+  }
+  
   @Override
   public synchronized Future<Void> startup() throws InterruptedException,
           RecoveryException {
@@ -126,7 +153,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   @Override
-  public synchronized void recovered() throws InterruptedException {
+  public synchronized void recovered(String latestEncToken, boolean partialWriteWithNewKey, long maxLsn) throws InterruptedException {
     while (state == State.FROZEN) {
       LOGGER.warn("FRS Store is frozen. Waiting for a shutdown or resume");
       this.wait();
@@ -134,6 +161,20 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     if (state == State.RECOVERING) {
       compactor.startup();
       state = State.RUNNING;
+    }
+
+    if (partialWriteWithNewKey) {
+      LOGGER.info("records from mixed tokens found in log records");
+      initiateRewrite(maxLsn);
+    } else {
+      if(latestEncToken != null && !latestEncToken.equals(encryptionManager.getCurrToken())) {
+        // latest token found in log record doesn't match current token for this frs store, rewrite everything with curr token
+        LOGGER.info("records with latest token completely absent in log records");
+        initiateRewrite(Long.MAX_VALUE);
+      } else {
+        // update keys if log doesn't have any previous tokens being used
+        updateKeys();
+      }
     }
   }
 
@@ -144,6 +185,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
       compactor.shutdown();
       logManager.shutdown();
       pauseExecutionService.shutdown();
+      executorService.shutdown();
     }
   }
 
@@ -303,11 +345,59 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         @Override
         public Future<Void> call() throws Exception {
           compactor.pause();
-          actionManager.pause();
-          return new OuterFreezeFuture(logManager.appendAndSync(actionManager.barrierAction()));
+          return new OuterFreezeFuture(actionManager.pause());
         }
       });
       return shutdownTaskRef;
+    }
+  }
+
+  @Override
+  public void handleEncKeyChange(String newKeyToken, String newKey) throws InterruptedException {
+    try {
+      NullAction action = new NullAction();
+      actionManager.syncHappenedAndPause(action);
+      encryptionManager.add(newKeyToken, Base64.getDecoder().decode(newKey));
+      LOGGER.info("Encryption with new key initiated");
+      initiateRewrite(action.getLsn());
+    } finally {
+      actionManager.resume();
+    }
+  }
+
+  private void initiateRewrite(long lsn) {
+    compactor.compactTillLsn(lsn, executorService)
+        .whenComplete((res, ex) -> {
+          compactor.unpause();
+          if (ex != null) {
+            if(state == State.RUNNING) {
+              LOGGER.info("Encryption failed with latest key", ex);
+              encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, Collections.emptyList(), ex));
+            }
+          } else {
+            updateKeys();
+            LOGGER.info("Encryption completed with latest key");
+          }
+        });
+  }
+
+  @Override
+  public void registerEncCompletionListener(Consumer<EncryptionCompletionEvent> encCompletionConsumer) {
+    this.encCompletionConsumer = encCompletionConsumer;
+  }
+
+  @Override
+  public boolean isUsingEncKey(String token) {
+    return encryptionManager.isUsingEncKey(token);
+  }
+
+  private void updateKeys() {
+    List<String> oldTokens = encryptionManager.getPreviousTokens();
+    if(!oldTokens.isEmpty()) {
+      encryptionManager.remove(oldTokens);
+      if(encCompletionConsumer != null) {
+        encCompletionConsumer.accept(new EncryptionCompletionEventImpl(this, oldTokens, null));
+      }
     }
   }
 
@@ -571,6 +661,34 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
     @Override
     public Iterator<File> iterator() {
       return inner.iterator();
+    }
+  }
+  
+  private static class EncryptionCompletionEventImpl implements EncryptionCompletionEvent {
+
+    private final RestartStore<?,?,?> restartStore;
+    private final List<String> tokens = new ArrayList<>();
+    private final Throwable error;
+    
+    private EncryptionCompletionEventImpl(RestartStore<?,?,?> restartStore, List<String> tokens, Throwable error) {
+      this.restartStore = restartStore;
+      this.tokens.addAll(tokens);
+      this.error = error;
+    }
+    
+    @Override
+    public Throwable getError() {
+      return error;
+    }
+
+    @Override
+    public RestartStore<?, ?, ?> getRestartStore() {
+      return restartStore;
+    }
+
+    @Override
+    public List<String> getExpiredTokens() {
+      return tokens;
     }
   }
 }

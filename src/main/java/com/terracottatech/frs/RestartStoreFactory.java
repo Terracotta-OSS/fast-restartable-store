@@ -19,6 +19,8 @@ import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.ActionCodecImpl;
 import com.terracottatech.frs.action.ActionManager;
 import com.terracottatech.frs.action.ActionManagerImpl;
+import com.terracottatech.frs.cipher.EncryptionManager;
+import com.terracottatech.frs.cipher.EncryptionManagerImpl;
 import com.terracottatech.frs.compaction.CompactionActions;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.config.FrsProperty;
@@ -36,6 +38,8 @@ import com.terracottatech.frs.log.MasterLogRecordFactory;
 import com.terracottatech.frs.log.StagingLogManager;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.transaction.TransactionActions;
+import com.terracottatech.frs.transaction.TransactionManager;
+import com.terracottatech.frs.transaction.TransactionManagerImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -78,10 +82,13 @@ public abstract class RestartStoreFactory {
     IOManager ioManager = new NIOManager(configuration,writingSource);
     ReadManager readManager = new ReadManagerImpl(ioManager, configuration.getString(FrsProperty.FORCE_LOG_REGION_FORMAT));
     LogManager logManager = new StagingLogManager(ioManager,writingSource,configuration);
-
     ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec = createCodec(objectManager);
-
-    return new RestartStoreImpl(objectManager, logManager, codec, readManager, ioManager, configuration);
+    EncryptionManager encryptionManager = new EncryptionManagerImpl(configuration, codec);
+    ActionManager actionManager = new ActionManagerImpl(logManager, objectManager, encryptionManager, codec,
+        new MasterLogRecordFactory());
+    TransactionManager transactionManager = new TransactionManagerImpl(actionManager, encryptionManager);
+    return new RestartStoreImpl(objectManager, transactionManager, logManager,
+        actionManager, encryptionManager, readManager, ioManager, configuration);
   }
 
   public static RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(

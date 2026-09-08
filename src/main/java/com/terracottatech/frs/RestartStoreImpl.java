@@ -15,13 +15,8 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionManagerImpl;
 import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.cipher.EncryptionManager;
-import com.terracottatech.frs.cipher.EncryptionManagerImpl;
-import com.terracottatech.frs.log.MasterLogRecordFactory;
-import com.terracottatech.frs.transaction.TransactionManagerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,7 +96,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
 
   // For testing purpose
   RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                   TransactionManager transactionManager, LogManager logManager, ActionCodec actionCodec,
+                   TransactionManager transactionManager, LogManager logManager,
                    ActionManager actionManager, EncryptionManager encryptionManager, ReadManager read, Compactor compactor,
                    Configuration configuration) {
     this.transactionManager = transactionManager;
@@ -118,20 +113,12 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
   }
 
   public RestartStoreImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                          LogManager logManager, ActionCodec codec,
-                          ReadManager read, IOManager ioManager,
+                          TransactionManager transactionManager, LogManager logManager, ActionManager actionManager,
+                          EncryptionManager encryptionManager, ReadManager read, IOManager ioManager,
                           Configuration configuration) throws RestartStoreException {
-    this.objectManager = objectManager;
-    this.logManager = logManager;
-    this.readManager = read;
-    this.encryptionManager = new EncryptionManagerImpl(configuration, codec);
-    this.actionManager = new ActionManagerImpl(logManager, objectManager, encryptionManager, codec, new MasterLogRecordFactory());
-    this.transactionManager = new TransactionManagerImpl(actionManager, encryptionManager);
-    this.compactor = new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager);
-    this.configuration = configuration;
-    this.pauseExecutionService = Executors.newScheduledThreadPool(0);
-    this.executorService = Executors.newSingleThreadExecutor(getThreadFactory());
-    this.maxPauseTime = configuration.getInt(FrsProperty.STORE_MAX_PAUSE_TIME_IN_MILLIS);
+    this(objectManager, transactionManager, logManager, actionManager, encryptionManager, read,
+        new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager),
+        configuration);
   }
   
   private ThreadFactory getThreadFactory() {

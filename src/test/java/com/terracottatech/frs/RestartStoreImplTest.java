@@ -15,7 +15,6 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.NullAction;
 import com.terracottatech.frs.cipher.EncryptionManager;
 import org.junit.Before;
@@ -98,7 +97,7 @@ public class RestartStoreImplTest {
   }
 
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore() {
-    return new RestartStoreImpl(objectManager, transactionManager, logManager, mock(ActionCodec.class),
+    return new RestartStoreImpl(objectManager, transactionManager, logManager,
                                 actionManager, encryptionManager, readManager, compactor, configuration);
   }
 

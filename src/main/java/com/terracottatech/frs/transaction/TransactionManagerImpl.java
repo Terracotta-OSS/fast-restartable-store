@@ -35,7 +35,6 @@ public class TransactionManagerImpl implements TransactionManager {
   private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
   private final EncryptionManager encryptionManager;
-  
   private final ActionManager           actionManager;
 
   public TransactionManagerImpl(ActionManager actionManager, EncryptionManager encryptionManager) {

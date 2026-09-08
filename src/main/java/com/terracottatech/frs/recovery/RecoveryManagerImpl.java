@@ -173,7 +173,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     private ReplayElement[][] batches;
     private int[] currentIndices;
     private ForkJoinTask<Void> replayBatchTask;
-    
+
     ReplayFilter(int replayPerBatchSize, int replayTotalBatchSize, File dbHome, int maxThreadCount) {
       this.dbHome = dbHome;
       this.replayPerBatchSize = replayPerBatchSize;

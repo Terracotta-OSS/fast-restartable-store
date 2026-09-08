@@ -78,4 +78,6 @@ public class NullLogManager implements LogManager {
   public IOStatistics getIOStatistics() {
       return null;      
   }
+  
+  
 }

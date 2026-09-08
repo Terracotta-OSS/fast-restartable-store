@@ -373,7 +373,7 @@ public class StagingLogManager implements LogManager {
         
         return ex;
     }
-    
+
     //  TODO:  re-examine when more runtime context is available.
     @Override
     public Iterator<LogRecord> startup() {      

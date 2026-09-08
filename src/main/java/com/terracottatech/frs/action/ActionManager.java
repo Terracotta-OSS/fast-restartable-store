@@ -40,7 +40,7 @@ public interface ActionManager {
    * @return {@link Future} that represents when the {@link Action} is written to disk.
    */
   Future<Void> happened(Action action);
-  
+
   /**
    * Extract the {@link Action} from the given {@link LogRecord}
    *

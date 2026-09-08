@@ -89,7 +89,7 @@ public class ActionManagerImpl implements ActionManager {
       exitHappened();
     }
   }
-  
+
   @Override
   public Action extract(LogRecord record) {
     Action a = actionCodec.decode(record.getPayload());
@@ -145,7 +145,7 @@ public class ActionManagerImpl implements ActionManager {
       stateLock.unlock();
     }
   }
-  
+
   /**
    * Checks if gate is closed before executing the action manager 'happened' call.
    * Uses an optimistic approach to avoid holding the stateLock during normal operations.

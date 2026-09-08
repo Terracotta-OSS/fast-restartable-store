@@ -120,7 +120,7 @@ public class RestartStoreImpl implements RestartStore<ByteBuffer, ByteBuffer, By
         new CompactorImpl(objectManager, transactionManager, logManager, ioManager, configuration, actionManager),
         configuration);
   }
-  
+
   private ThreadFactory getThreadFactory() {
     AtomicLong count = new AtomicLong(1);
     return new ThreadFactory() {

@@ -222,7 +222,6 @@ public class RestartStoreImplTest {
     verify(actionManager).happened(mapActionFactory.remove(1, 15));
     verify(syncHappenedFuture, never()).get();
   }
-
   @Test
   public void testSyncAutoCommitRemove() throws Exception {
     Transaction<ByteBuffer, ByteBuffer, ByteBuffer>

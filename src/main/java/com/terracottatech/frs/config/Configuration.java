@@ -77,7 +77,7 @@ public class Configuration {
   public Boolean getBoolean(FrsProperty property) {
     return (Boolean) getConfigurationValue(property);
   }
-
+  
   public File getDBHome() {
     return dbHome;
   }

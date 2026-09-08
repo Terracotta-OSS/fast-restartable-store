@@ -87,7 +87,7 @@ public abstract class BaseActionManagerImplTest {
       }
     }, delayInMillis, TimeUnit.MILLISECONDS);
   }
-  
+
   long getAppendTaskCounter() {
     return appendTaskCounter.get();
   }

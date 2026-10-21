@@ -235,7 +235,7 @@ public abstract class AbstractReadbackStrategyTest {
           int size = r.nextInt(4096);
           byte[] data = new byte[size];
           r.nextBytes(data);
-          base += r.nextInt(1024) + 1;
+          base += r.nextInt(1024) + 2;
           assertNull(map.put(base,data));
           writeDataToChunk(data, buffer, base);
           buffer.write(1);

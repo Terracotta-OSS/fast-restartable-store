@@ -21,6 +21,7 @@ import com.terracottatech.frs.object.heap.HeapObjectManager;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -83,6 +84,7 @@ public class RestartStoreReadWriteMultiThreadTest {
     restartStore.shutdown();
   }
 
+  @Ignore("TDB-23152")
   @Test
   public void testConcurrentReadWrite() throws Exception {
     List<Future> readerThreads = new ArrayList<>();

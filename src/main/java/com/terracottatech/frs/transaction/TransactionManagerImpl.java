@@ -33,7 +33,6 @@ public class TransactionManagerImpl implements TransactionManager {
           new AtomicLong();
   private final Map<TransactionHandle, TransactionAccount> liveTransactions     =
           new ConcurrentHashMap<TransactionHandle, TransactionAccount>();
-
   private final ActionManager           actionManager;
 
   public TransactionManagerImpl(ActionManager actionManager) {
@@ -85,8 +84,7 @@ public class TransactionManagerImpl implements TransactionManager {
       throw new IllegalArgumentException(
               handle + " does not belong to a live transaction.");
     }
-    Action transactionalAction = new TransactionalAction(handle, account.begin(), false, action, account);
-    actionManager.happened(transactionalAction);
+    actionManager.happened(new TransactionalAction(handle, account.begin(), false, action, account));
   }
 
   @Override

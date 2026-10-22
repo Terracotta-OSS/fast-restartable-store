@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.cipher.EncryptionInRecoveryListener;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,7 +100,7 @@ public class ConcurrentRecoveryManagerImplTest extends AbstractRecoveryManagerIm
     });
 
     logManager.updateLowestLsn(8);
-    recoveryManager.recover();
+    recoveryManager.recover(mock(RecoveryListener.class), mock(EncryptionInRecoveryListener.class));
 
     verify(skipper).replay(9);
     transactionalActions.forEach(entry -> verify(entry.getValue()).replay(entry.getKey()));

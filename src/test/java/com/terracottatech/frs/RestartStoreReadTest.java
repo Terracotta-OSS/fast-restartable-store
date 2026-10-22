@@ -27,6 +27,9 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 import java.util.Arrays;
@@ -37,12 +40,20 @@ import junit.framework.Assert;
  *
  * @author mscott
  */
+@RunWith(Parameterized.class)
 public class RestartStoreReadTest  {
-  
+  @Parameter(0)
+  public Boolean encryptLog;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   @Rule
   public TemporaryFolder folder= new TemporaryFolder();
 
-  RestartStore  restart;
+  RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restart;
   ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> omgr;
   static Properties properties = new Properties();
   
@@ -62,11 +73,12 @@ public class RestartStoreReadTest  {
   
   @Before
   public void setUp() throws Throwable {
-    File temp = folder.newFolder();
+    properties = CipherHelper.configure(encryptLog, properties);
+    File storeHome = folder.newFolder();
 
-    omgr = new HeapObjectManager<ByteBuffer,ByteBuffer,ByteBuffer>(1);
+    omgr = new HeapObjectManager<>(1);
 
-    restart = RestartStoreFactory.createStore(omgr, temp,properties);
+    restart = RestartStoreFactory.createStore(omgr, storeHome, properties);
     restart.startup();
   }
   
@@ -74,12 +86,7 @@ public class RestartStoreReadTest  {
   public void tearDown() throws Exception {
     restart.shutdown();
   }
-  // TODO add test methods here.
-  // The methods must be annotated with annotation @Test. For example:
-  //
-  // @Test
-  // public void hello() {}
-  
+
   @Test
   public void testWrite() throws Throwable {
     restart.beginTransaction(true).put(byteBufferWithInt(1), byteBufferWithInt(2), byteBufferWithInt(3)).commit();

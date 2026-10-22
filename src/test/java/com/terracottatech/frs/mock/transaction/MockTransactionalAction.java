@@ -16,13 +16,11 @@
 package com.terracottatech.frs.mock.transaction;
 
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.action.InvalidatingAction;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.object.ObjectManager;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Set;
 
@@ -73,11 +71,6 @@ public class MockTransactionalAction implements MockAction, Serializable,
 
   long getId() {
     return id;
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 
   public Action getEmbeddedAction() {

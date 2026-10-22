@@ -18,7 +18,6 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.*;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.util.ByteBufferUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -27,16 +26,7 @@ import java.util.Set;
 /**
  * @author tim
  */
-class RemoveAction implements InvalidatingAction {
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-            @Override
-            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                 ActionCodec codec, ByteBuffer[] buffers) {
-              long invalidatedLsn = ByteBufferUtils.getLong(buffers);
-              return new SimpleInvalidatingAction(Collections.singleton(invalidatedLsn));
-            }
-          };
+public class RemoveAction implements InvalidatingAction {
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager;
   private final Compactor compactor;
@@ -45,7 +35,7 @@ class RemoveAction implements InvalidatingAction {
   private final long invalidatedLsn;
   
 
-  RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key, boolean recovery) {
+  public RemoveAction(ObjectManager<ByteBuffer, ByteBuffer, ?> objectManager, Compactor compactor, ByteBuffer id, ByteBuffer key, boolean recovery) {
     this.objectManager = objectManager;
     this.compactor = compactor;
     this.id = id;
@@ -74,13 +64,6 @@ class RemoveAction implements InvalidatingAction {
   @Override
   public void replay(long lsn) {
     // Nothing to remove on replay
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer header = ByteBuffer.allocate(ByteBufferUtils.LONG_SIZE);
-    header.putLong(invalidatedLsn).flip();
-    return new ByteBuffer[] { header };
   }
 
   @Override

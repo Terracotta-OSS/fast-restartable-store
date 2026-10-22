@@ -19,6 +19,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import com.terracottatech.frs.CipherHelper;
 import com.terracottatech.frs.RestartStore;
 import com.terracottatech.frs.RestartStoreFactory;
 
@@ -26,11 +27,20 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Properties;
 
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThat;
 
+@RunWith(Parameterized.class)
 public class RestartableMapTest {
+
+  @Parameter(0)
+  public Boolean encryptLog;
 
   @Rule
   public TemporaryFolder folder = new TemporaryFolder();
@@ -39,6 +49,17 @@ public class RestartableMapTest {
   
   private TestRestartableMap restartableMap;
   private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore;
+  private final Properties properties = new Properties();
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
+  @Before
+  public void setUp() {
+    CipherHelper.configure(encryptLog, properties);
+  }
 
   @Test
   public void testByteSizeWithOverwrites() throws Exception {
@@ -93,7 +114,7 @@ public class RestartableMapTest {
   private void initialize(File storage) throws Exception {
     RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
     
-    restartStore = RestartStoreFactory.createStore(objectManager, storage, new Properties());
+    restartStore = RestartStoreFactory.createStore(objectManager, storage, properties);
     restartableMap = new TestRestartableMap(1, restartStore, true);
 
     objectManager.registerObject(restartableMap);

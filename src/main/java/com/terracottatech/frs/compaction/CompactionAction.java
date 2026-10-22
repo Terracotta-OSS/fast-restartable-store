@@ -24,13 +24,13 @@ import java.nio.ByteBuffer;
 /**
  * @author tim
  */
-class CompactionAction extends PutAction {
+public class CompactionAction extends PutAction {
   private final ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry;
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
 
   private volatile Long lsn;
 
-  CompactionAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
+  public CompactionAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, ObjectManagerEntry<ByteBuffer, ByteBuffer, ByteBuffer> entry) {
     super(objectManager, null, entry.getId(), entry.getKey(), entry.getValue(), entry.getLsn());
     this.objectManager = objectManager;
     this.entry = entry;

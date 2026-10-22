@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
  */
 public abstract class TransactionActions {
   public static void registerActions(int id, ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> codec) {
-    codec.registerAction(id, 0, TransactionalAction.class, TransactionalAction.FACTORY);
-    codec.registerAction(id, 1, TransactionCommitAction.class, TransactionCommitAction.FACTORY);
+    codec.registerAndBind(TransactionalAction.class, id, 0, new TransactionalActionSubCodec());
+    codec.registerAndBind(TransactionCommitAction.class, id, 1, new TransactionCommitActionSubCodec());
   }
 }

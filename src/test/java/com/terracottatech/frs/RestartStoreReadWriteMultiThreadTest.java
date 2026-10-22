@@ -38,8 +38,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+
 import static com.terracottatech.frs.util.TestUtils.byteBufferWithInt;
 
+@RunWith(Parameterized.class)
 public class RestartStoreReadWriteMultiThreadTest {
   
   static final int DIFFERENT_KEYS = 8;
@@ -50,7 +55,10 @@ public class RestartStoreReadWriteMultiThreadTest {
   static final int DATA_SIZE = 1000;
   static final int RECORD_COUNT = 20000;
   static final int ADDITIONAL_RECORD_COUNT = 100;
-  
+
+  @Parameter(0)
+  public Boolean encryptLog;
+
   private final AtomicBoolean stop = new AtomicBoolean(false);
   private final ConcurrentLinkedQueue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
 
@@ -58,15 +66,19 @@ public class RestartStoreReadWriteMultiThreadTest {
   public TemporaryFolder folder= new TemporaryFolder();
 
   private volatile ObjectManager<ByteBuffer,ByteBuffer,ByteBuffer> objectManager;
-  private volatile RestartStore restartStore;
-  
-  
+  private volatile RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore;
+
+  @Parameterized.Parameters
+  public static Boolean[] data() {
+    return new Boolean[] { false, true };
+  }
+
   public Properties setUpProperties() {
     Properties properties = new Properties();
     properties.setProperty(FrsProperty.IO_RANDOM_ACCESS.shortName(), Boolean.toString(true));
     properties.setProperty(FrsProperty.IO_NIO_SEGMENT_SIZE.shortName(), Integer.toString(1 * 1024));
     properties.setProperty(FrsProperty.COMPACTOR_SIZEBASED_THRESHOLD.shortName(), Double.toString(0.0d));
-    return  properties;
+    return CipherHelper.configure(encryptLog, properties);
   }
 
   @Before

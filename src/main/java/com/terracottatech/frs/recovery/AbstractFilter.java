@@ -25,7 +25,12 @@ public abstract class AbstractFilter<T> implements Filter<T> {
     this.nextFilter = nextFilter;
   }
 
-  protected boolean delegate(T element, long lsn, boolean filtered) {
+  protected boolean delegate(T element, long lsn, boolean filtered) throws RecoveryException {
     return nextFilter.filter(element, lsn, filtered);
+  }
+
+  @Override
+  public void finish() throws RecoveryException {
+    nextFilter.finish();
   }
 }

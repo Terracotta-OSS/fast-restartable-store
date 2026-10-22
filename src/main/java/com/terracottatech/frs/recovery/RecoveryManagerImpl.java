@@ -15,7 +15,8 @@
  */
 package com.terracottatech.frs.recovery;
 
-
+import com.terracottatech.frs.cipher.EncryptionFilter;
+import com.terracottatech.frs.cipher.EncryptionInRecoveryListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,14 +49,14 @@ import static java.util.concurrent.TimeUnit.MINUTES;
  * @author tim
  */
 public class RecoveryManagerImpl implements RecoveryManager {
-  private static final Logger LOGGER = LoggerFactory.getLogger(RecoveryManager.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(RecoveryManagerImpl.class);
 
   private final LogManager logManager;
   private final ActionManager actionManager;
   private final boolean compressedSkipSet;
-  private final ReplayFilter replayFilter;
+  private final int availableProcessors;
   private final Configuration configuration;
-
+  
   RecoveryManagerImpl(LogManager logManager, ActionManager actionManager, Configuration configuration, Runtime runtime) {
     this(logManager, actionManager, configuration, runtime.availableProcessors());
   }
@@ -65,9 +66,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     this.logManager = logManager;
     this.actionManager = actionManager;
     this.compressedSkipSet = configuration.getBoolean(FrsProperty.RECOVERY_COMPRESSED_SKIP_SET);
-    this.replayFilter = new ReplayFilter(configuration.getInt(FrsProperty.RECOVERY_REPLAY_PER_BATCH_SIZE),
-        configuration.getInt(FrsProperty.RECOVERY_REPLAY_TOTAL_BATCH_SIZE_MAX),
-        configuration.getDBHome(), availableProcessors);
+    this.availableProcessors = availableProcessors;
     this.configuration = configuration;
   }
 
@@ -76,19 +75,20 @@ public class RecoveryManagerImpl implements RecoveryManager {
   }
 
   @Override
-  public Future<Void> recover(RecoveryListener ... listeners) throws RecoveryException,
+  public Future<Void> recover(RecoveryListener listener, EncryptionInRecoveryListener encryptionInRecoveryListener) throws RecoveryException,
           InterruptedException {
     Iterator<LogRecord> i = logManager.startup();
-    long filter = 0;
-    long put = 0;
-    long ntime = System.nanoTime();
 
-    Filter<Action> deleteFilter = new DeleteFilter(replayFilter);
+    Filter<Action> replayFilter = new ReplayFilter(listener, configuration.getInt(FrsProperty.RECOVERY_REPLAY_PER_BATCH_SIZE),
+        configuration.getInt(FrsProperty.RECOVERY_REPLAY_TOTAL_BATCH_SIZE_MAX),
+        configuration.getDBHome(), availableProcessors);
+    Filter<Action> encryptionFilter = new EncryptionFilter(encryptionInRecoveryListener, replayFilter);
+    Filter<Action> deleteFilter = new DeleteFilter(encryptionFilter);
     Filter<Action> transactionFilter = new TransactionFilter(deleteFilter);
     Filter<Action> skipsFilter = new SkipsFilter(transactionFilter, logManager.lowestLsn(),
                                                  compressedSkipSet);
     Filter<Action> progressLoggingFilter =
-            new ProgressLoggingFilter(replayFilter.dbHome, skipsFilter, logManager.lowestLsn());
+            new ProgressLoggingFilter(configuration.getDBHome(), skipsFilter, logManager.lowestLsn());
 
     // For now we're not spinning off another thread for recovery.
     long lastRecoveredLsn = Long.MAX_VALUE;
@@ -96,12 +96,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
       while (i.hasNext()) {
         LogRecord logRecord = i.next();
         Action action = actionManager.extract(logRecord);
-        long ctime = System.nanoTime();
-        filter += (ctime - ntime);
         boolean replayed = progressLoggingFilter.filter(action, logRecord.getLsn(), false);
-        ntime = System.nanoTime();
-        put += (ntime - ctime);
-        replayFilter.checkError();
         lastRecoveredLsn = logRecord.getLsn();
         if ( action instanceof Disposable ) {
           if ( !replayed ) {
@@ -114,19 +109,13 @@ public class RecoveryManagerImpl implements RecoveryManager {
     } catch ( IOException ioe ) {
       throw new RecoveryException("failed to restart", ioe);
     } finally {
-      replayFilter.finish();
-      replayFilter.checkError();
+      progressLoggingFilter.finish();
     }
 
     if (lastRecoveredLsn != Long.MAX_VALUE && lastRecoveredLsn > logManager.lowestLsn()) {
       throw new RecoveryException("Recovery is incomplete for log " + configuration.getDBHome() + ". Files may be missing.");
     }
 
-    for (RecoveryListener listener : listeners) {
-      listener.recovered();
-    }
-
-    LOGGER.debug("count " + replayFilter.getReplayCount() + " put " + put + " filter " + filter);
     LOGGER.debug(skipsFilter.toString());
     return new NullFuture();
   }
@@ -138,14 +127,14 @@ public class RecoveryManagerImpl implements RecoveryManager {
 
     ProgressLoggingFilter(File home, Filter<Action> delegate, long lowestLsn) {
       super(delegate);
-      LOGGER.info("Starting recovery for " + home.getAbsolutePath());
+      LOGGER.info("Starting recovery for {}", home.getAbsolutePath());
       this.lowestLsn = lowestLsn;
     }
 
     @Override
-    public boolean filter(Action element, long lsn, boolean filtered) {
+    public boolean filter(Action element, long lsn, boolean filtered) throws RecoveryException {
       if (count-- <= 0 && position > 0) {
-        LOGGER.info("Recovery progress " + (10 - position)*10 + "%");
+        LOGGER.info("Recovery progress {}%", (10 - position) * 10);
         count = (lsn - lowestLsn)/position--;
       }
 
@@ -161,6 +150,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
     private final AtomicReference<Throwable> firstError      = new AtomicReference<>();
     private final ForkJoinPool replayPool;
 
+    private final RecoveryListener listener;
     private final File dbHome;
     private final int replayPerBatchSize;
     private final int replayTotalBatchSize;
@@ -170,7 +160,8 @@ public class RecoveryManagerImpl implements RecoveryManager {
     private int[] currentIndices;
     private ForkJoinTask<Void> replayBatchTask;
 
-    ReplayFilter(int replayPerBatchSize, int replayTotalBatchSize, File dbHome, int maxThreadCount) {
+    ReplayFilter(RecoveryListener listener, int replayPerBatchSize, int replayTotalBatchSize, File dbHome, int maxThreadCount) {
+      this.listener = listener;
       this.dbHome = dbHome;
       this.replayPerBatchSize = replayPerBatchSize;
       this.replayTotalBatchSize = replayTotalBatchSize;
@@ -192,7 +183,9 @@ public class RecoveryManagerImpl implements RecoveryManager {
     }
 
     @Override
-    public boolean filter(final Action element, final long lsn, boolean filtered) {
+    public boolean filter(final Action element, final long lsn, boolean filtered) throws RecoveryException {
+      checkError();
+
       if (filtered) {
         return false;
       } else {
@@ -240,7 +233,7 @@ public class RecoveryManagerImpl implements RecoveryManager {
             replayBatchTask.get();
           } catch (ExecutionException e) {
             firstError.compareAndSet(null, e);
-            LOGGER.error("Error replaying record: " + e.getMessage());
+            LOGGER.error("Error replaying record: {}", e.getMessage());
           } catch (InterruptedException e) {
             interrupted |= Thread.interrupted();
           } finally {
@@ -269,31 +262,39 @@ public class RecoveryManagerImpl implements RecoveryManager {
             }
           } catch (Throwable t) {
             firstError.compareAndSet(null, t);
-            LOGGER.error("Error replaying record: " + t.getMessage());
+            LOGGER.error("Error replaying record: {}", t.getMessage());
           }
         });
         return null;
       });
     }
 
-    void checkError() throws RecoveryException {
+    private void checkError() throws RecoveryException {
       Throwable t = firstError.get();
       if (t != null) {
         throw new RecoveryException("Caught an error recovering from log at " + dbHome.getAbsolutePath(), t);
       }
     }
 
-    void finish() throws InterruptedException {
+    public void finish() throws RecoveryException {
       submitJob(true);
       replayPool.shutdown();
       boolean done;
       do {
-        done = replayPool.awaitTermination(2, MINUTES);
+        try {
+          done = replayPool.awaitTermination(2, MINUTES);
+        } catch (InterruptedException e) {
+          throw new RecoveryException("Interrupted during finish", e);
+        }
         if (!done) {
           LOGGER.warn("Unable to ensure recovery completion.");
           LOGGER.warn("Cannot proceed further. Checking Again for recovery completion...");
         }
       } while (!done);
+
+      checkError();
+      listener.recovered();
+      LOGGER.debug("count {}", getReplayCount());
     }
   }
 

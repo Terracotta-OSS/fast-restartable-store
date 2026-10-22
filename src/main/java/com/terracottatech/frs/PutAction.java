@@ -15,9 +15,7 @@
  */
 package com.terracottatech.frs;
 
-import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
@@ -32,31 +30,9 @@ import java.util.Set;
  * @author tim
  */
 public class PutAction implements GettableAction {
-  /* PutAction.getPayload
-  4 bytes - PutAction.idByteCount
-  4 bytes - PutAction.keyByteCount
-  4 bytes - PutAction.valueByteCount
-  8 bytes - PutAction.invalidatedLsn
-  */
   public static final long PUT_ACTION_OVERHEAD = 20L;
 
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-            @Override
-            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                 ActionCodec codec, ByteBuffer[] buffers) {
-              int idLength = ByteBufferUtils.getInt(buffers);
-              int keyLength = ByteBufferUtils.getInt(buffers);
-              int valueLength = ByteBufferUtils.getInt(buffers);
-              long invalidatedLsn = ByteBufferUtils.getLong(buffers);
-              ByteBuffer id = ByteBufferUtils.getBytes(idLength, buffers);
-              ByteBuffer key = ByteBufferUtils.getBytes(keyLength, buffers);
-              ByteBuffer value = ByteBufferUtils.getBytes(valueLength, buffers);
-              return new PutAction(objectManager, null, id, key, value, invalidatedLsn);
-            }
-          };
-
-  private static final int HEADER_SIZE =
+  static final int HEADER_SIZE =
           ByteBufferUtils.INT_SIZE * 3 + ByteBufferUtils.LONG_SIZE;
 
   private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
@@ -78,7 +54,7 @@ public class PutAction implements GettableAction {
     }
   }
 
-  protected PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
+  public PutAction(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Compactor compactor, ByteBuffer id,
                     ByteBuffer key, ByteBuffer value, long invalidatedLsn) {
     this.objectManager = objectManager;
     this.compactor = compactor;
@@ -152,16 +128,6 @@ public class PutAction implements GettableAction {
   @Override
   public int replayConcurrency() {
     return objectManager.replayConcurrency(getIdentifier(), getKey());
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-    header.putInt(id.remaining());
-    header.putInt(key.remaining());
-    header.putInt(value.remaining());
-    header.putLong(invalidatedLsn).flip();
-    return new ByteBuffer[]{header, id.slice(), key.slice(), value.slice()};
   }
 
   @Override

@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.recovery;
 
+import com.terracottatech.frs.cipher.EncryptionInRecoveryListener;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -23,6 +24,7 @@ import com.terracottatech.frs.ExposedDeleteAction;
 import com.terracottatech.frs.MapActionFactory;
 import com.terracottatech.frs.PutAction;
 import com.terracottatech.frs.action.Action;
+import com.terracottatech.frs.cipher.EncryptedAction;
 import com.terracottatech.frs.compaction.Compactor;
 import com.terracottatech.frs.config.Configuration;
 import com.terracottatech.frs.log.LogManager;
@@ -36,7 +38,11 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.core.IsSame.sameInstance;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -55,7 +61,9 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
   private MapActionFactory mapActionFactory;
   private LogManager logManager;
   private RecoveryManager recoveryManager;
-
+  private RecoveryListener recoveryListener;
+  private EncryptionInRecoveryListener encryptionInRecoveryListener;
+  
   @Before
   public void setUp() throws Exception {
     ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = mock(ObjectManager.class);
@@ -64,6 +72,8 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     logManager = newLogManager();
     actionManager = newActionManager();
     recoveryManager = new RecoveryManagerImpl(logManager, actionManager, Configuration.getConfiguration(testFolder.newFolder()));
+    recoveryListener = mock(RecoveryListener.class);
+    encryptionInRecoveryListener = mock(EncryptionInRecoveryListener.class);
   }
 
   @Test
@@ -92,7 +102,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
 
     logManager.updateLowestLsn(8);
 
-    recoveryManager.recover();
+    recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
 
     verify(skipper).replay(9);
     verify(validTransactional).replay(12);
@@ -102,7 +112,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     @Test
   public void testRecoverZeroItems() throws Exception {
 
-    recoveryManager.recover();
+    recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
 
   }
     
@@ -111,7 +121,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     logManager.append(record(8, action(true)));
     logManager.updateLowestLsn(8);
 
-    recoveryManager.recover();
+    recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
   }
     
   @Test
@@ -121,7 +131,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     logManager.append(record(Constants.FIRST_LSN, errorAction));
 
     try {
-      recoveryManager.recover();
+      recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
       fail();
     } catch (RecoveryException e) {
       // Expected
@@ -134,7 +144,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     logManager.updateLowestLsn(Constants.FIRST_LSN);
 
     try {
-      recoveryManager.recover();
+      recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
       fail();
     } catch (RecoveryException e) {
       // Expected
@@ -166,7 +176,7 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
     logManager.updateLowestLsn(Constants.FIRST_LSN);
 
     try {
-      recoveryManager.recover();
+      recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
       fail();
     } catch (RecoveryException e) {
       // Expected
@@ -194,12 +204,100 @@ public class RecoveryManagerImplTest extends AbstractRecoveryManagerImplTest {
       setUp();
 
       logManager.append(record(Constants.FIRST_LSN, tcclCapture));
-      recoveryManager.recover();
+      recoveryManager.recover(recoveryListener, encryptionInRecoveryListener);
     } finally {
       Thread.currentThread().setContextClassLoader(previous);
     }
 
     assertThat(tccl.get(), sameInstance(loader));
+  }
+
+  @Test
+  public void testEncryptedActionsAllSameToken() throws Exception {
+    // All encrypted actions share the same token → no partial re-encryption
+    String token = "token-A";
+
+    logManager.append(record(Constants.FIRST_LSN, encryptedAction(token, true)));
+    logManager.append(record(Constants.FIRST_LSN + 1, encryptedAction(token, true)));
+    logManager.append(record(Constants.FIRST_LSN + 2, encryptedAction(token, true)));
+
+    recoveryManager.recover(recoveryListener, (latestEncToken, partialEncWithNewKey, maxLsnForEncStart) -> {
+      assertEquals(token, latestEncToken);
+      assertFalse(partialEncWithNewKey);
+      assertEquals(0L, maxLsnForEncStart);
+    });
+  }
+
+  @Test
+  public void testEncryptedActionsWithTokenChange() throws Exception {
+    // RecoveryTestLogManager prepends each record (records.add(0, record)), so
+    // the last-appended record is the first iterated.
+    //
+    // Append order:  FIRST_LSN(tokenA), FIRST_LSN+1(tokenA), FIRST_LSN+2(tokenB)
+    // Iteration order: FIRST_LSN+2(tokenB), FIRST_LSN+1(tokenA), FIRST_LSN(tokenA)
+    //
+    // First record iterated → sets latestEncToken = tokenB.
+    // Second record (tokenA) → mismatch: isPartialEnc=true, maxLsnTillReEnc = (FIRST_LSN+1)+1.
+    // Third record (tokenA) → guard !isPartialEnc is false, skipped.
+    String tokenA = "token-A";
+    String tokenB = "token-B";
+    long lsnWithMismatch = Constants.FIRST_LSN + 1;
+
+    logManager.append(record(Constants.FIRST_LSN, encryptedAction(tokenA, true)));
+    logManager.append(record(lsnWithMismatch, encryptedAction(tokenA, true)));
+    logManager.append(record(Constants.FIRST_LSN + 2, encryptedAction(tokenB, true)));
+
+    recoveryManager.recover(recoveryListener, (latestEncToken, partialEncWithNewKey, maxLsnForEncStart) -> {
+
+      // latestEncToken = tokenB (first EncryptedAction seen during iteration, highest LSN)
+      assertEquals(tokenB, latestEncToken);
+      assertTrue(partialEncWithNewKey);
+      // maxLsnTillReEnc = lsn+1 of the first record whose token differed from latestEncToken
+      assertEquals(lsnWithMismatch + 1, maxLsnForEncStart);
+    });
+  }
+
+  @Test
+  public void testNoEncryptedActions() throws Exception {
+    // Plain (non-encrypted) actions only → listener called with null token, no partial, maxLsn=0
+    logManager.append(record(Constants.FIRST_LSN, action(true)));
+
+    recoveryManager.recover(recoveryListener, (latestEncToken, partialEncWithNewKey, maxLsnForEncStart) -> {
+      assertNull(latestEncToken);
+      assertFalse(partialEncWithNewKey);
+      assertEquals(0L, maxLsnForEncStart);
+    });
+  }
+
+  @Test
+  public void testMixedEncryptedAndPlainActions() throws Exception {
+    // Mix of plain and encrypted actions with one token → no partial re-encryption
+    String token = "token-X";
+
+    logManager.append(record(Constants.FIRST_LSN, action(true)));
+    logManager.append(record(Constants.FIRST_LSN + 1, encryptedAction(token, true)));
+    logManager.append(record(Constants.FIRST_LSN + 2, encryptedAction(token, true)));
+
+    recoveryManager.recover(recoveryListener, (latestEncToken, partialEncWithNewKey, maxLsnForEncStart) -> {
+      assertEquals(token, latestEncToken);
+      assertFalse(partialEncWithNewKey);
+      assertEquals(0L, maxLsnForEncStart);
+    });
+  }
+
+  /**
+   * An action that also implements {@link EncryptedAction} with a fixed token.
+   */
+  private interface EncryptedTestAction extends Action, EncryptedAction {
+  }
+
+  private Action encryptedAction(String token, boolean shouldReplay) {
+    EncryptedTestAction action = mock(EncryptedTestAction.class);
+    when(action.getToken()).thenReturn(token);
+    if (!shouldReplay) {
+      doThrow(new AssertionError("Should not have been executed.")).when(action).replay(anyLong());
+    }
+    return action;
   }
 
   private Action skipped(Action action) {

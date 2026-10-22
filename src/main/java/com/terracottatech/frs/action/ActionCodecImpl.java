@@ -17,6 +17,8 @@ package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.object.ObjectManager;
 import com.terracottatech.frs.util.ByteBufferUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -28,63 +30,69 @@ import static com.terracottatech.frs.util.ByteBufferUtils.getInt;
 /**
  * @author tim
  */
-public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
+public final class ActionCodecImpl implements ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> {
   /* ActionCodecImpl.encode
   4 bytes - ActionID.collection
   4 bytes - ActionID.action
   */
+  private static final Logger LOGGER = LoggerFactory.getLogger(ActionCodecImpl.class);
+  
   public static final long ACTION_HEADER_OVERHEAD = 8L;
 
-  private static final ActionID NULL_ACTION_ID = new ActionID(-1, -1);
+  private final Map<Class<? extends Action>, ActionID> classToId = new ConcurrentHashMap<>();
+  private final Map<ActionID, ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, ?>> idToSubCodec = 
+      new ConcurrentHashMap<>();
+  private final ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager;
 
-  private final Map<Class<? extends Action>, ActionID> classToId =
-          new ConcurrentHashMap<Class<? extends Action>, ActionID>();
-  private final Map<ActionID, ActionFactory<I, K, V>> idToFactory =
-          new ConcurrentHashMap<ActionID, ActionFactory<I, K, V>>();
-  private final ObjectManager<I, K, V> objectManager;
-
-  public ActionCodecImpl(ObjectManager<I, K, V> objectManager) {
+  public ActionCodecImpl(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) {
     this.objectManager = objectManager;
-    registerAction(NULL_ACTION_ID, NullAction.class, NullAction.<I, K, V>factory());
-  }
-
-  private synchronized void registerAction(ActionID id, Class<? extends Action> actionClass, ActionFactory<I, K, V> actionFactory) {
-    if (classToId.containsKey(actionClass)) {
-      throw new IllegalArgumentException(
-          "Action class " + actionClass + " already registered to id " + classToId.get(
-              actionClass));
-    }
-    if (idToFactory.containsKey(id)) {
-      throw new IllegalArgumentException(
-          "Id " + id + " already registered to action class " + idToFactory.get(id));
-    }
-    classToId.put(actionClass, id);
-    idToFactory.put(id, actionFactory);
+    registerAndBind(NullAction.class, -1, -1, NullAction.subCodec());
   }
 
   @Override
-  public synchronized void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
-                             ActionFactory<I, K, V> actionFactory) {
-    registerAction(new ActionID(collectionId, actionId), actionClass, actionFactory);
+  public synchronized <T extends Action> void registerCodec(int collectionId, int actionId,
+                                                            ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, ? super T> actionSubCodec) {
+    ActionID id = new ActionID(collectionId, actionId);
+    if (idToSubCodec.containsKey(id)) {
+      throw new IllegalArgumentException(
+          "Id " + id + " already registered to action SubCodec " + idToSubCodec.get(id));
+    }
+
+    idToSubCodec.put(id, actionSubCodec);
+  }
+
+  @Override
+  public void bind(Class<? extends Action> actionClass, int collectionId, int actionId) {
+    classToId.put(actionClass, new ActionID(collectionId, actionId));
   }
 
   @Override
   public Action decode(ByteBuffer[] buffers) {
     ActionID id = ActionID.withByteBuffers(buffers);
-    ActionFactory<I, K, V> factory = idToFactory.get(id);
-    if (factory == null)
+    ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, ?> subCodec = idToSubCodec.get(id);
+    if (subCodec == null) {
       throw new IllegalArgumentException("Unknown Action type id= " + id);
-    return factory.create(objectManager, this, buffers);
+    }
+    return subCodec.decode(objectManager, this, buffers);
   }
 
   @Override
   public ByteBuffer[] encode(Action action) {
-    return concatenate(headerBuffer(action), action.getPayload(this));
+    if (!classToId.containsKey(action.getClass()))
+      throw new IllegalArgumentException("Unknown action class " + action.getClass());
+    
+    ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, ?> subCodec = 
+        idToSubCodec.get(classToId.get(action.getClass()));
+    if (subCodec == null) {
+      throw new IllegalStateException("No SubCodec found for " + action.getClass());
+    }
+    @SuppressWarnings("unchecked")
+    ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, Action> boundSubCodec = 
+        (ActionSubCodec<ByteBuffer, ByteBuffer, ByteBuffer, Action>) subCodec;
+    return concatenate(headerBuffer(action), boundSubCodec.encode(action, this));
   }
 
   private ByteBuffer headerBuffer(Action action) {
-    if (!classToId.containsKey(action.getClass()))
-      throw new IllegalArgumentException("Unknown action class " + action.getClass());
     return classToId.get(action.getClass()).toByteBuffer();
   }
 
@@ -99,7 +107,7 @@ public final class ActionCodecImpl<I, K, V> implements ActionCodec<I, K, V> {
 
     static ActionID withByteBuffers(ByteBuffer[] buffers) {
       if (buffers.length == 0) {
-        return NULL_ACTION_ID;
+        return new ActionID(-1, -1);
       } else {
         return new ActionID(getInt(buffers), getInt(buffers));
       }

@@ -17,7 +17,9 @@ package com.terracottatech.frs.mock.recovery;
 
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.action.InvalidatingAction;
+import com.terracottatech.frs.recovery.AbstractFilter;
 import com.terracottatech.frs.recovery.Filter;
+import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,7 +28,7 @@ import java.util.Set;
  *
  * @author cdennis
  */
-class MockSkipsFilter extends MockAbstractFilter<Action, Action> {
+class MockSkipsFilter extends AbstractFilter<Action> {
 
   private final Set<Long> skips = new HashSet<Long>();
 
@@ -35,7 +37,7 @@ class MockSkipsFilter extends MockAbstractFilter<Action, Action> {
   }
   
   @Override
-  public boolean filter(Action action, long lsn, boolean filtered) {
+  public boolean filter(Action action, long lsn, boolean filtered) throws RecoveryException {
     if (skips.remove(lsn)) {
       updateSkips(action);
       return delegate(action, lsn, true);
@@ -53,10 +55,5 @@ class MockSkipsFilter extends MockAbstractFilter<Action, Action> {
     if (action instanceof InvalidatingAction) {
       skips.addAll(((InvalidatingAction) action).getInvalidatedLsns());
     }
-  }
-
-  @Override
-  protected Action convert(Action element) {
-    return element;
   }
 }

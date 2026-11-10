@@ -40,14 +40,15 @@ public class NullActionManager implements ActionManager {
 
   @Override
   public void pause() {
+    
+  }
+
+  @Override
+  public Future<Void> syncHappenedAndPause(Action action) {
+    return null;
   }
 
   @Override
   public void resume() {
-  }
-
-  @Override
-  public LogRecord barrierAction() {
-    return null;
   }
 }

@@ -54,10 +54,9 @@ public abstract class OnHeapTest {
       return new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
     }
 
-    private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager) throws
+    private RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> createStore(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager, Properties properties) throws
             RestartStoreException, IOException {
-      return RestartStoreFactory.createStore(objectManager, folder.getRoot(),
-                                             configure(new Properties()));
+      return RestartStoreFactory.createStore(objectManager, folder.getRoot(), properties);
     }
     
     private int addTransaction(int count, Map<String, String> map) throws Exception {
@@ -75,10 +74,11 @@ public abstract class OnHeapTest {
     @Test
     public void testIt() throws Exception {
       int count = 0;
+      Properties properties = configure(new Properties());
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         restartStore.startup().get();
 
@@ -104,7 +104,7 @@ public abstract class OnHeapTest {
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         long time = System.nanoTime();
         restartStore.startup().get();
@@ -123,7 +123,7 @@ public abstract class OnHeapTest {
       {
         RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = createObjectManager();
         RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-                createStore(objectManager);
+                createStore(objectManager, properties);
         Map<String, String> map = createMap(0, objectManager, restartStore);
         long time = System.nanoTime();
         restartStore.startup().get();

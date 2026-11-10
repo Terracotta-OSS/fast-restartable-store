@@ -16,6 +16,9 @@
 package com.terracottatech.frs.compaction;
 
 
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+
 /**
  *
  * @author cdennis
@@ -53,4 +56,21 @@ public interface Compactor {
    * Callback to tell the compactor to run right now, unless it's already running.
    */
   void compactNow();
+
+  /**
+   * Asynchronously rewrites all live object-manager entries whose LSN is at or
+   * below the given LSN, using the supplied executor.
+   * <p>
+   * The compactor is paused for the duration of the rewrite so that normal
+   * background compaction does not interfere. The returned stage completes
+   * normally once every qualifying entry has been rewritten, or completes
+   * exceptionally if the rewrite fails.
+   *
+   * @param lsn      the upper-bound LSN up to which entries should
+   *                 be rewritten
+   * @param executor the executor on which the rewrite work is performed
+   * @return a {@link java.util.concurrent.CompletionStage} that completes when
+   * the rewrite finishes, or completes exceptionally on failure
+   */
+  CompletionStage<Void> compactUntilLsn(long lsn, Executor executor);
 }

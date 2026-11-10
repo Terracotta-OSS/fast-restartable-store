@@ -102,9 +102,9 @@ public abstract class BackupTest {
     {
       assertThat(original.mkdirs(), is(true));
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
-              new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
-      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore = RestartStoreFactory.createStore(objectManager,
-                                                                                                      original, new Properties());
+          new RegisterableObjectManager<>();
+      RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
+          RestartStoreFactory.createStore(objectManager, original, configure(new Properties()));
 
       restartStore.startup().get();
 
@@ -275,10 +275,11 @@ public abstract class BackupTest {
 
     assertThat(original.mkdirs(), is(true));
 
+    Properties properties = configure(new Properties());
     {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>();
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-              RestartStoreFactory.createStore(objectManager, original, configure(new Properties()));
+          RestartStoreFactory.createStore(objectManager, original, properties);
 
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
       objectManager.registerObject(map);
@@ -297,7 +298,7 @@ public abstract class BackupTest {
       RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager =
               spy(new RegisterableObjectManager<ByteBuffer, ByteBuffer, ByteBuffer>());
       RestartStore<ByteBuffer, ByteBuffer, ByteBuffer> restartStore =
-              RestartStoreFactory.createStore(objectManager, copy, configure(new Properties()));
+          RestartStoreFactory.createStore(objectManager, copy, properties);
 
       SimpleRestartableMap map = new SimpleRestartableMap(0, restartStore, true);
       objectManager.registerObject(map);

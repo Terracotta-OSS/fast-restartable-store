@@ -13,16 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.terracottatech.frs.action;
+package com.terracottatech.frs.cipher;
 
-import com.terracottatech.frs.object.ObjectManager;
-
-import java.nio.ByteBuffer;
-
-/**
- * @author tim
- */
-public interface ActionFactory<I, K, V> {
-  Action create(ObjectManager<I, K, V> objectManager,
-                ActionCodec codec, ByteBuffer[] buffers);
+public interface EncryptionInRecoveryListener {
+  void initiateEncryption(String latestEncToken, boolean partialWriteWithNewKey, long maxLsn);
 }

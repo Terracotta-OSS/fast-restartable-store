@@ -15,6 +15,7 @@
  */
 package com.terracottatech.frs.action;
 
+import com.terracottatech.frs.cipher.EncryptionCodec;
 import org.junit.Before;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -56,11 +57,11 @@ public abstract class BaseActionManagerImplTest {
   public void setUp() throws Exception {
     appendTaskCounter.set(0L);
     ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager = mock(ObjectManager.class);
-    ActionCodec<ByteBuffer, ByteBuffer, ByteBuffer> actionCodec = mock(ActionCodec.class);
-    when(actionCodec.encode(any(Action.class))).thenReturn(new ByteBuffer[] {byteBufferWithInt(10)});
-    when(actionCodec.decode(any(ByteBuffer[].class))).thenReturn(mock(Action.class));
+    EncryptionCodec<ByteBuffer, ByteBuffer, ByteBuffer> encryptionCodec = mock(EncryptionCodec.class);
+    when(encryptionCodec.encode(any(Action.class))).thenReturn(new ByteBuffer[] {byteBufferWithInt(10)});
+    when(encryptionCodec.decode(any(ByteBuffer[].class))).thenReturn(mock(Action.class));
     logMgr = mock(LogManager.class);
-    actionMgr = new ActionManagerImpl(logMgr, objectManager, actionCodec, new MasterLogRecordFactory());
+    actionMgr = new ActionManagerImpl(logMgr, objectManager, encryptionCodec, new MasterLogRecordFactory());
   }
 
   Answer<Future<Void>> answerOnAppend(final boolean random, final boolean single, final int higherLimit) {

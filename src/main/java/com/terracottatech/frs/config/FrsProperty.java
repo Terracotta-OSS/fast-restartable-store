@@ -53,7 +53,11 @@ public enum FrsProperty {
 
   STORE_MAX_PAUSE_TIME_IN_MILLIS("store.maxPauseTimeInMillis", Type.INTEGER, 1000),
 
-  FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE");
+  FORCE_LOG_REGION_FORMAT("log.forceRegionFormat", Type.STRING, "FILE"),
+
+  STORE_ENCRYPTION_ENABLE("store.encryptionEnable", Type.BOOLEAN, false),
+  STORE_ENCRYPTION_OLD_TOKENS_AND_KEYS("store.encryptionKeyOldTokens", Type.STRING, null),
+  STORE_ENCRYPTION_NEW_TOKEN_AND_KEY("store.encryptionKeyNewToken", Type.STRING, null);
 
   private static final String SYSTEM_PROPERTY_PREFIX = "com.tc.frs.";
 

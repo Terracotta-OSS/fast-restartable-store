@@ -18,6 +18,7 @@ package com.terracottatech.frs;
 import com.terracottatech.frs.action.Action;
 import com.terracottatech.frs.recovery.AbstractFilter;
 import com.terracottatech.frs.recovery.Filter;
+import com.terracottatech.frs.recovery.RecoveryException;
 
 import java.nio.ByteBuffer;
 import java.util.HashSet;
@@ -34,7 +35,7 @@ public class DeleteFilter extends AbstractFilter<Action> {
   }
 
   @Override
-  public boolean filter(Action element, long lsn, boolean filtered) {
+  public boolean filter(Action element, long lsn, boolean filtered) throws RecoveryException {
     if (element instanceof DeleteAction) {
       deleted.add(detach(((DeleteAction) element).getId()));
       return delegate(element, lsn, true);

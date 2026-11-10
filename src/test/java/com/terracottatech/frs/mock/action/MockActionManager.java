@@ -59,16 +59,16 @@ public class MockActionManager implements ActionManager {
   }
 
   @Override
-  public void pause() {
+  public void pause() throws InterruptedException {
+  }
+
+  @Override
+  public Future<Void> syncHappenedAndPause(Action action) throws InterruptedException {
+    return null;
   }
 
   @Override
   public void resume() {
-  }
-
-  @Override
-  public LogRecord barrierAction() {
-    return null;
   }
 
   @Override

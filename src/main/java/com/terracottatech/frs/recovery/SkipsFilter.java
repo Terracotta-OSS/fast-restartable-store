@@ -40,7 +40,7 @@ public class SkipsFilter extends AbstractFilter<Action> {
   }
 
   @Override
-  public boolean filter(Action element, long lsn, boolean filtered) {
+  public boolean filter(Action element, long lsn, boolean filtered) throws RecoveryException {
     if (skips.remove(lsn)) {
       updateSkips(element);
       return delegate(element, lsn, true);

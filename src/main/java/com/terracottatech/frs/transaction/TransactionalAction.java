@@ -19,36 +19,22 @@ import com.terracottatech.frs.Disposable;
 import com.terracottatech.frs.DisposableLifecycle;
 import com.terracottatech.frs.GettableAction;
 import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
 import com.terracottatech.frs.action.InvalidatingAction;
-import com.terracottatech.frs.object.ObjectManager;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Set;
 
-import static com.terracottatech.frs.util.ByteBufferUtils.concatenate;
-import static com.terracottatech.frs.util.ByteBufferUtils.get;
 import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * @author tim
  */
-class TransactionalAction implements TransactionAction, GettableAction {
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-            @Override
-            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                 ActionCodec codec, ByteBuffer[] buffers) {
-              return new TransactionalAction(
-                      TransactionHandleImpl.withByteBuffers(buffers), get(buffers), codec.decode(buffers));
-            }
-          };
+public class TransactionalAction implements TransactionAction, GettableAction {
   
-  private static final byte COMMIT_BIT = 0x01;
-  private static final byte BEGIN_BIT = 0x02;
+  static final byte COMMIT_BIT = 0x01;
+  static final byte BEGIN_BIT = 0x02;
 
   private final TransactionHandle handle;
   private final Action action;
@@ -62,7 +48,7 @@ class TransactionalAction implements TransactionAction, GettableAction {
     this.callback = null;
   }
   
-  TransactionalAction(TransactionHandle handle, boolean begin, boolean commit, Action action, TransactionLSNCallback callback) {
+   TransactionalAction(TransactionHandle handle, boolean begin, boolean commit, Action action, TransactionLSNCallback callback) {
     this.handle = handle;
     this.action = action;
     byte tempMode = 0;
@@ -179,14 +165,6 @@ class TransactionalAction implements TransactionAction, GettableAction {
   @Override
   public int replayConcurrency() {
     return action.replayConcurrency();
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer handleBuffer = handle.toByteBuffer();
-    ByteBuffer header = ByteBuffer.allocate(handleBuffer.capacity() + 1);
-    header.put(handleBuffer).put(mode).flip();
-    return concatenate(header, codec.encode(action));
   }
 
   @Override

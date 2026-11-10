@@ -15,12 +15,10 @@
  */
 package com.terracottatech.frs.mock;
 
-import com.terracottatech.frs.action.ActionCodec;
 import com.terracottatech.frs.mock.action.MockAction;
 import com.terracottatech.frs.object.ObjectManager;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 
 public class MockDeleteAction<I> implements MockAction, Serializable {
 
@@ -45,11 +43,6 @@ public class MockDeleteAction<I> implements MockAction, Serializable {
   @Override
   public void replay(long lsn) {
     throw new AssertionError();
-  }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    return new ByteBuffer[0];
   }
 
   public I getId() {

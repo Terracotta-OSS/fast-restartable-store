@@ -15,28 +15,10 @@
  */
 package com.terracottatech.frs.transaction;
 
-import com.terracottatech.frs.action.Action;
-import com.terracottatech.frs.action.ActionCodec;
-import com.terracottatech.frs.action.ActionFactory;
-import com.terracottatech.frs.object.ObjectManager;
-import com.terracottatech.frs.util.ByteBufferUtils;
-
-import java.nio.ByteBuffer;
-
 /**
  * @author tim
  */
-class TransactionCommitAction implements TransactionAction {
-  public static final ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer> FACTORY =
-          new ActionFactory<ByteBuffer, ByteBuffer, ByteBuffer>() {
-            @Override
-            public Action create(ObjectManager<ByteBuffer, ByteBuffer, ByteBuffer> objectManager,
-                                 ActionCodec codec, ByteBuffer[] buffers) {
-              TransactionHandle handle = TransactionHandleImpl.withByteBuffers(buffers);
-              boolean emptyTransaction = ByteBufferUtils.get(buffers) == 1;
-              return new TransactionCommitAction(handle, emptyTransaction);
-            }
-          };
+public class TransactionCommitAction implements TransactionAction {
 
   private final TransactionHandle handle;
   private final boolean emptyTransaction;
@@ -69,20 +51,6 @@ class TransactionCommitAction implements TransactionAction {
   @Override
   public void replay(long lsn) {
   }
-
-  @Override
-  public ByteBuffer[] getPayload(ActionCodec codec) {
-    ByteBuffer handleBuffer = handle.toByteBuffer();
-    ByteBuffer header = ByteBuffer.allocate(1);
-    if (emptyTransaction) {
-      header.put((byte) 1);
-    } else {
-      header.put((byte) 0);
-    }
-    header.flip();
-    return new ByteBuffer[]{handleBuffer, header};
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

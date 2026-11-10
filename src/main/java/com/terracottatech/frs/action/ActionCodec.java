@@ -22,8 +22,15 @@ import java.nio.ByteBuffer;
  */
 public interface ActionCodec<I, K, V> {
 
-  void registerAction(int collectionId, int actionId, Class<? extends Action> actionClass,
-                      ActionFactory<I, K, V> actionFactory);
+  default <T extends Action> void registerAndBind(Class<T> actionClass, int collectionId, int actionId,
+                                                  ActionSubCodec<I, K, V, ? super T> actionSubCodec) {
+    registerCodec(collectionId, actionId, actionSubCodec);
+    bind(actionClass, collectionId, actionId);
+  }
+
+  <T extends Action> void registerCodec(int collectionId, int actionId, ActionSubCodec<I, K, V, ? super T> actionSubCodec);
+
+  void bind(Class<? extends Action> actionClass, int collectionId, int actionId);
 
   Action decode(ByteBuffer[] buffer);
 

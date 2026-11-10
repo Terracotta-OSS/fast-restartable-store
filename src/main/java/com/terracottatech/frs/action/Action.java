@@ -17,8 +17,6 @@ package com.terracottatech.frs.action;
 
 import com.terracottatech.frs.log.LSNEventListener;
 
-import java.nio.ByteBuffer;
-
 /**
  *
  * @author cdennis
@@ -48,12 +46,4 @@ public interface Action extends LSNEventListener {
   default int replayConcurrency() {
     return 1;
   }
-
-  /**
-   * Get the serialized form of the action.
-   *
-   * @param codec {@link ActionCodec} to serialize the action with
-   * @return Array of {@link ByteBuffer}s representing this action.
-   */
-  ByteBuffer[] getPayload(ActionCodec codec);
 }
